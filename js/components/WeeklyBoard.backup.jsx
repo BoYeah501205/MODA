@@ -104,188 +104,6 @@ const useWeeklySchedule = () => {
     };
 };
 
-// ===== PROTOTYPE SCHEDULING SECTION COMPONENT =====
-function PrototypeSchedulingSection({ allModules, sortedModules, projects, setProjects }) {
-    const { useState, useMemo } = React;
-    const [expandedProto, setExpandedProto] = useState(null);
-    
-    // Get all prototype modules
-    const prototypeModules = useMemo(() => {
-        return (allModules || []).filter(m => m.isPrototype);
-    }, [allModules]);
-    
-    // Get non-prototype modules for "Insert After" dropdown (sorted by buildSequence)
-    const insertTargets = useMemo(() => {
-        return sortedModules.filter(m => !m.isPrototype && Number.isInteger(m.buildSequence));
-    }, [sortedModules]);
-    
-    // Calculate the next available decimal slot after a given module
-    const getNextDecimalSlot = (afterBuildSeq) => {
-        // Find all modules with buildSequence between afterBuildSeq and afterBuildSeq + 1
-        const existingDecimals = sortedModules
-            .filter(m => m.buildSequence > afterBuildSeq && m.buildSequence < Math.floor(afterBuildSeq) + 1)
-            .map(m => m.buildSequence);
-        
-        if (existingDecimals.length === 0) {
-            return afterBuildSeq + 0.1;
-        }
-        // Find the max and add 0.1
-        const maxDecimal = Math.max(...existingDecimals);
-        return Math.round((maxDecimal + 0.1) * 100) / 100; // Round to 2 decimal places
-    };
-    
-    // Update a prototype's buildSequence based on "Insert After" selection
-    const handleInsertAfter = (protoModule, afterModuleSerial) => {
-        if (!afterModuleSerial || !setProjects) return;
-        
-        const afterModule = sortedModules.find(m => m.serialNumber === afterModuleSerial);
-        if (!afterModule) return;
-        
-        const newBuildSeq = getNextDecimalSlot(afterModule.buildSequence);
-        
-        // Update the module in projects
-        setProjects(prev => prev.map(project => {
-            if (project.id !== protoModule.projectId) return project;
-            return {
-                ...project,
-                modules: (project.modules || []).map(m => {
-                    if (m.id !== protoModule.id) return m;
-                    return { ...m, buildSequence: newBuildSeq, insertedAfter: afterModuleSerial };
-                })
-            };
-        }));
-        
-        setExpandedProto(null);
-    };
-    
-    // Clear insertion (reset to original project sequence)
-    const handleClearInsertion = (protoModule) => {
-        if (!setProjects) return;
-        
-        // Find original position in project
-        const project = projects?.find(p => p.id === protoModule.projectId);
-        const projectModules = project?.modules || [];
-        const protoIndex = projectModules.findIndex(m => m.id === protoModule.id);
-        
-        // Calculate a high buildSequence to put it at the end (or use original if available)
-        const maxSeq = Math.max(...sortedModules.map(m => Math.floor(m.buildSequence || 0)), 0);
-        const newBuildSeq = maxSeq + protoIndex + 1;
-        
-        setProjects(prev => prev.map(project => {
-            if (project.id !== protoModule.projectId) return project;
-            return {
-                ...project,
-                modules: (project.modules || []).map(m => {
-                    if (m.id !== protoModule.id) return m;
-                    const { insertedAfter, ...rest } = m;
-                    return { ...rest, buildSequence: newBuildSeq };
-                })
-            };
-        }));
-    };
-    
-    if (prototypeModules.length === 0) {
-        return null; // Don't show section if no prototypes
-    }
-    
-    return (
-        <div className="bg-white border-2 border-yellow-400 rounded-lg overflow-hidden">
-            <div className="bg-yellow-400 text-yellow-900 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="text-lg">★</span>
-                    <span className="font-semibold">Prototype Scheduling</span>
-                    <span className="text-sm opacity-75">Insert prototypes into production schedule</span>
-                </div>
-                <span className="bg-yellow-600 text-white px-2 py-0.5 rounded text-sm font-medium">
-                    {prototypeModules.length} prototype{prototypeModules.length !== 1 ? 's' : ''}
-                </span>
-            </div>
-            
-            <div className="p-4">
-                <div className="text-sm text-gray-600 mb-3">
-                    Prototypes use decimal build sequences (e.g., 5.1) to slot between main project modules without disrupting their numbering.
-                </div>
-                
-                <div className="space-y-2">
-                    {prototypeModules.map(proto => {
-                        const isExpanded = expandedProto === proto.id;
-                        const hasInsertion = proto.insertedAfter;
-                        const isDecimal = proto.buildSequence && !Number.isInteger(proto.buildSequence);
-                        
-                        return (
-                            <div 
-                                key={proto.id}
-                                className={`border rounded-lg p-3 ${hasInsertion ? 'border-green-300 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-yellow-500 text-lg">★</span>
-                                        <div>
-                                            <span className="font-mono font-bold text-gray-800">{proto.serialNumber}</span>
-                                            <span className="text-sm text-gray-500 ml-2">({proto.projectName})</span>
-                                        </div>
-                                        <div className="text-sm">
-                                            <span className="text-gray-500">Seq:</span>
-                                            <span className={`font-mono ml-1 ${isDecimal ? 'text-green-600 font-bold' : 'text-gray-600'}`}>
-                                                #{proto.buildSequence}
-                                            </span>
-                                        </div>
-                                        {hasInsertion && (
-                                            <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">
-                                                After {proto.insertedAfter}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        {hasInsertion && (
-                                            <button
-                                                onClick={() => handleClearInsertion(proto)}
-                                                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded"
-                                            >
-                                                Clear
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => setExpandedProto(isExpanded ? null : proto.id)}
-                                            className="px-3 py-1 text-sm bg-yellow-200 hover:bg-yellow-300 text-yellow-800 rounded font-medium"
-                                        >
-                                            {isExpanded ? 'Cancel' : 'Insert After...'}
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {isExpanded && (
-                                    <div className="mt-3 pt-3 border-t border-yellow-200">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Insert this prototype after:
-                                        </label>
-                                        <select
-                                            className="w-full border rounded-lg px-3 py-2"
-                                            defaultValue=""
-                                            onChange={(e) => handleInsertAfter(proto, e.target.value)}
-                                        >
-                                            <option value="">Select a module...</option>
-                                            {insertTargets.map(m => (
-                                                <option key={m.id} value={m.serialNumber}>
-                                                    {m.serialNumber} (#{m.buildSequence}) - {m.projectName}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            The prototype will be assigned sequence #{insertTargets.length > 0 ? 
-                                                `${insertTargets[0]?.buildSequence}.1` : '?.1'} (decimal) to slot after the selected module.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ===== SCHEDULE SETUP SUB-TAB COMPONENT =====
 function ScheduleSetupTab({ 
     scheduleSetup, 
@@ -299,10 +117,7 @@ function ScheduleSetupTab({
     updateWeek,
     deleteWeek,
     validateWeek,
-    allModules,
-    // Prototype scheduling props
-    projects,
-    setProjects
+    allModules
 }) {
     const { useState } = React;
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
@@ -582,14 +397,6 @@ function ScheduleSetupTab({
                     </div>
                 </div>
             )}
-            
-            {/* ===== PROTOTYPE SCHEDULING SECTION ===== */}
-            <PrototypeSchedulingSection 
-                allModules={allModules}
-                sortedModules={sortedModules}
-                projects={projects}
-                setProjects={setProjects}
-            />
             
             {/* Shift 1 Table - Mon-Thu */}
             <div className="bg-white border rounded-lg overflow-hidden">

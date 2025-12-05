@@ -125,11 +125,12 @@ window.MODA_UNIFIED = (function() {
                         };
                         unifiedModules[mod.id].updatedAt = new Date().toISOString();
                         
-                        // Update phase if production complete
-                        const allComplete = Object.values(mod.stageProgress || {}).every(v => v === 100);
-                        if (allComplete && unifiedModules[mod.id].currentPhase === MODA_CONSTANTS.PHASES.PRODUCTION) {
+                        // Update phase if Close-Up station is complete (production finished)
+                        const closeUpComplete = (mod.stageProgress?.['close-up'] || 0) === 100;
+                        if (closeUpComplete && unifiedModules[mod.id].currentPhase === MODA_CONSTANTS.PHASES.PRODUCTION) {
                             unifiedModules[mod.id].currentPhase = MODA_CONSTANTS.PHASES.YARD;
                             unifiedModules[mod.id].production.completedAt = new Date().toISOString();
+                            console.log(`[Data Layer] Module ${mod.serialNumber} Close-Up complete - moved to YARD phase`);
                         }
                         
                         updatedCount++;

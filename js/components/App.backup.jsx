@@ -3394,9 +3394,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                                 updateWeek={updateWeek}
                                                 deleteWeek={deleteWeek}
                                                 validateWeek={validateWeek}
-                                                allModules={activeProjects.flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name })))}
-                                                projects={projects}
-                                                setProjects={setProjects}
+                                                allModules={activeProjects.flatMap(p => (p.modules || []).map(m => ({ ...m, projectName: p.name })))}
                                             />
                                         ) : (
                                             <div className="text-center py-8 text-gray-500">

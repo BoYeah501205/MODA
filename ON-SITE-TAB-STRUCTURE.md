@@ -8,6 +8,41 @@
 
 ---
 
+## Daily Site Report Requirements (from Current Word Doc)
+
+### Header Fields
+| Field | Source | Notes |
+|-------|--------|-------|
+| **Autovol Rep** | Auto-fill from logged-in user or set lead | Was "Superintendent" |
+| **Date** | Auto-fill (prior day) | Report sent morning after |
+| **Job Site (Building)** | Auto-fill from project | Project name |
+| **Temperature** | Weather API by site address | AM/PM temps, editable |
+| **Precipitation** | Weather API | Editable if inaccurate |
+| **Wind** | Weather API → Light/Moderate/High/Other | Editable |
+| **Start Date** | Auto-fill from first set date | When project sets began |
+| **Finish Date** | Projected from schedule | Filled when complete |
+| **Weather Days Total** | Auto-calculate | Count of non-set weather days |
+| **Set-Crew** | Auto-fill from scheduled crew | |
+| **General Contractor** | Auto-fill from project data | |
+
+### Report Types
+1. **Set Day Report** - Modules set, issues, photos
+2. **Weather Day Report** - No sets, but crew may still be on-site
+3. **Non-Work Day** - No activity (weekend, holiday)
+
+### Distribution
+- Internal only (nearly entire company)
+- Sent morning after the work day
+
+### Key Improvements Over Word Doc
+1. **Real-time logging** - Data entered during the day, not compiled after
+2. **Embedded photos** - No separate email attachments
+3. **Auto-populated fields** - Weather, crew, project info
+4. **One-click generation** - Report builds automatically from logged data
+5. **Weather day tracking** - Built-in function for non-set days
+
+---
+
 ## Core Workflow
 
 ```
