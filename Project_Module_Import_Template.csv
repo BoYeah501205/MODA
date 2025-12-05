@@ -1,0 +1,4 @@
+Serial Number,Build Sequence,Module Width,Module Length,Square Footage,HITCH BLM ID,HITCH Unit,HITCH Room,HITCH Room Type,REAR BLM ID,REAR Unit,REAR Room,REAR Room Type,Sidewall (X),Stair (X),3HR-Wall (X),Short (X),Double Studio (X),Sawbox (X),Proto (X)
+25-0001,1,11.33,57,645.81,B1L2M01,A1,101,LIV / KIT,B1L2M01,A1,102,LIV / KIT,,,,,,,X
+25-0002,2,11.33,57,645.81,B1L2M02,A1,101,BED / BA,B1L2M02,A1,102,BED / BA,,,,,,
+25-0003,3,11.33,64.5,730.785,B1L2M03,B1-M,103,LIV / KIT,B1L2M03,B1,104,LIV / KIT,X,,,,,,

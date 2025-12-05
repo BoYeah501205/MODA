@@ -4661,7 +4661,18 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                             {/* Header with Serial & Stage */}
                                             <div className="flex justify-between items-start mb-3">
                                                 <div>
-                                                    <h4 className="font-bold text-lg text-gray-900">{module.serialNumber}</h4>
+                                                    <div className="flex items-center gap-1">
+                                                        <h4 className="font-bold text-lg text-gray-900">{module.serialNumber}</h4>
+                                                        {module.isPrototype && (
+                                                            <span 
+                                                                className="text-yellow-500 cursor-help" 
+                                                                title="Prototype"
+                                                                style={{ fontSize: '14px' }}
+                                                            >
+                                                                ★
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-sm text-gray-500">Build Seq: {module.buildSequence}</p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
@@ -4789,7 +4800,20 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                                     onClick={() => setSelectedModule(module)}
                                                     className="hover:bg-gray-50 cursor-pointer"
                                                 >
-                                                    <td className="px-4 py-3 font-medium">{module.serialNumber}</td>
+                                                    <td className="px-4 py-3 font-medium">
+                                                        <span className="flex items-center gap-1">
+                                                            {module.serialNumber}
+                                                            {module.isPrototype && (
+                                                                <span 
+                                                                    className="text-yellow-500 cursor-help" 
+                                                                    title="Prototype"
+                                                                    style={{ fontSize: '12px' }}
+                                                                >
+                                                                    ★
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </td>
                                                     <td className="px-4 py-3">{module.buildSequence}</td>
                                                     <td className="px-4 py-3">{module.hitchUnit}</td>
                                                     <td className="px-4 py-3 text-sm">{module.moduleWidth}' x {module.moduleLength}'</td>
@@ -5703,7 +5727,8 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                     short: String(getVal(['short'])).toLowerCase() === 'x' || String(getVal(['short'])).toLowerCase() === 'true',
                                     doubleStudio: String(getVal(['double', 'dbl studio'])).toLowerCase() === 'x' || String(getVal(['double studio'])).toLowerCase() === 'true',
                                     sawbox: String(getVal(['sawbox'])).toLowerCase() === 'x' || String(getVal(['sawbox'])).toLowerCase() === 'true'
-                                }
+                                },
+                                isPrototype: String(getVal(['proto', 'prototype'])).toLowerCase() === 'x' || String(getVal(['proto', 'prototype'])).toLowerCase() === 'true'
                             });
                         }
 
@@ -5770,6 +5795,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                             <span>• Short (X)</span>
                                             <span>• Double Studio (X)</span>
                                             <span>• Sawbox (X)</span>
+                                            <span>• Proto (X)</span>
                                         </div>
                                     </div>
                                 </>
