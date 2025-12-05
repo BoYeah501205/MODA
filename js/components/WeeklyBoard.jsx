@@ -659,15 +659,139 @@ function WeeklyBoardTab({
     getLineBalance,
     completedWeeks,
     completeWeek,
+    addWeek, // For auto-creating next week
     onModuleClick,
     setProductionTab,
     setProjects, // For updating module progress
     onReportIssue // For opening report issue modal
 }) {
-    const { useState, useRef } = React;
+    const { useState, useRef, useEffect, useCallback } = React;
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
+    
+    // ===== SELECTION SYSTEM =====
+    const [selectedModules, setSelectedModules] = useState(new Set()); // Set of "moduleId-stationId" keys
+    const [showBulkMenu, setShowBulkMenu] = useState(null); // { x, y } position for context menu
+    const boardRef = useRef(null);
+    const longPressTimer = useRef(null);
+    
+    // Generate unique key for module-station combination
+    const getSelectionKey = (moduleId, stationId) => `${moduleId}-${stationId}`;
+    
+    // Check if a module-station is selected
+    const isSelected = (moduleId, stationId) => selectedModules.has(getSelectionKey(moduleId, stationId));
+    
+    // Toggle selection for a module
+    const toggleSelection = (moduleId, stationId, isCtrlKey = false) => {
+        const key = getSelectionKey(moduleId, stationId);
+        setSelectedModules(prev => {
+            const newSet = new Set(isCtrlKey ? prev : []);
+            if (prev.has(key) && isCtrlKey) {
+                newSet.delete(key);
+            } else {
+                newSet.add(key);
+            }
+            return newSet;
+        });
+    };
+    
+    // Clear all selections
+    const clearSelection = useCallback(() => {
+        setSelectedModules(new Set());
+        setShowBulkMenu(null);
+    }, []);
+    
+    // Handle Escape key to clear selection
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && selectedModules.size > 0) {
+                clearSelection();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [selectedModules.size, clearSelection]);
+    
+    // Handle click outside to clear selection
+    const handleBoardClick = (e) => {
+        // Only clear if clicking directly on the board background, not on cards
+        if (e.target === e.currentTarget || e.target.closest('[data-board-background]')) {
+            clearSelection();
+        }
+    };
+    
+    // Handle right-click for bulk menu
+    const handleContextMenu = (e, moduleId, stationId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // If right-clicking on unselected module, select it first
+        if (!isSelected(moduleId, stationId)) {
+            toggleSelection(moduleId, stationId, e.ctrlKey || e.metaKey);
+        }
+        
+        setShowBulkMenu({ x: e.clientX, y: e.clientY });
+    };
+    
+    // Bulk update progress for all selected modules
+    const bulkUpdateProgress = (newProgress) => {
+        if (!setProjects || selectedModules.size === 0) return;
+        
+        // Parse selection keys to get moduleId and stationId
+        const updates = Array.from(selectedModules).map(key => {
+            const [moduleId, stationId] = key.split('-');
+            return { moduleId, stationId };
+        });
+        
+        // Find which project each module belongs to
+        setProjects(prevProjects => prevProjects.map(project => {
+            const projectModuleIds = (project.modules || []).map(m => m.id);
+            const relevantUpdates = updates.filter(u => projectModuleIds.includes(u.moduleId));
+            
+            if (relevantUpdates.length === 0) return project;
+            
+            return {
+                ...project,
+                modules: project.modules.map(module => {
+                    const moduleUpdates = relevantUpdates.filter(u => u.moduleId === module.id);
+                    if (moduleUpdates.length === 0) return module;
+                    
+                    const updatedProgress = { ...module.stageProgress };
+                    let stationCompletedAt = { ...module.stationCompletedAt } || {};
+                    
+                    moduleUpdates.forEach(({ stationId }) => {
+                        const wasComplete = updatedProgress[stationId] === 100;
+                        updatedProgress[stationId] = newProgress;
+                        
+                        if (newProgress === 100 && !wasComplete) {
+                            stationCompletedAt[stationId] = Date.now();
+                        } else if (newProgress < 100 && wasComplete) {
+                            delete stationCompletedAt[stationId];
+                        }
+                    });
+                    
+                    return { ...module, stageProgress: updatedProgress, stationCompletedAt };
+                })
+            };
+        }));
+        
+        clearSelection();
+    };
+    
+    // Long press handler for mobile
+    const handleTouchStart = (moduleId, stationId) => {
+        longPressTimer.current = setTimeout(() => {
+            toggleSelection(moduleId, stationId, true);
+        }, 500); // 500ms long press
+    };
+    
+    const handleTouchEnd = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
     
     // Get all active projects
     const activeProjects = projects.filter(p => p.status === 'Active');
@@ -695,28 +819,55 @@ function WeeklyBoardTab({
     };
     
     // Get modules for a station column based on stagger and line balance
+    // Now includes previous week (5 before) and next week preview (5 after)
     const getModulesForStation = (station) => {
         const startingModule = getStationStartingModule(station.id);
-        if (!startingModule) return [];
+        if (!startingModule) return { previous: [], current: [], next: [] };
         
         const lineBalance = getLineBalance();
         const startIdx = allModules.findIndex(m => m.id === startingModule.id);
-        if (startIdx === -1) return [];
+        if (startIdx === -1) return { previous: [], current: [], next: [] };
         
-        // Get modules for this week based on line balance
-        const weekModules = allModules.slice(startIdx, startIdx + lineBalance);
+        // Helper to add status info to modules
+        const addStatusInfo = (modules, weekSection) => {
+            return modules.map(module => {
+                const progress = module.stageProgress || {};
+                const stationProgress = progress[station.id] || 0;
+                
+                let status = 'pending';
+                if (stationProgress === 100) status = 'complete';
+                else if (stationProgress > 0) status = 'in-progress';
+                
+                return { ...module, stationProgress, status, weekSection };
+            });
+        };
         
-        // Add status info for each module
-        return weekModules.map(module => {
-            const progress = module.stageProgress || {};
-            const stationProgress = progress[station.id] || 0;
-            
-            let status = 'pending';
-            if (stationProgress === 100) status = 'complete';
-            else if (stationProgress > 0) status = 'in-progress';
-            
-            return { ...module, stationProgress, status };
-        });
+        // Previous week: 5 modules before starting module (or fewer if at beginning)
+        const prevStartIdx = Math.max(0, startIdx - 5);
+        const previousModules = allModules.slice(prevStartIdx, startIdx);
+        
+        // Current week: line balance modules
+        const currentModules = allModules.slice(startIdx, startIdx + lineBalance);
+        
+        // Next week preview: 5 modules after current week
+        const nextStartIdx = startIdx + lineBalance;
+        const nextModules = allModules.slice(nextStartIdx, nextStartIdx + 5);
+        
+        return {
+            previous: addStatusInfo(previousModules, 'previous'),
+            current: addStatusInfo(currentModules, 'current'),
+            next: addStatusInfo(nextModules, 'next')
+        };
+    };
+    
+    // Get the last working day date for previous week label
+    const getPreviousWeekLastDay = () => {
+        if (!currentWeek?.weekStart) return null;
+        const weekStart = new Date(currentWeek.weekStart);
+        // Go back to previous Thursday (last working day of previous week)
+        const prevThursday = new Date(weekStart);
+        prevThursday.setDate(weekStart.getDate() - 4); // Monday - 4 = Thursday of prev week
+        return prevThursday;
     };
     
     // Get recently completed modules (last 5 across all stations)
@@ -824,23 +975,62 @@ function WeeklyBoardTab({
     const CARD_HEIGHT = 140; // pixels
     
     // Render a module card with progress buttons and menu
-    const renderModuleCard = (module, station) => {
+    const renderModuleCard = (module, station, weekSection = 'current') => {
         const currentProgress = module.stationProgress || 0;
         const isComplete = currentProgress === 100;
+        const moduleIsSelected = isSelected(module.id, station.id);
+        
+        // Determine border color based on week section and selection
+        let borderClass = 'border border-gray-200';
+        if (moduleIsSelected) {
+            borderClass = 'border-2 border-blue-500 ring-2 ring-blue-200';
+        } else if (isComplete) {
+            borderClass = 'border-2 border-green-400';
+        } else if (weekSection === 'previous') {
+            borderClass = 'border-2 border-red-300';
+        } else if (weekSection === 'next') {
+            borderClass = 'border-2 border-green-300';
+        }
+        
+        // Background color
+        let bgClass = 'bg-white';
+        if (isComplete) {
+            bgClass = 'bg-green-50';
+        } else if (weekSection === 'previous') {
+            bgClass = 'bg-red-50/30';
+        } else if (weekSection === 'next') {
+            bgClass = 'bg-green-50/30';
+        }
         
         return (
             <div
                 key={`${station.id}-${module.id}`}
-                className={`relative rounded-xl p-4 transition-shadow hover:shadow-lg ${
-                    isComplete 
-                        ? 'bg-green-50 border-2 border-green-400' 
-                        : 'bg-white border border-gray-200 shadow-sm'
-                }`}
+                className={`relative rounded-xl p-4 transition-all hover:shadow-lg ${bgClass} ${borderClass} shadow-sm`}
                 style={{ height: `${CARD_HEIGHT}px` }}
+                onContextMenu={(e) => handleContextMenu(e, module.id, station.id)}
+                onTouchStart={() => handleTouchStart(module.id, station.id)}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
             >
+                {/* Selection indicator */}
+                {moduleIsSelected && (
+                    <div className="absolute top-1 left-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">✓</span>
+                    </div>
+                )}
+                
                 {/* Header row with serial and menu button */}
                 <div className="flex items-center justify-between mb-3">
-                    <div className="font-mono text-lg font-bold text-gray-800">
+                    <div 
+                        className={`font-mono text-lg font-bold cursor-pointer select-none ${
+                            moduleIsSelected ? 'text-blue-600' : 'text-gray-800'
+                        } hover:text-blue-500 transition-colors`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelection(module.id, station.id, e.ctrlKey || e.metaKey);
+                        }}
+                        title="Click to select, Ctrl+Click for multi-select"
+                    >
                         {module.serialNumber}
                     </div>
                     <button
@@ -922,10 +1112,12 @@ function WeeklyBoardTab({
     
     const dayLabels = getDayLabels();
     
-    // Render station column
-    const renderStationColumn = (station) => {
-        const modules = getModulesForStation(station);
+    // Render station column with previous/current/next sections
+    const renderStationColumn = (station, isFirstColumn = false) => {
+        const { previous, current, next } = getModulesForStation(station);
         const startingModule = getStationStartingModule(station.id);
+        const prevWeekDate = getPreviousWeekLastDay();
+        const hasModules = previous.length > 0 || current.length > 0 || next.length > 0;
         
         return (
             <div key={station.id} className="flex-shrink-0 w-48">
@@ -943,22 +1135,77 @@ function WeeklyBoardTab({
                     </span>
                 </div>
                 
-                {/* Module Cards */}
+                {/* Module Cards Container */}
                 <div className="border-x border-b border-gray-200 rounded-b-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {modules.length === 0 ? (
+                    {!hasModules ? (
                         <div className="text-sm text-gray-400 text-center py-8">
                             No modules
                         </div>
                     ) : (
-                        modules.map(module => renderModuleCard(module, station))
+                        <>
+                            {/* Previous Week Section */}
+                            {previous.length > 0 && (
+                                <>
+                                    {isFirstColumn && (
+                                        <div className="bg-red-100 border-2 border-red-300 rounded-lg px-3 py-2 text-center">
+                                            <div className="text-xs font-bold text-red-700">PREVIOUS WEEK</div>
+                                            {prevWeekDate && (
+                                                <div className="text-xs text-red-600">
+                                                    {prevWeekDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {previous.map(module => renderModuleCard(module, station, 'previous'))}
+                                    {/* Divider between previous and current */}
+                                    <div className="border-t-2 border-dashed border-red-300 my-1"></div>
+                                </>
+                            )}
+                            
+                            {/* Current Week Section */}
+                            {current.length > 0 && (
+                                <>
+                                    {isFirstColumn && previous.length > 0 && (
+                                        <div className="bg-blue-100 border-2 border-blue-300 rounded-lg px-3 py-2 text-center">
+                                            <div className="text-xs font-bold text-blue-700">THIS WEEK</div>
+                                            <div className="text-xs text-blue-600">
+                                                {currentWeek?.weekStart && new Date(currentWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                {' - '}
+                                                {currentWeek?.weekEnd && new Date(currentWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {current.map(module => renderModuleCard(module, station, 'current'))}
+                                </>
+                            )}
+                            
+                            {/* Next Week Preview Section */}
+                            {next.length > 0 && (
+                                <>
+                                    {/* Divider between current and next */}
+                                    <div className="border-t-2 border-dashed border-green-300 my-1"></div>
+                                    {isFirstColumn && (
+                                        <div className="bg-green-100 border-2 border-green-300 rounded-lg px-3 py-2 text-center">
+                                            <div className="text-xs font-bold text-green-700">NEXT WEEK PREVIEW</div>
+                                        </div>
+                                    )}
+                                    {next.map(module => renderModuleCard(module, station, 'next'))}
+                                </>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
         );
     };
     
-    // Render date marker column (sticky left side)
+    // Render date marker column (sticky left side) with section headers
     const renderDateMarkerColumn = () => {
+        // Get module counts for each section from the first station
+        const firstStation = productionStages[0];
+        const { previous, current, next } = firstStation ? getModulesForStation(firstStation) : { previous: [], current: [], next: [] };
+        const prevWeekDate = getPreviousWeekLastDay();
+        
         return (
             <div className="flex-shrink-0 w-28 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 12px rgba(0,0,0,0.08)' }}>
                 {/* Header */}
@@ -972,8 +1219,48 @@ function WeeklyBoardTab({
                     <span className="text-gray-400">—</span>
                 </div>
                 
-                {/* Day markers - one per module slot */}
+                {/* Day markers with section headers */}
                 <div className="border-l border-b border-gray-200 rounded-bl-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    
+                    {/* Previous Week Section Header */}
+                    {previous.length > 0 && (
+                        <>
+                            <div className="bg-red-100 border-2 border-red-300 rounded-lg px-3 py-2 text-center">
+                                <div className="text-xs font-bold text-red-700">PREVIOUS WEEK</div>
+                                {prevWeekDate && (
+                                    <div className="text-xs text-red-600">
+                                        {prevWeekDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    </div>
+                                )}
+                            </div>
+                            {/* Previous week module placeholders */}
+                            {previous.map((_, idx) => (
+                                <div 
+                                    key={`prev-${idx}`}
+                                    className="rounded-xl border-2 border-red-300 bg-red-50/50 flex flex-col items-center justify-center text-center"
+                                    style={{ height: `${CARD_HEIGHT}px` }}
+                                >
+                                    <div className="text-sm text-red-400">Prev #{idx + 1}</div>
+                                </div>
+                            ))}
+                            {/* Divider */}
+                            <div className="border-t-2 border-dashed border-red-300 my-1"></div>
+                        </>
+                    )}
+                    
+                    {/* Current Week Section Header (only if previous exists) */}
+                    {previous.length > 0 && current.length > 0 && (
+                        <div className="bg-blue-100 border-2 border-blue-300 rounded-lg px-3 py-2 text-center">
+                            <div className="text-xs font-bold text-blue-700">THIS WEEK</div>
+                            <div className="text-xs text-blue-600">
+                                {currentWeek?.weekStart && new Date(currentWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {' - '}
+                                {currentWeek?.weekEnd && new Date(currentWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Current week day markers */}
                     {dayLabels.map((dayInfo, idx) => (
                         <div 
                             key={`${dayInfo.day}-${dayInfo.slotNum}`}
@@ -985,6 +1272,27 @@ function WeeklyBoardTab({
                             <div className="text-xs text-gray-400 mt-1">#{dayInfo.slotNum}</div>
                         </div>
                     ))}
+                    
+                    {/* Next Week Section */}
+                    {next.length > 0 && (
+                        <>
+                            {/* Divider */}
+                            <div className="border-t-2 border-dashed border-green-300 my-1"></div>
+                            <div className="bg-green-100 border-2 border-green-300 rounded-lg px-3 py-2 text-center">
+                                <div className="text-xs font-bold text-green-700">NEXT WEEK PREVIEW</div>
+                            </div>
+                            {/* Next week module placeholders */}
+                            {next.map((_, idx) => (
+                                <div 
+                                    key={`next-${idx}`}
+                                    className="rounded-xl border-2 border-green-300 bg-green-50/50 flex flex-col items-center justify-center text-center"
+                                    style={{ height: `${CARD_HEIGHT}px` }}
+                                >
+                                    <div className="text-sm text-green-400">Next #{idx + 1}</div>
+                                </div>
+                            ))}
+                        </>
+                    )}
                 </div>
             </div>
         );
@@ -1126,7 +1434,7 @@ function WeeklyBoardTab({
                         {renderDateMarkerColumn()}
                         
                         {/* Station Columns */}
-                        {productionStages.map(station => renderStationColumn(station))}
+                        {productionStages.map((station, idx) => renderStationColumn(station, idx === 0))}
                     </div>
                 </div>
             </div>
@@ -1146,7 +1454,91 @@ function WeeklyBoardTab({
                     <div className="w-4 h-4 border rounded bg-green-50 border-green-300"></div>
                     <span>Complete</span>
                 </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 rounded bg-red-50/30 border-red-300"></div>
+                    <span>Previous Week</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 rounded bg-green-50/30 border-green-300"></div>
+                    <span>Next Week</span>
+                </div>
             </div>
+            
+            {/* Selection Toolbar - appears when modules are selected */}
+            {selectedModules.size > 0 && (
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white rounded-xl shadow-2xl border-2 border-blue-500 p-3 flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">{selectedModules.size}</span>
+                        </div>
+                        <span className="font-medium text-gray-700">selected</span>
+                    </div>
+                    <div className="h-8 w-px bg-gray-300"></div>
+                    <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-500 mr-2">Set to:</span>
+                        {[0, 25, 50, 75, 100].map(value => (
+                            <button
+                                key={value}
+                                onClick={() => bulkUpdateProgress(value)}
+                                className="w-10 h-10 text-sm font-bold rounded-lg bg-gray-100 hover:bg-autovol-teal hover:text-white transition-all"
+                                title={`Set all to ${value}%`}
+                            >
+                                {value === 100 ? '✓' : value}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="h-8 w-px bg-gray-300"></div>
+                    <button
+                        onClick={clearSelection}
+                        className="px-3 py-2 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        title="Clear selection (Esc)"
+                    >
+                        ✕ Clear
+                    </button>
+                </div>
+            )}
+            
+            {/* Bulk Context Menu - appears on right-click */}
+            {showBulkMenu && (
+                <div 
+                    className="fixed z-[100] bg-white rounded-lg shadow-2xl border border-gray-200 py-2 min-w-[160px]"
+                    style={{ 
+                        top: Math.min(showBulkMenu.y, window.innerHeight - 200),
+                        left: Math.min(showBulkMenu.x, window.innerWidth - 180)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="px-3 py-1 text-xs text-gray-500 font-medium border-b mb-1">
+                        Bulk Progress ({selectedModules.size} selected)
+                    </div>
+                    {[0, 25, 50, 75, 100].map(value => (
+                        <button
+                            key={value}
+                            onClick={() => bulkUpdateProgress(value)}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center justify-between"
+                        >
+                            <span>Set to {value}%</span>
+                            {value === 100 && <span className="text-green-500">✓</span>}
+                        </button>
+                    ))}
+                    <div className="border-t mt-1 pt-1">
+                        <button
+                            onClick={clearSelection}
+                            className="w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+            
+            {/* Click overlay to close bulk menu */}
+            {showBulkMenu && (
+                <div 
+                    className="fixed inset-0 z-[99]" 
+                    onClick={() => setShowBulkMenu(null)}
+                />
+            )}
             
             {/* Week Complete Modal */}
             {showCompleteModal && (
@@ -1160,6 +1552,7 @@ function WeeklyBoardTab({
                         setShowCompleteModal(false);
                     }}
                     onClose={() => setShowCompleteModal(false)}
+                    addWeek={addWeek}
                 />
             )}
             
@@ -1199,104 +1592,257 @@ function WeeklyBoardTab({
 }
 
 // ===== WEEK COMPLETE MODAL =====
-function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModules, onComplete, onClose }) {
-    const { useState } = React;
-    const [nextStartingModule, setNextStartingModule] = useState('');
-    const [autoAdvance, setAutoAdvance] = useState(true);
+function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModules, onComplete, onClose, addWeek }) {
+    const { useState, useMemo, useEffect } = React;
+    
+    // Form state
+    const [modulesProduced, setModulesProduced] = useState(lineBalance);
+    const [useAutoProgress, setUseAutoProgress] = useState(true);
+    const [manualNextModule, setManualNextModule] = useState('');
+    const [createNextWeek, setCreateNextWeek] = useState(true);
+    const [nextWeekShift, setNextWeekShift] = useState('shift1'); // shift1 = Mon-Thu, shift2 = Fri-Sun
     const [notes, setNotes] = useState('');
     
-    // Calculate suggested next starting module (current + line balance)
-    const suggestedNext = React.useMemo(() => {
-        if (!currentWeek?.startingModule) return null;
-        const currentStart = allModules.find(m => m.serialNumber === currentWeek.startingModule);
-        if (!currentStart) return null;
-        
-        const currentIdx = allModules.findIndex(m => m.id === currentStart.id);
-        const nextIdx = currentIdx + lineBalance;
-        return allModules[nextIdx] || null;
-    }, [currentWeek, allModules, lineBalance]);
+    // Calculate current starting module index
+    const currentStartIdx = useMemo(() => {
+        if (!currentWeek?.startingModule) return -1;
+        return allModules.findIndex(m => m.serialNumber === currentWeek.startingModule);
+    }, [currentWeek, allModules]);
     
-    React.useEffect(() => {
-        if (suggestedNext && autoAdvance) {
-            setNextStartingModule(suggestedNext.serialNumber);
+    // Calculate suggested next starting module based on ACTUAL modules produced
+    const suggestedNextModule = useMemo(() => {
+        if (currentStartIdx === -1) return null;
+        const nextIdx = currentStartIdx + modulesProduced;
+        return allModules[nextIdx] || null;
+    }, [currentStartIdx, modulesProduced, allModules]);
+    
+    // Calculate variance
+    const variance = modulesProduced - lineBalance;
+    const varianceText = variance === 0 ? 'On target' : variance > 0 ? `+${variance} ahead` : `${variance} behind`;
+    const varianceColor = variance === 0 ? 'text-gray-600' : variance > 0 ? 'text-green-600' : 'text-red-600';
+    
+    // Determine the next starting module
+    const nextStartingModule = useAutoProgress 
+        ? suggestedNextModule?.serialNumber 
+        : manualNextModule;
+    
+    // Calculate next week dates
+    const getNextWeekDates = () => {
+        if (!currentWeek?.weekStart) return { start: '', end: '' };
+        const currentStart = new Date(currentWeek.weekStart);
+        const nextMonday = new Date(currentStart);
+        nextMonday.setDate(currentStart.getDate() + 7);
+        const nextSunday = new Date(nextMonday);
+        nextSunday.setDate(nextMonday.getDate() + 6);
+        return {
+            start: nextMonday.toISOString().split('T')[0],
+            end: nextSunday.toISOString().split('T')[0]
+        };
+    };
+    
+    const nextWeekDates = getNextWeekDates();
+    
+    // Update manual module when auto-progress changes
+    useEffect(() => {
+        if (!useAutoProgress && suggestedNextModule) {
+            setManualNextModule(suggestedNextModule.serialNumber);
         }
-    }, [suggestedNext, autoAdvance]);
+    }, [useAutoProgress, suggestedNextModule]);
     
     const handleComplete = () => {
+        // Build week completion data
         const weekData = {
             weekStart: currentWeek.weekStart,
             weekEnd: currentWeek.weekEnd,
-            lineBalance,
+            plannedLineBalance: lineBalance,
+            actualProduced: modulesProduced,
+            variance: variance,
             startingModule: currentWeek.startingModule,
             nextStartingModule: nextStartingModule,
             projectsIncluded: activeProjects.map(p => ({ id: p.id, name: p.name })),
-            notes
+            notes,
+            shift: nextWeekShift
         };
+        
+        // Complete the current week (saves to history)
         onComplete(weekData);
+        
+        // Auto-create next week if enabled
+        if (createNextWeek && nextStartingModule && addWeek) {
+            const nextWeekData = {
+                weekStart: nextWeekDates.start,
+                weekEnd: nextWeekDates.end,
+                startingModule: nextStartingModule,
+                productionGoal: lineBalance,
+                dailyGoal: Math.ceil(lineBalance / 4),
+                notes: `Auto-created from week ${currentWeek.weekStart}`
+            };
+            addWeek(nextWeekData);
+        }
     };
     
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-                <div className="p-4 border-b flex items-center justify-between">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
                     <h3 className="text-lg font-bold text-autovol-navy">Complete Week</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">✕</button>
                 </div>
                 
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-5">
                     {/* Week Summary */}
                     <div className="bg-gray-50 rounded-lg p-4">
-                        <div className="text-sm text-gray-600">Week Summary</div>
-                        <div className="mt-2 space-y-1">
+                        <div className="text-sm font-medium text-gray-700 mb-2">Week Summary</div>
+                        <div className="space-y-1 text-sm">
                             <div className="flex justify-between">
-                                <span>Week:</span>
+                                <span className="text-gray-500">Week:</span>
                                 <span className="font-medium">{currentWeek?.weekStart} → {currentWeek?.weekEnd}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span>Line Balance:</span>
+                                <span className="text-gray-500">Starting Module:</span>
+                                <span className="font-mono font-medium">{currentWeek?.startingModule}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Planned Line Balance:</span>
                                 <span className="font-bold text-autovol-teal">{lineBalance} modules</span>
                             </div>
                             <div className="flex justify-between">
-                                <span>Projects:</span>
-                                <span>{activeProjects.length} active</span>
+                                <span className="text-gray-500">Active Projects:</span>
+                                <span>{activeProjects.length}</span>
                             </div>
                         </div>
                     </div>
                     
+                    {/* Modules Produced Input */}
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                        <label className="block text-sm font-bold text-blue-800 mb-2">
+                            Modules Produced This Week
+                        </label>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="number"
+                                min="0"
+                                max={allModules.length}
+                                value={modulesProduced}
+                                onChange={(e) => setModulesProduced(parseInt(e.target.value) || 0)}
+                                className="w-24 text-center text-2xl font-bold border-2 border-blue-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                            />
+                            <div className="flex-1">
+                                <div className={`font-medium ${varianceColor}`}>{varianceText}</div>
+                                <div className="text-xs text-gray-500">vs. {lineBalance} planned</div>
+                            </div>
+                        </div>
+                        <p className="text-xs text-blue-600 mt-2">
+                            This determines the next week's starting module based on actual production.
+                        </p>
+                    </div>
+                    
                     {/* Next Starting Module */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="border rounded-lg p-4">
+                        <label className="block text-sm font-bold text-gray-700 mb-3">
                             Next Week's Starting Module
                         </label>
-                        <div className="flex items-center gap-2 mb-2">
+                        
+                        {/* Auto-progress option */}
+                        <div className="space-y-3">
+                            <label className="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                                style={{ borderColor: useAutoProgress ? '#0d9488' : '#e5e7eb' }}>
+                                <input
+                                    type="radio"
+                                    checked={useAutoProgress}
+                                    onChange={() => setUseAutoProgress(true)}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <div className="font-medium text-gray-800">Auto-progress (Recommended)</div>
+                                    <div className="text-sm text-gray-500">
+                                        Based on {modulesProduced} modules produced:
+                                    </div>
+                                    {suggestedNextModule ? (
+                                        <div className="mt-1 font-mono text-lg font-bold text-autovol-teal">
+                                            {suggestedNextModule.serialNumber}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 text-sm text-red-500">No more modules available</div>
+                                    )}
+                                </div>
+                            </label>
+                            
+                            <label className="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                                style={{ borderColor: !useAutoProgress ? '#0d9488' : '#e5e7eb' }}>
+                                <input
+                                    type="radio"
+                                    checked={!useAutoProgress}
+                                    onChange={() => setUseAutoProgress(false)}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <div className="font-medium text-gray-800">Choose Different Module</div>
+                                    {!useAutoProgress && (
+                                        <select
+                                            value={manualNextModule}
+                                            onChange={(e) => setManualNextModule(e.target.value)}
+                                            className="mt-2 w-full border rounded-lg px-3 py-2 text-sm"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <option value="">Select starting module...</option>
+                                            {allModules.map(m => (
+                                                <option key={m.id} value={m.serialNumber}>
+                                                    {m.serialNumber} (#{m.buildSequence})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    {/* Auto-create Next Week */}
+                    <div className="border rounded-lg p-4">
+                        <label className="flex items-center gap-3 cursor-pointer">
                             <input
                                 type="checkbox"
-                                checked={autoAdvance}
-                                onChange={(e) => setAutoAdvance(e.target.checked)}
-                                className="rounded"
+                                checked={createNextWeek}
+                                onChange={(e) => setCreateNextWeek(e.target.checked)}
+                                className="w-5 h-5 rounded text-autovol-teal"
                             />
-                            <span className="text-sm text-gray-600">
-                                Auto-advance to suggested module
-                                {suggestedNext && (
-                                    <span className="font-mono ml-1 text-autovol-teal">
-                                        ({suggestedNext.serialNumber})
-                                    </span>
-                                )}
-                            </span>
-                        </div>
-                        {!autoAdvance && (
-                            <select
-                                value={nextStartingModule}
-                                onChange={(e) => setNextStartingModule(e.target.value)}
-                                className="w-full border rounded-lg px-3 py-2"
-                            >
-                                <option value="">Select starting module...</option>
-                                {allModules.map(m => (
-                                    <option key={m.id} value={m.serialNumber}>
-                                        {m.serialNumber} (#{m.buildSequence})
-                                    </option>
-                                ))}
-                            </select>
+                            <div>
+                                <div className="font-medium text-gray-800">Auto-create Next Week Schedule</div>
+                                <div className="text-sm text-gray-500">
+                                    {nextWeekDates.start} → {nextWeekDates.end}
+                                </div>
+                            </div>
+                        </label>
+                        
+                        {createNextWeek && (
+                            <div className="mt-3 pl-8">
+                                <label className="block text-sm text-gray-600 mb-1">Shift Schedule:</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setNextWeekShift('shift1')}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                                            nextWeekShift === 'shift1' 
+                                                ? 'bg-autovol-teal text-white' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        Shift 1 (Mon-Thu)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setNextWeekShift('shift2')}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                                            nextWeekShift === 'shift2' 
+                                                ? 'bg-autovol-teal text-white' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        Shift 2 (Fri-Sun)
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                     
@@ -1314,7 +1860,7 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
                     </div>
                 </div>
                 
-                <div className="p-4 border-t flex justify-end gap-2">
+                <div className="p-4 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
                     <button
                         onClick={onClose}
                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
@@ -1323,9 +1869,10 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
                     </button>
                     <button
                         onClick={handleComplete}
-                        className="px-4 py-2 btn-primary rounded-lg"
+                        disabled={!nextStartingModule && createNextWeek}
+                        className="px-4 py-2 btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Complete Week
+                        {createNextWeek ? 'Complete & Create Next Week' : 'Complete Week'}
                     </button>
                 </div>
             </div>
@@ -1335,6 +1882,14 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
 
 // ===== WEEK HISTORY MODAL =====
 function WeekHistoryModal({ completedWeeks, onClose }) {
+    // Helper to get variance display
+    const getVarianceDisplay = (week) => {
+        const variance = week.variance ?? (week.actualProduced - (week.plannedLineBalance || week.lineBalance));
+        if (variance === 0 || isNaN(variance)) return { text: 'On target', color: 'text-gray-500', bg: 'bg-gray-100' };
+        if (variance > 0) return { text: `+${variance} ahead`, color: 'text-green-600', bg: 'bg-green-100' };
+        return { text: `${variance} behind`, color: 'text-red-600', bg: 'bg-red-100' };
+    };
+    
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
@@ -1350,33 +1905,66 @@ function WeekHistoryModal({ completedWeeks, onClose }) {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {completedWeeks.map(week => (
-                                <div key={week.id} className="border rounded-lg p-4">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <div className="font-semibold text-gray-800">
-                                                {week.weekStart} → {week.weekEnd}
-                                            </div>
-                                            <div className="text-sm text-gray-600 mt-1">
-                                                <span className="font-medium">Line Balance:</span> {week.lineBalance} modules
-                                            </div>
-                                            {week.projectsIncluded && (
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    Projects: {week.projectsIncluded.map(p => p.name).join(', ')}
+                            {completedWeeks.map(week => {
+                                const varianceInfo = getVarianceDisplay(week);
+                                return (
+                                    <div key={week.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-gray-800">
+                                                    {week.weekStart} → {week.weekEnd}
                                                 </div>
-                                            )}
-                                            {week.notes && (
-                                                <div className="text-sm text-gray-600 mt-2 italic">
-                                                    "{week.notes}"
+                                                
+                                                {/* Production Stats */}
+                                                <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-gray-500">Planned:</span>
+                                                        <span className="font-medium">{week.plannedLineBalance || week.lineBalance}</span>
+                                                    </div>
+                                                    {week.actualProduced !== undefined && (
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-gray-500">Actual:</span>
+                                                            <span className="font-bold text-autovol-teal">{week.actualProduced}</span>
+                                                        </div>
+                                                    )}
+                                                    {week.actualProduced !== undefined && (
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${varianceInfo.bg} ${varianceInfo.color}`}>
+                                                            {varianceInfo.text}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div className="text-xs text-gray-400">
-                                            {new Date(week.completedAt).toLocaleDateString()}
+                                                
+                                                {/* Module Range */}
+                                                <div className="mt-2 text-xs text-gray-500">
+                                                    <span className="font-medium">Start:</span> {week.startingModule}
+                                                    {week.nextStartingModule && (
+                                                        <span className="ml-3">
+                                                            <span className="font-medium">→ Next:</span> {week.nextStartingModule}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Projects */}
+                                                {week.projectsIncluded && week.projectsIncluded.length > 0 && (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        Projects: {week.projectsIncluded.map(p => p.name).join(', ')}
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Notes */}
+                                                {week.notes && (
+                                                    <div className="text-sm text-gray-600 mt-2 italic border-l-2 border-gray-200 pl-2">
+                                                        "{week.notes}"
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-gray-400 ml-4">
+                                                {new Date(week.completedAt).toLocaleDateString()}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
