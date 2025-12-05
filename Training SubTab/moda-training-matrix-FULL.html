@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MODA - Training Matrix (Full Build)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --autovol-red: #C8102E;
+            --autovol-blue: #0057B8;
+            --autovol-charcoal: #2D3436;
+        }
+        
+        * {
+            font-family: 'IBM Plex Sans', Arial, sans-serif;
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: var(--autovol-charcoal);
+            margin-bottom: 5px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: var(--autovol-blue);
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary { background: var(--autovol-red); color: white; }
+        .btn-primary:hover { background: #a00d25; }
+        .btn-secondary { background: var(--autovol-blue); color: white; }
+        .btn-secondary:hover { background: #004494; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-gray { background: #6c757d; color: white; }
+        .btn-gray:hover { background: #545b62; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-small { padding: 6px 12px; font-size: 12px; }
+        
+        input[type="text"], input[type="search"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            min-width: 200px;
+        }
+        
+        select.filter {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 6px;
+            text-align: center;
+        }
+        
+        th {
+            background: var(--autovol-charcoal);
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .employee-name {
+            position: sticky;
+            left: 0;
+            background: white;
+            font-weight: 600;
+            text-align: left;
+            z-index: 5;
+            min-width: 180px;
+            max-width: 180px;
+            border-right: 2px solid var(--autovol-charcoal);
+        }
+        
+        .employee-name small {
+            display: block;
+            font-weight: normal;
+            color: #666;
+            font-size: 11px;
+        }
+        
+        .station-header {
+            background: var(--autovol-blue);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            user-select: none;
+            vertical-align: middle;
+        }
+        
+        .station-collapsed {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            padding: 12px 8px;
+        }
+        
+        .skill-header {
+            background: #1E40AF;
+            color: white;
+            font-size: 11px;
+            min-width: 100px;
+            max-width: 150px;
+            vertical-align: top;
+        }
+        
+        .add-skill-cell {
+            background: #f0f9ff;
+            min-width: 120px;
+        }
+        
+        .progress-cell {
+            min-width: 90px;
+        }
+        
+        .progress-cell select {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .progress-0 { background: #E5E7EB; color: #4B5563; }
+        .progress-25 { background: #FEE2E2; color: #991B1B; }
+        .progress-50 { background: #FEF3C7; color: #92400E; }
+        .progress-75 { background: #FFEDD5; color: #9A3412; }
+        .progress-100 { background: #D1FAE5; color: #065F46; }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: var(--autovol-charcoal);
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .skill-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .skill-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            background: #f9f9f9;
+        }
+        
+        .status {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        
+        .status.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 MODA Training Matrix <span class="badge" id="countBadge">0 Employees</span></h1>
+        <p style="color: #666; margin-bottom: 20px;">
+            All Production Stations • Click station headers to collapse • Click "+ Add Skills" to build out training requirements
+        </p>
+
+        <div id="status" class="status"></div>
+
+        <div class="controls">
+            <button class="btn btn-secondary" onclick="loadSample()">👥 Load Sample</button>
+            <label class="btn btn-gray">
+                📥 Import Employees
+                <input type="file" id="importEmployees" accept=".xlsx,.xls,.json" style="display: none;" onchange="importEmployees(this)">
+            </label>
+            <button class="btn btn-success" onclick="showImportSkillsModal()">📋 Import Skills Config</button>
+            <button class="btn btn-gray" onclick="exportData()">📤 Export All</button>
+            <button class="btn btn-gray" onclick="exportSkillsConfig()">💾 Export Skills Config</button>
+            <button class="btn btn-danger" onclick="clearProgress()">🗑️ Clear Progress</button>
+            
+            <input type="search" id="searchBox" placeholder="Search employees..." oninput="renderTable()">
+            <select class="filter" id="deptFilter" onchange="renderTable()">
+                <option value="all">All Departments</option>
+            </select>
+            <select class="filter" id="sortBy" onchange="renderTable()">
+                <option value="name">Sort: Name</option>
+                <option value="department">Sort: Department</option>
+                <option value="hireDate">Sort: Hire Date</option>
+            </select>
+        </div>
+
+        <div class="table-container">
+            <table id="trainingTable">
+                <thead id="tableHead">
+                    <!-- Generated dynamically -->
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="100" style="text-align: center; padding: 40px; color: #999;">
+                            Click "Import Employees" or "Load Sample" to begin
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add Skills Modal -->
+    <div id="addSkillsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalStationName">Add Skills</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <p style="color: #666; margin-bottom: 15px;">
+                Enter skills one per line. These will become columns in the training matrix.
+            </p>
+            <textarea id="skillsInput" placeholder="Wall Framing&#10;Blueprint Reading&#10;Measurement & Layout&#10;Power Tools&#10;Structural Specs&#10;Quality Check"></textarea>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSkills()">Add Skills</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Skills Modal -->
+    <div id="editSkillsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="editModalStationName">Manage Skills</h2>
+                <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+            <ul id="skillsList" class="skill-list">
+                <!-- Generated dynamically -->
+            </ul>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-secondary btn-small" onclick="showAddMoreSkills()">+ Add More Skills</button>
+                <button class="btn btn-gray" onclick="closeEditModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Skills Modal -->
+    <div id="importSkillsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Import Skills Configuration</h2>
+                <button class="close-btn" onclick="closeImportSkillsModal()">&times;</button>
+            </div>
+            <p style="color: #666; margin-bottom: 15px;">
+                Select a previously exported skills configuration JSON file to restore your station skill setups.
+            </p>
+            <label class="btn btn-primary" style="display: block; text-align: center;">
+                Choose Skills Config File
+                <input type="file" accept=".json" onchange="importSkillsConfig(this)" style="display: none;">
+            </label>
+        </div>
+    </div>
+
+    <script>
+        // Data structures
+        let employees = [];
+        let trainingData = {};
+        let collapsedStations = {};
+        let currentEditStation = null;
+
+        // Station structure - 19 total stations
+        const STATIONS = [
+            {
+                id: 'automation',
+                name: 'Automation Stations',
+                type: 'hierarchical',
+                substations: [
+                    { id: 'walls', name: 'Walls', skills: ['SE/SSE', 'ME', 'Sheathing', 'Tilt/Transfer', 'MEP Rack'] },
+                    { id: 'floors-ceilings', name: 'Floors/Ceilings', skills: ['SE', 'ME', 'Sheathing', 'QC', 'Transfer/Flip/Outfeed'] },
+                    { id: 'mill', name: 'Mill', skills: ['Hundegger 1', 'Hundegger 2', 'SCM Saw'] },
+                    { id: 'program-use', name: 'Program Use', skills: ['Hundegger-Cambium', 'MS Teams', 'PAT', 'TED'] }
+                ],
+                skills: []
+            },
+            {
+                id: 'floor-ceiling-mez',
+                name: 'Floor-Ceiling Mezzanine',
+                type: 'standard',
+                skills: ['F/C QC', 'Flip/Outfeed', 'Fire-Blocking', 'Structural Installations - Floors', 
+                         'Structural Installations - Ceilings', 'Floor Decking Prep', 'Strong-backs/Insulation/String', 'A-Bay Hoist']
+            },
+            { id: 'plumb-rough-floors', name: 'Plumbing Rough-In - Floors', type: 'standard', skills: [] },
+            { id: 'plumb-rough', name: 'Plumbing Rough-In', type: 'standard', skills: [] },
+            { id: 'plumb-trim', name: 'Plumbing Trim', type: 'standard', skills: [] },
+            { id: 'hvac-rough', name: 'HVAC Rough-In', type: 'standard', skills: [] },
+            { id: 'hvac-trim', name: 'HVAC Trim', type: 'standard', skills: [] },
+            { id: 'elec-rough-ceilings', name: 'Electrical Rough-In - Ceilings', type: 'standard', skills: [] },
+            { id: 'elec-rough', name: 'Electrical Rough-In', type: 'standard', skills: [] },
+            { id: 'elec-trim', name: 'Electrical Trim', type: 'standard', skills: [] },
+            { id: 'wall-set', name: 'Wall Set', type: 'standard', skills: [] },
+            { id: 'ceiling-set', name: 'Ceiling Set', type: 'standard', skills: [] },
+            { id: 'soffits', name: 'Soffits', type: 'standard', skills: [] },
+            { id: 'exteriors', name: 'Exteriors', type: 'standard', skills: [] },
+            { id: 'drywall', name: 'Drywall', type: 'standard', skills: [] },
+            { id: 'roofing', name: 'Roofing', type: 'standard', skills: [] },
+            { id: 'pre-finish', name: 'Pre-Finish', type: 'standard', skills: [] },
+            { id: 'final-finish', name: 'Final Finish', type: 'standard', skills: [] },
+            { id: 'close-up', name: 'Close-Up/Transport', type: 'standard', skills: [] }
+        ];
+
+        const SAMPLE_EMPLOYEES = [
+            { id: 1, firstName: 'John', lastName: 'Martinez', department: 'AVIFCM', hireDate: '2022-03-15' },
+            { id: 2, firstName: 'Sarah', lastName: 'Johnson', department: 'AVIMEP', hireDate: '2021-08-20' },
+            { id: 3, firstName: 'Mike', lastName: 'Chen', department: 'AVIEXT', hireDate: '2023-01-10' },
+            { id: 4, firstName: 'Lisa', lastName: 'Anderson', department: 'AVIFCM', hireDate: '2020-06-05' },
+            { id: 5, firstName: 'Robert', lastName: 'Williams', department: 'AVIFIN', hireDate: '2022-11-28' },
+            { id: 6, firstName: 'Emily', lastName: 'Davis', department: 'AVIMEP', hireDate: '2021-04-15' },
+            { id: 7, firstName: 'James', lastName: 'Wilson', department: 'AVIEXT', hireDate: '2023-06-01' },
+            { id: 8, firstName: 'Maria', lastName: 'Garcia', department: 'AVICEI', hireDate: '2020-12-10' }
+        ];
+
+        // Initialize
+        function init() {
+            loadFromStorage();
+            renderTable();
+        }
+
+        // Load data from localStorage
+        function loadFromStorage() {
+            const savedEmployees = localStorage.getItem('training_employees');
+            const savedTraining = localStorage.getItem('training_data');
+            const savedStations = localStorage.getItem('training_stations');
+            const savedCollapsed = localStorage.getItem('training_collapsed');
+
+            if (savedEmployees) employees = JSON.parse(savedEmployees);
+            if (savedTraining) trainingData = JSON.parse(savedTraining);
+            if (savedCollapsed) collapsedStations = JSON.parse(savedCollapsed);
+            
+            if (savedStations) {
+                const saved = JSON.parse(savedStations);
+                // Merge saved skills into STATIONS
+                saved.forEach(savedStation => {
+                    const station = STATIONS.find(s => s.id === savedStation.id);
+                    if (station) {
+                        if (savedStation.type === 'hierarchical' && savedStation.substations) {
+                            station.substations = savedStation.substations;
+                        } else {
+                            station.skills = savedStation.skills || [];
+                        }
+                    }
+                });
+            }
+        }
+
+        // Save data to localStorage
+        function saveToStorage() {
+            localStorage.setItem('training_employees', JSON.stringify(employees));
+            localStorage.setItem('training_data', JSON.stringify(trainingData));
+            localStorage.setItem('training_stations', JSON.stringify(STATIONS));
+            localStorage.setItem('training_collapsed', JSON.stringify(collapsedStations));
+        }
+
+        // Load sample data
+        function loadSample() {
+            employees = SAMPLE_EMPLOYEES;
+            saveToStorage();
+            updateDepartmentFilter();
+            renderTable();
+            showStatus(`Loaded ${employees.length} sample employees`, 'success');
+        }
+
+        // Import employees
+        function importEmployees(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const fileName = file.name.toLowerCase();
+            
+            if (fileName.endsWith('.json')) {
+                importEmployeesJSON(file);
+            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                importEmployeesExcel(file);
+            }
+            
+            input.value = '';
+        }
+
+        function importEmployeesJSON(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    let imported = [];
+                    
+                    if (data.employees && Array.isArray(data.employees)) {
+                        imported = data.employees.filter(emp => emp.jobTitle === 'Line Solutioneer');
+                    } else if (Array.isArray(data)) {
+                        imported = data.filter(emp => emp.jobTitle === 'Line Solutioneer');
+                    }
+                    
+                    if (imported.length === 0) {
+                        showStatus('No Line Solutioneers found in file', 'error');
+                        return;
+                    }
+                    
+                    employees = imported;
+                    if (data.trainingData) trainingData = data.trainingData;
+                    
+                    saveToStorage();
+                    updateDepartmentFilter();
+                    renderTable();
+                    showStatus(`✅ Imported ${imported.length} Line Solutioneers`, 'success');
+                } catch (error) {
+                    showStatus('Error reading JSON: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function importEmployeesExcel(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    const imported = jsonData.filter(emp => emp.jobTitle === 'Line Solutioneer');
+                    
+                    if (imported.length === 0) {
+                        showStatus('No Line Solutioneers found in Excel file', 'error');
+                        return;
+                    }
+                    
+                    employees = imported;
+                    saveToStorage();
+                    updateDepartmentFilter();
+                    renderTable();
+                    showStatus(`✅ Imported ${imported.length} Line Solutioneers from Excel`, 'success');
+                } catch (error) {
+                    showStatus('Error reading Excel: ' + error.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Export all data
+        function exportData() {
+            const data = {
+                exportDate: new Date().toISOString(),
+                version: '2.0',
+                employees: employees,
+                stations: STATIONS,
+                trainingData: trainingData
+            };
+            
+            downloadJSON(data, `Training_Matrix_Complete_${getDateString()}.json`);
+            showStatus('Complete training data exported', 'success');
+        }
+
+        // Export skills configuration only
+        function exportSkillsConfig() {
+            const data = {
+                exportDate: new Date().toISOString(),
+                version: '2.0',
+                type: 'skills-config',
+                stations: STATIONS
+            };
+            
+            downloadJSON(data, `Training_Skills_Config_${getDateString()}.json`);
+            showStatus('Skills configuration exported', 'success');
+        }
+
+        // Show import skills modal
+        function showImportSkillsModal() {
+            document.getElementById('importSkillsModal').classList.add('active');
+        }
+
+        function closeImportSkillsModal() {
+            document.getElementById('importSkillsModal').classList.remove('active');
+        }
+
+        // Import skills configuration
+        function importSkillsConfig(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.type !== 'skills-config' || !data.stations) {
+                        showStatus('Invalid skills configuration file', 'error');
+                        return;
+                    }
+                    
+                    // Merge imported skills into STATIONS
+                    data.stations.forEach(importedStation => {
+                        const station = STATIONS.find(s => s.id === importedStation.id);
+                        if (station) {
+                            if (importedStation.type === 'hierarchical' && importedStation.substations) {
+                                station.substations = importedStation.substations;
+                            } else {
+                                station.skills = importedStation.skills || [];
+                            }
+                        }
+                    });
+                    
+                    saveToStorage();
+                    renderTable();
+                    closeImportSkillsModal();
+                    showStatus('✅ Skills configuration imported successfully', 'success');
+                } catch (error) {
+                    showStatus('Error importing skills config: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        // Clear all progress
+        function clearProgress() {
+            if (confirm('Clear ALL training progress data? Employee list and skills will be preserved. This cannot be undone!')) {
+                trainingData = {};
+                saveToStorage();
+                renderTable();
+                showStatus('All training progress cleared', 'success');
+            }
+        }
+
+        // Toggle station collapse
+        function toggleStation(stationId) {
+            collapsedStations[stationId] = !collapsedStations[stationId];
+            saveToStorage();
+            renderTable();
+        }
+
+        // Show add skills modal
+        function showAddSkillsModal(stationId) {
+            currentEditStation = stationId;
+            const station = STATIONS.find(s => s.id === stationId);
+            document.getElementById('modalStationName').textContent = `Add Skills: ${station.name}`;
+            document.getElementById('skillsInput').value = '';
+            document.getElementById('addSkillsModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('addSkillsModal').classList.remove('active');
+            currentEditStation = null;
+        }
+
+        // Save skills
+        function saveSkills() {
+            const textarea = document.getElementById('skillsInput');
+            const skillsText = textarea.value.trim();
+            
+            if (!skillsText) {
+                alert('Please enter at least one skill');
+                return;
+            }
+            
+            const skills = skillsText.split('\n').map(s => s.trim()).filter(s => s);
+            const station = STATIONS.find(s => s.id === currentEditStation);
+            
+            if (station) {
+                station.skills = station.skills.concat(skills);
+                saveToStorage();
+                renderTable();
+                closeModal();
+                showStatus(`Added ${skills.length} skills to ${station.name}`, 'success');
+            }
+        }
+
+        // Show edit skills modal
+        function showEditSkillsModal(stationId) {
+            currentEditStation = stationId;
+            const station = STATIONS.find(s => s.id === stationId);
+            document.getElementById('editModalStationName').textContent = `Manage Skills: ${station.name}`;
+            
+            const skillsList = document.getElementById('skillsList');
+            skillsList.innerHTML = '';
+            
+            station.skills.forEach((skill, idx) => {
+                const li = document.createElement('li');
+                li.className = 'skill-item';
+                li.innerHTML = `
+                    <span>${skill}</span>
+                    <button class="btn btn-danger btn-small" onclick="removeSkill(${idx})">Remove</button>
+                `;
+                skillsList.appendChild(li);
+            });
+            
+            document.getElementById('editSkillsModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editSkillsModal').classList.remove('active');
+            currentEditStation = null;
+        }
+
+        function showAddMoreSkills() {
+            closeEditModal();
+            showAddSkillsModal(currentEditStation);
+        }
+
+        // Remove skill
+        function removeSkill(index) {
+            if (!confirm('Remove this skill? Progress data for this skill will be lost.')) return;
+            
+            const station = STATIONS.find(s => s.id === currentEditStation);
+            if (station) {
+                station.skills.splice(index, 1);
+                saveToStorage();
+                showEditSkillsModal(currentEditStation);
+                renderTable();
+            }
+        }
+
+        // Update department filter
+        function updateDepartmentFilter() {
+            const depts = [...new Set(employees.map(e => e.department))].sort();
+            const filter = document.getElementById('deptFilter');
+            filter.innerHTML = '<option value="all">All Departments (' + employees.length + ')</option>';
+            depts.forEach(dept => {
+                const count = employees.filter(e => e.department === dept).length;
+                filter.innerHTML += `<option value="${dept}">${dept} (${count})</option>`;
+            });
+        }
+
+        // Render table
+        function renderTable() {
+            renderTableHead();
+            renderTableBody();
+        }
+
+        function renderTableHead() {
+            const thead = document.getElementById('tableHead');
+            thead.innerHTML = '';
+            
+            // Main header row with station names
+            const headerRow = document.createElement('tr');
+            
+            // Employee name header
+            const empHeader = document.createElement('th');
+            empHeader.className = 'employee-name';
+            empHeader.textContent = 'Employee Name';
+            empHeader.rowSpan = 2;
+            headerRow.appendChild(empHeader);
+            
+            // Station headers
+            STATIONS.forEach(station => {
+                const isCollapsed = collapsedStations[station.id];
+                const th = document.createElement('th');
+                th.className = 'station-header';
+                
+                if (isCollapsed) {
+                    th.className += ' station-collapsed';
+                    th.textContent = station.name;
+                    th.rowSpan = 2;
+                } else {
+                    const skillCount = station.type === 'hierarchical' 
+                        ? station.substations.reduce((sum, sub) => sum + sub.skills.length, 0)
+                        : station.skills.length;
+                    
+                    th.colSpan = Math.max(skillCount, 1);
+                    th.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <span>${isCollapsed ? '▶' : '▼'}</span>
+                            <span>${station.name}</span>
+                        </div>
+                    `;
+                }
+                
+                th.onclick = () => toggleStation(station.id);
+                headerRow.appendChild(th);
+            });
+            
+            thead.appendChild(headerRow);
+            
+            // Skill headers row
+            const skillRow = document.createElement('tr');
+            
+            STATIONS.forEach(station => {
+                if (collapsedStations[station.id]) return;
+                
+                if (station.type === 'hierarchical') {
+                    // Automation substations
+                    station.substations.forEach(sub => {
+                        sub.skills.forEach(skill => {
+                            const th = document.createElement('th');
+                            th.className = 'skill-header';
+                            th.textContent = skill;
+                            skillRow.appendChild(th);
+                        });
+                    });
+                } else {
+                    // Standard stations
+                    if (station.skills.length === 0) {
+                        const th = document.createElement('th');
+                        th.className = 'add-skill-cell';
+                        th.innerHTML = `
+                            <button class="btn btn-secondary btn-small" onclick="showAddSkillsModal('${station.id}')">
+                                + Add Skills
+                            </button>
+                        `;
+                        skillRow.appendChild(th);
+                    } else {
+                        station.skills.forEach(skill => {
+                            const th = document.createElement('th');
+                            th.className = 'skill-header';
+                            th.innerHTML = `
+                                <div>${skill}</div>
+                                <button class="btn btn-small" style="background: #3B82F6; color: white; margin-top: 4px;" 
+                                        onclick="showEditSkillsModal('${station.id}')">Manage</button>
+                            `;
+                            skillRow.appendChild(th);
+                        });
+                    }
+                }
+            });
+            
+            thead.appendChild(skillRow);
+        }
+
+        function renderTableBody() {
+            const tbody = document.getElementById('tableBody');
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const deptFilter = document.getElementById('deptFilter').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            let filtered = employees.filter(emp => {
+                const matchesSearch = (emp.firstName + ' ' + emp.lastName).toLowerCase().includes(searchTerm);
+                const matchesDept = deptFilter === 'all' || emp.department === deptFilter;
+                return matchesSearch && matchesDept;
+            });
+            
+            filtered.sort((a, b) => {
+                if (sortBy === 'name') {
+                    return (a.lastName + a.firstName).localeCompare(b.lastName + b.firstName);
+                } else if (sortBy === 'department') {
+                    return a.department.localeCompare(b.department);
+                } else if (sortBy === 'hireDate') {
+                    return new Date(a.hireDate || 0) - new Date(b.hireDate || 0);
+                }
+                return 0;
+            });
+            
+            tbody.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                const row = tbody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 1000;
+                cell.style.textAlign = 'center';
+                cell.style.padding = '40px';
+                cell.style.color = '#999';
+                cell.textContent = employees.length === 0 
+                    ? 'Click "Import Employees" or "Load Sample" to begin'
+                    : 'No employees found matching filters';
+                document.getElementById('countBadge').textContent = '0 Employees';
+                return;
+            }
+            
+            filtered.forEach(emp => {
+                const row = tbody.insertRow();
+                
+                // Employee name cell
+                const nameCell = row.insertCell();
+                nameCell.className = 'employee-name';
+                nameCell.innerHTML = `
+                    <strong>${emp.lastName}, ${emp.firstName}</strong>
+                    <small>${emp.department || 'N/A'}</small>
+                `;
+                
+                // Skills cells for each station
+                STATIONS.forEach(station => {
+                    if (collapsedStations[station.id]) {
+                        const cell = row.insertCell();
+                        cell.style.background = '#f9fafb';
+                        cell.textContent = '-';
+                        return;
+                    }
+                    
+                    if (station.type === 'hierarchical') {
+                        // Automation skills
+                        station.substations.forEach(sub => {
+                            sub.skills.forEach((skill, skillIdx) => {
+                                const skillId = `${station.id}-${sub.id}-${skillIdx}`;
+                                addProgressCell(row, emp.id, skillId);
+                            });
+                        });
+                    } else {
+                        // Standard station skills
+                        if (station.skills.length === 0) {
+                            const cell = row.insertCell();
+                            cell.className = 'add-skill-cell';
+                            cell.textContent = '-';
+                        } else {
+                            station.skills.forEach((skill, skillIdx) => {
+                                const skillId = `${station.id}-${skillIdx}`;
+                                addProgressCell(row, emp.id, skillId);
+                            });
+                        }
+                    }
+                });
+            });
+            
+            document.getElementById('countBadge').textContent = `${filtered.length} Employees`;
+        }
+
+        function addProgressCell(row, empId, skillId) {
+            const cell = row.insertCell();
+            const key = `${empId}-${skillId}`;
+            const progress = trainingData[key] || 0;
+            
+            cell.className = `progress-cell progress-${progress}`;
+            
+            const select = document.createElement('select');
+            select.value = progress;
+            select.onchange = (e) => updateProgress(empId, skillId, parseInt(e.target.value));
+            
+            [0, 25, 50, 75, 100].forEach(val => {
+                const option = document.createElement('option');
+                option.value = val;
+                option.text = val + '%';
+                select.appendChild(option);
+            });
+            
+            cell.appendChild(select);
+        }
+
+        function updateProgress(empId, skillId, value) {
+            const key = `${empId}-${skillId}`;
+            trainingData[key] = value;
+            saveToStorage();
+            renderTable();
+        }
+
+        // Utility functions
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type} active`;
+            setTimeout(() => {
+                status.classList.remove('active');
+            }, 5000);
+        }
+
+        function downloadJSON(data, filename) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function getDateString() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>

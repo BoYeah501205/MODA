@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>On-Site Tab - MODA Prototype</title>
+    
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- XLSX for exports -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="onsite.css">
+    <link rel="stylesheet" href="onsite-part2.css">
+    <link rel="stylesheet" href="onsite-part3.css">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+        }
+        .app-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .app-header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .app-header .badge {
+            background: #C8102E;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .demo-banner {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 10px 24px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .demo-banner button {
+            margin-left: auto;
+            background: #92400e;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .demo-banner button:hover {
+            background: #78350f;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>
+            🏗️ On-Site Tab
+            <span class="badge">PROTOTYPE</span>
+        </h1>
+        <span>MODA Dashboard</span>
+    </div>
+    
+    <div class="demo-banner">
+        <span>⚠️ This is a standalone prototype. Data is stored in localStorage.</span>
+        <button onclick="loadSampleData()">Load Sample Data</button>
+        <button onclick="clearAllData()">Clear Data</button>
+    </div>
+    
+    <div id="root"></div>
+
+    <!-- Components -->
+    <script type="text/babel" src="OnSiteTab.jsx"></script>
+    <script type="text/babel" src="SetScheduleTab.jsx"></script>
+    <script type="text/babel" src="ReportsTab.jsx"></script>
+    
+    <script type="text/babel">
+        // Sample project data (simulating what would come from MODA)
+        const SAMPLE_PROJECTS = [
+            {
+                id: 'proj-001',
+                name: 'Alvarado Creek - Phase 1',
+                location: '4521 Alvarado Canyon Rd, San Diego, CA 92120',
+                status: 'Active',
+                modules: [
+                    { id: 'mod-001', serialNumber: '101', hitchBLM: 'B1L1M01', hitchUnit: '2BR-A', hitchRoom: 'Living', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                    { id: 'mod-002', serialNumber: '102', hitchBLM: 'B1L1M02', hitchUnit: '2BR-A', hitchRoom: 'Bedroom', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                    { id: 'mod-003', serialNumber: '103', hitchBLM: 'B1L1M03', hitchUnit: '1BR-B', hitchRoom: 'Living', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                    { id: 'mod-004', serialNumber: '104', hitchBLM: 'B1L2M01', hitchUnit: '2BR-A', hitchRoom: 'Living', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                    { id: 'mod-005', serialNumber: '105', hitchBLM: 'B1L2M02', hitchUnit: '2BR-A', hitchRoom: 'Bedroom', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                    { id: 'mod-006', serialNumber: '106', hitchBLM: 'B1L2M03', hitchUnit: 'Studio', hitchRoom: 'Main', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                ]
+            },
+            {
+                id: 'proj-002',
+                name: 'Phoenix Midtown - Building A',
+                location: '1200 N Central Ave, Phoenix, AZ 85004',
+                status: 'Active',
+                modules: [
+                    { id: 'mod-101', serialNumber: '201', hitchBLM: 'B1L1M01', hitchUnit: '1BR-A', hitchRoom: 'Living', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                    { id: 'mod-102', serialNumber: '202', hitchBLM: 'B1L1M02', hitchUnit: '1BR-A', hitchRoom: 'Bedroom', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                    { id: 'mod-103', serialNumber: '203', hitchBLM: 'B1L1M03', hitchUnit: '2BR-B', hitchRoom: 'Living', stageProgress: { 'Close-Up': { status: 'complete' } } },
+                ]
+            }
+        ];
+
+        const SAMPLE_EMPLOYEES = [
+            { id: 'emp-001', firstName: 'John', lastName: 'Martinez', role: 'Site Lead', active: true },
+            { id: 'emp-002', firstName: 'Sarah', lastName: 'Johnson', role: 'Crane Operator', active: true },
+            { id: 'emp-003', firstName: 'Mike', lastName: 'Chen', role: 'Field Tech', active: true },
+            { id: 'emp-004', firstName: 'Emily', lastName: 'Davis', role: 'Field Tech', active: true },
+            { id: 'emp-005', firstName: 'Carlos', lastName: 'Rodriguez', role: 'QA Inspector', active: true },
+            { id: 'emp-006', firstName: 'Lisa', lastName: 'Thompson', role: 'Site Coordinator', active: true },
+        ];
+
+        // Load sample data function
+        window.loadSampleData = function() {
+            const today = new Date().toISOString().split('T')[0];
+            const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+            const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+            
+            const sampleSchedules = [
+                {
+                    id: 'SET-DEMO-001',
+                    projectId: 'proj-001',
+                    projectName: 'Alvarado Creek - Phase 1',
+                    siteAddress: '4521 Alvarado Canyon Rd, San Diego, CA 92120',
+                    modules: [
+                        { moduleId: 'mod-001', serialNumber: '101', hitchBLM: 'B1L1M01', hitchUnit: '2BR-A', setStatus: 'Pending', photos: [], productionNotes: [{ note: 'Check corner drywall - minor repair needed', author: 'QA Team', date: '12/02' }] },
+                        { moduleId: 'mod-002', serialNumber: '102', hitchBLM: 'B1L1M02', hitchUnit: '2BR-A', setStatus: 'Pending', photos: [] },
+                        { moduleId: 'mod-003', serialNumber: '103', hitchBLM: 'B1L1M03', hitchUnit: '1BR-B', setStatus: 'Pending', photos: [] },
+                    ],
+                    scheduledDate: today,
+                    scheduledTime: '07:00',
+                    crew: [
+                        { employeeId: 'emp-001', name: 'John Martinez', role: 'Site Lead' },
+                        { employeeId: 'emp-003', name: 'Mike Chen', role: 'Field Tech' },
+                    ],
+                    crane: { company: 'Pacific Crane Services', operator: 'Bob Wilson', phone: '619-555-0123' },
+                    status: 'Scheduled',
+                    preSetNotes: 'Foundation inspection passed. Ready for set.',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: 'SET-DEMO-002',
+                    projectId: 'proj-001',
+                    projectName: 'Alvarado Creek - Phase 1',
+                    siteAddress: '4521 Alvarado Canyon Rd, San Diego, CA 92120',
+                    modules: [
+                        { moduleId: 'mod-004', serialNumber: '104', hitchBLM: 'B1L2M01', hitchUnit: '2BR-A', setStatus: 'Pending', photos: [] },
+                        { moduleId: 'mod-005', serialNumber: '105', hitchBLM: 'B1L2M02', hitchUnit: '2BR-A', setStatus: 'Pending', photos: [] },
+                    ],
+                    scheduledDate: tomorrow,
+                    scheduledTime: '07:30',
+                    crew: [
+                        { employeeId: 'emp-001', name: 'John Martinez', role: 'Site Lead' },
+                    ],
+                    crane: { company: 'Pacific Crane Services', operator: 'Bob Wilson', phone: '619-555-0123' },
+                    status: 'Scheduled',
+                    preSetNotes: '',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: 'SET-DEMO-003',
+                    projectId: 'proj-002',
+                    projectName: 'Phoenix Midtown - Building A',
+                    siteAddress: '1200 N Central Ave, Phoenix, AZ 85004',
+                    modules: [
+                        { moduleId: 'mod-101', serialNumber: '201', hitchBLM: 'B1L1M01', hitchUnit: '1BR-A', setStatus: 'Pending', photos: [] },
+                        { moduleId: 'mod-102', serialNumber: '202', hitchBLM: 'B1L1M02', hitchUnit: '1BR-A', setStatus: 'Pending', photos: [] },
+                    ],
+                    scheduledDate: nextWeek,
+                    scheduledTime: '06:00',
+                    crew: [],
+                    crane: { company: 'Arizona Crane Co', operator: '', phone: '' },
+                    status: 'Scheduled',
+                    preSetNotes: 'Early start due to heat.',
+                    createdAt: new Date().toISOString()
+                }
+            ];
+
+            const sampleIssues = [
+                {
+                    id: 'ISS-DEMO-001',
+                    setId: 'SET-DEMO-001',
+                    moduleId: 'mod-001',
+                    serialNumber: '101',
+                    projectId: 'proj-001',
+                    projectName: 'Alvarado Creek - Phase 1',
+                    issueType: 'Pre-existing (from factory)',
+                    severity: 'minor',
+                    trade: 'Drywall',
+                    description: 'Small dent in corner bead near entry door. Cosmetic only.',
+                    photos: [],
+                    status: 'Open',
+                    reportedBy: 'John Martinez',
+                    reportedAt: new Date().toISOString()
+                }
+            ];
+
+            localStorage.setItem('autovol_set_schedules', JSON.stringify(sampleSchedules));
+            localStorage.setItem('autovol_set_issues', JSON.stringify(sampleIssues));
+            
+            alert('Sample data loaded! Refreshing...');
+            window.location.reload();
+        };
+
+        window.clearAllData = function() {
+            if (confirm('Clear all On-Site data? This cannot be undone.')) {
+                localStorage.removeItem('autovol_set_schedules');
+                localStorage.removeItem('autovol_set_issues');
+                alert('Data cleared! Refreshing...');
+                window.location.reload();
+            }
+        };
+
+        // Main App
+        function App() {
+            return (
+                <OnSiteTab 
+                    projects={SAMPLE_PROJECTS}
+                    employees={SAMPLE_EMPLOYEES}
+                />
+            );
+        }
+
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

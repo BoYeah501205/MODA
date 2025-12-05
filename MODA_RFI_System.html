@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MODA - PreCon RFI Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --autovol-red: #C8102E;
+            --autovol-blue: #0057B8;
+            --autovol-charcoal: #2D3436;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --gray-700: #374151;
+            --gray-900: #111827;
+            --green-500: #10B981;
+            --red-500: #EF4444;
+            --yellow-500: #F59E0B;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+            min-height: 100vh;
+            color: var(--autovol-charcoal);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--autovol-red) 0%, #A01027 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(200, 16, 46, 0.3);
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 8px;
+        }
+
+        .stat-value.open { color: var(--autovol-red); }
+        .stat-value.pending { color: var(--yellow-500); }
+        .stat-value.closed { color: var(--green-500); }
+        .stat-value.overdue { color: #DC2626; }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--autovol-blue);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 10px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--autovol-red) 0%, #A01027 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(200, 16, 46, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--autovol-charcoal);
+            border: 2px solid var(--gray-300);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
+        .rfi-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .rfi-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            border-left: 4px solid var(--gray-300);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .rfi-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            transform: translateX(4px);
+        }
+
+        .rfi-card.status-open { border-left-color: var(--autovol-red); }
+        .rfi-card.status-pending { border-left-color: var(--yellow-500); }
+        .rfi-card.status-closed { border-left-color: var(--green-500); }
+        .rfi-card.status-overdue { border-left-color: #DC2626; }
+
+        .rfi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .rfi-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--autovol-red);
+        }
+
+        .rfi-badges {
+            display: flex;
+            gap: 8px;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.status-open { background: #FEE2E2; color: #991B1B; }
+        .badge.status-pending { background: #FEF3C7; color: #92400E; }
+        .badge.status-closed { background: #D1FAE5; color: #065F46; }
+        .badge.status-overdue { background: #FEE2E2; color: #7F1D1D; }
+
+        .badge.priority-high { background: #FEE2E2; color: #991B1B; }
+        .badge.priority-medium { background: #FEF3C7; color: #92400E; }
+        .badge.priority-low { background: #DBEAFE; color: #1E40AF; }
+
+        .rfi-subject {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--gray-900);
+        }
+
+        .rfi-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .rfi-meta-item {
+            font-size: 13px;
+        }
+
+        .rfi-meta-label {
+            color: var(--gray-500);
+            margin-bottom: 2px;
+        }
+
+        .rfi-meta-value {
+            color: var(--gray-900);
+            font-weight: 500;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--autovol-red) 0%, #A01027 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .form-group.required label::after {
+            content: ' *';
+            color: var(--autovol-red);
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--autovol-blue);
+            box-shadow: 0 0 0 3px rgba(0, 87, 184, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .file-upload {
+            border: 2px dashed var(--gray-300);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload:hover {
+            border-color: var(--autovol-blue);
+            background: rgba(0, 87, 184, 0.05);
+        }
+
+        .file-list {
+            margin-top: 12px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--gray-50);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .timeline {
+            margin-top: 24px;
+        }
+
+        .timeline-item {
+            padding: 16px;
+            border-left: 3px solid var(--gray-300);
+            margin-left: 20px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--autovol-blue);
+            border: 3px solid white;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .timeline-author {
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .timeline-date {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .timeline-content {
+            color: var(--gray-700);
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .modal-content {
+                margin: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📋 PreCon RFI Management</h1>
+            <p>Request for Information • Timeline Tracking • Module Integration</p>
+        </div>
+
+        <!-- Stats Dashboard -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value open" id="statOpen">0</div>
+                <div class="stat-label">Open RFIs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value pending" id="statPending">0</div>
+                <div class="stat-label">Pending Response</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value overdue" id="statOverdue">0</div>
+                <div class="stat-label">Overdue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value closed" id="statClosed">0</div>
+                <div class="stat-label">Closed This Month</div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Search RFI number, subject, module...">
+            </div>
+            <div class="filter-group">
+                <select id="filterStatus">
+                    <option value="">All Statuses</option>
+                    <option value="Open">Open</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Closed">Closed</option>
+                    <option value="Overdue">Overdue</option>
+                </select>
+                <select id="filterPriority">
+                    <option value="">All Priorities</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+                <select id="filterProject">
+                    <option value="">All Projects</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="showCreateModal()">
+                ➕ New RFI
+            </button>
+        </div>
+
+        <!-- RFI List -->
+        <div class="rfi-grid" id="rfiGrid"></div>
+
+        <!-- Create/Edit RFI Modal -->
+        <div class="modal" id="rfiModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Create New RFI</h2>
+                    <button class="modal-close" onclick="closeModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="rfiForm" onsubmit="saveRFI(event)">
+                        <!-- Project -->
+                        <div class="form-group required">
+                            <label>Project</label>
+                            <select id="rfiProject" required>
+                                <option value="">Select Project...</option>
+                            </select>
+                        </div>
+
+                        <!-- Subject -->
+                        <div class="form-group required">
+                            <label>Subject</label>
+                            <input type="text" id="rfiSubject" placeholder="Brief description of the issue" required>
+                        </div>
+
+                        <!-- Question -->
+                        <div class="form-group required">
+                            <label>Question / Request</label>
+                            <textarea id="rfiQuestion" placeholder="Detailed description of what needs clarification..." required></textarea>
+                        </div>
+
+                        <!-- Module/BLM -->
+                        <div class="form-group">
+                            <label>Related Module (BLM ID)</label>
+                            <input type="text" id="rfiModule" placeholder="e.g., A-H102, B1L2M01">
+                        </div>
+
+                        <!-- Assigned To -->
+                        <div class="form-group required">
+                            <label>Assigned To</label>
+                            <select id="rfiAssignedTo" required>
+                                <option value="">Select Person...</option>
+                            </select>
+                        </div>
+
+                        <!-- Priority -->
+                        <div class="form-group required">
+                            <label>Priority</label>
+                            <select id="rfiPriority" required>
+                                <option value="High">🔴 High - Impacts Schedule</option>
+                                <option value="Medium" selected>🟡 Medium - Normal</option>
+                                <option value="Low">🟢 Low - Non-Critical</option>
+                            </select>
+                        </div>
+
+                        <!-- Due Date -->
+                        <div class="form-group required">
+                            <label>Due Date</label>
+                            <input type="date" id="rfiDueDate" required>
+                        </div>
+
+                        <!-- CC Recipients -->
+                        <div class="form-group">
+                            <label>CC Recipients (comma separated emails)</label>
+                            <input type="text" id="rfiCC" placeholder="email1@example.com, email2@example.com">
+                        </div>
+
+                        <!-- Attachments -->
+                        <div class="form-group">
+                            <label>Attachments</label>
+                            <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+                                <div>📎 Click to upload files</div>
+                                <div style="font-size: 12px; color: var(--gray-500); margin-top: 8px;">
+                                    Photos, PDFs, Drawings (Max 50MB each)
+                                </div>
+                            </div>
+                            <input type="file" id="fileInput" multiple accept="image/*,.pdf,.dwg,.docx,.xlsx" style="display: none;" onchange="handleFiles(this.files)">
+                            <div class="file-list" id="fileList"></div>
+                        </div>
+
+                        <!-- Submit -->
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
+                            💾 Create RFI
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- View RFI Modal -->
+        <div class="modal" id="viewModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="viewRFINumber"></h2>
+                    <button class="modal-close" onclick="closeViewModal()">×</button>
+                </div>
+                <div class="modal-body" id="viewModalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Storage
+        let rfis = [];
+        let projects = [];
+        let employees = [];
+        let attachments = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            setupEventListeners();
+            renderRFIs();
+            updateStats();
+            populateFilters();
+        });
+
+        function loadData() {
+            // Load RFIs
+            rfis = JSON.parse(localStorage.getItem('moda_rfis') || '[]');
+            
+            // Load or create sample projects
+            projects = JSON.parse(localStorage.getItem('moda_projects') || JSON.stringify([
+                { id: 1, name: 'The Maverick - Boise', status: 'Active', client: 'Spectrum Development' },
+                { id: 2, name: 'Park Place Apartments', status: 'Active', client: 'Urban Ventures' },
+                { id: 3, name: 'Riverside Commons', status: 'Active', client: 'Crestline Builders' }
+            ]));
+            
+            // Load or create sample employees
+            employees = JSON.parse(localStorage.getItem('moda_employees') || JSON.stringify([
+                { id: 1, firstName: 'Curtis', lastName: 'Fletcher', email: 'cfletcher@autovol.com', jobTitle: 'CTO', department: 'Engineering' },
+                { id: 2, firstName: 'Rick', lastName: 'Murdock', email: 'rmurdock@autovol.com', jobTitle: 'CEO', department: 'Executive' },
+                { id: 3, firstName: 'Trevor', lastName: 'Fletcher', email: 'tfletcher@autovol.com', jobTitle: 'Production Manager', department: 'Production' },
+                { id: 4, firstName: 'Stephanie', lastName: 'Schoonover', email: 'sschoonover@autovol.com', jobTitle: 'Asst. Production Manager', department: 'Production' }
+            ]));
+
+            // Create sample RFIs if none exist
+            if (rfis.length === 0) {
+                createSampleRFIs();
+            }
+        }
+
+        function createSampleRFIs() {
+            const samples = [
+                {
+                    project: 'The Maverick - Boise',
+                    subject: 'Wall Framing Height Clarification',
+                    question: 'Drawing A-102 shows wall height at 9\'-2" but specification calls for 9\'-0". Which dimension should we follow for modules B1L2M01-08?',
+                    module: 'B1L2M01',
+                    assignedTo: 'Curtis Fletcher',
+                    priority: 'High',
+                    dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    cc: 'rmurdock@autovol.com'
+                },
+                {
+                    project: 'Park Place Apartments',
+                    subject: 'MEP Coordination - HVAC/Plumbing Conflict',
+                    question: 'HVAC ductwork conflicts with plumbing drain in unit stack. Need coordination drawings for resolution.',
+                    module: 'A-H205',
+                    assignedTo: 'Rick Murdock',
+                    priority: 'High',
+                    dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    cc: 'cfletcher@autovol.com, tfletcher@autovol.com'
+                }
+            ];
+
+            samples.forEach(sample => {
+                const rfi = {
+                    id: generateRFINumber(),
+                    ...sample,
+                    status: 'Open',
+                    createdDate: new Date().toISOString(),
+                    createdBy: 'Trevor Fletcher',
+                    responses: [],
+                    attachments: []
+                };
+                rfis.push(rfi);
+            });
+
+            localStorage.setItem('moda_rfis', JSON.stringify(rfis));
+        }
+
+        function generateRFINumber() {
+            const year = new Date().getFullYear();
+            const existingRFIs = rfis.filter(r => r.id.startsWith(`RFI-${year}-`));
+            const nextNum = existingRFIs.length + 1;
+            return `RFI-${year}-${String(nextNum).padStart(3, '0')}`;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', filterRFIs);
+            document.getElementById('filterStatus').addEventListener('change', filterRFIs);
+            document.getElementById('filterPriority').addEventListener('change', filterRFIs);
+            document.getElementById('filterProject').addEventListener('change', filterRFIs);
+        }
+
+        function populateFilters() {
+            // Populate project filter
+            const projectFilter = document.getElementById('filterProject');
+            const projectSelect = document.getElementById('rfiProject');
+            
+            projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.name;
+                option.textContent = project.name;
+                projectFilter.appendChild(option.cloneNode(true));
+                projectSelect.appendChild(option);
+            });
+
+            // Populate employee select
+            const assigneeSelect = document.getElementById('rfiAssignedTo');
+            employees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = `${emp.firstName} ${emp.lastName}`;
+                option.textContent = `${emp.firstName} ${emp.lastName} - ${emp.jobTitle}`;
+                assigneeSelect.appendChild(option);
+            });
+        }
+
+        function renderRFIs() {
+            const grid = document.getElementById('rfiGrid');
+            const filtered = getFilteredRFIs();
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; padding: 40px; color: var(--gray-500);">No RFIs match your filters</p>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(rfi => {
+                const status = getRFIStatus(rfi);
+                return `
+                    <div class="rfi-card status-${status.toLowerCase()}" onclick="viewRFI('${rfi.id}')">
+                        <div class="rfi-header">
+                            <div class="rfi-number">${rfi.id}</div>
+                            <div class="rfi-badges">
+                                <span class="badge status-${status.toLowerCase()}">${status}</span>
+                                <span class="badge priority-${rfi.priority.toLowerCase()}">${rfi.priority}</span>
+                            </div>
+                        </div>
+                        <div class="rfi-subject">${rfi.subject}</div>
+                        <div class="rfi-meta">
+                            <div class="rfi-meta-item">
+                                <div class="rfi-meta-label">Project</div>
+                                <div class="rfi-meta-value">${rfi.project}</div>
+                            </div>
+                            <div class="rfi-meta-item">
+                                <div class="rfi-meta-label">Assigned To</div>
+                                <div class="rfi-meta-value">${rfi.assignedTo}</div>
+                            </div>
+                            <div class="rfi-meta-item">
+                                <div class="rfi-meta-label">Due Date</div>
+                                <div class="rfi-meta-value">${new Date(rfi.dueDate).toLocaleDateString()}</div>
+                            </div>
+                            ${rfi.module ? `
+                            <div class="rfi-meta-item">
+                                <div class="rfi-meta-label">Module</div>
+                                <div class="rfi-meta-value">${rfi.module}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getRFIStatus(rfi) {
+            if (rfi.status === 'Closed') return 'Closed';
+            if (new Date(rfi.dueDate) < new Date() && rfi.status !== 'Closed') return 'Overdue';
+            if (rfi.responses && rfi.responses.length > 0) return 'Pending';
+            return 'Open';
+        }
+
+        function getFilteredRFIs() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('filterStatus').value;
+            const priorityFilter = document.getElementById('filterPriority').value;
+            const projectFilter = document.getElementById('filterProject').value;
+
+            return rfis.filter(rfi => {
+                const status = getRFIStatus(rfi);
+                const matchesSearch = !search || 
+                    rfi.id.toLowerCase().includes(search) ||
+                    rfi.subject.toLowerCase().includes(search) ||
+                    (rfi.module && rfi.module.toLowerCase().includes(search));
+                const matchesStatus = !statusFilter || status === statusFilter;
+                const matchesPriority = !priorityFilter || rfi.priority === priorityFilter;
+                const matchesProject = !projectFilter || rfi.project === projectFilter;
+
+                return matchesSearch && matchesStatus && matchesPriority && matchesProject;
+            });
+        }
+
+        function filterRFIs() {
+            renderRFIs();
+            updateStats();
+        }
+
+        function updateStats() {
+            const open = rfis.filter(r => getRFIStatus(r) === 'Open').length;
+            const pending = rfis.filter(r => getRFIStatus(r) === 'Pending').length;
+            const overdue = rfis.filter(r => getRFIStatus(r) === 'Overdue').length;
+            
+            const thisMonth = new Date();
+            thisMonth.setDate(1);
+            const closed = rfis.filter(r => 
+                r.status === 'Closed' && 
+                new Date(r.dateClosed) >= thisMonth
+            ).length;
+
+            document.getElementById('statOpen').textContent = open;
+            document.getElementById('statPending').textContent = pending;
+            document.getElementById('statOverdue').textContent = overdue;
+            document.getElementById('statClosed').textContent = closed;
+        }
+
+        function showCreateModal() {
+            document.getElementById('modalTitle').textContent = 'Create New RFI';
+            document.getElementById('rfiForm').reset();
+            document.getElementById('fileList').innerHTML = '';
+            attachments = [];
+            document.getElementById('rfiModal').classList.add('active');
+
+            // Set default due date to 7 days from now
+            const defaultDue = new Date();
+            defaultDue.setDate(defaultDue.getDate() + 7);
+            document.getElementById('rfiDueDate').valueAsDate = defaultDue;
+        }
+
+        function closeModal() {
+            document.getElementById('rfiModal').classList.remove('active');
+        }
+
+        function closeViewModal() {
+            document.getElementById('viewModal').classList.remove('active');
+        }
+
+        function handleFiles(files) {
+            const fileList = document.getElementById('fileList');
+            
+            Array.from(files).forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    attachments.push({
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        data: e.target.result
+                    });
+
+                    const item = document.createElement('div');
+                    item.className = 'file-item';
+                    item.innerHTML = `
+                        <span>📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
+                        <button type="button" onclick="removeFile(${attachments.length - 1})" style="background: none; border: none; color: var(--red-500); cursor: pointer;">×</button>
+                    `;
+                    fileList.appendChild(item);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removeFile(index) {
+            attachments.splice(index, 1);
+            document.getElementById('fileList').children[index].remove();
+        }
+
+        function saveRFI(event) {
+            event.preventDefault();
+
+            const rfi = {
+                id: generateRFINumber(),
+                project: document.getElementById('rfiProject').value,
+                subject: document.getElementById('rfiSubject').value,
+                question: document.getElementById('rfiQuestion').value,
+                module: document.getElementById('rfiModule').value,
+                assignedTo: document.getElementById('rfiAssignedTo').value,
+                priority: document.getElementById('rfiPriority').value,
+                dueDate: document.getElementById('rfiDueDate').value,
+                cc: document.getElementById('rfiCC').value,
+                status: 'Open',
+                createdDate: new Date().toISOString(),
+                createdBy: 'Trevor Fletcher',
+                responses: [],
+                attachments: [...attachments]
+            };
+
+            rfis.push(rfi);
+            localStorage.setItem('moda_rfis', JSON.stringify(rfis));
+
+            closeModal();
+            renderRFIs();
+            updateStats();
+
+            alert(`✅ RFI ${rfi.id} created successfully!`);
+        }
+
+        function viewRFI(rfiId) {
+            const rfi = rfis.find(r => r.id === rfiId);
+            if (!rfi) return;
+
+            const status = getRFIStatus(rfi);
+            const modal = document.getElementById('viewModal');
+            document.getElementById('viewRFINumber').textContent = rfi.id;
+            
+            const body = document.getElementById('viewModalBody');
+            body.innerHTML = `
+                <div style="margin-bottom: 24px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <span class="badge status-${status.toLowerCase()}">${status}</span>
+                        <span class="badge priority-${rfi.priority.toLowerCase()}">${rfi.priority} Priority</span>
+                    </div>
+                    <h3 style="font-size: 20px; margin-bottom: 16px;">${rfi.subject}</h3>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                        <div>
+                            <div style="color: var(--gray-500); font-size: 13px; margin-bottom: 4px;">Project</div>
+                            <div style="font-weight: 600;">${rfi.project}</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--gray-500); font-size: 13px; margin-bottom: 4px;">Assigned To</div>
+                            <div style="font-weight: 600;">${rfi.assignedTo}</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--gray-500); font-size: 13px; margin-bottom: 4px;">Due Date</div>
+                            <div style="font-weight: 600;">${new Date(rfi.dueDate).toLocaleDateString()}</div>
+                        </div>
+                        ${rfi.module ? `
+                        <div>
+                            <div style="color: var(--gray-500); font-size: 13px; margin-bottom: 4px;">Related Module</div>
+                            <div style="font-weight: 600;">${rfi.module}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div style="background: var(--gray-50); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="color: var(--gray-500); font-size: 13px; margin-bottom: 8px; font-weight: 600;">QUESTION</div>
+                        <div style="line-height: 1.6;">${rfi.question}</div>
+                    </div>
+
+                    ${rfi.attachments && rfi.attachments.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-weight: 600; margin-bottom: 12px;">Attachments (${rfi.attachments.length})</div>
+                        ${rfi.attachments.map(att => `
+                            <div class="file-item">
+                                <span>📎 ${att.name}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                        <button class="btn btn-primary" onclick="addResponse('${rfiId}')">💬 Add Response</button>
+                        ${status !== 'Closed' ? `
+                        <button class="btn btn-secondary" onclick="closeRFI('${rfiId}')">✅ Close RFI</button>
+                        ` : ''}
+                    </div>
+                </div>
+
+                ${rfi.responses && rfi.responses.length > 0 ? `
+                <div class="timeline">
+                    <h3 style="font-size: 18px; margin-bottom: 16px;">Response Timeline</h3>
+                    ${rfi.responses.map(resp => `
+                        <div class="timeline-item">
+                            <div class="timeline-header">
+                                <div class="timeline-author">${resp.author}</div>
+                                <div class="timeline-date">${new Date(resp.date).toLocaleString()}</div>
+                            </div>
+                            <div class="timeline-content">${resp.text}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+            `;
+
+            modal.classList.add('active');
+        }
+
+        function addResponse(rfiId) {
+            const text = prompt('Enter your response:');
+            if (!text) return;
+
+            const rfi = rfis.find(r => r.id === rfiId);
+            if (!rfi.responses) rfi.responses = [];
+
+            rfi.responses.push({
+                author: 'Trevor Fletcher',
+                date: new Date().toISOString(),
+                text: text
+            });
+
+            if (rfi.status === 'Open') {
+                rfi.status = 'Pending';
+            }
+
+            localStorage.setItem('moda_rfis', JSON.stringify(rfis));
+            viewRFI(rfiId);
+            renderRFIs();
+            updateStats();
+        }
+
+        function closeRFI(rfiId) {
+            if (!confirm('Are you sure you want to close this RFI?')) return;
+
+            const rfi = rfis.find(r => r.id === rfiId);
+            rfi.status = 'Closed';
+            rfi.dateClosed = new Date().toISOString();
+
+            localStorage.setItem('moda_rfis', JSON.stringify(rfis));
+            closeViewModal();
+            renderRFIs();
+            updateStats();
+        }
+    </script>
+</body>
+</html>
