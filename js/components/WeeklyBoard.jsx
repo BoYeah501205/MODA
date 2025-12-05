@@ -1171,12 +1171,11 @@ function WeeklyBoardTab({
         );
     };
     
-    // Render date marker column (sticky left side) with section headers
+    // Render date marker column (sticky left side) - aligned with station columns
     const renderDateMarkerColumn = () => {
         // Get module counts for each section from the first station
         const firstStation = productionStages[0];
         const { previous, current, next } = firstStation ? getModulesForStation(firstStation) : { previous: [], current: [], next: [] };
-        const prevWeekDate = getPreviousWeekLastDay();
         
         return (
             <div className="flex-shrink-0 w-28 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 12px rgba(0,0,0,0.08)' }}>
@@ -1191,45 +1190,25 @@ function WeeklyBoardTab({
                     <span className="text-gray-400">—</span>
                 </div>
                 
-                {/* Day markers with section headers */}
+                {/* Row markers - aligned with module cards */}
                 <div className="border-l border-b border-gray-200 rounded-bl-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     
-                    {/* Previous Week Section Header */}
+                    {/* Previous Week row markers */}
                     {previous.length > 0 && (
                         <>
-                            <div className="bg-red-100 border-2 border-red-300 rounded-lg px-3 py-2 text-center">
-                                <div className="text-xs font-bold text-red-700">PREVIOUS WEEK</div>
-                                {prevWeekDate && (
-                                    <div className="text-xs text-red-600">
-                                        {prevWeekDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                    </div>
-                                )}
-                            </div>
-                            {/* Previous week module placeholders */}
                             {previous.map((_, idx) => (
                                 <div 
                                     key={`prev-${idx}`}
-                                    className="rounded-xl border-2 border-red-300 bg-red-50/50 flex flex-col items-center justify-center text-center"
+                                    className="rounded-xl border-2 border-red-300 bg-red-50 flex flex-col items-center justify-center text-center"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
-                                    <div className="text-sm text-red-400">Prev #{idx + 1}</div>
+                                    <div className="text-xs font-bold text-red-600">PREV</div>
+                                    <div className="text-sm font-medium text-red-500">#{idx + 1}</div>
                                 </div>
                             ))}
                             {/* Divider */}
                             <div className="border-t-2 border-dashed border-red-300 my-1"></div>
                         </>
-                    )}
-                    
-                    {/* Current Week Section Header (only if previous exists) */}
-                    {previous.length > 0 && current.length > 0 && (
-                        <div className="bg-blue-100 border-2 border-blue-300 rounded-lg px-3 py-2 text-center">
-                            <div className="text-xs font-bold text-blue-700">THIS WEEK</div>
-                            <div className="text-xs text-blue-600">
-                                {currentWeek?.weekStart && new Date(currentWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                {' - '}
-                                {currentWeek?.weekEnd && new Date(currentWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </div>
-                        </div>
                     )}
                     
                     {/* Current week day markers */}
@@ -1239,28 +1218,24 @@ function WeeklyBoardTab({
                             className="rounded-xl border-2 border-autovol-teal bg-white flex flex-col items-center justify-center text-center"
                             style={{ height: `${CARD_HEIGHT}px` }}
                         >
-                            <div className="font-bold text-xl text-autovol-navy">{dayInfo.label}</div>
-                            <div className="text-sm text-gray-600">{dayInfo.monthStr} {dayInfo.dayNum}</div>
-                            <div className="text-xs text-gray-400 mt-1">#{dayInfo.slotNum}</div>
+                            <div className="font-bold text-lg text-autovol-navy">{dayInfo.label}</div>
+                            <div className="text-xs text-gray-600">{dayInfo.monthStr} {dayInfo.dayNum}</div>
                         </div>
                     ))}
                     
-                    {/* Next Week Section */}
+                    {/* Next Week row markers */}
                     {next.length > 0 && (
                         <>
                             {/* Divider */}
                             <div className="border-t-2 border-dashed border-green-300 my-1"></div>
-                            <div className="bg-green-100 border-2 border-green-300 rounded-lg px-3 py-2 text-center">
-                                <div className="text-xs font-bold text-green-700">NEXT WEEK PREVIEW</div>
-                            </div>
-                            {/* Next week module placeholders */}
                             {next.map((_, idx) => (
                                 <div 
                                     key={`next-${idx}`}
-                                    className="rounded-xl border-2 border-green-300 bg-green-50/50 flex flex-col items-center justify-center text-center"
+                                    className="rounded-xl border-2 border-green-300 bg-green-50 flex flex-col items-center justify-center text-center"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
-                                    <div className="text-sm text-green-400">Next #{idx + 1}</div>
+                                    <div className="text-xs font-bold text-green-600">NEXT</div>
+                                    <div className="text-sm font-medium text-green-500">#{idx + 1}</div>
                                 </div>
                             ))}
                         </>
