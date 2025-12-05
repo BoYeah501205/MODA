@@ -676,8 +676,8 @@ function WeeklyBoardTab({
     const boardRef = useRef(null);
     const longPressTimer = useRef(null);
     
-    // Generate unique key for module-station combination
-    const getSelectionKey = (moduleId, stationId) => `${moduleId}-${stationId}`;
+    // Generate unique key for module-station combination (use | as separator since IDs may contain dashes)
+    const getSelectionKey = (moduleId, stationId) => `${moduleId}|${stationId}`;
     
     // Check if a module-station is selected
     const isSelected = (moduleId, stationId) => selectedModules.has(getSelectionKey(moduleId, stationId));
@@ -738,9 +738,11 @@ function WeeklyBoardTab({
     const bulkUpdateProgress = (newProgress) => {
         if (!setProjects || selectedModules.size === 0) return;
         
-        // Parse selection keys to get moduleId and stationId
+        // Parse selection keys to get moduleId and stationId (using | separator)
         const updates = Array.from(selectedModules).map(key => {
-            const [moduleId, stationId] = key.split('-');
+            const separatorIdx = key.indexOf('|');
+            const moduleId = key.substring(0, separatorIdx);
+            const stationId = key.substring(separatorIdx + 1);
             return { moduleId, stationId };
         });
         
@@ -1113,10 +1115,9 @@ function WeeklyBoardTab({
     const dayLabels = getDayLabels();
     
     // Render station column with previous/current/next sections
-    const renderStationColumn = (station, isFirstColumn = false) => {
+    const renderStationColumn = (station) => {
         const { previous, current, next } = getModulesForStation(station);
         const startingModule = getStationStartingModule(station.id);
-        const prevWeekDate = getPreviousWeekLastDay();
         const hasModules = previous.length > 0 || current.length > 0 || next.length > 0;
         
         return (
@@ -1143,19 +1144,9 @@ function WeeklyBoardTab({
                         </div>
                     ) : (
                         <>
-                            {/* Previous Week Section */}
+                            {/* Previous Week Section - modules only, headers are in date column */}
                             {previous.length > 0 && (
                                 <>
-                                    {isFirstColumn && (
-                                        <div className="bg-red-100 border-2 border-red-300 rounded-lg px-3 py-2 text-center">
-                                            <div className="text-xs font-bold text-red-700">PREVIOUS WEEK</div>
-                                            {prevWeekDate && (
-                                                <div className="text-xs text-red-600">
-                                                    {prevWeekDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
                                     {previous.map(module => renderModuleCard(module, station, 'previous'))}
                                     {/* Divider between previous and current */}
                                     <div className="border-t-2 border-dashed border-red-300 my-1"></div>
@@ -1163,32 +1154,13 @@ function WeeklyBoardTab({
                             )}
                             
                             {/* Current Week Section */}
-                            {current.length > 0 && (
-                                <>
-                                    {isFirstColumn && previous.length > 0 && (
-                                        <div className="bg-blue-100 border-2 border-blue-300 rounded-lg px-3 py-2 text-center">
-                                            <div className="text-xs font-bold text-blue-700">THIS WEEK</div>
-                                            <div className="text-xs text-blue-600">
-                                                {currentWeek?.weekStart && new Date(currentWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                                {' - '}
-                                                {currentWeek?.weekEnd && new Date(currentWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {current.map(module => renderModuleCard(module, station, 'current'))}
-                                </>
-                            )}
+                            {current.map(module => renderModuleCard(module, station, 'current'))}
                             
                             {/* Next Week Preview Section */}
                             {next.length > 0 && (
                                 <>
                                     {/* Divider between current and next */}
                                     <div className="border-t-2 border-dashed border-green-300 my-1"></div>
-                                    {isFirstColumn && (
-                                        <div className="bg-green-100 border-2 border-green-300 rounded-lg px-3 py-2 text-center">
-                                            <div className="text-xs font-bold text-green-700">NEXT WEEK PREVIEW</div>
-                                        </div>
-                                    )}
                                     {next.map(module => renderModuleCard(module, station, 'next'))}
                                 </>
                             )}
@@ -1434,7 +1406,7 @@ function WeeklyBoardTab({
                         {renderDateMarkerColumn()}
                         
                         {/* Station Columns */}
-                        {productionStages.map((station, idx) => renderStationColumn(station, idx === 0))}
+                        {productionStages.map(station => renderStationColumn(station))}
                     </div>
                 </div>
             </div>
