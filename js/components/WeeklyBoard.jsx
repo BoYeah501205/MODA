@@ -827,7 +827,12 @@ function WeeklyBoardTab({
         if (!startingModule) return { previous: [], current: [], next: [] };
         
         const lineBalance = getLineBalance();
-        const startIdx = allModules.findIndex(m => m.id === startingModule.id);
+        
+        // Find the starting module index - try by ID first, then by serial number
+        let startIdx = allModules.findIndex(m => m.id === startingModule.id);
+        if (startIdx === -1) {
+            startIdx = allModules.findIndex(m => m.serialNumber === startingModule.serialNumber);
+        }
         if (startIdx === -1) return { previous: [], current: [], next: [] };
         
         // Helper to add status info to modules
@@ -845,13 +850,14 @@ function WeeklyBoardTab({
         };
         
         // Previous week: 5 modules before starting module (or fewer if at beginning)
-        const prevStartIdx = Math.max(0, startIdx - 5);
+        const prevCount = Math.min(5, startIdx); // Can't go negative
+        const prevStartIdx = startIdx - prevCount;
         const previousModules = allModules.slice(prevStartIdx, startIdx);
         
         // Current week: line balance modules
         const currentModules = allModules.slice(startIdx, startIdx + lineBalance);
         
-        // Next week preview: 5 modules after current week
+        // Next week preview: 5 modules after current week (or fewer if at end)
         const nextStartIdx = startIdx + lineBalance;
         const nextModules = allModules.slice(nextStartIdx, nextStartIdx + 5);
         
