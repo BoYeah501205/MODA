@@ -1114,6 +1114,30 @@ function WeeklyBoardTab({
     
     const dayLabels = getDayLabels();
     
+    // Get reference counts from first station (for grid alignment)
+    const firstStation = productionStages[0];
+    const firstStationModules = firstStation ? getModulesForStation(firstStation) : { previous: [], current: [], next: [] };
+    const expectedPrevCount = firstStationModules.previous.length;
+    const expectedNextCount = firstStationModules.next.length;
+    
+    // Render placeholder card for empty slots
+    const renderPlaceholderCard = (weekSection) => {
+        const borderClass = weekSection === 'previous' ? 'border-red-200' : 
+                           weekSection === 'next' ? 'border-green-200' : 'border-gray-200';
+        const bgClass = weekSection === 'previous' ? 'bg-red-50/30' : 
+                       weekSection === 'next' ? 'bg-green-50/30' : 'bg-gray-50';
+        return (
+            <div 
+                className={`relative rounded-xl p-4 ${bgClass} border-2 border-dashed ${borderClass}`}
+                style={{ height: `${CARD_HEIGHT}px` }}
+            >
+                <div className="flex items-center justify-center h-full text-gray-300 text-sm">
+                    —
+                </div>
+            </div>
+        );
+    };
+    
     // Render station column with previous/current/next sections
     const renderStationColumn = (station) => {
         const { previous, current, next } = getModulesForStation(station);
@@ -1138,16 +1162,23 @@ function WeeklyBoardTab({
                 
                 {/* Module Cards Container */}
                 <div className="border-x border-b border-gray-200 rounded-b-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {!hasModules ? (
+                    {!hasModules && expectedPrevCount === 0 && expectedNextCount === 0 ? (
                         <div className="text-sm text-gray-400 text-center py-8">
                             No modules
                         </div>
                     ) : (
                         <>
-                            {/* Previous Week Section - modules only, headers are in date column */}
-                            {previous.length > 0 && (
+                            {/* Previous Week Section - pad with placeholders if needed */}
+                            {expectedPrevCount > 0 && (
                                 <>
-                                    {previous.map(module => renderModuleCard(module, station, 'previous'))}
+                                    {Array.from({ length: expectedPrevCount }).map((_, idx) => (
+                                        <React.Fragment key={`prev-${idx}`}>
+                                            {previous[idx] 
+                                                ? renderModuleCard(previous[idx], station, 'previous')
+                                                : renderPlaceholderCard('previous')
+                                            }
+                                        </React.Fragment>
+                                    ))}
                                     {/* Divider between previous and current */}
                                     <div className="border-t-2 border-dashed border-red-300 my-1"></div>
                                 </>
@@ -1156,12 +1187,19 @@ function WeeklyBoardTab({
                             {/* Current Week Section */}
                             {current.map(module => renderModuleCard(module, station, 'current'))}
                             
-                            {/* Next Week Preview Section */}
-                            {next.length > 0 && (
+                            {/* Next Week Preview Section - pad with placeholders if needed */}
+                            {expectedNextCount > 0 && (
                                 <>
                                     {/* Divider between current and next */}
                                     <div className="border-t-2 border-dashed border-green-300 my-1"></div>
-                                    {next.map(module => renderModuleCard(module, station, 'next'))}
+                                    {Array.from({ length: expectedNextCount }).map((_, idx) => (
+                                        <React.Fragment key={`next-${idx}`}>
+                                            {next[idx] 
+                                                ? renderModuleCard(next[idx], station, 'next')
+                                                : renderPlaceholderCard('next')
+                                            }
+                                        </React.Fragment>
+                                    ))}
                                 </>
                             )}
                         </>
@@ -1173,9 +1211,8 @@ function WeeklyBoardTab({
     
     // Render date marker column (sticky left side) - aligned with station columns
     const renderDateMarkerColumn = () => {
-        // Get module counts for each section from the first station
-        const firstStation = productionStages[0];
-        const { previous, current, next } = firstStation ? getModulesForStation(firstStation) : { previous: [], current: [], next: [] };
+        // Use the same reference counts as station columns
+        const { previous, current, next } = firstStationModules;
         
         return (
             <div className="flex-shrink-0 w-28 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 12px rgba(0,0,0,0.08)' }}>
