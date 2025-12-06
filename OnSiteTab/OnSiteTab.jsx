@@ -192,17 +192,250 @@ function useSetIssues() {
     };
 }
 
+// Hook for managing Daily Site Reports
+function useDailySiteReports() {
+    const [reports, setReports] = useState(() => {
+        const saved = localStorage.getItem('autovol_daily_site_reports');
+        return saved ? JSON.parse(saved) : [];
+    });
+
+    useEffect(() => {
+        localStorage.setItem('autovol_daily_site_reports', JSON.stringify(reports));
+    }, [reports]);
+
+    // Create a new daily report (or get existing for date)
+    const createOrGetReport = (projectId, date) => {
+        const dateStr = date || new Date().toISOString().split('T')[0];
+        const existing = reports.find(r => r.projectId === projectId && r.date === dateStr);
+        if (existing) return existing;
+
+        const newReport = {
+            id: `RPT-${Date.now()}`,
+            date: dateStr,
+            projectId,
+            reportType: 'set-day', // set-day, weather-day, non-work
+            
+            // Header - Auto-filled where possible
+            autovolRep: '',
+            generalContractor: '',
+            
+            // Weather (editable)
+            weather: {
+                tempAM: null,
+                tempPM: null,
+                precipitation: 'none',
+                wind: 'Light',
+                isWeatherDay: false,
+                notes: ''
+            },
+            
+            // Progress Tracking
+            progress: {
+                unitsSetToday: 0,
+                unitsSetTotal: 0,
+                unitsRemaining: 0
+            },
+            
+            // Timeline
+            timeline: {
+                startDate: null,
+                projectedFinish: null,
+                actualFinish: null,
+                weatherDaysTotal: 0
+            },
+            
+            // Content
+            globalItems: [],
+            modulesSetToday: [],
+            issues: [],
+            generalNotes: '',
+            
+            // Crew
+            crew: [],
+            
+            // Photos
+            photos: [],
+            
+            // Metadata
+            status: 'draft', // draft, generated, sent
+            createdAt: new Date().toISOString(),
+            generatedAt: null,
+            sentAt: null,
+            sentTo: []
+        };
+        
+        setReports(prev => [...prev, newReport]);
+        return newReport;
+    };
+
+    const updateReport = (id, updates) => {
+        setReports(prev => prev.map(r => 
+            r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r
+        ));
+    };
+
+    const addGlobalItem = (reportId, item) => {
+        setReports(prev => prev.map(r => {
+            if (r.id !== reportId) return r;
+            return {
+                ...r,
+                globalItems: [...r.globalItems, {
+                    id: `GI-${Date.now()}`,
+                    text: item.text,
+                    priority: item.priority || 'fyi',
+                    createdAt: new Date().toISOString()
+                }]
+            };
+        }));
+    };
+
+    const updateGlobalItem = (reportId, itemId, updates) => {
+        setReports(prev => prev.map(r => {
+            if (r.id !== reportId) return r;
+            return {
+                ...r,
+                globalItems: r.globalItems.map(gi => 
+                    gi.id === itemId ? { ...gi, ...updates } : gi
+                )
+            };
+        }));
+    };
+
+    const removeGlobalItem = (reportId, itemId) => {
+        setReports(prev => prev.map(r => {
+            if (r.id !== reportId) return r;
+            return {
+                ...r,
+                globalItems: r.globalItems.filter(gi => gi.id !== itemId)
+            };
+        }));
+    };
+
+    const logModuleSet = (reportId, moduleData) => {
+        setReports(prev => prev.map(r => {
+            if (r.id !== reportId) return r;
+            const existing = r.modulesSetToday.find(m => m.moduleId === moduleData.moduleId);
+            if (existing) return r; // Already logged
+            
+            return {
+                ...r,
+                modulesSetToday: [...r.modulesSetToday, {
+                    ...moduleData,
+                    setTime: new Date().toISOString(),
+                    loggedAt: new Date().toISOString()
+                }],
+                progress: {
+                    ...r.progress,
+                    unitsSetToday: r.progress.unitsSetToday + (moduleData.isSawbox ? 2 : 1)
+                }
+            };
+        }));
+    };
+
+    const addIssueToReport = (reportId, issueData) => {
+        setReports(prev => prev.map(r => {
+            if (r.id !== reportId) return r;
+            return {
+                ...r,
+                issues: [...r.issues, {
+                    id: `ISS-${Date.now()}`,
+                    ...issueData,
+                    photos: issueData.photos || [],
+                    loggedAt: new Date().toISOString()
+                }]
+            };
+        }));
+    };
+
+    const addPhotoToReport = (reportId, photoData) => {
+        setReports(prev => prev.map(r => {
+            if (r.id !== reportId) return r;
+            return {
+                ...r,
+                photos: [...r.photos, {
+                    id: `PHOTO-${Date.now()}`,
+                    ...photoData,
+                    capturedAt: new Date().toISOString()
+                }]
+            };
+        }));
+    };
+
+    const generateReport = (reportId) => {
+        updateReport(reportId, {
+            status: 'generated',
+            generatedAt: new Date().toISOString()
+        });
+    };
+
+    const markReportSent = (reportId, recipients) => {
+        updateReport(reportId, {
+            status: 'sent',
+            sentAt: new Date().toISOString(),
+            sentTo: recipients
+        });
+    };
+
+    const getReportByDate = (projectId, date) => {
+        return reports.find(r => r.projectId === projectId && r.date === date);
+    };
+
+    const getReportsForProject = (projectId) => {
+        return reports.filter(r => r.projectId === projectId)
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+    };
+
+    const getRecentReports = (days = 7) => {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        return reports.filter(r => new Date(r.date) >= cutoff)
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+    };
+
+    // Calculate weather days for a project
+    const getWeatherDaysCount = (projectId) => {
+        return reports.filter(r => 
+            r.projectId === projectId && r.weather?.isWeatherDay
+        ).length;
+    };
+
+    return {
+        reports,
+        createOrGetReport,
+        updateReport,
+        addGlobalItem,
+        updateGlobalItem,
+        removeGlobalItem,
+        logModuleSet,
+        addIssueToReport,
+        addPhotoToReport,
+        generateReport,
+        markReportSent,
+        getReportByDate,
+        getReportsForProject,
+        getRecentReports,
+        getWeatherDaysCount
+    };
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const ISSUE_TYPES = [
-    { id: 'transport-damage', label: 'Damage During Transport', icon: '🚛' },
-    { id: 'set-damage', label: 'Damage During Set', icon: '🏗️' },
-    { id: 'factory-existing', label: 'Pre-existing (from factory)', icon: '🏭' },
-    { id: 'site-condition', label: 'Site Condition Issue', icon: '📍' },
-    { id: 'alignment', label: 'Alignment/Fit Issue', icon: '📐' },
-    { id: 'other', label: 'Other', icon: '📋' }
+// Issue Categories - Keep simple, expand as needed
+const ISSUE_CATEGORIES = [
+    { id: 'quality-defect', label: 'Quality Defect', icon: '⚠️', description: 'Damage, defects found during set' },
+    { id: 'question', label: 'Question', icon: '❓', description: 'Needs clarification or decision' },
+    { id: 'site-issue', label: 'Site-Issue', icon: '📍', description: 'Site conditions, access, GC coordination' },
+    { id: 'drawing-issue', label: 'Drawing Issue', icon: '📐', description: 'Discrepancy with plans/specs' },
+    { id: 'other', label: 'Other', icon: '📋', description: 'Free-text fill-in for edge cases', allowCustom: true }
+];
+
+// Global Items Priority Levels
+const GLOBAL_ITEM_PRIORITIES = [
+    { id: 'attention', label: 'Attention', color: '#DC2626', bgColor: '#FEE2E2', icon: '🔴' },
+    { id: 'fyi', label: 'FYI', color: '#2563EB', bgColor: '#DBEAFE', icon: '🔵' },
+    { id: 'resolved', label: 'Resolved', color: '#16A34A', bgColor: '#DCFCE7', icon: '✅' }
 ];
 
 const SEVERITY_LEVELS = [
@@ -217,14 +450,25 @@ const TRADES = [
     'Insulation', 'Paint', 'Structural', 'Other'
 ];
 
+// Wind levels for weather reporting
+const WIND_LEVELS = ['Light', 'Moderate', 'High', 'Other'];
+
+// Report types
+const REPORT_TYPES = [
+    { id: 'set-day', label: 'Set Day', description: 'Normal work day with module sets' },
+    { id: 'weather-day', label: 'Weather Day', description: 'No sets due to weather, may have site activity' },
+    { id: 'non-work', label: 'Non-Work Day', description: 'Weekend, holiday, no activity' }
+];
+
 // ============================================================================
 // MAIN ON-SITE TAB COMPONENT
 // ============================================================================
 
-function OnSiteTab({ projects = [], employees = [] }) {
+function OnSiteTab({ projects = [], employees = [], currentUser = null }) {
     const [activeSubTab, setActiveSubTab] = useState('dashboard');
     const scheduleHook = useSetSchedule();
     const issueHook = useSetIssues();
+    const reportHook = useDailySiteReports();
     
     // Modal states
     const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -232,11 +476,13 @@ function OnSiteTab({ projects = [], employees = [] }) {
     const [issueContext, setIssueContext] = useState(null);
     const [selectedSet, setSelectedSet] = useState(null);
     const [selectedModule, setSelectedModule] = useState(null);
+    const [selectedProject, setSelectedProject] = useState(null);
 
     const subTabs = [
         { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+        { id: 'daily-report', label: 'Daily Report', icon: '📝' },
         { id: 'schedule', label: 'Set Schedule', icon: '📅' },
-        { id: 'reports', label: 'Reports', icon: '📄' }
+        { id: 'reports', label: 'Report History', icon: '📄' }
     ];
 
     const openIssueLogger = (setData, moduleData) => {
@@ -284,6 +530,19 @@ function OnSiteTab({ projects = [], employees = [] }) {
                     />
                 )}
 
+                {activeSubTab === 'daily-report' && (
+                    <DailyReportTab
+                        projects={projects}
+                        employees={employees}
+                        currentUser={currentUser}
+                        reportHook={reportHook}
+                        scheduleHook={scheduleHook}
+                        issueHook={issueHook}
+                        selectedProject={selectedProject}
+                        setSelectedProject={setSelectedProject}
+                    />
+                )}
+
                 {activeSubTab === 'schedule' && (
                     <SetScheduleTab
                         scheduleHook={scheduleHook}
@@ -301,6 +560,7 @@ function OnSiteTab({ projects = [], employees = [] }) {
                     <ReportsTab
                         scheduleHook={scheduleHook}
                         issueHook={issueHook}
+                        reportHook={reportHook}
                         projects={projects}
                     />
                 )}
@@ -1446,7 +1706,577 @@ function ModuleDetailModal({ module, set, issues, onClose }) {
     );
 }
 
+// ============================================================================
+// DAILY REPORT TAB
+// ============================================================================
+
+function DailyReportTab({ 
+    projects, 
+    employees, 
+    currentUser, 
+    reportHook, 
+    scheduleHook, 
+    issueHook,
+    selectedProject,
+    setSelectedProject 
+}) {
+    const [reportDate, setReportDate] = useState(() => {
+        // Default to yesterday (reports are typically for prior day)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        return yesterday.toISOString().split('T')[0];
+    });
+    const [activeReport, setActiveReport] = useState(null);
+    const [showPreview, setShowPreview] = useState(false);
+    const [newGlobalItem, setNewGlobalItem] = useState({ text: '', priority: 'fyi' });
+    const [showAddGlobalItem, setShowAddGlobalItem] = useState(false);
+
+    // Get active projects (those with on-site activity)
+    const activeProjects = projects.filter(p => p.status === 'Active');
+
+    // Load or create report when project/date changes
+    useEffect(() => {
+        if (selectedProject && reportDate) {
+            const report = reportHook.createOrGetReport(selectedProject.id, reportDate);
+            setActiveReport(report);
+        }
+    }, [selectedProject, reportDate]);
+
+    // Get today's sets for the selected project
+    const projectSets = scheduleHook.schedules.filter(s => 
+        s.projectId === selectedProject?.id && s.scheduledDate === reportDate
+    );
+
+    // Calculate progress from project data
+    const calculateProgress = () => {
+        if (!selectedProject) return { today: 0, total: 0, remaining: 0 };
+        const modules = selectedProject.modules || [];
+        const totalModules = modules.length;
+        
+        // Count sawboxes for unit calculation
+        const sawboxCount = modules.filter(m => 
+            m.difficulty?.includes('Sawbox') || m.isSawbox
+        ).length;
+        const totalUnits = totalModules + sawboxCount;
+        
+        // Count set modules (from report or schedules)
+        const setToday = activeReport?.modulesSetToday?.length || 0;
+        const setTotal = activeReport?.progress?.unitsSetTotal || 0;
+        
+        return {
+            today: setToday,
+            total: setTotal,
+            remaining: totalUnits - setTotal
+        };
+    };
+
+    const progress = calculateProgress();
+
+    // Format date for display
+    const formatDate = (dateStr) => {
+        const date = new Date(dateStr + 'T12:00:00');
+        return date.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+        });
+    };
+
+    // Handle adding global item
+    const handleAddGlobalItem = () => {
+        if (!newGlobalItem.text.trim() || !activeReport) return;
+        reportHook.addGlobalItem(activeReport.id, newGlobalItem);
+        setNewGlobalItem({ text: '', priority: 'fyi' });
+        setShowAddGlobalItem(false);
+        // Refresh active report
+        setActiveReport(reportHook.getReportByDate(selectedProject.id, reportDate));
+    };
+
+    // Handle weather update
+    const handleWeatherUpdate = (field, value) => {
+        if (!activeReport) return;
+        reportHook.updateReport(activeReport.id, {
+            weather: { ...activeReport.weather, [field]: value }
+        });
+        setActiveReport(prev => ({
+            ...prev,
+            weather: { ...prev.weather, [field]: value }
+        }));
+    };
+
+    // Handle general notes update
+    const handleNotesUpdate = (notes) => {
+        if (!activeReport) return;
+        reportHook.updateReport(activeReport.id, { generalNotes: notes });
+        setActiveReport(prev => ({ ...prev, generalNotes: notes }));
+    };
+
+    // Generate report
+    const handleGenerateReport = () => {
+        if (!activeReport) return;
+        reportHook.generateReport(activeReport.id);
+        setShowPreview(true);
+    };
+
+    return (
+        <div className="daily-report-container">
+            {/* Project & Date Selection */}
+            <div className="report-header-controls">
+                <div className="control-group">
+                    <label>Project</label>
+                    <select 
+                        value={selectedProject?.id || ''} 
+                        onChange={(e) => {
+                            const proj = projects.find(p => p.id === e.target.value);
+                            setSelectedProject(proj);
+                        }}
+                        className="project-select"
+                    >
+                        <option value="">Select Project...</option>
+                        {activeProjects.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="control-group">
+                    <label>Report Date</label>
+                    <input 
+                        type="date" 
+                        value={reportDate} 
+                        onChange={(e) => setReportDate(e.target.value)}
+                        className="date-input"
+                    />
+                </div>
+                {activeReport && (
+                    <div className="report-status">
+                        <span className={`status-badge ${activeReport.status}`}>
+                            {activeReport.status === 'draft' ? '📝 Draft' : 
+                             activeReport.status === 'generated' ? '✅ Generated' : 
+                             '📤 Sent'}
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {!selectedProject ? (
+                <div className="empty-state">
+                    <div className="empty-icon">📋</div>
+                    <h3>Select a Project</h3>
+                    <p>Choose a project to create or edit a daily site report</p>
+                </div>
+            ) : (
+                <div className="report-editor">
+                    {/* Report Header Info */}
+                    <div className="report-section header-section">
+                        <div className="section-title">
+                            <h3>📄 Daily Site Report</h3>
+                            <span className="report-date">{formatDate(reportDate)}</span>
+                        </div>
+                        
+                        <div className="header-grid">
+                            <div className="header-field">
+                                <label>Job Site (Building)</label>
+                                <div className="field-value">{selectedProject.name}</div>
+                            </div>
+                            <div className="header-field">
+                                <label>Autovol Rep</label>
+                                <input 
+                                    type="text" 
+                                    value={activeReport?.autovolRep || currentUser?.name || ''}
+                                    onChange={(e) => {
+                                        if (activeReport) {
+                                            reportHook.updateReport(activeReport.id, { autovolRep: e.target.value });
+                                            setActiveReport(prev => ({ ...prev, autovolRep: e.target.value }));
+                                        }
+                                    }}
+                                    placeholder="Enter name..."
+                                />
+                            </div>
+                            <div className="header-field">
+                                <label>General Contractor</label>
+                                <input 
+                                    type="text" 
+                                    value={activeReport?.generalContractor || selectedProject.generalContractor || ''}
+                                    onChange={(e) => {
+                                        if (activeReport) {
+                                            reportHook.updateReport(activeReport.id, { generalContractor: e.target.value });
+                                            setActiveReport(prev => ({ ...prev, generalContractor: e.target.value }));
+                                        }
+                                    }}
+                                    placeholder="Enter GC..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Weather Section */}
+                    <div className="report-section weather-section">
+                        <div className="section-title">
+                            <h3>🌤️ Weather</h3>
+                            <label className="weather-day-toggle">
+                                <input 
+                                    type="checkbox" 
+                                    checked={activeReport?.weather?.isWeatherDay || false}
+                                    onChange={(e) => handleWeatherUpdate('isWeatherDay', e.target.checked)}
+                                />
+                                <span>Weather Day (No Sets)</span>
+                            </label>
+                        </div>
+                        
+                        <div className="weather-grid">
+                            <div className="weather-field">
+                                <label>Temp AM</label>
+                                <div className="temp-input">
+                                    <input 
+                                        type="number" 
+                                        value={activeReport?.weather?.tempAM || ''}
+                                        onChange={(e) => handleWeatherUpdate('tempAM', e.target.value)}
+                                        placeholder="--"
+                                    />
+                                    <span>°F</span>
+                                </div>
+                            </div>
+                            <div className="weather-field">
+                                <label>Temp PM</label>
+                                <div className="temp-input">
+                                    <input 
+                                        type="number" 
+                                        value={activeReport?.weather?.tempPM || ''}
+                                        onChange={(e) => handleWeatherUpdate('tempPM', e.target.value)}
+                                        placeholder="--"
+                                    />
+                                    <span>°F</span>
+                                </div>
+                            </div>
+                            <div className="weather-field">
+                                <label>Precipitation</label>
+                                <input 
+                                    type="text" 
+                                    value={activeReport?.weather?.precipitation || 'none'}
+                                    onChange={(e) => handleWeatherUpdate('precipitation', e.target.value)}
+                                    placeholder="none"
+                                />
+                            </div>
+                            <div className="weather-field">
+                                <label>Wind</label>
+                                <select 
+                                    value={activeReport?.weather?.wind || 'Light'}
+                                    onChange={(e) => handleWeatherUpdate('wind', e.target.value)}
+                                >
+                                    {WIND_LEVELS.map(level => (
+                                        <option key={level} value={level}>{level}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Progress Section */}
+                    <div className="report-section progress-section">
+                        <div className="section-title">
+                            <h3>📦 Progress</h3>
+                        </div>
+                        <div className="progress-grid">
+                            <div className="progress-stat">
+                                <div className="stat-value">{progress.today}</div>
+                                <div className="stat-label">Units Set Today</div>
+                            </div>
+                            <div className="progress-stat">
+                                <div className="stat-value">{progress.total}</div>
+                                <div className="stat-label">Units Set Total</div>
+                            </div>
+                            <div className="progress-stat">
+                                <div className="stat-value">{progress.remaining}</div>
+                                <div className="stat-label">Units Remaining</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Global Items Section */}
+                    <div className="report-section global-items-section">
+                        <div className="section-title">
+                            <h3>🔔 Global Items</h3>
+                            <button 
+                                onClick={() => setShowAddGlobalItem(true)}
+                                className="btn-add-small"
+                            >
+                                + Add Item
+                            </button>
+                        </div>
+                        
+                        {showAddGlobalItem && (
+                            <div className="add-global-item-form">
+                                <textarea 
+                                    value={newGlobalItem.text}
+                                    onChange={(e) => setNewGlobalItem(prev => ({ ...prev, text: e.target.value }))}
+                                    placeholder="Enter highlight or attention item..."
+                                    rows={2}
+                                />
+                                <div className="form-row">
+                                    <select 
+                                        value={newGlobalItem.priority}
+                                        onChange={(e) => setNewGlobalItem(prev => ({ ...prev, priority: e.target.value }))}
+                                    >
+                                        {GLOBAL_ITEM_PRIORITIES.map(p => (
+                                            <option key={p.id} value={p.id}>{p.icon} {p.label}</option>
+                                        ))}
+                                    </select>
+                                    <div className="form-actions">
+                                        <button onClick={() => setShowAddGlobalItem(false)} className="btn-cancel">Cancel</button>
+                                        <button onClick={handleAddGlobalItem} className="btn-primary">Add</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div className="global-items-list">
+                            {(activeReport?.globalItems || []).length === 0 ? (
+                                <div className="empty-items">No global items added</div>
+                            ) : (
+                                activeReport.globalItems.map(item => {
+                                    const priority = GLOBAL_ITEM_PRIORITIES.find(p => p.id === item.priority);
+                                    return (
+                                        <div 
+                                            key={item.id} 
+                                            className="global-item"
+                                            style={{ 
+                                                backgroundColor: priority?.bgColor,
+                                                borderLeftColor: priority?.color 
+                                            }}
+                                        >
+                                            <span className="item-icon">{priority?.icon}</span>
+                                            <span className="item-text">{item.text}</span>
+                                            <button 
+                                                onClick={() => {
+                                                    reportHook.removeGlobalItem(activeReport.id, item.id);
+                                                    setActiveReport(reportHook.getReportByDate(selectedProject.id, reportDate));
+                                                }}
+                                                className="btn-remove"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Issues Section */}
+                    <div className="report-section issues-section">
+                        <div className="section-title">
+                            <h3>⚠️ Issues ({(activeReport?.issues || []).length})</h3>
+                        </div>
+                        <div className="issues-list">
+                            {(activeReport?.issues || []).length === 0 ? (
+                                <div className="empty-items">No issues logged for this day</div>
+                            ) : (
+                                activeReport.issues.map(issue => {
+                                    const category = ISSUE_CATEGORIES.find(c => c.id === issue.category);
+                                    return (
+                                        <div key={issue.id} className="issue-item">
+                                            <div className="issue-header">
+                                                <span className="issue-category">{category?.icon} {category?.label}</span>
+                                                <span className="issue-module">{issue.serialNumber}</span>
+                                            </div>
+                                            <p className="issue-description">{issue.description}</p>
+                                            {issue.photos?.length > 0 && (
+                                                <div className="issue-photos">
+                                                    {issue.photos.length} photo(s) attached
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+
+                    {/* General Notes Section */}
+                    <div className="report-section notes-section">
+                        <div className="section-title">
+                            <h3>📝 General Notes</h3>
+                        </div>
+                        <textarea 
+                            value={activeReport?.generalNotes || ''}
+                            onChange={(e) => handleNotesUpdate(e.target.value)}
+                            placeholder="Enter any additional notes for the day..."
+                            rows={4}
+                            className="notes-textarea"
+                        />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="report-actions">
+                        <button onClick={handleGenerateReport} className="btn-primary btn-large">
+                            📄 Generate Report
+                        </button>
+                        <button onClick={() => setShowPreview(true)} className="btn-secondary">
+                            👁️ Preview
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Report Preview Modal */}
+            {showPreview && activeReport && (
+                <ReportPreviewModal 
+                    report={activeReport}
+                    project={selectedProject}
+                    onClose={() => setShowPreview(false)}
+                    onExportPDF={() => {
+                        // TODO: Implement PDF export
+                        alert('PDF export coming soon!');
+                    }}
+                    onSend={() => {
+                        // TODO: Implement send functionality
+                        alert('Send functionality coming soon!');
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+// ============================================================================
+// REPORT PREVIEW MODAL
+// ============================================================================
+
+function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
+    const formatDate = (dateStr) => {
+        const date = new Date(dateStr + 'T12:00:00');
+        return date.toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+        });
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content report-preview-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Report Preview</h2>
+                    <button onClick={onClose} className="close-btn">&times;</button>
+                </div>
+
+                <div className="modal-body report-preview">
+                    {/* Report Header */}
+                    <div className="preview-header">
+                        <div className="preview-title">DAILY SITE REPORT</div>
+                        <div className="preview-meta">
+                            <div className="meta-row">
+                                <span className="meta-label">Job Site:</span>
+                                <span className="meta-value">{project?.name}</span>
+                            </div>
+                            <div className="meta-row">
+                                <span className="meta-label">Date:</span>
+                                <span className="meta-value">{formatDate(report.date)}</span>
+                            </div>
+                            <div className="meta-row">
+                                <span className="meta-label">Autovol Rep:</span>
+                                <span className="meta-value">{report.autovolRep || 'N/A'}</span>
+                            </div>
+                            <div className="meta-row">
+                                <span className="meta-label">General Contractor:</span>
+                                <span className="meta-value">{report.generalContractor || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Weather */}
+                    <div className="preview-section">
+                        <div className="preview-section-title">Weather</div>
+                        <div className="preview-weather">
+                            <span>Temp: {report.weather?.tempAM || '--'}°F (AM) / {report.weather?.tempPM || '--'}°F (PM)</span>
+                            <span>Precipitation: {report.weather?.precipitation || 'none'}</span>
+                            <span>Wind: {report.weather?.wind || 'Light'}</span>
+                            {report.weather?.isWeatherDay && <span className="weather-day-badge">⛈️ Weather Day</span>}
+                        </div>
+                    </div>
+
+                    {/* Progress */}
+                    <div className="preview-section">
+                        <div className="preview-section-title">Progress</div>
+                        <div className="preview-progress">
+                            <div className="progress-item">
+                                <span className="progress-label">Units Set Today:</span>
+                                <span className="progress-value">{report.progress?.unitsSetToday || 0}</span>
+                            </div>
+                            <div className="progress-item">
+                                <span className="progress-label">Units Set Total:</span>
+                                <span className="progress-value">{report.progress?.unitsSetTotal || 0}</span>
+                            </div>
+                            <div className="progress-item">
+                                <span className="progress-label">Units Remaining:</span>
+                                <span className="progress-value">{report.progress?.unitsRemaining || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Global Items */}
+                    {report.globalItems?.length > 0 && (
+                        <div className="preview-section">
+                            <div className="preview-section-title">Global Items</div>
+                            <ul className="preview-list">
+                                {report.globalItems.map(item => {
+                                    const priority = GLOBAL_ITEM_PRIORITIES.find(p => p.id === item.priority);
+                                    return (
+                                        <li key={item.id}>
+                                            <span className="item-priority">{priority?.icon}</span>
+                                            {item.text}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Issues */}
+                    {report.issues?.length > 0 && (
+                        <div className="preview-section">
+                            <div className="preview-section-title">Issues ({report.issues.length})</div>
+                            {report.issues.map(issue => {
+                                const category = ISSUE_CATEGORIES.find(c => c.id === issue.category);
+                                return (
+                                    <div key={issue.id} className="preview-issue">
+                                        <div className="issue-line">
+                                            <strong>{issue.serialNumber}</strong> - {category?.label}
+                                        </div>
+                                        <p>{issue.description}</p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* General Notes */}
+                    {report.generalNotes && (
+                        <div className="preview-section">
+                            <div className="preview-section-title">Notes</div>
+                            <p className="preview-notes">{report.generalNotes}</p>
+                        </div>
+                    )}
+
+                    {/* Generated timestamp */}
+                    <div className="preview-footer">
+                        Report generated: {report.generatedAt ? new Date(report.generatedAt).toLocaleString() : 'Draft'}
+                    </div>
+                </div>
+
+                <div className="modal-actions">
+                    <button onClick={onClose} className="btn-secondary">Close</button>
+                    <button onClick={onExportPDF} className="btn-primary">📄 Export PDF</button>
+                    <button onClick={onSend} className="btn-success">📤 Send Report</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Export for use
 window.OnSiteTab = OnSiteTab;
 window.useSetSchedule = useSetSchedule;
 window.useSetIssues = useSetIssues;
+window.useDailySiteReports = useDailySiteReports;

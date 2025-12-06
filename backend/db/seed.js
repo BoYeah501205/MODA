@@ -3,7 +3,7 @@
 // Populates database with sample data for development
 // ============================================================================
 
-import { getDatabase, closeDatabase, run, transaction } from './database.js';
+import { initDatabase, closeDatabase, run, saveDatabase } from './database.js';
 import { v4 as uuidv4 } from 'uuid';
 
 console.log('🌱 Seeding MODA Database...\n');
@@ -48,45 +48,45 @@ const sampleDepartments = [
     { id: 'close-up', name: 'Close-Up' }
 ];
 
-try {
-    const db = getDatabase();
+async function seed() {
+    await initDatabase();
     
-    transaction(() => {
-        // Seed yards
-        console.log('📦 Adding yards...');
-        for (const yard of sampleYards) {
-            run(`
-                INSERT OR IGNORE INTO yards (id, name, location, capacity, is_autovol, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `, [yard.id, yard.name, yard.location, yard.capacity, yard.isAutovol ? 1 : 0, now]);
-        }
-        
-        // Seed transport companies
-        console.log('🚛 Adding transport companies...');
-        for (const company of sampleCompanies) {
-            run(`
-                INSERT OR IGNORE INTO transport_companies (id, name, contact_name, phone, email, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `, [company.id, company.name, company.contactName, company.phone, company.email, now]);
-        }
-        
-        // Seed departments
-        console.log('🏢 Adding departments...');
-        for (const dept of sampleDepartments) {
-            run(`
-                INSERT OR IGNORE INTO departments (id, name, created_at)
-                VALUES (?, ?, ?)
-            `, [dept.id, dept.name, now]);
-        }
-    });
+    // Seed yards
+    console.log('📦 Adding yards...');
+    for (const yard of sampleYards) {
+        run(`
+            INSERT OR IGNORE INTO yards (id, name, location, capacity, is_autovol, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [yard.id, yard.name, yard.location, yard.capacity, yard.isAutovol ? 1 : 0, now]);
+    }
+    
+    // Seed transport companies
+    console.log('🚛 Adding transport companies...');
+    for (const company of sampleCompanies) {
+        run(`
+            INSERT OR IGNORE INTO transport_companies (id, name, contact_name, phone, email, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [company.id, company.name, company.contactName, company.phone, company.email, now]);
+    }
+    
+    // Seed departments
+    console.log('🏢 Adding departments...');
+    for (const dept of sampleDepartments) {
+        run(`
+            INSERT OR IGNORE INTO departments (id, name, created_at)
+            VALUES (?, ?, ?)
+        `, [dept.id, dept.name, now]);
+    }
     
     console.log('\n✅ Seed completed!');
     console.log(`   - ${sampleYards.length} yards`);
     console.log(`   - ${sampleCompanies.length} transport companies`);
     console.log(`   - ${sampleDepartments.length} departments`);
     
-} catch (err) {
-    console.error('❌ Seed failed:', err.message);
-} finally {
     closeDatabase();
 }
+
+seed().catch(err => {
+    console.error('❌ Seed failed:', err.message);
+    process.exit(1);
+});

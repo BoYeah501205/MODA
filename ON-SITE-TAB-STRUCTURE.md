@@ -41,6 +41,29 @@
 4. **One-click generation** - Report builds automatically from logged data
 5. **Weather day tracking** - Built-in function for non-set days
 
+### Issue Categories (Keep Simple)
+| Category | Use Case |
+|----------|----------|
+| **Quality Defect** | Damage, defects found during set |
+| **Question** | Needs clarification or decision |
+| **Site-Issue** | Site conditions, access, GC coordination |
+| **Drawing Issue** | Discrepancy with plans/specs |
+| **Other** | Free-text fill-in for edge cases |
+
+*Categories can be expanded in future as patterns emerge*
+
+### Global Items Priority Levels
+| Priority | Use Case |
+|----------|----------|
+| **Attention** | Needs action or awareness |
+| **FYI** | Informational only |
+| **Resolved** | Previously flagged, now resolved |
+
+### Sawbox / Unit Tracking
+- Sawboxes already flagged in Module Details as difficulty item
+- Unit count = Module count + Sawbox splits (1 sawbox = 2 units)
+- Auto-calculate from existing data
+
 ---
 
 ## Core Workflow

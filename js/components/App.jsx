@@ -711,29 +711,29 @@ function useAuth() {
 
         // Station staggers (offset from Automation in build sequence)
         // Higher number = station is working on modules further ahead in production
-        // Base: 25-0861 (Automation) = Build Seq 200
+        // Default values as of Dec 5, 2025
         const stationStaggers = {
-            'auto-fc': 0,        // 25-0861 (BS 200) - Base
-            'auto-walls': 0,     // 25-0861 (BS 200) - Parallel with F/C
-            'mezzanine': 16,     // 25-0860 (BS 216)
-            'elec-ceiling': 18,  // 25-0857 (BS 218)
-            'wall-set': 17,      // 25-0856 (BS 217)
-            'ceiling-set': 21,   // 25-0855 (BS 221)
-            'soffits': 23,       // 25-0854 (BS 223)
-            'mech-rough': 22,    // 25-0959 (BS 222)
-            'elec-rough': 22,    // 25-0959 (BS 222)
-            'plumb-rough': 22,   // 25-0959 (BS 222)
-            'exteriors': 24,     // 25-0853 (BS 224)
-            'drywall-bp': 25,    // 25-0852 (BS 225)
-            'drywall-ttp': 26,   // 25-0846 (BS 226)
-            'roofing': 29,       // 25-0848 (BS 229)
-            'pre-finish': 34,    // 25-0840 (BS 234)
-            'mech-trim': 40,     // 25-0956 (BS 240)
-            'elec-trim': 40,     // 25-0956 (BS 240)
-            'plumb-trim': 40,    // 25-0956 (BS 240)
-            'final-finish': 41,  // 25-0958 (BS 241)
-            'sign-off': 43,      // 25-0955 (BS 243)
-            'close-up': 45       // 25-0953 (BS 245)
+            'auto-fc': 0,        // Automation (Floor/Ceiling) - Base
+            'auto-walls': 0,     // Automation (Walls) - Parallel with F/C
+            'mezzanine': 1,      // Mezzanine (FC Prep, Plumbing - Floors)
+            'elec-ceiling': 4,   // Electrical - Ceilings
+            'wall-set': 5,       // Wall Set
+            'ceiling-set': 6,    // Ceiling Set
+            'soffits': 7,        // Soffits
+            'mech-rough': 8,     // Mechanical Rough-In (MEP Rough-In group)
+            'elec-rough': 8,     // Electrical Rough-In (MEP Rough-In group)
+            'plumb-rough': 8,    // Plumbing Rough-In (MEP Rough-In group)
+            'exteriors': 9,      // Exteriors
+            'drywall-bp': 10,    // Drywall - BackPanel
+            'drywall-ttp': 18,   // Drywall - Tape/Texture/Paint
+            'roofing': 15,       // Roofing
+            'pre-finish': 24,    // Pre-Finish
+            'mech-trim': 25,     // Mechanical Trim (MEP Trim group)
+            'elec-trim': 25,     // Electrical Trim (MEP Trim group)
+            'plumb-trim': 25,    // Plumbing Trim (MEP Trim group)
+            'final-finish': 27,  // Final Finish
+            'sign-off': 29,      // Module Sign-Off
+            'close-up': 36       // Close-Up
         };
 
         // Difficulty color mappings
@@ -770,6 +770,16 @@ const useProductionWeeks = () => {
         return saved ? JSON.parse(saved) : { ...stationStaggers };
     });
     
+    // Stagger change log - tracks all saved stagger configurations
+    const [staggerChangeLog, setStaggerChangeLog] = useState(() => {
+        const saved = localStorage.getItem('autovol_stagger_change_log');
+        return saved ? JSON.parse(saved) : [];
+    });
+    
+    // Track if there are unsaved changes
+    const [hasUnsavedStaggerChanges, setHasUnsavedStaggerChanges] = useState(false);
+    const [pendingStaggerChanges, setPendingStaggerChanges] = useState({});
+    
     useEffect(() => {
         localStorage.setItem('autovol_production_weeks', JSON.stringify(weeks));
     }, [weeks]);
@@ -777,6 +787,10 @@ const useProductionWeeks = () => {
     useEffect(() => {
         localStorage.setItem('autovol_station_staggers', JSON.stringify(staggerConfig));
     }, [staggerConfig]);
+    
+    useEffect(() => {
+        localStorage.setItem('autovol_stagger_change_log', JSON.stringify(staggerChangeLog));
+    }, [staggerChangeLog]);
     
     const addWeek = (weekData) => {
         const newWeek = { ...weekData, id: `week-${Date.now()}`, createdAt: new Date().toISOString() };
@@ -792,8 +806,49 @@ const useProductionWeeks = () => {
         setWeeks(prev => prev.filter(w => w.id !== weekId));
     };
     
+    // Update stagger value (marks as pending until saved)
     const updateStagger = (stationId, value) => {
-        setStaggerConfig(prev => ({ ...prev, [stationId]: parseInt(value) || 0 }));
+        const newValue = parseInt(value) || 0;
+        setPendingStaggerChanges(prev => ({ ...prev, [stationId]: newValue }));
+        setStaggerConfig(prev => ({ ...prev, [stationId]: newValue }));
+        setHasUnsavedStaggerChanges(true);
+    };
+    
+    // Save stagger changes with description to change log
+    const saveStaggerChanges = (description, userName = 'Unknown') => {
+        if (!hasUnsavedStaggerChanges) return;
+        
+        const logEntry = {
+            id: `stagger-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            description: description || 'No description provided',
+            changedBy: userName,
+            changes: { ...pendingStaggerChanges },
+            fullConfig: { ...staggerConfig }
+        };
+        
+        setStaggerChangeLog(prev => [logEntry, ...prev]);
+        setPendingStaggerChanges({});
+        setHasUnsavedStaggerChanges(false);
+        
+        return logEntry;
+    };
+    
+    // Revert to a previous stagger configuration
+    const revertToStaggerConfig = (logEntryId) => {
+        const entry = staggerChangeLog.find(e => e.id === logEntryId);
+        if (entry && entry.fullConfig) {
+            setStaggerConfig({ ...entry.fullConfig });
+            setPendingStaggerChanges({});
+            setHasUnsavedStaggerChanges(false);
+        }
+    };
+    
+    // Reset to default staggers
+    const resetToDefaultStaggers = () => {
+        setStaggerConfig({ ...stationStaggers });
+        setPendingStaggerChanges({});
+        setHasUnsavedStaggerChanges(true);
     };
     
     const validateWeek = (weekData, excludeId = null) => {
@@ -834,43 +889,164 @@ const useProductionWeeks = () => {
         });
     };
 
-    return { weeks, staggerConfig, addWeek, updateWeek, deleteWeek, updateStagger, validateWeek, getCurrentWeek, getWeekForDate };
+    return { 
+        weeks, 
+        staggerConfig, 
+        staggerChangeLog,
+        hasUnsavedStaggerChanges,
+        addWeek, 
+        updateWeek, 
+        deleteWeek, 
+        updateStagger,
+        saveStaggerChanges,
+        revertToStaggerConfig,
+        resetToDefaultStaggers,
+        validateWeek,
+        getCurrentWeek,
+        getWeekForDate
+    };
 };
 
-// ===== PRODUCTION WEEK PANEL COMPONENT =====
-function ProductionWeekPanel({ modules }) {
-    const { weeks, staggerConfig, addWeek, updateWeek, deleteWeek, updateStagger, validateWeek, getCurrentWeek } = useProductionWeeks();
-    const [showAddWeek, setShowAddWeek] = useState(false);
-    const [editingWeek, setEditingWeek] = useState(null);
-    const [error, setError] = useState('');
-    const [formData, setFormData] = useState({ weekStart: '', weekEnd: '', productionGoal: 20, dailyGoal: 5, dailyDistribution: { sunday: 0, monday: 5, tuesday: 5, wednesday: 5, thursday: 5, friday: 0, saturday: 0 }, startingModule: '', notes: '' });
-    const sortedModules = [...(modules || [])].sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
-    const getWeekSunday = (mondayStr) => { const monday = new Date(mondayStr); const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); return sunday.toISOString().split('T')[0]; };
-    const getWeekOptions = () => { const options = []; const today = new Date(); const currentMonday = new Date(today); const day = currentMonday.getDay(); currentMonday.setDate(currentMonday.getDate() - day + (day === 0 ? -6 : 1)); for (let i = -2; i <= 4; i++) { const weekMonday = new Date(currentMonday); weekMonday.setDate(currentMonday.getDate() + (i * 7)); const weekSunday = new Date(weekMonday); weekSunday.setDate(weekMonday.getDate() + 6); const label = i === 0 ? 'This Week' : i === 1 ? 'Next Week' : i === -1 ? 'Last Week' : ''; options.push({ value: weekMonday.toISOString().split('T')[0], label: `${weekMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekSunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${label ? ` (${label})` : ''}`, isCurrent: i === 0 }); } return options; };
-    const resetForm = () => { setFormData({ weekStart: '', weekEnd: '', productionGoal: 20, dailyGoal: 5, dailyDistribution: { sunday: 0, monday: 5, tuesday: 5, wednesday: 5, thursday: 5, friday: 0, saturday: 0 }, startingModule: '', notes: '' }); setError(''); };
-    const handleOpenAdd = () => { resetForm(); setEditingWeek(null); setShowAddWeek(true); };
-    const handleOpenEdit = (week) => { setFormData({ weekStart: week.weekStart, weekEnd: week.weekEnd, productionGoal: week.productionGoal || 20, dailyGoal: week.dailyGoal || 5, dailyDistribution: week.dailyDistribution || { sunday: 0, monday: 5, tuesday: 5, wednesday: 5, thursday: 5, friday: 0, saturday: 0 }, startingModule: week.startingModule || '', notes: week.notes || '' }); setEditingWeek(week); setShowAddWeek(true); setError(''); };
-    const handleWeekSelect = (weekStartValue) => { const weekEnd = getWeekSunday(weekStartValue); const dailyGoal = formData.dailyGoal || 5; setFormData(prev => ({ ...prev, weekStart: weekStartValue, weekEnd: weekEnd, dailyDistribution: { sunday: 0, monday: dailyGoal, tuesday: dailyGoal, wednesday: dailyGoal, thursday: dailyGoal, friday: 0, saturday: 0 }, productionGoal: dailyGoal * 4 })); };
-    const handleDailyGoalChange = (value) => { const dailyGoal = parseInt(value) || 0; setFormData(prev => ({ ...prev, dailyGoal, dailyDistribution: { sunday: 0, monday: dailyGoal, tuesday: dailyGoal, wednesday: dailyGoal, thursday: dailyGoal, friday: 0, saturday: 0 }, productionGoal: dailyGoal * 4 })); };
-    const handleSave = () => { if (!formData.weekStart) { setError('Please select a week'); return; } if (!formData.startingModule) { setError('Please select a starting module'); return; } const validation = validateWeek(formData, editingWeek?.id); if (!validation.valid) { setError(validation.error); return; } if (editingWeek) { updateWeek(editingWeek.id, formData); } else { addWeek(formData); } setShowAddWeek(false); resetForm(); };
-    const handleDelete = (weekId) => { if (confirm('Delete this production week schedule?')) { deleteWeek(weekId); } };
-    const currentWeek = getCurrentWeek();
-    const weekOptions = getWeekOptions();
+// ===== STAGGER CONFIG TAB COMPONENT =====
+function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, staggerChangeLog, hasUnsavedStaggerChanges, updateStagger, saveStaggerChanges, revertToStaggerConfig, resetToDefaultStaggers, currentUser, isAdmin }) {
+    // Only admins can edit staggers
+    const [changeDescription, setChangeDescription] = useState('');
+    const [showChangeLog, setShowChangeLog] = useState(false);
+    const [confirmRevert, setConfirmRevert] = useState(null);
+
+    const handleSaveChanges = () => {
+        if (!changeDescription.trim()) { alert('Please enter a description for this change'); return; }
+        const userName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Unknown';
+        saveStaggerChanges(changeDescription.trim(), userName);
+        setChangeDescription('');
+    };
+
+    const handleRevert = (logEntryId) => { revertToStaggerConfig(logEntryId); setConfirmRevert(null); };
+
+    const formatDate = (isoString) => {
+        const date = new Date(isoString);
+        return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+    };
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between"><div><h3 className="text-lg font-semibold text-autovol-navy">Production Week Schedules</h3><p className="text-sm text-gray-500">Configure weekly production goals and starting modules</p></div><button onClick={handleOpenAdd} className="px-4 py-2 btn-primary rounded-lg flex items-center gap-2">+ Add Week</button></div>
-            {currentWeek && (<div className="bg-green-50 border border-green-200 rounded-lg p-4"><div className="flex items-center gap-2 text-green-700 font-medium"><span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>Current Week Active</div><div className="mt-2 text-sm text-green-600">{currentWeek.weekStart} to {currentWeek.weekEnd} • Goal: {currentWeek.productionGoal} modules{currentWeek.startingModule && ` • Starting: ${currentWeek.startingModule}`}</div></div>)}
-            <div className="space-y-3">{weeks.length === 0 ? (<div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">No production weeks configured. Click "Add Week" to create one.</div>) : (weeks.sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart)).map(week => { const isCurrentWeek = currentWeek?.id === week.id; const isPast = new Date(week.weekEnd) < new Date(); return (<div key={week.id} className={`border rounded-lg p-4 ${isCurrentWeek ? 'border-green-400 bg-green-50' : isPast ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-200 bg-white'}`}><div className="flex items-start justify-between"><div><div className="flex items-center gap-2"><span className="font-semibold text-gray-800">{week.weekStart} → {week.weekEnd}</span>{isCurrentWeek && <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">Current</span>}{isPast && !isCurrentWeek && <span className="px-2 py-0.5 bg-gray-400 text-white text-xs rounded-full">Past</span>}</div><div className="mt-1 text-sm text-gray-600"><span className="font-medium">Goal:</span> {week.productionGoal} modules{week.startingModule && <span className="ml-4"><span className="font-medium">Starting:</span> {week.startingModule}</span>}</div></div><div className="flex gap-2"><button onClick={() => handleOpenEdit(week)} className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded">Edit</button><button onClick={() => handleDelete(week.id)} className="px-3 py-1 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded">Delete</button></div></div></div>); }))}</div>
-            <div className="border-t pt-6"><h4 className="font-semibold text-gray-800 mb-3">Station Stagger Configuration</h4><p className="text-sm text-gray-500 mb-4">Configure how many modules each station is offset from AUTO-FC/AUTO-W.</p><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">{productionStages.map(station => (<div key={station.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded"><span className="text-xs font-mono text-gray-600 w-20 truncate" title={station.name}>{station.dept}</span><input type="number" min="0" max="100" value={staggerConfig[station.id] || 0} onChange={(e) => updateStagger(station.id, e.target.value)} className="w-16 px-2 py-1 border rounded text-sm text-center" /></div>))}</div></div>
-            {showAddWeek && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"><div className="p-4 border-b sticky top-0 bg-white flex items-center justify-between"><h3 className="text-lg font-bold text-autovol-navy">{editingWeek ? 'Edit Production Week' : 'Add Production Week'}</h3><button onClick={() => { setShowAddWeek(false); resetForm(); }} className="p-2 hover:bg-gray-100 rounded-lg">✕</button></div><div className="p-6 space-y-6">{error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}<div><label className="block text-sm font-medium text-gray-700 mb-1">Select Week</label><select value={formData.weekStart} onChange={(e) => handleWeekSelect(e.target.value)} className="w-full border rounded-lg px-3 py-2"><option value="">Choose a week...</option>{weekOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}</select></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Modules Per Day (Mon-Thu)</label><div className="flex items-center gap-3"><input type="number" min="1" max="15" value={formData.dailyGoal || 5} onChange={(e) => handleDailyGoalChange(e.target.value)} className="w-20 border rounded-lg px-3 py-2 text-center" /><span className="text-sm text-gray-500">× 4 days = <strong>{(formData.dailyGoal || 5) * 4}</strong> modules/week</span></div><p className="text-xs text-gray-400 mt-1">Fri/Sat/Sun shifts coming soon</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Starting Module (AUTO-FC / AUTO-W)</label><select value={formData.startingModule} onChange={(e) => setFormData(prev => ({ ...prev, startingModule: e.target.value }))} className="w-full border rounded-lg px-3 py-2"><option value="">Select starting module...</option>{sortedModules.map(m => <option key={m.id} value={m.serialNumber}>{m.serialNumber} (#{m.buildSequence})</option>)}</select><p className="text-xs text-gray-500 mt-1">First module to be in AUTO-FC and AUTO-W stations for this week</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label><textarea value={formData.notes} onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))} className="w-full border rounded-lg px-3 py-2" rows={2} placeholder="Any additional notes..." /></div><div className="flex justify-end gap-3 pt-4 border-t"><button onClick={() => { setShowAddWeek(false); resetForm(); }} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">Cancel</button><button onClick={handleSave} className="px-4 py-2 btn-primary rounded-lg">{editingWeek ? 'Save Changes' : 'Add Week'}</button></div></div></div></div>)}
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <h3 className="text-lg font-semibold text-autovol-navy">Station Stagger Configuration</h3>
+                    <p className="text-sm text-gray-600">Configure the offset between departments. A stagger of 5 means that station is working on modules 5 positions ahead of Automation.</p>
+                    {!isAdmin && <p className="text-xs text-amber-600 mt-1">🔒 View only - Admin access required to modify staggers</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                    {isAdmin && (
+                        <button onClick={resetToDefaultStaggers} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">Reset to Default</button>
+                    )}
+                    <button onClick={() => setShowChangeLog(!showChangeLog)} className={`px-3 py-1.5 text-sm border rounded-lg flex items-center gap-1 ${showChangeLog ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-gray-300 hover:bg-gray-50 text-gray-600'}`}>
+                        📋 Change Log ({staggerChangeLog.length})
+                    </button>
+                </div>
+            </div>
+
+            {/* Unsaved Changes Banner */}
+            {hasUnsavedStaggerChanges && isAdmin && (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-amber-800 font-medium mb-2">⚠️ You have unsaved stagger changes</div>
+                    <div className="flex items-center gap-2">
+                        <input type="text" value={changeDescription} onChange={(e) => setChangeDescription(e.target.value)} placeholder="Describe why you're making this change..." className="flex-1 px-3 py-2 border border-amber-300 rounded-lg text-sm" />
+                        <button onClick={handleSaveChanges} disabled={!changeDescription.trim()} className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed">Save Changes</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Change Log Panel */}
+            {showChangeLog && (
+                <div className="bg-gray-50 border rounded-lg">
+                    <div className="p-3 border-b bg-gray-100 flex items-center justify-between">
+                        <h4 className="font-semibold text-gray-700">Stagger Change History</h4>
+                        <button onClick={() => setShowChangeLog(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                        {staggerChangeLog.length === 0 ? (
+                            <div className="p-4 text-center text-gray-500 text-sm">No changes recorded yet.</div>
+                        ) : (
+                            <div className="divide-y">
+                                {staggerChangeLog.map((entry, idx) => (
+                                    <div key={entry.id} className="p-3 hover:bg-white">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <span className="font-medium text-gray-800">{entry.description}</span>
+                                                    {idx === 0 && <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded">Current</span>}
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-0.5">{formatDate(entry.timestamp)} • by {entry.changedBy}</div>
+                                                {Object.keys(entry.changes || {}).length > 0 && (
+                                                    <div className="mt-1 text-xs text-gray-600">
+                                                        Changed: {Object.entries(entry.changes).map(([station, value]) => (
+                                                            <span key={station} className="inline-block bg-gray-200 px-1.5 py-0.5 rounded mr-1 mb-1">{station}: {value}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {idx !== 0 && isAdmin && (
+                                                confirmRevert === entry.id ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <button onClick={() => handleRevert(entry.id)} className="px-2 py-1 bg-blue-600 text-white text-xs rounded">Confirm</button>
+                                                        <button onClick={() => setConfirmRevert(null)} className="px-2 py-1 bg-gray-300 text-gray-700 text-xs rounded">Cancel</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setConfirmRevert(entry.id)} className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">Revert</button>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Stagger Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="border-b">
+                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Station</th>
+                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Dept Code</th>
+                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Stagger Offset</th>
+                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Group</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {productionStages.map((station, idx) => (
+                            <tr key={station.id} className={idx % 2 === 0 ? 'bg-gray-50' : ''}>
+                                <td className="py-2 px-3">{station.name}</td>
+                                <td className="py-2 px-3 font-mono">{station.dept}</td>
+                                <td className="py-2 px-3">
+                                    <input type="number" min="0" max="50" value={staggerConfig[station.id] || 0} onChange={(e) => isAdmin && updateStagger(station.id, e.target.value)} disabled={!isAdmin} className={`w-20 px-2 py-1 border rounded text-center font-mono ${!isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                                </td>
+                                <td className="py-2 px-3">
+                                    {station.group && <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{stationGroups[station.group]?.name || station.group}</span>}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Info Tip */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                <strong>Tip:</strong> Stagger values determine which module appears at each station on the Weekly Board. <strong>Remember to save your changes with a description!</strong>
+            </div>
         </div>
     );
 }
 
-// ============================================================================
-// DASHBOARD ROLE MANAGER COMPONENT
-// Complete UI for managing dashboard roles, tabs, and capabilities
-// ============================================================================
 function DashboardRoleManager({ auth }) {
     const { 
         roles, 
@@ -2112,6 +2288,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                 setProjects={setProjects}
                                 departmentStatus={departmentStatus}
                                 onSelectProject={setSelectedProject}
+                                auth={auth}
                             />
                         )}
                         
@@ -2726,7 +2903,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
         ];
 
         // Production Dashboard Component - Vertical Department Workflow
-        function ProductionDashboard({ projects, setProjects, departmentStatus, onSelectProject }) {
+        function ProductionDashboard({ projects, setProjects, departmentStatus, onSelectProject, auth }) {
             const activeProjects = projects.filter(p => p.status === 'Active');
             const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || null);
             const [productionTab, setProductionTab] = useState('weekly-board');
@@ -2745,7 +2922,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             });
             
             // Production weeks integration
-            const { weeks, staggerConfig, addWeek, updateWeek, deleteWeek, updateStagger, validateWeek, getCurrentWeek } = useProductionWeeks();
+            const { weeks, staggerConfig, staggerChangeLog, hasUnsavedStaggerChanges, addWeek, updateWeek, deleteWeek, updateStagger, saveStaggerChanges, revertToStaggerConfig, resetToDefaultStaggers, validateWeek, getCurrentWeek } = useProductionWeeks();
             const currentWeek = getCurrentWeek();
             
             // Weekly schedule integration (from WeeklyBoard.jsx)
@@ -3299,59 +3476,19 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                     )}
                                     
                                     {productionTab === 'staggers' && (
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <h3 className="text-lg font-semibold text-autovol-navy">Station Stagger Configuration</h3>
-                                                    <p className="text-sm text-gray-600">
-                                                        Configure the offset between departments based on physical floor positions.
-                                                        A stagger of 5 means that station is typically working on modules 5 positions ahead of Automation.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-sm">
-                                                    <thead>
-                                                        <tr className="border-b">
-                                                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Station</th>
-                                                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Dept Code</th>
-                                                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Stagger Offset</th>
-                                                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Group</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {productionStages.map((station, idx) => (
-                                                            <tr key={station.id} className={idx % 2 === 0 ? 'bg-gray-50' : ''}>
-                                                                <td className="py-2 px-3">{station.name}</td>
-                                                                <td className="py-2 px-3 font-mono">{station.dept}</td>
-                                                                <td className="py-2 px-3">
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        max="50"
-                                                                        value={staggerConfig[station.id] || 0}
-                                                                        onChange={(e) => updateStagger(station.id, e.target.value)}
-                                                                        className="w-20 px-2 py-1 border rounded text-center font-mono"
-                                                                    />
-                                                                </td>
-                                                                <td className="py-2 px-3">
-                                                                    {station.group && (
-                                                                        <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">
-                                                                            {stationGroups[station.group]?.name || station.group}
-                                                                        </span>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-                                                <strong>Tip:</strong> Stagger values determine which module appears at each station on the Weekly Board.
-                                                A stagger of 0 means the station shows the same starting module as Automation.
-                                                Changes are saved automatically.
-                                            </div>
-                                        </div>
+                                        <StaggerConfigTab 
+                                            productionStages={productionStages}
+                                            stationGroups={stationGroups}
+                                            staggerConfig={staggerConfig}
+                                            staggerChangeLog={staggerChangeLog}
+                                            hasUnsavedStaggerChanges={hasUnsavedStaggerChanges}
+                                            updateStagger={updateStagger}
+                                            saveStaggerChanges={saveStaggerChanges}
+                                            revertToStaggerConfig={revertToStaggerConfig}
+                                            resetToDefaultStaggers={resetToDefaultStaggers}
+                                            currentUser={auth.currentUser}
+                                            isAdmin={auth.isAdmin}
+                                        />
                                     )}
                                     
                                     {productionTab === 'weekly-board' && (
@@ -3365,6 +3502,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                                 getLineBalance={weeklySchedule.getLineBalance}
                                                 completedWeeks={weeklySchedule.completedWeeks}
                                                 completeWeek={weeklySchedule.completeWeek}
+                                                addWeek={addWeek}
                                                 onModuleClick={setSelectedModuleDetail}
                                                 setProductionTab={setProductionTab}
                                                 setProjects={setProjects}

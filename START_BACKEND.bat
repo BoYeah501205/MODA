@@ -11,7 +11,7 @@ cd /d "%~dp0backend"
 if not exist "node_modules" (
     echo Installing dependencies...
     echo.
-    call npm install
+    cmd /c npm install
     echo.
 )
 
@@ -19,15 +19,15 @@ if not exist "node_modules" (
 if not exist "db\moda.db" (
     echo Initializing database...
     echo.
-    call npm run db:init
+    cmd /c npm run db:init
     echo.
     echo Seeding sample data...
-    call npm run db:seed
+    cmd /c npm run db:seed
     echo.
 )
 
 echo Starting MODA Backend API Server...
 echo.
-call npm start
+cmd /c npm start
 
 pause

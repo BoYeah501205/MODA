@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="onsite.css">
     <link rel="stylesheet" href="onsite-part2.css">
     <link rel="stylesheet" href="onsite-part3.css">
+    <link rel="stylesheet" href="onsite-daily-report.css">
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -101,6 +102,7 @@
                 id: 'proj-001',
                 name: 'Alvarado Creek - Phase 1',
                 location: '4521 Alvarado Canyon Rd, San Diego, CA 92120',
+                generalContractor: 'Turner Construction',
                 status: 'Active',
                 modules: [
                     { id: 'mod-001', serialNumber: '101', hitchBLM: 'B1L1M01', hitchUnit: '2BR-A', hitchRoom: 'Living', stageProgress: { 'Close-Up': { status: 'complete' } } },
@@ -115,6 +117,7 @@
                 id: 'proj-002',
                 name: 'Phoenix Midtown - Building A',
                 location: '1200 N Central Ave, Phoenix, AZ 85004',
+                generalContractor: 'McCarthy Building Companies',
                 status: 'Active',
                 modules: [
                     { id: 'mod-101', serialNumber: '201', hitchBLM: 'B1L1M01', hitchUnit: '1BR-A', hitchRoom: 'Living', stageProgress: { 'Close-Up': { status: 'complete' } } },
@@ -229,9 +232,19 @@
             if (confirm('Clear all On-Site data? This cannot be undone.')) {
                 localStorage.removeItem('autovol_set_schedules');
                 localStorage.removeItem('autovol_set_issues');
+                localStorage.removeItem('autovol_daily_site_reports');
                 alert('Data cleared! Refreshing...');
                 window.location.reload();
             }
+        };
+
+        // Sample current user
+        const CURRENT_USER = {
+            id: 'emp-001',
+            name: 'John Martinez',
+            firstName: 'John',
+            lastName: 'Martinez',
+            role: 'Site Lead'
         };
 
         // Main App
@@ -240,6 +253,7 @@
                 <OnSiteTab 
                     projects={SAMPLE_PROJECTS}
                     employees={SAMPLE_EMPLOYEES}
+                    currentUser={CURRENT_USER}
                 />
             );
         }

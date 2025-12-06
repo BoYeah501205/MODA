@@ -5,7 +5,7 @@
 
 import express from 'express';
 import cors from 'cors';
-import { getDatabase, closeDatabase } from './db/database.js';
+import { initDatabase, getDatabase, closeDatabase, queryOne } from './db/database.js';
 
 // Import route modules
 import projectRoutes from './routes/projects.js';
@@ -16,6 +16,9 @@ import syncRoutes from './routes/sync.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Database initialization flag
+let dbReady = false;
 
 // ===== Middleware =====
 app.use(cors({
@@ -33,11 +36,13 @@ app.use((req, res, next) => {
 // ===== Health Check =====
 app.get('/api/health', (req, res) => {
     try {
-        const db = getDatabase();
-        const result = db.prepare('SELECT 1 as ok').get();
+        if (!dbReady) {
+            return res.status(503).json({ status: 'starting', message: 'Database initializing...' });
+        }
+        const result = queryOne('SELECT 1 as ok');
         res.json({ 
             status: 'healthy', 
-            database: result.ok === 1 ? 'connected' : 'error',
+            database: result && result.ok === 1 ? 'connected' : 'error',
             timestamp: new Date().toISOString()
         });
     } catch (err) {
@@ -80,8 +85,15 @@ process.on('SIGTERM', () => {
 });
 
 // ===== Start Server =====
-app.listen(PORT, () => {
-    console.log(`
+async function startServer() {
+    try {
+        console.log('[Server] Initializing database...');
+        await initDatabase();
+        dbReady = true;
+        console.log('[Server] Database ready!');
+        
+        app.listen(PORT, () => {
+            console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                  MODA Backend API Server                   ║
 ╠════════════════════════════════════════════════════════════╣
@@ -121,4 +133,11 @@ Endpoints:
 
 Press Ctrl+C to stop
 `);
-});
+        });
+    } catch (err) {
+        console.error('[Server] Failed to start:', err);
+        process.exit(1);
+    }
+}
+
+startServer();

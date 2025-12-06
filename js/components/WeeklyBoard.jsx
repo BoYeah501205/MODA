@@ -940,16 +940,17 @@ function WeeklyBoardTab({
         });
         
         // Find which project each module belongs to
+        // Note: Convert IDs to strings for comparison since selection keys are strings
         setProjects(prevProjects => prevProjects.map(project => {
-            const projectModuleIds = (project.modules || []).map(m => m.id);
-            const relevantUpdates = updates.filter(u => projectModuleIds.includes(u.moduleId));
+            const projectModuleIds = (project.modules || []).map(m => String(m.id));
+            const relevantUpdates = updates.filter(u => projectModuleIds.includes(String(u.moduleId)));
             
             if (relevantUpdates.length === 0) return project;
             
             return {
                 ...project,
                 modules: project.modules.map(module => {
-                    const moduleUpdates = relevantUpdates.filter(u => u.moduleId === module.id);
+                    const moduleUpdates = relevantUpdates.filter(u => String(u.moduleId) === String(module.id));
                     if (moduleUpdates.length === 0) return module;
                     
                     const updatedProgress = { ...module.stageProgress };
@@ -1173,58 +1174,71 @@ function WeeklyBoardTab({
     };
     
     // Card height for alignment between date markers and module cards
-    const CARD_HEIGHT = 140; // pixels
+    const CARD_HEIGHT = 58; // pixels - compact like Station Board
     
-    // Render a module card with progress buttons and menu
+    // Render a module card with progress buttons and menu (Station Board style)
     const renderModuleCard = (module, station, weekSection = 'current') => {
         const currentProgress = module.stationProgress || 0;
         const isComplete = currentProgress === 100;
         const moduleIsSelected = isSelected(module.id, station.id);
         
-        // Determine border color based on week section and selection
-        let borderClass = 'border border-gray-200';
-        if (moduleIsSelected) {
-            borderClass = 'border-2 border-blue-500 ring-2 ring-blue-200';
-        } else if (isComplete) {
-            borderClass = 'border-2 border-green-400';
-        } else if (weekSection === 'previous') {
-            borderClass = 'border-2 border-red-300';
-        } else if (weekSection === 'next') {
-            borderClass = 'border-2 border-green-300';
-        }
-        
-        // Background color
+        // Determine border/background based on week section, selection, and completion
+        let borderClass = 'border';
         let bgClass = 'bg-white';
-        if (isComplete) {
+        
+        if (moduleIsSelected) {
+            borderClass = 'border-2 border-blue-500';
+            bgClass = 'bg-blue-50';
+        } else if (isComplete) {
+            borderClass = 'border border-green-300';
             bgClass = 'bg-green-50';
         } else if (weekSection === 'previous') {
-            bgClass = 'bg-red-50/30';
+            borderClass = 'border border-red-300';
+            bgClass = 'bg-red-50';
         } else if (weekSection === 'next') {
-            bgClass = 'bg-green-50/30';
+            borderClass = 'border border-gray-200';
+            bgClass = 'bg-gray-50';
+        } else {
+            borderClass = 'border border-gray-200';
+        }
+        
+        // For "next" week modules with no progress, show greyed out "on-deck" style
+        const isOnDeck = weekSection === 'next' && currentProgress === 0;
+        
+        if (isOnDeck) {
+            return (
+                <div
+                    key={`${station.id}-${module.id}`}
+                    className="rounded p-1.5 bg-gray-50 border border-gray-200 opacity-50 hover:opacity-100 transition cursor-pointer"
+                    style={{ height: `${CARD_HEIGHT}px` }}
+                    onClick={() => updateModuleProgress(module.id, module.projectId, station.id, 25)}
+                    title="Click to start"
+                >
+                    <div className="font-mono text-xs font-bold text-gray-500 truncate">
+                        {module.serialNumber}
+                    </div>
+                    <div className="text-xs text-autovol-teal mt-0.5">
+                        ▶ Start
+                    </div>
+                </div>
+            );
         }
         
         return (
             <div
                 key={`${station.id}-${module.id}`}
-                className={`relative rounded-xl p-4 transition-all hover:shadow-lg ${bgClass} ${borderClass} shadow-sm`}
+                className={`rounded p-1.5 transition-all hover:shadow-md ${bgClass} ${borderClass}`}
                 style={{ height: `${CARD_HEIGHT}px` }}
                 onContextMenu={(e) => handleContextMenu(e, module.id, station.id)}
                 onTouchStart={() => handleTouchStart(module.id, station.id)}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
             >
-                {/* Selection indicator */}
-                {moduleIsSelected && (
-                    <div className="absolute top-1 left-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs">✓</span>
-                    </div>
-                )}
-                
-                {/* Header row with serial and menu button */}
-                <div className="flex items-center justify-between mb-3">
+                {/* Row 1: Serial Number + Menu Button */}
+                <div className="flex items-center justify-between">
                     <div 
-                        className={`font-mono text-lg font-bold cursor-pointer select-none ${
-                            moduleIsSelected ? 'text-blue-600' : 'text-gray-800'
+                        className={`font-mono text-xs font-bold cursor-pointer select-none truncate ${
+                            moduleIsSelected ? 'text-blue-600' : isComplete ? 'text-green-800' : 'text-gray-800'
                         } hover:text-blue-500 transition-colors`}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -1232,44 +1246,37 @@ function WeeklyBoardTab({
                         }}
                         title="Click to select, Ctrl+Click for multi-select"
                     >
+                        {moduleIsSelected && <span className="text-blue-500 mr-1">✓</span>}
                         {module.serialNumber}
                     </div>
                     <button
                         onClick={(e) => handleMenuClick(e, module, station)}
-                        className="text-gray-400 hover:text-gray-600 px-1 tracking-wider text-lg"
+                        className="text-gray-400 hover:text-gray-600 text-xs px-0.5"
                         title="More options"
                     >
                         •••
                     </button>
                 </div>
                 
-                {/* Progress indicator bar */}
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-4">
-                    <div 
-                        className={`h-full transition-all rounded-full ${isComplete ? 'bg-green-500' : 'bg-autovol-teal'}`}
-                        style={{ width: `${currentProgress}%` }}
-                    />
-                </div>
-                
-                {/* Progress buttons */}
-                <div className="flex gap-2 justify-between">
-                    {[0, 25, 50, 75, 100].map(value => (
+                {/* Row 2: Progress Buttons (matching Station Board exactly) */}
+                <div className="flex gap-0.5 mt-1">
+                    {[25, 50, 75, 100].map(pct => (
                         <button
-                            key={value}
+                            key={pct}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                updateModuleProgress(module.id, module.projectId, station.id, value);
+                                updateModuleProgress(module.id, module.projectId, station.id, pct);
                             }}
-                            className={`w-10 h-10 text-sm font-bold rounded-lg transition-all ${
-                                currentProgress === value
-                                    ? value === 100 
-                                        ? 'bg-green-500 text-white shadow-md' 
-                                        : 'bg-autovol-teal text-white shadow-md'
-                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            className={`flex-1 text-xs py-0.5 rounded transition ${
+                                currentProgress >= pct 
+                                    ? isComplete 
+                                        ? 'bg-green-500 text-white' 
+                                        : 'bg-autovol-teal text-white'
+                                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                             }`}
-                            title={`Set to ${value}%`}
+                            title={`Set to ${pct}%`}
                         >
-                            {value === 100 ? '✓' : value}
+                            {pct === 100 ? '✓' : ''}
                         </button>
                     ))}
                 </div>
@@ -1319,18 +1326,18 @@ function WeeklyBoardTab({
     const expectedPrevCount = firstStationModules.previous.length;
     const expectedNextCount = firstStationModules.next.length;
     
-    // Render placeholder card for empty slots
+    // Render placeholder card for empty slots (compact style)
     const renderPlaceholderCard = (weekSection) => {
         const borderClass = weekSection === 'previous' ? 'border-red-200' : 
                            weekSection === 'next' ? 'border-green-200' : 'border-gray-200';
-        const bgClass = weekSection === 'previous' ? 'bg-red-50/30' : 
+        const bgClass = weekSection === 'previous' ? 'bg-red-50/50' : 
                        weekSection === 'next' ? 'bg-green-50/30' : 'bg-gray-50';
         return (
             <div 
-                className={`relative rounded-xl p-4 ${bgClass} border-2 border-dashed ${borderClass}`}
+                className={`rounded p-1.5 ${bgClass} border border-dashed ${borderClass}`}
                 style={{ height: `${CARD_HEIGHT}px` }}
             >
-                <div className="flex items-center justify-center h-full text-gray-300 text-sm">
+                <div className="flex items-center justify-center h-full text-gray-300 text-xs">
                     —
                 </div>
             </div>
@@ -1344,23 +1351,15 @@ function WeeklyBoardTab({
         const hasModules = previous.length > 0 || current.length > 0 || next.length > 0;
         
         return (
-            <div key={station.id} className="flex-shrink-0 w-48">
-                {/* Station Header */}
-                <div className={`${station.color} text-white text-center py-4 rounded-t-xl`}>
-                    <div className="font-bold text-base">{station.dept}</div>
-                    <div className="text-xs opacity-80 truncate px-2">{station.name}</div>
-                </div>
-                
-                {/* Starting Module Indicator */}
-                <div className="bg-gray-100 text-center py-2 text-sm border-x border-gray-200">
-                    <span className="text-gray-500">Start:</span>
-                    <span className="font-mono ml-2 text-gray-800 font-semibold">
-                        {startingModule?.serialNumber || '—'}
-                    </span>
+            <div key={station.id} className="flex-shrink-0 w-36">
+                {/* Station Header - matches Station Board */}
+                <div className={`${station.color} text-white px-2 py-2 text-center rounded-t-lg`}>
+                    <div className="font-semibold text-xs truncate" title={station.name}>{station.dept}</div>
+                    <div className="text-xs opacity-80">Start: {startingModule?.serialNumber?.slice(-4) || '—'}</div>
                 </div>
                 
                 {/* Module Cards Container */}
-                <div className="border-x border-b border-gray-200 rounded-b-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="bg-white min-h-80 p-1 space-y-1 border-x border-b border-gray-200">
                     {!hasModules && expectedPrevCount === 0 && expectedNextCount === 0 ? (
                         <div className="text-sm text-gray-400 text-center py-8">
                             No modules
@@ -1414,20 +1413,15 @@ function WeeklyBoardTab({
         const { previous, current, next } = firstStationModules;
         
         return (
-            <div className="flex-shrink-0 w-28 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 12px rgba(0,0,0,0.08)' }}>
-                {/* Header */}
-                <div className="bg-autovol-navy text-white text-center py-4 rounded-tl-xl">
-                    <div className="font-bold text-base">Day</div>
+            <div className="flex-shrink-0 w-20 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 8px rgba(0,0,0,0.08)' }}>
+                {/* Header - matches station header height */}
+                <div className="bg-autovol-navy text-white px-2 py-2 text-center rounded-tl-lg">
+                    <div className="font-semibold text-xs">Day</div>
                     <div className="text-xs opacity-80">Date</div>
                 </div>
                 
-                {/* Start spacer */}
-                <div className="bg-gray-100 text-center py-2 text-sm border-l border-gray-200">
-                    <span className="text-gray-400">—</span>
-                </div>
-                
                 {/* Row markers - aligned with module cards */}
-                <div className="border-l border-b border-gray-200 rounded-bl-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="bg-white min-h-80 p-1 space-y-1 border-l border-b border-gray-200">
                     
                     {/* Previous Week row markers */}
                     {previous.length > 0 && (
@@ -1435,15 +1429,14 @@ function WeeklyBoardTab({
                             {previous.map((_, idx) => (
                                 <div 
                                     key={`prev-${idx}`}
-                                    className="rounded-xl border-2 border-red-300 bg-red-50 flex flex-col items-center justify-center text-center"
+                                    className="rounded border border-red-300 bg-red-50 flex items-center justify-center text-center"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
                                     <div className="text-xs font-bold text-red-600">PREV</div>
-                                    <div className="text-sm font-medium text-red-500">#{idx + 1}</div>
                                 </div>
                             ))}
                             {/* Divider */}
-                            <div className="border-t-2 border-dashed border-red-300 my-1"></div>
+                            <div className="border-t border-dashed border-red-300 my-0.5"></div>
                         </>
                     )}
                     
@@ -1451,11 +1444,10 @@ function WeeklyBoardTab({
                     {dayLabels.map((dayInfo, idx) => (
                         <div 
                             key={`${dayInfo.day}-${dayInfo.slotNum}`}
-                            className="rounded-xl border-2 border-autovol-teal bg-white flex flex-col items-center justify-center text-center"
+                            className="rounded border border-autovol-teal bg-white flex items-center justify-center text-center"
                             style={{ height: `${CARD_HEIGHT}px` }}
                         >
-                            <div className="font-bold text-lg text-autovol-navy">{dayInfo.label}</div>
-                            <div className="text-xs text-gray-600">{dayInfo.monthStr} {dayInfo.dayNum}</div>
+                            <div className="text-xs font-bold text-autovol-navy">{dayInfo.label}</div>
                         </div>
                     ))}
                     
@@ -1463,15 +1455,14 @@ function WeeklyBoardTab({
                     {next.length > 0 && (
                         <>
                             {/* Divider */}
-                            <div className="border-t-2 border-dashed border-green-300 my-1"></div>
+                            <div className="border-t border-dashed border-green-300 my-0.5"></div>
                             {next.map((_, idx) => (
                                 <div 
                                     key={`next-${idx}`}
-                                    className="rounded-xl border-2 border-green-300 bg-green-50 flex flex-col items-center justify-center text-center"
+                                    className="rounded border border-green-300 bg-green-50 flex items-center justify-center text-center"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
                                     <div className="text-xs font-bold text-green-600">NEXT</div>
-                                    <div className="text-sm font-medium text-green-500">#{idx + 1}</div>
                                 </div>
                             ))}
                         </>
@@ -1657,18 +1648,29 @@ function WeeklyBoardTab({
                         <span className="font-medium text-gray-700">selected</span>
                     </div>
                     <div className="h-8 w-px bg-gray-300"></div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                         <span className="text-sm text-gray-500 mr-2">Set to:</span>
-                        {[0, 25, 50, 75, 100].map(value => (
+                        {[25, 50, 75, 100].map(value => (
                             <button
                                 key={value}
                                 onClick={() => bulkUpdateProgress(value)}
-                                className="w-10 h-10 text-sm font-bold rounded-lg bg-gray-100 hover:bg-autovol-teal hover:text-white transition-all"
+                                className={`flex-1 text-xs py-1.5 px-3 rounded transition ${
+                                    value === 100 
+                                        ? 'bg-gray-200 hover:bg-green-500 hover:text-white' 
+                                        : 'bg-gray-200 hover:bg-autovol-teal hover:text-white'
+                                }`}
                                 title={`Set all to ${value}%`}
                             >
-                                {value === 100 ? '✓' : value}
+                                {value === 100 ? '✓' : ''}
                             </button>
                         ))}
+                        <button
+                            onClick={() => bulkUpdateProgress(0)}
+                            className="text-xs py-1.5 px-2 rounded bg-gray-200 hover:bg-red-400 hover:text-white transition ml-1"
+                            title="Reset all to 0%"
+                        >
+                            ✕
+                        </button>
                     </div>
                     <div className="h-8 w-px bg-gray-300"></div>
                     <button
