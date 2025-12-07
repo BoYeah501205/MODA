@@ -2,17 +2,8 @@
 echo.
 echo ========================================
 echo   MODA - Modular Operations Dashboard
-echo   Production-Ready Build
 echo ========================================
 echo.
-
-:: Check if dist folder exists (production build)
-if not exist "%~dp0dist" (
-    echo Building production version...
-    cd /d "%~dp0"
-    cmd /c npm run build
-    echo.
-)
 
 :: Start Backend in a new window
 echo Starting Backend Server...
@@ -21,13 +12,13 @@ start "MODA Backend" cmd /c "cd /d "%~dp0backend" && npm start"
 :: Wait a moment for backend to initialize
 timeout /t 3 /nobreak > nul
 
-:: Start Frontend Preview Server (serves production build)
+:: Start Frontend Server
 echo Starting Frontend Server...
-start "MODA Frontend" cmd /c "cd /d "%~dp0" && npm run serve"
+start "MODA Frontend" cmd /c "cd /d "%~dp0" && node server.cjs"
 
 echo.
 echo ========================================
-echo   MODA is starting up!
+echo   MODA is running!
 echo ========================================
 echo.
 echo   Backend API:  http://localhost:3001

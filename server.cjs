@@ -42,8 +42,9 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 MODA Dashboard Server Running!\n`);
-    console.log(`   URL: http://localhost:${PORT}`);
+    console.log(`   Local:   http://localhost:${PORT}`);
+    console.log(`   Network: http://192.168.0.64:${PORT}`);
     console.log(`\n   Press Ctrl+C to stop\n`);
 });

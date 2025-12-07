@@ -4,12 +4,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
-  // Use the new Vite-compatible index.html
   root: '.',
   
   plugins: [
     react({
-      // Include JSX in .js files
       include: '**/*.{jsx,tsx,js,ts}'
     }),
     VitePWA({

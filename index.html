@@ -3,25 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="MODA - Modular Operations Dashboard Application by Autovol">
-    <title>MODA | Modular Operations Dashboard</title>
+    <title>Modular Operations Dashboard Application</title>
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- External Libraries (loaded before app for global availability) -->
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheets -->
+    <link href="./css/styles.css" rel="stylesheet">
+    <link href="./css/professional-icons.css" rel="stylesheet">
 </head>
-<body>
+<body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Initialize Project Data -->
+    <script src="./js/data/projectData.js"></script>
+    
+    <!-- MODA Core (Data Layer + Roles) -->
+    <script src="./js/core/moda-core.js"></script>
+    
+    <!-- API Client (Backend Integration) -->
+    <script src="./js/api.js"></script>
+    
+    <!-- React Components -->
+    <script type="text/babel" src="./js/components/TrainingMatrix.jsx"></script>
+    <script type="text/babel" src="./js/components/WeeklyBoard.jsx"></script>
+    <script type="text/babel" src="./js/components/RFIManager.jsx"></script>
+    <script type="text/babel" src="./js/components/PreconModule.jsx"></script>
+    <script type="text/babel" src="./js/components/App.jsx"></script>
 </body>
 </html>
