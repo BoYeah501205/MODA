@@ -4,13 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
+  // Use the new Vite-compatible index.html
+  root: '.',
+  
   plugins: [
     react({
-      babel: {
-        plugins: [
-          // Add any babel plugins here if needed
-        ]
-      }
+      // Include JSX in .js files
+      include: '**/*.{jsx,tsx,js,ts}'
     }),
     VitePWA({
       registerType: 'autoUpdate',
@@ -62,11 +62,12 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './js'),
-      '@/components': path.resolve(__dirname, './js/components'),
-      '@/hooks': path.resolve(__dirname, './js/hooks'),
-      '@/utils': path.resolve(__dirname, './js/utils'),
-      '@/types': path.resolve(__dirname, './js/types')
+      '@': path.resolve(__dirname, './src'),
+      '@/components': path.resolve(__dirname, './src/components'),
+      '@/contexts': path.resolve(__dirname, './src/contexts'),
+      '@/hooks': path.resolve(__dirname, './src/hooks'),
+      '@/utils': path.resolve(__dirname, './src/utils'),
+      '@/styles': path.resolve(__dirname, './src/styles')
     }
   },
   build: {
@@ -75,9 +76,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          utils: ['./js/utils.js', './js/constants.js'],
-          storage: ['./js/storage.js', './js/stateManager.js', './js/dataLayer.js']
+          vendor: ['react', 'react-dom']
         }
       }
     },
