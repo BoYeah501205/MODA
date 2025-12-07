@@ -104,188 +104,6 @@ const useWeeklySchedule = () => {
     };
 };
 
-// ===== PROTOTYPE SCHEDULING SECTION COMPONENT =====
-function PrototypeSchedulingSection({ allModules, sortedModules, projects, setProjects }) {
-    const { useState, useMemo } = React;
-    const [expandedProto, setExpandedProto] = useState(null);
-    
-    // Get all prototype modules
-    const prototypeModules = useMemo(() => {
-        return (allModules || []).filter(m => m.isPrototype);
-    }, [allModules]);
-    
-    // Get non-prototype modules for "Insert After" dropdown (sorted by buildSequence)
-    const insertTargets = useMemo(() => {
-        return sortedModules.filter(m => !m.isPrototype && Number.isInteger(m.buildSequence));
-    }, [sortedModules]);
-    
-    // Calculate the next available decimal slot after a given module
-    const getNextDecimalSlot = (afterBuildSeq) => {
-        // Find all modules with buildSequence between afterBuildSeq and afterBuildSeq + 1
-        const existingDecimals = sortedModules
-            .filter(m => m.buildSequence > afterBuildSeq && m.buildSequence < Math.floor(afterBuildSeq) + 1)
-            .map(m => m.buildSequence);
-        
-        if (existingDecimals.length === 0) {
-            return afterBuildSeq + 0.1;
-        }
-        // Find the max and add 0.1
-        const maxDecimal = Math.max(...existingDecimals);
-        return Math.round((maxDecimal + 0.1) * 100) / 100; // Round to 2 decimal places
-    };
-    
-    // Update a prototype's buildSequence based on "Insert After" selection
-    const handleInsertAfter = (protoModule, afterModuleSerial) => {
-        if (!afterModuleSerial || !setProjects) return;
-        
-        const afterModule = sortedModules.find(m => m.serialNumber === afterModuleSerial);
-        if (!afterModule) return;
-        
-        const newBuildSeq = getNextDecimalSlot(afterModule.buildSequence);
-        
-        // Update the module in projects
-        setProjects(prev => prev.map(project => {
-            if (project.id !== protoModule.projectId) return project;
-            return {
-                ...project,
-                modules: (project.modules || []).map(m => {
-                    if (m.id !== protoModule.id) return m;
-                    return { ...m, buildSequence: newBuildSeq, insertedAfter: afterModuleSerial };
-                })
-            };
-        }));
-        
-        setExpandedProto(null);
-    };
-    
-    // Clear insertion (reset to original project sequence)
-    const handleClearInsertion = (protoModule) => {
-        if (!setProjects) return;
-        
-        // Find original position in project
-        const project = projects?.find(p => p.id === protoModule.projectId);
-        const projectModules = project?.modules || [];
-        const protoIndex = projectModules.findIndex(m => m.id === protoModule.id);
-        
-        // Calculate a high buildSequence to put it at the end (or use original if available)
-        const maxSeq = Math.max(...sortedModules.map(m => Math.floor(m.buildSequence || 0)), 0);
-        const newBuildSeq = maxSeq + protoIndex + 1;
-        
-        setProjects(prev => prev.map(project => {
-            if (project.id !== protoModule.projectId) return project;
-            return {
-                ...project,
-                modules: (project.modules || []).map(m => {
-                    if (m.id !== protoModule.id) return m;
-                    const { insertedAfter, ...rest } = m;
-                    return { ...rest, buildSequence: newBuildSeq };
-                })
-            };
-        }));
-    };
-    
-    if (prototypeModules.length === 0) {
-        return null; // Don't show section if no prototypes
-    }
-    
-    return (
-        <div className="bg-white border-2 border-yellow-400 rounded-lg overflow-hidden">
-            <div className="bg-yellow-400 text-yellow-900 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="text-lg">★</span>
-                    <span className="font-semibold">Prototype Scheduling</span>
-                    <span className="text-sm opacity-75">Insert prototypes into production schedule</span>
-                </div>
-                <span className="bg-yellow-600 text-white px-2 py-0.5 rounded text-sm font-medium">
-                    {prototypeModules.length} prototype{prototypeModules.length !== 1 ? 's' : ''}
-                </span>
-            </div>
-            
-            <div className="p-4">
-                <div className="text-sm text-gray-600 mb-3">
-                    Prototypes use decimal build sequences (e.g., 5.1) to slot between main project modules without disrupting their numbering.
-                </div>
-                
-                <div className="space-y-2">
-                    {prototypeModules.map(proto => {
-                        const isExpanded = expandedProto === proto.id;
-                        const hasInsertion = proto.insertedAfter;
-                        const isDecimal = proto.buildSequence && !Number.isInteger(proto.buildSequence);
-                        
-                        return (
-                            <div 
-                                key={proto.id}
-                                className={`border rounded-lg p-3 ${hasInsertion ? 'border-green-300 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-yellow-500 text-lg">★</span>
-                                        <div>
-                                            <span className="font-mono font-bold text-gray-800">{proto.serialNumber}</span>
-                                            <span className="text-sm text-gray-500 ml-2">({proto.projectName})</span>
-                                        </div>
-                                        <div className="text-sm">
-                                            <span className="text-gray-500">Seq:</span>
-                                            <span className={`font-mono ml-1 ${isDecimal ? 'text-green-600 font-bold' : 'text-gray-600'}`}>
-                                                #{proto.buildSequence}
-                                            </span>
-                                        </div>
-                                        {hasInsertion && (
-                                            <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">
-                                                After {proto.insertedAfter}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        {hasInsertion && (
-                                            <button
-                                                onClick={() => handleClearInsertion(proto)}
-                                                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded"
-                                            >
-                                                Clear
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => setExpandedProto(isExpanded ? null : proto.id)}
-                                            className="px-3 py-1 text-sm bg-yellow-200 hover:bg-yellow-300 text-yellow-800 rounded font-medium"
-                                        >
-                                            {isExpanded ? 'Cancel' : 'Insert After...'}
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {isExpanded && (
-                                    <div className="mt-3 pt-3 border-t border-yellow-200">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Insert this prototype after:
-                                        </label>
-                                        <select
-                                            className="w-full border rounded-lg px-3 py-2"
-                                            defaultValue=""
-                                            onChange={(e) => handleInsertAfter(proto, e.target.value)}
-                                        >
-                                            <option value="">Select a module...</option>
-                                            {insertTargets.map(m => (
-                                                <option key={m.id} value={m.serialNumber}>
-                                                    {m.serialNumber} (#{m.buildSequence}) - {m.projectName}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            The prototype will be assigned sequence #{insertTargets.length > 0 ? 
-                                                `${insertTargets[0]?.buildSequence}.1` : '?.1'} (decimal) to slot after the selected module.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ===== SCHEDULE SETUP SUB-TAB COMPONENT =====
 function ScheduleSetupTab({ 
     scheduleSetup, 
@@ -299,10 +117,7 @@ function ScheduleSetupTab({
     updateWeek,
     deleteWeek,
     validateWeek,
-    allModules,
-    // Prototype scheduling props
-    projects,
-    setProjects
+    allModules
 }) {
     const { useState } = React;
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
@@ -582,14 +397,6 @@ function ScheduleSetupTab({
                     </div>
                 </div>
             )}
-            
-            {/* ===== PROTOTYPE SCHEDULING SECTION ===== */}
-            <PrototypeSchedulingSection 
-                allModules={allModules}
-                sortedModules={sortedModules}
-                projects={projects}
-                setProjects={setProjects}
-            />
             
             {/* Shift 1 Table - Mon-Thu */}
             <div className="bg-white border rounded-lg overflow-hidden">
@@ -940,17 +747,16 @@ function WeeklyBoardTab({
         });
         
         // Find which project each module belongs to
-        // Note: Convert IDs to strings for comparison since selection keys are strings
         setProjects(prevProjects => prevProjects.map(project => {
-            const projectModuleIds = (project.modules || []).map(m => String(m.id));
-            const relevantUpdates = updates.filter(u => projectModuleIds.includes(String(u.moduleId)));
+            const projectModuleIds = (project.modules || []).map(m => m.id);
+            const relevantUpdates = updates.filter(u => projectModuleIds.includes(u.moduleId));
             
             if (relevantUpdates.length === 0) return project;
             
             return {
                 ...project,
                 modules: project.modules.map(module => {
-                    const moduleUpdates = relevantUpdates.filter(u => String(u.moduleId) === String(module.id));
+                    const moduleUpdates = relevantUpdates.filter(u => u.moduleId === module.id);
                     if (moduleUpdates.length === 0) return module;
                     
                     const updatedProgress = { ...module.stageProgress };
@@ -1174,71 +980,58 @@ function WeeklyBoardTab({
     };
     
     // Card height for alignment between date markers and module cards
-    const CARD_HEIGHT = 58; // pixels - compact like Station Board
+    const CARD_HEIGHT = 140; // pixels
     
-    // Render a module card with progress buttons and menu (Station Board style)
+    // Render a module card with progress buttons and menu
     const renderModuleCard = (module, station, weekSection = 'current') => {
         const currentProgress = module.stationProgress || 0;
         const isComplete = currentProgress === 100;
         const moduleIsSelected = isSelected(module.id, station.id);
         
-        // Determine border/background based on week section, selection, and completion
-        let borderClass = 'border';
-        let bgClass = 'bg-white';
-        
+        // Determine border color based on week section and selection
+        let borderClass = 'border border-gray-200';
         if (moduleIsSelected) {
-            borderClass = 'border-2 border-blue-500';
-            bgClass = 'bg-blue-50';
+            borderClass = 'border-2 border-blue-500 ring-2 ring-blue-200';
         } else if (isComplete) {
-            borderClass = 'border border-green-300';
-            bgClass = 'bg-green-50';
+            borderClass = 'border-2 border-green-400';
         } else if (weekSection === 'previous') {
-            borderClass = 'border border-red-300';
-            bgClass = 'bg-red-50';
+            borderClass = 'border-2 border-red-300';
         } else if (weekSection === 'next') {
-            borderClass = 'border border-gray-200';
-            bgClass = 'bg-gray-50';
-        } else {
-            borderClass = 'border border-gray-200';
+            borderClass = 'border-2 border-green-300';
         }
         
-        // For "next" week modules with no progress, show greyed out "on-deck" style
-        const isOnDeck = weekSection === 'next' && currentProgress === 0;
-        
-        if (isOnDeck) {
-            return (
-                <div
-                    key={`${station.id}-${module.id}`}
-                    className="rounded p-1.5 bg-gray-50 border border-gray-200 opacity-50 hover:opacity-100 transition cursor-pointer"
-                    style={{ height: `${CARD_HEIGHT}px` }}
-                    onClick={() => updateModuleProgress(module.id, module.projectId, station.id, 25)}
-                    title="Click to start"
-                >
-                    <div className="font-mono text-xs font-bold text-gray-500 truncate">
-                        {module.serialNumber}
-                    </div>
-                    <div className="text-xs text-autovol-teal mt-0.5">
-                        ▶ Start
-                    </div>
-                </div>
-            );
+        // Background color
+        let bgClass = 'bg-white';
+        if (isComplete) {
+            bgClass = 'bg-green-50';
+        } else if (weekSection === 'previous') {
+            bgClass = 'bg-red-50/30';
+        } else if (weekSection === 'next') {
+            bgClass = 'bg-green-50/30';
         }
         
         return (
             <div
                 key={`${station.id}-${module.id}`}
-                className={`rounded p-1.5 transition-all hover:shadow-md ${bgClass} ${borderClass}`}
+                className={`relative rounded-xl p-4 transition-all hover:shadow-lg ${bgClass} ${borderClass} shadow-sm`}
                 style={{ height: `${CARD_HEIGHT}px` }}
                 onContextMenu={(e) => handleContextMenu(e, module.id, station.id)}
                 onTouchStart={() => handleTouchStart(module.id, station.id)}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
             >
-                {/* Row 1: Serial Number + Menu Button */}
-                <div className="flex items-center justify-between">
+                {/* Selection indicator */}
+                {moduleIsSelected && (
+                    <div className="absolute top-1 left-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">✓</span>
+                    </div>
+                )}
+                
+                {/* Header row with serial and menu button */}
+                <div className="flex items-center justify-between mb-3">
                     <div 
-                        className={`font-mono text-xs font-bold cursor-pointer select-none truncate ${
-                            moduleIsSelected ? 'text-blue-600' : isComplete ? 'text-green-800' : 'text-gray-800'
+                        className={`font-mono text-lg font-bold cursor-pointer select-none ${
+                            moduleIsSelected ? 'text-blue-600' : 'text-gray-800'
                         } hover:text-blue-500 transition-colors`}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -1246,37 +1039,44 @@ function WeeklyBoardTab({
                         }}
                         title="Click to select, Ctrl+Click for multi-select"
                     >
-                        {moduleIsSelected && <span className="text-blue-500 mr-1">✓</span>}
                         {module.serialNumber}
                     </div>
                     <button
                         onClick={(e) => handleMenuClick(e, module, station)}
-                        className="text-gray-400 hover:text-gray-600 text-xs px-0.5"
+                        className="text-gray-400 hover:text-gray-600 px-1 tracking-wider text-lg"
                         title="More options"
                     >
                         •••
                     </button>
                 </div>
                 
-                {/* Row 2: Progress Buttons (matching Station Board exactly) */}
-                <div className="flex gap-0.5 mt-1">
-                    {[25, 50, 75, 100].map(pct => (
+                {/* Progress indicator bar */}
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-4">
+                    <div 
+                        className={`h-full transition-all rounded-full ${isComplete ? 'bg-green-500' : 'bg-autovol-teal'}`}
+                        style={{ width: `${currentProgress}%` }}
+                    />
+                </div>
+                
+                {/* Progress buttons */}
+                <div className="flex gap-2 justify-between">
+                    {[0, 25, 50, 75, 100].map(value => (
                         <button
-                            key={pct}
+                            key={value}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                updateModuleProgress(module.id, module.projectId, station.id, pct);
+                                updateModuleProgress(module.id, module.projectId, station.id, value);
                             }}
-                            className={`flex-1 text-xs py-0.5 rounded transition ${
-                                currentProgress >= pct 
-                                    ? isComplete 
-                                        ? 'bg-green-500 text-white' 
-                                        : 'bg-autovol-teal text-white'
-                                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            className={`w-10 h-10 text-sm font-bold rounded-lg transition-all ${
+                                currentProgress === value
+                                    ? value === 100 
+                                        ? 'bg-green-500 text-white shadow-md' 
+                                        : 'bg-autovol-teal text-white shadow-md'
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                             }`}
-                            title={`Set to ${pct}%`}
+                            title={`Set to ${value}%`}
                         >
-                            {pct === 100 ? '✓' : ''}
+                            {value === 100 ? '✓' : value}
                         </button>
                     ))}
                 </div>
@@ -1326,18 +1126,18 @@ function WeeklyBoardTab({
     const expectedPrevCount = firstStationModules.previous.length;
     const expectedNextCount = firstStationModules.next.length;
     
-    // Render placeholder card for empty slots (compact style)
+    // Render placeholder card for empty slots
     const renderPlaceholderCard = (weekSection) => {
         const borderClass = weekSection === 'previous' ? 'border-red-200' : 
                            weekSection === 'next' ? 'border-green-200' : 'border-gray-200';
-        const bgClass = weekSection === 'previous' ? 'bg-red-50/50' : 
+        const bgClass = weekSection === 'previous' ? 'bg-red-50/30' : 
                        weekSection === 'next' ? 'bg-green-50/30' : 'bg-gray-50';
         return (
             <div 
-                className={`rounded p-1.5 ${bgClass} border border-dashed ${borderClass}`}
+                className={`relative rounded-xl p-4 ${bgClass} border-2 border-dashed ${borderClass}`}
                 style={{ height: `${CARD_HEIGHT}px` }}
             >
-                <div className="flex items-center justify-center h-full text-gray-300 text-xs">
+                <div className="flex items-center justify-center h-full text-gray-300 text-sm">
                     —
                 </div>
             </div>
@@ -1351,15 +1151,23 @@ function WeeklyBoardTab({
         const hasModules = previous.length > 0 || current.length > 0 || next.length > 0;
         
         return (
-            <div key={station.id} className="flex-shrink-0 w-36">
-                {/* Station Header - matches Station Board */}
-                <div className={`${station.color} text-white px-2 py-2 text-center rounded-t-lg`}>
-                    <div className="font-semibold text-xs truncate" title={station.name}>{station.dept}</div>
-                    <div className="text-xs opacity-80">Start: {startingModule?.serialNumber?.slice(-4) || '—'}</div>
+            <div key={station.id} className="flex-shrink-0 w-48">
+                {/* Station Header */}
+                <div className={`${station.color} text-white text-center py-4 rounded-t-xl`}>
+                    <div className="font-bold text-base">{station.dept}</div>
+                    <div className="text-xs opacity-80 truncate px-2">{station.name}</div>
+                </div>
+                
+                {/* Starting Module Indicator */}
+                <div className="bg-gray-100 text-center py-2 text-sm border-x border-gray-200">
+                    <span className="text-gray-500">Start:</span>
+                    <span className="font-mono ml-2 text-gray-800 font-semibold">
+                        {startingModule?.serialNumber || '—'}
+                    </span>
                 </div>
                 
                 {/* Module Cards Container */}
-                <div className="bg-white min-h-80 p-1 space-y-1 border-x border-b border-gray-200">
+                <div className="border-x border-b border-gray-200 rounded-b-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {!hasModules && expectedPrevCount === 0 && expectedNextCount === 0 ? (
                         <div className="text-sm text-gray-400 text-center py-8">
                             No modules
@@ -1413,15 +1221,20 @@ function WeeklyBoardTab({
         const { previous, current, next } = firstStationModules;
         
         return (
-            <div className="flex-shrink-0 w-20 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 8px rgba(0,0,0,0.08)' }}>
-                {/* Header - matches station header height */}
-                <div className="bg-autovol-navy text-white px-2 py-2 text-center rounded-tl-lg">
-                    <div className="font-semibold text-xs">Day</div>
+            <div className="flex-shrink-0 w-28 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 12px rgba(0,0,0,0.08)' }}>
+                {/* Header */}
+                <div className="bg-autovol-navy text-white text-center py-4 rounded-tl-xl">
+                    <div className="font-bold text-base">Day</div>
                     <div className="text-xs opacity-80">Date</div>
                 </div>
                 
+                {/* Start spacer */}
+                <div className="bg-gray-100 text-center py-2 text-sm border-l border-gray-200">
+                    <span className="text-gray-400">—</span>
+                </div>
+                
                 {/* Row markers - aligned with module cards */}
-                <div className="bg-white min-h-80 p-1 space-y-1 border-l border-b border-gray-200">
+                <div className="border-l border-b border-gray-200 rounded-bl-xl bg-gray-50 p-3 min-h-[300px]" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     
                     {/* Previous Week row markers */}
                     {previous.length > 0 && (
@@ -1429,14 +1242,15 @@ function WeeklyBoardTab({
                             {previous.map((_, idx) => (
                                 <div 
                                     key={`prev-${idx}`}
-                                    className="rounded border border-red-300 bg-red-50 flex items-center justify-center text-center"
+                                    className="rounded-xl border-2 border-red-300 bg-red-50 flex flex-col items-center justify-center text-center"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
                                     <div className="text-xs font-bold text-red-600">PREV</div>
+                                    <div className="text-sm font-medium text-red-500">#{idx + 1}</div>
                                 </div>
                             ))}
                             {/* Divider */}
-                            <div className="border-t border-dashed border-red-300 my-0.5"></div>
+                            <div className="border-t-2 border-dashed border-red-300 my-1"></div>
                         </>
                     )}
                     
@@ -1444,11 +1258,11 @@ function WeeklyBoardTab({
                     {dayLabels.map((dayInfo, idx) => (
                         <div 
                             key={`${dayInfo.day}-${dayInfo.slotNum}`}
-                            className="rounded border border-autovol-teal bg-white flex flex-col items-center justify-center text-center"
+                            className="rounded-xl border-2 border-autovol-teal bg-white flex flex-col items-center justify-center text-center"
                             style={{ height: `${CARD_HEIGHT}px` }}
                         >
-                            <div className="text-xs font-bold text-autovol-navy">{dayInfo.label}</div>
-                            <div className="text-xs text-gray-500">{dayInfo.monthStr} {dayInfo.dayNum}</div>
+                            <div className="font-bold text-lg text-autovol-navy">{dayInfo.label}</div>
+                            <div className="text-xs text-gray-600">{dayInfo.monthStr} {dayInfo.dayNum}</div>
                         </div>
                     ))}
                     
@@ -1456,14 +1270,15 @@ function WeeklyBoardTab({
                     {next.length > 0 && (
                         <>
                             {/* Divider */}
-                            <div className="border-t border-dashed border-green-300 my-0.5"></div>
+                            <div className="border-t-2 border-dashed border-green-300 my-1"></div>
                             {next.map((_, idx) => (
                                 <div 
                                     key={`next-${idx}`}
-                                    className="rounded border border-green-300 bg-green-50 flex items-center justify-center text-center"
+                                    className="rounded-xl border-2 border-green-300 bg-green-50 flex flex-col items-center justify-center text-center"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
                                     <div className="text-xs font-bold text-green-600">NEXT</div>
+                                    <div className="text-sm font-medium text-green-500">#{idx + 1}</div>
                                 </div>
                             ))}
                         </>
@@ -1649,29 +1464,18 @@ function WeeklyBoardTab({
                         <span className="font-medium text-gray-700">selected</span>
                     </div>
                     <div className="h-8 w-px bg-gray-300"></div>
-                    <div className="flex items-center gap-0.5">
+                    <div className="flex items-center gap-1">
                         <span className="text-sm text-gray-500 mr-2">Set to:</span>
-                        {[25, 50, 75, 100].map(value => (
+                        {[0, 25, 50, 75, 100].map(value => (
                             <button
                                 key={value}
                                 onClick={() => bulkUpdateProgress(value)}
-                                className={`flex-1 text-xs py-1.5 px-3 rounded transition ${
-                                    value === 100 
-                                        ? 'bg-gray-200 hover:bg-green-500 hover:text-white' 
-                                        : 'bg-gray-200 hover:bg-autovol-teal hover:text-white'
-                                }`}
+                                className="w-10 h-10 text-sm font-bold rounded-lg bg-gray-100 hover:bg-autovol-teal hover:text-white transition-all"
                                 title={`Set all to ${value}%`}
                             >
-                                {value === 100 ? '✓' : ''}
+                                {value === 100 ? '✓' : value}
                             </button>
                         ))}
-                        <button
-                            onClick={() => bulkUpdateProgress(0)}
-                            className="text-xs py-1.5 px-2 rounded bg-gray-200 hover:bg-red-400 hover:text-white transition ml-1"
-                            title="Reset all to 0%"
-                        >
-                            ✕
-                        </button>
                     </div>
                     <div className="h-8 w-px bg-gray-300"></div>
                     <button
