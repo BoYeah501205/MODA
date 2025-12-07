@@ -2907,7 +2907,6 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             const activeProjects = projects.filter(p => p.status === 'Active');
             const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || null);
             const [productionTab, setProductionTab] = useState('weekly-board');
-            const [onDeckCount, setOnDeckCount] = useState(5);
             
             // Module Detail State (for Station Board "View Details" button)
             const [selectedModuleDetail, setSelectedModuleDetail] = useState(null);
@@ -3010,81 +3009,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                 return { scheduled, inProduction, complete };
             };
             
-            // Get modules for a specific station - independent vertical workflow
-            const getModulesForStation = (station) => {
-                const activeModules = [];
-                const completeModules = [];
-                
-                // Find all modules with progress at this station
-                sortedModules.forEach(module => {
-                    const progress = module.stageProgress || {};
-                    const stationProgress = progress[station.id] || 0;
-                    
-                    if (stationProgress > 0 && stationProgress < 100) {
-                        // Active: in progress at this station
-                        activeModules.push({ 
-                            ...module, 
-                            stationProgress, 
-                            status: 'active' 
-                        });
-                    } else if (stationProgress === 100) {
-                        // Complete at this station
-                        const completedAt = module.stationCompletedAt?.[station.id] || 0;
-                        completeModules.push({ 
-                            ...module, 
-                            stationProgress: 100, 
-                            status: 'complete',
-                            completedAt
-                        });
-                    }
-                });
-                
-                // Add on-deck modules: next N modules by build sequence that haven't started THIS station
-                const onDeckModules = [];
-                let onDeckAdded = 0;
-                
-                for (let i = 0; i < sortedModules.length && onDeckAdded < onDeckCount; i++) {
-                    const module = sortedModules[i];
-                    const progress = module.stageProgress || {};
-                    const stationProgress = progress[station.id] || 0;
-                    
-                    // On-deck if: not started at this station
-                    if (stationProgress === 0) {
-                        onDeckModules.push({ 
-                            ...module, 
-                            stationProgress: 0, 
-                            status: 'on-deck' 
-                        });
-                        onDeckAdded++;
-                    }
-                }
-                
-                // Limit to 5 most recently completed (by completion timestamp)
-                // For modules without timestamps (legacy), use build sequence as fallback
-                // Sort by completedAt descending to get most recent, take 5, then reverse so oldest is at top
-                const limitedComplete = completeModules
-                    .sort((a, b) => {
-                        // If both have timestamps, use timestamps
-                        if (a.completedAt && b.completedAt) {
-                            return b.completedAt - a.completedAt;
-                        }
-                        // If only one has timestamp, the one WITH timestamp is more recent
-                        if (a.completedAt && !b.completedAt) return -1;
-                        if (!a.completedAt && b.completedAt) return 1;
-                        // Neither has timestamp - fall back to build sequence (higher = more recent)
-                        return (b.buildSequence || 0) - (a.buildSequence || 0);
-                    })
-                    .slice(0, 5)
-                    .reverse();  // Oldest at top, newest at bottom
-                
-                // Sort active and on-deck by build sequence (ascending)
-                activeModules.sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
-                onDeckModules.sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
-                
-                // Return combined: active first, then on-deck, then completed
-                return [...activeModules, ...onDeckModules, ...limitedComplete];
-            };
-            
+
             // Update module progress for a specific station
             const updateModuleProgress = (moduleId, stationId, newProgress) => {
                 setProjects(prevProjects => prevProjects.map(project => {
@@ -3118,128 +3043,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             
             const { scheduled, inProduction, complete } = categorizeModules();
             
-            // Render station column
-            const renderStationColumn = (station, isFirst, isLast, groupStart, groupEnd) => {
-                const stationModules = getModulesForStation(station);
-                const activeModules = stationModules.filter(m => m.status === 'active');
-                const onDeckModules = stationModules.filter(m => m.status === 'on-deck');
-                const completeModules = stationModules.filter(m => m.status === 'complete');
-                
-                // Border styling for groups
-                let borderClass = '';
-                if (station.group === 'automation') {
-                    borderClass = 'border-2 border-autovol-teal';
-                    if (isFirst || groupStart) borderClass += ' rounded-l-lg';
-                    if (isLast || groupEnd) borderClass += ' rounded-r-lg';
-                    if (!groupEnd) borderClass += ' border-r-0';
-                }
-                
-                return (
-                    <div 
-                        key={station.id}
-                        className={`w-36 flex-shrink-0 ${borderClass}`}
-                    >
-                        {/* Station Header */}
-                        <div className={`${station.color} text-white px-2 py-2 text-center ${groupStart || isFirst ? 'rounded-tl-lg' : ''} ${groupEnd || isLast ? 'rounded-tr-lg' : ''}`}>
-                            <div className="font-semibold text-xs truncate" title={station.name}>
-                                {station.dept}
-                            </div>
-                            <div className="text-xs opacity-80">
-                                {activeModules.length} active
-                            </div>
-                        </div>
-                        
-                        {/* Module Cards */}
-                        <div className="bg-white min-h-80 p-1 space-y-1 border-x border-b border-gray-200">
-                            {/* Completed Modules - at top */}
-                            {completeModules.length > 0 && (
-                                <div className="border-b border-gray-300 pb-2 mb-2">
-                                    <div className="text-xs text-green-600 text-center mb-1 font-medium">Completed</div>
-                                    {completeModules.map(module => (
-                                        <div 
-                                            key={module.id}
-                                            className="border rounded p-1.5 bg-green-50 border-green-300 hover:shadow-md transition mb-1"
-                                        >
-                                            <div className="font-mono text-xs font-bold text-green-800 truncate">
-                                                {module.serialNumber || module.id}
-                                            </div>
-                                            {/* Progress Buttons - editable to revert */}
-                                            <div className="flex gap-0.5 mt-1">
-                                                {[25, 50, 75, 100].map(pct => (
-                                                    <button
-                                                        key={pct}
-                                                        onClick={() => updateModuleProgress(module.id, station.id, pct)}
-                                                        className={`flex-1 text-xs py-0.5 rounded transition ${
-                                                            module.stationProgress >= pct 
-                                                                ? 'bg-green-500 text-white' 
-                                                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                                        }`}
-                                                    >
-                                                        {pct === 100 ? '✓' : ''}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            
-                            {/* Active Modules */}
-                            {activeModules.map(module => (
-                                <div 
-                                    key={module.id}
-                                    className="border rounded p-1.5 bg-white hover:shadow-md transition"
-                                >
-                                    <div className="font-mono text-xs font-bold text-gray-800 truncate">
-                                        {module.serialNumber || module.id}
-                                    </div>
-                                    {/* Progress Buttons */}
-                                    <div className="flex gap-0.5 mt-1">
-                                        {[25, 50, 75, 100].map(pct => (
-                                            <button
-                                                key={pct}
-                                                onClick={() => updateModuleProgress(module.id, station.id, pct)}
-                                                className={`flex-1 text-xs py-0.5 rounded transition ${
-                                                    module.stationProgress >= pct 
-                                                        ? 'bg-autovol-teal text-white' 
-                                                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                                }`}
-                                            >
-                                                {pct === 100 ? '✓' : ''}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                            
-                            {/* On-Deck Modules */}
-                            {onDeckModules.map(module => (
-                                <div 
-                                    key={module.id}
-                                    className="border rounded p-1.5 bg-gray-50 opacity-50 hover:opacity-100 transition cursor-pointer"
-                                    onClick={() => updateModuleProgress(module.id, station.id, 25)}
-                                    title="Click to start"
-                                >
-                                    <div className="font-mono text-xs font-bold text-gray-500 truncate">
-                                        {module.serialNumber || module.id}
-                                    </div>
-                                    <div className="text-xs text-autovol-teal mt-0.5">
-                                        ▶ Start
-                                    </div>
-                                </div>
-                            ))}
-                            
-                            {/* Empty State */}
-                            {stationModules.length === 0 && (
-                                <div className="text-xs text-gray-400 text-center py-8">
-                                    –
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                );
-            };
-            
+         
             return (
                 <div className="space-y-4">
                     {/* Header */}
@@ -3275,7 +3079,6 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                 <div className="border-b flex overflow-x-auto">
                                     {[
                                         { id: 'weekly-board', label: 'Weekly Board' },
-                                        { id: 'station-board', label: 'Station Board' },
                                         { id: 'module-status', label: 'Module Status' },
                                         { id: 'staggers', label: 'Station Stagger' },
                                         { id: 'schedule-setup', label: 'Schedule Setup' }
@@ -3296,115 +3099,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                 
                                 {/* Tab Content */}
                                 <div className="p-4">
-                                    {productionTab === 'station-board' && (
-                                        <div className="space-y-4">
-                                            {/* Controls */}
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-sm text-gray-600">
-                                                    <span className="font-semibold text-autovol-navy">{selectedProject.name}</span>
-                                                    <span className="ml-4">{inProduction.length} in production</span>
-                                                    <span className="ml-4">{scheduled.length} scheduled</span>
-                                                    <span className="ml-4">{complete.length} complete</span>
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    <label className="text-sm text-gray-600">
-                                                        On-Deck:
-                                                        <select 
-                                                            value={onDeckCount}
-                                                            onChange={(e) => setOnDeckCount(parseInt(e.target.value))}
-                                                            className="ml-2 border rounded px-2 py-1"
-                                                        >
-                                                            {[0, 3, 4, 5, 6, 8, 10].map(n => (
-                                                                <option key={n} value={n}>{n}</option>
-                                                            ))}
-                                                        </select>
-                                                    </label>
-                                                    <button
-                                                        onClick={() => onSelectProject(selectedProject)}
-                                                        className="text-sm text-autovol-teal hover:underline"
-                                                    >
-                                                        Full Module List →
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* Station Board with Navigation Arrows */}
-                                            <div className="relative group/board">
-                                                {/* Left Navigation Arrow */}
-                                                <button
-                                                    onClick={() => {
-                                                        const el = document.getElementById('station-board-scroll');
-                                                        if (el) el.scrollBy({ left: -400, behavior: 'smooth' });
-                                                    }}
-                                                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white shadow-lg rounded-r-lg p-2 opacity-30 group-hover/board:opacity-70 hover:!opacity-100 transition-all"
-                                                    title="Scroll left"
-                                                >
-                                                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                                    </svg>
-                                                </button>
-                                                
-                                                {/* Right Navigation Arrow */}
-                                                <button
-                                                    onClick={() => {
-                                                        const el = document.getElementById('station-board-scroll');
-                                                        if (el) el.scrollBy({ left: 400, behavior: 'smooth' });
-                                                    }}
-                                                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white shadow-lg rounded-l-lg p-2 opacity-30 group-hover/board:opacity-70 hover:!opacity-100 transition-all"
-                                                    title="Scroll right"
-                                                >
-                                                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </button>
-                                                
-                                                {/* Scrollable Station Grid */}
-                                                <div id="station-board-scroll" className="overflow-x-auto pb-4 scroll-smooth px-6">
-                                                    <div className="flex gap-1 min-w-max">
-                                                        {productionStages.map((station, idx) => {
-                                                            const prevStation = productionStages[idx - 1];
-                                                            const nextStation = productionStages[idx + 1];
-                                                            const groupStart = station.group && (!prevStation || prevStation.group !== station.group);
-                                                            const groupEnd = station.group && (!nextStation || nextStation.group !== station.group);
-                                                            
-                                                            return renderStationColumn(
-                                                                station, 
-                                                                idx === 0, 
-                                                                idx === productionStages.length - 1,
-                                                                groupStart,
-                                                                groupEnd
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* Legend */}
-                                            <div className="flex items-center gap-6 text-sm text-gray-600 flex-wrap">
-                                                <span className="font-medium">Legend:</span>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 border rounded bg-white"></div>
-                                                    <span>Active</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 border rounded bg-gray-50 opacity-50"></div>
-                                                    <span>On-Deck</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 border rounded bg-green-50 border-green-300"></div>
-                                                    <span>Completed</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 rounded bg-autovol-teal"></div>
-                                                    <span>Progress</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-3 border-2 border-autovol-teal rounded"></div>
-                                                    <span>Automation Group</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
+                                    
                                     
                                     {productionTab === 'module-status' && (
                                         <div className="space-y-6">
