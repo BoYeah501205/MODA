@@ -302,9 +302,7 @@ function ScheduleSetupTab({
     allModules,
     // Prototype scheduling props
     projects,
-    setProjects,
-    // Permission props
-    canEdit = true // Tab-specific edit permission (false = view-only mode)
+    setProjects
 }) {
     const { useState } = React;
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
@@ -686,7 +684,7 @@ function ScheduleSetupTab({
 
 // ===== MODULE CARD PROMPT COMPONENT =====
 // Reusable prompt that appears when clicking "..." on a module card
-function ModuleCardPrompt({ module, station, position, onClose, onViewDetails, onReportIssue, onShopDrawing, onMoveModule }) {
+function ModuleCardPrompt({ module, station, position, onClose, onViewDetails, onReportIssue, onShopDrawing }) {
     const { useEffect, useRef } = React;
     const promptRef = useRef(null);
     
@@ -738,17 +736,6 @@ function ModuleCardPrompt({ module, station, position, onClose, onViewDetails, o
             >
                 <span>📐</span> Shop Drawing
             </button>
-            {onMoveModule && (
-                <>
-                    <div className="border-t my-1"></div>
-                    <button
-                        onClick={() => { onMoveModule(module); }}
-                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-3 text-blue-700"
-                    >
-                        <span>↕️</span> Move in Schedule
-                    </button>
-                </>
-            )}
         </div>
     );
 }
@@ -855,17 +842,12 @@ function ModuleDetailsTable({ module, onClose }) {
     );
 }
 
-// ===== STATION CAPACITY CONFIG =====
-// Default capacity per station (modules that can be worked on simultaneously)
-const DEFAULT_STATION_CAPACITY = 5;
-
 // ===== WEEKLY BOARD SUB-TAB COMPONENT =====
 function WeeklyBoardTab({ 
     projects, 
     productionStages, 
     staggerConfig, 
     currentWeek,
-    weeks = [], // All available weeks for selector
     scheduleSetup,
     getLineBalance,
     completedWeeks,
@@ -874,64 +856,12 @@ function WeeklyBoardTab({
     onModuleClick,
     setProductionTab,
     setProjects, // For updating module progress
-    onReportIssue, // For opening report issue modal
-    canEdit = true, // Tab-specific edit permission (false = view-only mode)
-    stationCapacities = {} // Optional: custom capacities per station { stationId: number }
+    onReportIssue // For opening report issue modal
 }) {
-    const { useState, useRef, useEffect, useCallback, useMemo } = React;
+    const { useState, useRef, useEffect, useCallback } = React;
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
-    
-    // ===== WEEK SELECTOR =====
-    // selectedWeekId: null means "use currentWeek (auto)", otherwise use specific week
-    const [selectedWeekId, setSelectedWeekId] = useState(null);
-    
-    // Determine which week to display
-    const displayWeek = useMemo(() => {
-        if (selectedWeekId) {
-            return weeks.find(w => w.id === selectedWeekId) || currentWeek;
-        }
-        return currentWeek;
-    }, [selectedWeekId, weeks, currentWeek]);
-    
-    // ===== TOAST NOTIFICATION SYSTEM =====
-    const [toasts, setToasts] = useState([]); // Array of { id, message, type, moduleSerial, stationName }
-    
-    // Add a toast notification
-    const addToast = useCallback((message, type = 'success', moduleSerial = '', stationName = '') => {
-        const id = Date.now();
-        setToasts(prev => [...prev, { id, message, type, moduleSerial, stationName }]);
-        
-        // Auto-dismiss after 4 seconds
-        setTimeout(() => {
-            setToasts(prev => prev.filter(t => t.id !== id));
-        }, 4000);
-    }, []);
-    
-    // Remove a toast manually
-    const removeToast = useCallback((id) => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-    }, []);
-    
-    // ===== MODULE REORDERING SYSTEM =====
-    const [showMoveModal, setShowMoveModal] = useState(null); // { module, currentPosition }
-    const [showMoveConfirm, setShowMoveConfirm] = useState(null); // { module, fromPosition, toPosition, applyToAll }
-    
-    // ===== REORDER MODE (Drag-and-Drop) =====
-    const [reorderMode, setReorderMode] = useState(false);
-    const [pendingReorders, setPendingReorders] = useState([]); // Array of { moduleId, fromSeq, toSeq }
-    const [draggedModule, setDraggedModule] = useState(null);
-    const [dragOverTarget, setDragOverTarget] = useState(null); // { moduleId, position: 'before' | 'after' }
-    const [showReorderConfirm, setShowReorderConfirm] = useState(false);
-    
-    // ===== PDF EXPORT =====
-    const [showPDFExport, setShowPDFExport] = useState(false);
-    const [pdfExportScope, setPdfExportScope] = useState('current'); // 'current', 'all', 'with-prev', 'with-next'
-    
-    // ===== BOARD VIEW MODE =====
-    // 'compact' = serial number only (original), 'detailed' = full module info like Modules On-Board panel
-    const [boardViewMode, setBoardViewMode] = useState('compact');
     
     // ===== SELECTION SYSTEM =====
     const [selectedModules, setSelectedModules] = useState(new Set()); // Set of "moduleId-stationId" keys
@@ -1062,8 +992,8 @@ function WeeklyBoardTab({
     // Get all active projects
     const activeProjects = projects.filter(p => p.status === 'Active');
     
-    // Check if we have the required configuration (use displayWeek for board rendering)
-    const hasWeekConfig = displayWeek && displayWeek.startingModule;
+    // Check if we have the required configuration
+    const hasWeekConfig = currentWeek && currentWeek.startingModule;
     const lineBalance = getLineBalance();
     
     // Get all modules from all active projects, sorted by build sequence
@@ -1075,9 +1005,9 @@ function WeeklyBoardTab({
     // Stagger is subtracted because downstream stations work on earlier modules
     // (modules that have already passed through upstream stations)
     const getStationStartingModule = (stationId) => {
-        if (!displayWeek?.startingModule) return null;
+        if (!currentWeek?.startingModule) return null;
         const stagger = staggerConfig[stationId] || 0;
-        const startingModule = allModules.find(m => m.serialNumber === displayWeek.startingModule);
+        const startingModule = allModules.find(m => m.serialNumber === currentWeek.startingModule);
         if (!startingModule) return null;
         
         const startBuildSeq = (startingModule.buildSequence || 0) - stagger;
@@ -1132,139 +1062,55 @@ function WeeklyBoardTab({
         };
     };
     
-    // ===== STATION CAPACITY CALCULATION =====
-    // Calculate current load and capacity status for each station
-    const getStationCapacityInfo = useMemo(() => {
-        const capacityInfo = {};
-        
-        productionStages.forEach(station => {
-            const capacity = stationCapacities[station.id] || DEFAULT_STATION_CAPACITY;
-            const { current } = getModulesForStation(station);
-            
-            // Count modules that are in-progress (not complete, not pending)
-            const inProgress = current.filter(m => m.status === 'in-progress').length;
-            const pending = current.filter(m => m.status === 'pending').length;
-            const complete = current.filter(m => m.status === 'complete').length;
-            const total = current.length;
-            
-            // Calculate load percentage (in-progress + pending that should be started)
-            const activeLoad = inProgress + Math.min(pending, capacity - inProgress);
-            const loadPercent = Math.round((activeLoad / capacity) * 100);
-            
-            // Determine status: green (under), yellow (at), red (over)
-            let status = 'under';
-            if (activeLoad >= capacity) status = 'at';
-            if (activeLoad > capacity) status = 'over';
-            
-            capacityInfo[station.id] = {
-                capacity,
-                inProgress,
-                pending,
-                complete,
-                total,
-                activeLoad,
-                loadPercent: Math.min(loadPercent, 100), // Cap at 100 for display
-                actualPercent: loadPercent, // Keep actual for warnings
-                status
-            };
-        });
-        
-        return capacityInfo;
-    }, [productionStages, stationCapacities, allModules, displayWeek]);
-    
     // Get the last working day date for previous week label
     const getPreviousWeekLastDay = () => {
-        if (!displayWeek?.weekStart) return null;
-        const weekStart = new Date(displayWeek.weekStart);
+        if (!currentWeek?.weekStart) return null;
+        const weekStart = new Date(currentWeek.weekStart);
         // Go back to previous Thursday (last working day of previous week)
         const prevThursday = new Date(weekStart);
         prevThursday.setDate(weekStart.getDate() - 4); // Monday - 4 = Thursday of prev week
         return prevThursday;
     };
     
-    // Get recently completed modules (modules that are 100% at ALL stations)
+    // Get recently completed modules (last 5 across all stations)
     const getRecentlyCompleted = () => {
-        // Filter modules that have 100% progress at ALL production stages
-        const fullyCompleted = allModules.filter(module => {
-            const progress = module.stageProgress || {};
-            // Check if every station has 100% progress
-            return productionStages.every(station => progress[station.id] === 100);
+        const completed = [];
+        productionStages.forEach(station => {
+            allModules.forEach(module => {
+                const progress = module.stageProgress || {};
+                if (progress[station.id] === 100) {
+                    completed.push({
+                        ...module,
+                        stationId: station.id,
+                        stationName: station.name,
+                        completedAt: module.stationCompletedAt?.[station.id] || 0
+                    });
+                }
+            });
         });
-        
-        // Sort by the most recent station completion timestamp
-        return fullyCompleted
-            .map(module => {
-                // Get the latest completion timestamp across all stations
-                const completedAt = module.stationCompletedAt 
-                    ? Math.max(...Object.values(module.stationCompletedAt))
-                    : 0;
-                return { ...module, completedAt };
-            })
+        return completed
             .sort((a, b) => b.completedAt - a.completedAt)
             .slice(0, 5);
-    };
-    
-    // Get all modules currently on the board (previous + current + upcoming)
-    const getModulesOnBoard = useMemo(() => {
-        if (!hasWeekConfig) return [];
-        
-        const firstStation = productionStages[0];
-        if (!firstStation) return [];
-        
-        const { previous, current, next } = getModulesForStation(firstStation);
-        
-        // Combine all modules with their section info
-        const allOnBoard = [
-            ...previous.map(m => ({ ...m, section: 'previous' })),
-            ...current.map(m => ({ ...m, section: 'current' })),
-            ...next.map(m => ({ ...m, section: 'next' }))
-        ];
-        
-        return allOnBoard;
-    }, [hasWeekConfig, productionStages, allModules, displayWeek, staggerConfig, lineBalance]);
-    
-    // Difficulty indicator colors
-    const difficultyColors = {
-        sidewall: '#f97316',    // orange
-        stair: '#8b5cf6',       // purple
-        hr3Wall: '#ef4444',     // red
-        short: '#eab308',       // yellow
-        doubleStudio: '#6366f1', // indigo
-        sawbox: '#ec4899'       // pink
-    };
-    
-    const difficultyLabels = {
-        sidewall: 'SW',
-        stair: 'STAIR',
-        hr3Wall: '3HR',
-        short: 'SHORT',
-        doubleStudio: 'DBL',
-        sawbox: 'SAW'
     };
     
     // Update module progress for a specific station (works across all projects)
     const updateModuleProgress = (moduleId, projectId, stationId, newProgress) => {
         if (!setProjects) return;
         
-        // Find module info for toast before updating
-        const project = projects.find(p => p.id === projectId);
-        const module = project?.modules?.find(m => m.id === moduleId);
-        const station = productionStages.find(s => s.id === stationId);
-        const wasComplete = module?.stageProgress?.[stationId] === 100;
-        
-        setProjects(prevProjects => prevProjects.map(proj => {
-            if (proj.id !== projectId) return proj;
+        setProjects(prevProjects => prevProjects.map(project => {
+            if (project.id !== projectId) return project;
             
             return {
-                ...proj,
-                modules: proj.modules.map(mod => {
-                    if (mod.id !== moduleId) return mod;
+                ...project,
+                modules: project.modules.map(module => {
+                    if (module.id !== moduleId) return module;
                     
-                    const updatedProgress = { ...mod.stageProgress };
+                    const updatedProgress = { ...module.stageProgress };
+                    const wasComplete = updatedProgress[stationId] === 100;
                     updatedProgress[stationId] = newProgress;
                     
                     // Track completion timestamps per station
-                    let stationCompletedAt = mod.stationCompletedAt || {};
+                    let stationCompletedAt = module.stationCompletedAt || {};
                     if (newProgress === 100 && !wasComplete) {
                         stationCompletedAt = { ...stationCompletedAt, [stationId]: Date.now() };
                     } else if (newProgress < 100 && wasComplete) {
@@ -1272,193 +1118,10 @@ function WeeklyBoardTab({
                         delete stationCompletedAt[stationId];
                     }
                     
-                    return { ...mod, stageProgress: updatedProgress, stationCompletedAt };
+                    return { ...module, stageProgress: updatedProgress, stationCompletedAt };
                 })
             };
         }));
-        
-        // Show toast notification for completions
-        if (newProgress === 100 && !wasComplete && module && station) {
-            addToast(
-                `${module.serialNumber} completed at ${station.dept}!`,
-                'success',
-                module.serialNumber,
-                station.dept
-            );
-        }
-    };
-    
-    // ===== MODULE MOVE FUNCTIONS =====
-    // Open move modal for a module
-    const openMoveModal = (module) => {
-        setShowMoveModal({
-            module,
-            currentPosition: module.buildSequence || 0
-        });
-        setActivePrompt(null); // Close the context menu
-    };
-    
-    // Apply module move with confirmation
-    const applyModuleMove = (module, newPosition, applyToAll = true) => {
-        if (!setProjects) return;
-        
-        const oldPosition = module.buildSequence || 0;
-        
-        // Update the module's build sequence
-        setProjects(prevProjects => prevProjects.map(project => {
-            if (project.id !== module.projectId) return project;
-            
-            // Get all modules sorted by current sequence
-            const modules = [...(project.modules || [])];
-            const moduleIndex = modules.findIndex(m => m.id === module.id);
-            if (moduleIndex === -1) return project;
-            
-            // Remove the module from its current position
-            const [movedModule] = modules.splice(moduleIndex, 1);
-            
-            // Find the new index based on the target position
-            let newIndex = modules.findIndex(m => (m.buildSequence || 0) >= newPosition);
-            if (newIndex === -1) newIndex = modules.length;
-            
-            // Insert at new position
-            modules.splice(newIndex, 0, { ...movedModule, buildSequence: newPosition });
-            
-            // If applying to all, recalculate all build sequences to be sequential
-            if (applyToAll) {
-                modules.forEach((m, idx) => {
-                    m.buildSequence = idx + 1;
-                });
-            }
-            
-            return { ...project, modules };
-        }));
-        
-        // Show success toast
-        addToast(
-            `${module.serialNumber} moved from #${oldPosition} to #${newPosition}`,
-            'success',
-            module.serialNumber,
-            applyToAll ? 'All stations' : 'This view only'
-        );
-        
-        setShowMoveModal(null);
-        setShowMoveConfirm(null);
-    };
-    
-    // ===== DRAG-AND-DROP HANDLERS =====
-    const handleDragStart = (e, module) => {
-        if (!reorderMode) return;
-        setDraggedModule(module);
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', module.id);
-        // Add visual feedback
-        e.target.style.opacity = '0.5';
-    };
-    
-    const handleDragEnd = (e) => {
-        e.target.style.opacity = '1';
-        setDraggedModule(null);
-        setDragOverTarget(null);
-    };
-    
-    const handleDragOver = (e, targetModule) => {
-        if (!reorderMode || !draggedModule || draggedModule.id === targetModule.id) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        
-        // Determine if dropping before or after based on mouse position
-        const rect = e.currentTarget.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        const position = e.clientY < midY ? 'before' : 'after';
-        
-        setDragOverTarget({ moduleId: targetModule.id, position });
-    };
-    
-    const handleDragLeave = () => {
-        setDragOverTarget(null);
-    };
-    
-    const handleDrop = (e, targetModule) => {
-        e.preventDefault();
-        if (!reorderMode || !draggedModule || draggedModule.id === targetModule.id) return;
-        
-        const fromSeq = draggedModule.buildSequence || 0;
-        const targetSeq = targetModule.buildSequence || 0;
-        const position = dragOverTarget?.position || 'after';
-        const toSeq = position === 'before' ? targetSeq : targetSeq + 0.5;
-        
-        // Add to pending reorders
-        setPendingReorders(prev => {
-            // Remove any existing reorder for this module
-            const filtered = prev.filter(r => r.moduleId !== draggedModule.id);
-            return [...filtered, { 
-                moduleId: draggedModule.id, 
-                moduleSerial: draggedModule.serialNumber,
-                fromSeq, 
-                toSeq,
-                targetSerial: targetModule.serialNumber,
-                position
-            }];
-        });
-        
-        setDraggedModule(null);
-        setDragOverTarget(null);
-    };
-    
-    // Apply all pending reorders
-    const applyPendingReorders = (applyToAll = true) => {
-        if (!setProjects || pendingReorders.length === 0) return;
-        
-        setProjects(prevProjects => prevProjects.map(project => {
-            // Get modules that have pending reorders
-            const projectReorders = pendingReorders.filter(r => 
-                project.modules?.some(m => m.id === r.moduleId)
-            );
-            
-            if (projectReorders.length === 0) return project;
-            
-            // Sort modules by their new sequence (using toSeq for reordered ones)
-            let modules = [...(project.modules || [])].map(m => {
-                const reorder = projectReorders.find(r => r.moduleId === m.id);
-                return {
-                    ...m,
-                    _sortSeq: reorder ? reorder.toSeq : (m.buildSequence || 0)
-                };
-            });
-            
-            modules.sort((a, b) => a._sortSeq - b._sortSeq);
-            
-            // Reassign sequential build sequences
-            if (applyToAll) {
-                modules = modules.map((m, idx) => {
-                    const { _sortSeq, ...rest } = m;
-                    return { ...rest, buildSequence: idx + 1 };
-                });
-            }
-            
-            return { ...project, modules };
-        }));
-        
-        // Show success toast
-        addToast(
-            `Reordered ${pendingReorders.length} module${pendingReorders.length > 1 ? 's' : ''}`,
-            'success',
-            '',
-            applyToAll ? 'Applied to all stations' : 'This view only'
-        );
-        
-        // Reset reorder mode
-        setReorderMode(false);
-        setPendingReorders([]);
-        setShowReorderConfirm(false);
-    };
-    
-    // Cancel reorder mode
-    const cancelReorderMode = () => {
-        setReorderMode(false);
-        setPendingReorders([]);
-        setDraggedModule(null);
-        setDragOverTarget(null);
     };
     
     // Handle "..." button click - show prompt menu
@@ -1510,596 +1173,8 @@ function WeeklyBoardTab({
         }
     };
     
-    // Handle PDF export - opens export modal
-    const handleExportPDF = () => {
-        setShowPDFExport(true);
-    };
-    
-    // Helper to compute day labels for PDF export
-    const computeDayLabelsForPDF = () => {
-        const days = [];
-        const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
-        const dayNames = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
-        
-        let moduleNum = 1;
-        shift1Days.forEach(day => {
-            const count = scheduleSetup?.shift1?.[day] || 0;
-            if (count > 0) {
-                const weekStart = displayWeek?.weekStart ? new Date(displayWeek.weekStart) : new Date();
-                const dayOffset = shift1Days.indexOf(day);
-                const dayDate = new Date(weekStart);
-                dayDate.setDate(dayDate.getDate() + dayOffset);
-                const monthStr = dayDate.toLocaleDateString('en-US', { month: 'short' });
-                const dayNum = dayDate.getDate();
-                
-                for (let i = 0; i < count; i++) {
-                    days.push({ 
-                        day, 
-                        label: dayNames[day], 
-                        monthStr,
-                        dayNum,
-                        slotNum: i + 1,
-                        moduleNum: moduleNum++
-                    });
-                }
-            }
-        });
-        return days;
-    };
-    
-    // Generate PDF data for export view - respects pdfExportScope
-    const getPDFExportData = useMemo(() => {
-        if (!hasWeekConfig) return { rows: [], stations: [] };
-        
-        const firstStation = productionStages?.[0];
-        if (!firstStation) return { rows: [], stations: [] };
-        
-        const firstStationData = getModulesForStation(firstStation);
-        if (!firstStationData) return { rows: [], stations: [] };
-        
-        const { previous = [], current = [], next = [] } = firstStationData;
-        
-        // Filter rows based on export scope
-        let filteredRows = [];
-        let prevLength = 0;
-        
-        if (pdfExportScope === 'current') {
-            filteredRows = [...current];
-            prevLength = 0;
-        } else if (pdfExportScope === 'with-prev') {
-            filteredRows = [...previous, ...current];
-            prevLength = previous.length;
-        } else if (pdfExportScope === 'with-next') {
-            filteredRows = [...current, ...next];
-            prevLength = 0;
-        } else { // 'all'
-            filteredRows = [...previous, ...current, ...next];
-            prevLength = previous.length;
-        }
-        
-        if (filteredRows.length === 0) return { rows: [], stations: productionStages };
-        
-        const pdfDayLabels = computeDayLabelsForPDF();
-        
-        // Build rows with module data for each station
-        const rows = filteredRows.map((module, idx) => {
-            // Calculate the correct day label index based on scope
-            let dayLabelIdx;
-            if (pdfExportScope === 'current' || pdfExportScope === 'with-next') {
-                dayLabelIdx = idx;
-            } else {
-                dayLabelIdx = idx - prevLength;
-            }
-            const dayInfo = pdfDayLabels[dayLabelIdx];
-            
-            const rowData = {
-                dayLabel: module.weekSection === 'previous' ? 'PREV' : 
-                          module.weekSection === 'next' ? 'NEXT' : 
-                          (dayInfo?.label || ''),
-                dateLabel: module.weekSection === 'current' ? 
-                          `${dayInfo?.monthStr || ''} ${dayInfo?.dayNum || ''}` : '',
-                weekSection: module.weekSection,
-                stations: {}
-            };
-            
-            // Get module data for each station - need to find the matching module
-            productionStages.forEach(station => {
-                const stationData = getModulesForStation(station);
-                if (!stationData) return;
-                
-                // Find the module with matching serial number in this station's data
-                const { previous: sPrev = [], current: sCurr = [], next: sNext = [] } = stationData;
-                let stationModule;
-                
-                if (module.weekSection === 'previous') {
-                    const prevIdx = previous.findIndex(m => m.serialNumber === module.serialNumber);
-                    stationModule = sPrev[prevIdx];
-                } else if (module.weekSection === 'next') {
-                    const nextIdx = next.findIndex(m => m.serialNumber === module.serialNumber);
-                    stationModule = sNext[nextIdx];
-                } else {
-                    const currIdx = current.findIndex(m => m.serialNumber === module.serialNumber);
-                    stationModule = sCurr[currIdx];
-                }
-                
-                if (stationModule) {
-                    // stationProgress is the numeric progress for THIS station (set by addStatusInfo)
-                    const progress = typeof stationModule.stationProgress === 'number' 
-                        ? stationModule.stationProgress 
-                        : 0;
-                    rowData.stations[station.id] = {
-                        serialNumber: stationModule.serialNumber,
-                        progress: progress,
-                        isComplete: progress === 100,
-                        // Include detailed info for detailed view export
-                        hitchBLM: stationModule.hitchBLM,
-                        rearBLM: stationModule.rearBLM,
-                        hitchUnit: stationModule.hitchUnit,
-                        rearUnit: stationModule.rearUnit,
-                        hitchRoomType: stationModule.hitchRoomType,
-                        rearRoomType: stationModule.rearRoomType,
-                        difficulties: stationModule.difficulties
-                    };
-                }
-            });
-            
-            return rowData;
-        });
-        
-        return { rows, stations: productionStages };
-    }, [hasWeekConfig, productionStages, projects, displayWeek, scheduleSetup, pdfExportScope]);
-    
-    // Export to PDF using browser print
-    const executePDFExport = () => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            addToast('Please allow popups to export PDF', 'error');
-            return;
-        }
-        
-        const { rows, stations } = getPDFExportData;
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
-        const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        const isDetailed = boardViewMode === 'detailed';
-        
-        // Get progress color based on percentage
-        const getProgressColor = (progress) => {
-            if (progress === 0) return '#ffffff';
-            if (progress === 25) return '#dcfce7';
-            if (progress === 50) return '#bbf7d0';
-            if (progress === 75) return '#86efac';
-            return '#4ade80'; // 100%
-        };
-        
-        // Render difficulty dots for detailed view
-        const renderDifficultyDots = (difficulties) => {
-            if (!difficulties) return '';
-            const colors = {
-                sidewall: '#f97316', stair: '#8b5cf6', hr3Wall: '#ef4444',
-                short: '#eab308', doubleStudio: '#6366f1', sawbox: '#ec4899'
-            };
-            const dots = Object.entries(difficulties)
-                .filter(([_, v]) => v)
-                .map(([key]) => `<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${colors[key]};margin:0 1px;"></span>`)
-                .join('');
-            return dots ? `<div style="margin-top:1px;">${dots}</div>` : '';
-        };
-        
-        // Render cell content based on view mode
-        const renderCellContent = (data) => {
-            if (!data) {
-                // Empty cell - match height for alignment
-                return `<td class="module-cell ${isDetailed ? 'detailed-cell' : ''}" style="color:#ccc;vertical-align:middle;">—</td>`;
-            }
-            
-            if (isDetailed) {
-                return `<td class="module-cell detailed-cell" style="background:${getProgressColor(data.progress)};vertical-align:top;">
-                    <div style="font-weight:bold;font-size:7px;border-bottom:1px solid #ddd;padding-bottom:1px;margin-bottom:1px;text-align:center;">
-                        ${data.serialNumber?.slice(-7) || '—'}${data.isComplete ? ' <span class="checkmark">✓</span>' : ''}
-                    </div>
-                    <table style="width:100%;border-collapse:collapse;font-size:5px;line-height:1.2;">
-                        <tr>
-                            <td style="width:50%;text-align:center;border-right:1px solid #eee;padding:0 1px;vertical-align:top;">
-                                <div style="color:#999;font-size:4px;font-weight:bold;">(H)</div>
-                                <div style="font-weight:600;font-family:monospace;">${data.hitchBLM || '—'}</div>
-                                <div style="color:#555;">${data.hitchUnit || '—'}</div>
-                                <div style="color:#777;font-size:4px;">${data.hitchRoomType || '—'}</div>
-                            </td>
-                            <td style="width:50%;text-align:center;padding:0 1px;vertical-align:top;">
-                                <div style="color:#999;font-size:4px;font-weight:bold;">(R)</div>
-                                <div style="font-weight:600;font-family:monospace;">${data.rearBLM || '—'}</div>
-                                <div style="color:#555;">${data.rearUnit || data.hitchUnit || '—'}</div>
-                                <div style="color:#777;font-size:4px;">${data.rearRoomType || '—'}</div>
-                            </td>
-                        </tr>
-                    </table>
-                    ${renderDifficultyDots(data.difficulties)}
-                </td>`;
-            } else {
-                return `<td class="module-cell" style="background:${getProgressColor(data.progress)};vertical-align:middle;">
-                    ${data.serialNumber?.slice(-7) || '—'}
-                    ${data.isComplete ? ' <span class="checkmark">✓</span>' : ''}
-                </td>`;
-            }
-        };
-        
-        const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Weekly Schedule - ${dateStr}</title>
-    <style>
-        @page {
-            size: 17in 11in landscape;
-            margin: 0.25in;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            font-size: 9px;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            color: #1a1a1a;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: ${isDetailed ? '8px 16px' : '12px 20px'};
-            border-bottom: 3px solid #1e3a5f;
-            margin-bottom: ${isDetailed ? '8px' : '12px'};
-        }
-        .header-left { font-size: ${isDetailed ? '9px' : '11px'}; color: #555; }
-        .header-center { font-size: ${isDetailed ? '12px' : '16px'}; font-weight: bold; color: #1e3a5f; letter-spacing: 0.5px; }
-        .header-right { font-size: ${isDetailed ? '9px' : '11px'}; color: #555; font-weight: 500; }
-        .view-mode { font-size: 8px; color: #888; margin-left: 8px; }
-        table { 
-            width: 100%; 
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-        th {
-            background: #1e3a5f;
-            color: white;
-            padding: ${isDetailed ? '4px 2px' : '8px 4px'};
-            font-size: ${isDetailed ? '7px' : '9px'};
-            font-weight: 600;
-            text-align: center;
-            border: 1px solid #1e3a5f;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        th.day-col { width: ${isDetailed ? '45px' : '60px'}; }
-        td {
-            border: 1px solid #ccc;
-            padding: ${isDetailed ? '2px 1px' : '4px 2px'};
-            text-align: center;
-            vertical-align: ${isDetailed ? 'top' : 'middle'};
-            height: ${isDetailed ? '58px' : '26px'};
-            background: white;
-        }
-        /* Nested table inside cells should not have borders */
-        td table { border: none; }
-        td table td { border: none; height: auto; padding: 0; background: transparent; }
-        .day-cell {
-            font-weight: 600;
-            font-size: ${isDetailed ? '7px' : '9px'};
-            background: white;
-            border-right: 2px solid #1e3a5f;
-            vertical-align: middle;
-        }
-        .day-cell.prev { 
-            background: white; 
-            color: #888;
-            font-style: italic;
-        }
-        .day-cell.next { 
-            background: white; 
-            color: #888;
-            font-style: italic;
-        }
-        .module-cell {
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: ${isDetailed ? '6px' : '9px'};
-            font-weight: 600;
-        }
-        .detailed-cell {
-            padding: 2px;
-        }
-        .checkmark { 
-            color: #059669; 
-            font-weight: bold; 
-            font-size: ${isDetailed ? '8px' : '11px'};
-        }
-        .legend {
-            display: flex;
-            gap: ${isDetailed ? '12px' : '20px'};
-            justify-content: center;
-            margin-top: ${isDetailed ? '6px' : '12px'};
-            font-size: ${isDetailed ? '7px' : '9px'};
-            padding: ${isDetailed ? '4px' : '8px'};
-            border-top: 1px solid #ddd;
-            flex-wrap: wrap;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: ${isDetailed ? '3px' : '6px'};
-        }
-        .legend-box {
-            width: ${isDetailed ? '12px' : '18px'};
-            height: ${isDetailed ? '12px' : '18px'};
-            border: 1px solid #999;
-        }
-        .legend-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-        .legend-label { font-weight: 500; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="header-left">${dateStr}, ${timeStr}</div>
-        <div class="header-center">Weekly Production Schedule <span class="view-mode">(${isDetailed ? 'Detailed' : 'Compact'} View)</span></div>
-        <div class="header-right">Week of ${displayWeek?.weekStart ? new Date(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dateStr}</div>
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th class="day-col">Day</th>
-                ${stations.map(s => `<th>${s.dept}</th>`).join('')}
-            </tr>
-        </thead>
-        <tbody>
-            ${rows.map(row => `
-                <tr>
-                    <td class="day-cell ${row.weekSection === 'previous' ? 'prev' : row.weekSection === 'next' ? 'next' : ''}">
-                        ${row.dayLabel}${row.dateLabel ? '<br/>' + row.dateLabel : ''}
-                    </td>
-                    ${stations.map(s => renderCellContent(row.stations[s.id])).join('')}
-                </tr>
-            `).join('')}
-        </tbody>
-    </table>
-    
-    <div class="legend">
-        <div class="legend-item"><div class="legend-box" style="background:#ffffff"></div> <span class="legend-label">Not Started</span></div>
-        <div class="legend-item"><div class="legend-box" style="background:#dcfce7"></div> <span class="legend-label">25%</span></div>
-        <div class="legend-item"><div class="legend-box" style="background:#bbf7d0"></div> <span class="legend-label">50%</span></div>
-        <div class="legend-item"><div class="legend-box" style="background:#86efac"></div> <span class="legend-label">75%</span></div>
-        <div class="legend-item"><div class="legend-box" style="background:#4ade80"></div> <span class="legend-label">Complete ✓</span></div>
-        ${isDetailed ? `
-        <span style="margin:0 4px;color:#ccc;">|</span>
-        <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div> <span class="legend-label">SW</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div> <span class="legend-label">STAIR</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> <span class="legend-label">3HR</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#eab308;"></div> <span class="legend-label">SHORT</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div> <span class="legend-label">DBL</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ec4899;"></div> <span class="legend-label">SAW</span></div>
-        ` : ''}
-    </div>
-    
-    <script>
-        window.onload = function() {
-            window.print();
-            setTimeout(function() { window.close(); }, 500);
-        };
-    </script>
-</body>
-</html>`;
-        
-        printWindow.document.write(html);
-        printWindow.document.close();
-        setShowPDFExport(false);
-        addToast('PDF export opened - save as PDF from print dialog', 'success');
-    };
-    
-    // Generate detailed report for printing (fits on single 11x17 sheet)
-    const executeDetailedReport = () => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            addToast('Please allow popups to print report', 'error');
-            return;
-        }
-        
-        // Get all modules on board
-        const modulesOnBoard = getModulesOnBoard;
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
-        const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        const weekDateStr = displayWeek?.weekStart ? new Date(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dateStr;
-        
-        // Calculate columns needed - aim for ~6-8 columns to fit on 11x17
-        const totalModules = modulesOnBoard.length;
-        const columnsNeeded = Math.min(8, Math.max(4, Math.ceil(totalModules / 6)));
-        const rowsPerColumn = Math.ceil(totalModules / columnsNeeded);
-        
-        // Split modules into columns
-        const columns = [];
-        for (let i = 0; i < columnsNeeded; i++) {
-            columns.push(modulesOnBoard.slice(i * rowsPerColumn, (i + 1) * rowsPerColumn));
-        }
-        
-        // Generate module card HTML
-        const renderModuleCard = (module) => {
-            const difficulties = module.difficulties || {};
-            const activeDiffs = Object.entries(difficulties).filter(([_, v]) => v);
-            const sectionBorder = module.section === 'previous' ? '#f87171' : 
-                                 module.section === 'next' ? '#4ade80' : '#3b82f6';
-            
-            const diffDots = activeDiffs.map(([key]) => {
-                const color = difficultyColors[key];
-                return `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${color};margin:0 1px;" title="${difficultyLabels[key]}"></span>`;
-            }).join('');
-            
-            return `
-                <div style="border:1px solid #ddd;border-left:3px solid ${sectionBorder};border-radius:3px;padding:3px;margin-bottom:3px;background:white;font-size:7px;">
-                    <div style="font-weight:bold;font-family:monospace;font-size:8px;text-align:center;border-bottom:1px solid #eee;padding-bottom:2px;margin-bottom:2px;">
-                        ${module.serialNumber?.slice(-7) || 'N/A'}
-                    </div>
-                    <div style="display:flex;font-size:6px;">
-                        <div style="flex:1;text-align:center;border-right:1px solid #eee;padding-right:2px;">
-                            <div style="color:#999;font-size:5px;">(H)</div>
-                            <div style="font-weight:600;font-family:monospace;">${module.hitchBLM || '—'}</div>
-                            <div style="color:#666;">${module.hitchUnit || '—'}</div>
-                            <div style="color:#888;">${module.hitchRoomType || '—'}</div>
-                        </div>
-                        <div style="flex:1;text-align:center;padding-left:2px;">
-                            <div style="color:#999;font-size:5px;">(R)</div>
-                            <div style="font-weight:600;font-family:monospace;">${module.rearBLM || '—'}</div>
-                            <div style="color:#666;">${module.rearUnit || module.hitchUnit || '—'}</div>
-                            <div style="color:#888;">${module.rearRoomType || '—'}</div>
-                        </div>
-                    </div>
-                    ${activeDiffs.length > 0 ? `<div style="text-align:center;padding-top:2px;border-top:1px solid #eee;margin-top:2px;">${diffDots}</div>` : ''}
-                </div>
-            `;
-        };
-        
-        const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Weekly Board Report - ${weekDateStr}</title>
-    <style>
-        @page {
-            size: 17in 11in landscape;
-            margin: 0.25in;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            font-size: 8px;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            color: #1a1a1a;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 16px;
-            border-bottom: 2px solid #1e3a5f;
-            margin-bottom: 8px;
-        }
-        .header-left { font-size: 9px; color: #555; }
-        .header-center { font-size: 14px; font-weight: bold; color: #1e3a5f; }
-        .header-right { font-size: 9px; color: #555; }
-        .stats {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin-bottom: 8px;
-            font-size: 9px;
-        }
-        .stat { padding: 4px 12px; background: #f3f4f6; border-radius: 4px; }
-        .stat-label { color: #666; }
-        .stat-value { font-weight: bold; color: #1e3a5f; }
-        .columns-container {
-            display: flex;
-            gap: 8px;
-            padding: 0 8px;
-        }
-        .column {
-            flex: 1;
-            min-width: 0;
-        }
-        .column-header {
-            background: #1e3a5f;
-            color: white;
-            padding: 4px;
-            text-align: center;
-            font-weight: 600;
-            font-size: 8px;
-            border-radius: 3px 3px 0 0;
-            margin-bottom: 4px;
-        }
-        .legend {
-            display: flex;
-            justify-content: center;
-            gap: 16px;
-            margin-top: 8px;
-            padding: 6px;
-            border-top: 1px solid #ddd;
-            font-size: 7px;
-        }
-        .legend-item { display: flex; align-items: center; gap: 4px; }
-        .legend-box { width: 10px; height: 10px; border-radius: 2px; }
-        .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="header-left">${dateStr}, ${timeStr}</div>
-        <div class="header-center">Weekly Board - Detailed Module Report</div>
-        <div class="header-right">Week of ${weekDateStr}</div>
-    </div>
-    
-    <div class="stats">
-        <div class="stat"><span class="stat-label">Total Modules:</span> <span class="stat-value">${totalModules}</span></div>
-        <div class="stat"><span class="stat-label">Line Balance:</span> <span class="stat-value">${lineBalance}</span></div>
-        <div class="stat"><span class="stat-label">Starting Module:</span> <span class="stat-value">${displayWeek?.startingModule || 'N/A'}</span></div>
-    </div>
-    
-    <div class="columns-container">
-        ${columns.map((col, idx) => `
-            <div class="column">
-                <div class="column-header">Column ${idx + 1}</div>
-                ${col.map(m => renderModuleCard(m)).join('')}
-            </div>
-        `).join('')}
-    </div>
-    
-    <div class="legend">
-        <div class="legend-item"><div class="legend-box" style="border-left:3px solid #f87171;background:#fee2e2;"></div> Previous Week</div>
-        <div class="legend-item"><div class="legend-box" style="border-left:3px solid #3b82f6;background:#dbeafe;"></div> Current Week</div>
-        <div class="legend-item"><div class="legend-box" style="border-left:3px solid #4ade80;background:#dcfce7;"></div> Upcoming</div>
-        <span style="margin:0 8px;">|</span>
-        <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div> SW</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div> STAIR</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> 3HR</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#eab308;"></div> SHORT</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div> DBL</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ec4899;"></div> SAW</div>
-    </div>
-    
-    <script>
-        window.onload = function() {
-            window.print();
-        };
-    </script>
-</body>
-</html>`;
-        
-        printWindow.document.write(html);
-        printWindow.document.close();
-        addToast('Detailed report opened - print or save as PDF', 'success');
-    };
-    
-    // Scroll board horizontally with keyboard
-    const handleBoardKeyDown = useCallback((e) => {
-        if (!boardRef.current) return;
-        const scrollContainer = boardRef.current.querySelector('.board-scroll-container');
-        if (!scrollContainer) return;
-        
-        const scrollAmount = 200; // pixels to scroll
-        
-        if (e.key === 'ArrowLeft') {
-            scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-            e.preventDefault();
-        } else if (e.key === 'ArrowRight') {
-            scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-            e.preventDefault();
-        }
-    }, []);
-    
     // Card height for alignment between date markers and module cards
-    // Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
-    const CARD_HEIGHT = boardViewMode === 'detailed' ? 120 : 58;
+    const CARD_HEIGHT = 58; // pixels - compact like Station Board
     
     // Render a module card with progress buttons and menu (Station Board style)
     const renderModuleCard = (module, station, weekSection = 'current') => {
@@ -2131,13 +1206,9 @@ function WeeklyBoardTab({
         const isOnDeck = weekSection === 'next' && currentProgress === 0;
         
         if (isOnDeck) {
-            const difficulties = module.difficulties || {};
-            const activeDifficulties = Object.entries(difficulties).filter(([_, v]) => v);
-            
             return (
                 <div
                     key={`${station.id}-${module.id}`}
-                    data-module-serial={module.serialNumber}
                     className="rounded p-1.5 bg-gray-50 border border-gray-200 opacity-50 hover:opacity-100 transition cursor-pointer"
                     style={{ height: `${CARD_HEIGHT}px` }}
                     onClick={() => updateModuleProgress(module.id, module.projectId, station.id, 25)}
@@ -2146,34 +1217,6 @@ function WeeklyBoardTab({
                     <div className="font-mono text-xs font-bold text-gray-500 truncate">
                         {module.serialNumber}
                     </div>
-                    
-                    {/* Detailed View for On-Deck modules */}
-                    {boardViewMode === 'detailed' && (
-                        <>
-                            <div className="grid grid-cols-2 divide-x text-center mt-1 border-t border-b py-0.5">
-                                <div className="px-0.5">
-                                    <div className="text-[8px] text-gray-400 font-medium">(H)</div>
-                                    <div className="font-mono text-[9px] font-semibold truncate">{module.hitchBLM || '—'}</div>
-                                    <div className="text-[8px] text-gray-600 truncate">{module.hitchUnit || '—'}</div>
-                                    <div className="text-[8px] text-gray-500 truncate">{module.hitchRoomType || '—'}</div>
-                                </div>
-                                <div className="px-0.5">
-                                    <div className="text-[8px] text-gray-400 font-medium">(R)</div>
-                                    <div className="font-mono text-[9px] font-semibold truncate">{module.rearBLM || '—'}</div>
-                                    <div className="text-[8px] text-gray-600 truncate">{module.rearUnit || module.hitchUnit || '—'}</div>
-                                    <div className="text-[8px] text-gray-500 truncate">{module.rearRoomType || '—'}</div>
-                                </div>
-                            </div>
-                            {activeDifficulties.length > 0 && (
-                                <div className="flex justify-center gap-0.5 py-0.5">
-                                    {activeDifficulties.map(([key]) => (
-                                        <div key={key} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: difficultyColors[key] }} title={difficultyLabels[key]} />
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-                    
                     <div className="text-xs text-autovol-teal mt-0.5">
                         ▶ Start
                     </div>
@@ -2181,29 +1224,11 @@ function WeeklyBoardTab({
             );
         }
         
-        // Check if this module has a pending reorder
-        const pendingReorder = pendingReorders.find(r => r.moduleId === module.id);
-        const isDragTarget = dragOverTarget?.moduleId === module.id;
-        const dropIndicatorClass = isDragTarget 
-            ? dragOverTarget.position === 'before' 
-                ? 'border-t-4 border-t-blue-500' 
-                : 'border-b-4 border-b-blue-500'
-            : '';
-        
         return (
             <div
                 key={`${station.id}-${module.id}`}
-                data-module-serial={module.serialNumber}
-                className={`rounded p-1.5 transition-all hover:shadow-md ${bgClass} ${borderClass} ${dropIndicatorClass} ${
-                    reorderMode ? 'cursor-grab active:cursor-grabbing' : ''
-                } ${pendingReorder ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                className={`rounded p-1.5 transition-all hover:shadow-md ${bgClass} ${borderClass}`}
                 style={{ height: `${CARD_HEIGHT}px` }}
-                draggable={reorderMode}
-                onDragStart={(e) => handleDragStart(e, module)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => handleDragOver(e, module)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, module)}
                 onContextMenu={(e) => handleContextMenu(e, module.id, station.id)}
                 onTouchStart={() => handleTouchStart(module.id, station.id)}
                 onTouchEnd={handleTouchEnd}
@@ -2233,60 +1258,6 @@ function WeeklyBoardTab({
                     </button>
                 </div>
                 
-                {/* Detailed View: Hitch/Rear Info + Difficulty Indicators */}
-                {boardViewMode === 'detailed' && (
-                    <>
-                        <div className="grid grid-cols-2 divide-x text-center mt-1 border-t border-b py-0.5">
-                            {/* Hitch Side */}
-                            <div className="px-0.5">
-                                <div className="text-[8px] text-gray-400 font-medium">(H)</div>
-                                <div className="font-mono text-[9px] font-semibold truncate" title={module.hitchBLM}>
-                                    {module.hitchBLM || '—'}
-                                </div>
-                                <div className="text-[8px] text-gray-600 truncate" title={module.hitchUnit}>
-                                    {module.hitchUnit || '—'}
-                                </div>
-                                <div className="text-[8px] text-gray-500 truncate" title={module.hitchRoomType}>
-                                    {module.hitchRoomType || '—'}
-                                </div>
-                            </div>
-                            
-                            {/* Rear Side */}
-                            <div className="px-0.5">
-                                <div className="text-[8px] text-gray-400 font-medium">(R)</div>
-                                <div className="font-mono text-[9px] font-semibold truncate" title={module.rearBLM}>
-                                    {module.rearBLM || '—'}
-                                </div>
-                                <div className="text-[8px] text-gray-600 truncate" title={module.rearUnit}>
-                                    {module.rearUnit || module.hitchUnit || '—'}
-                                </div>
-                                <div className="text-[8px] text-gray-500 truncate" title={module.rearRoomType}>
-                                    {module.rearRoomType || '—'}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Difficulty Indicators */}
-                        {(() => {
-                            const difficulties = module.difficulties || {};
-                            const activeDifficulties = Object.entries(difficulties).filter(([_, v]) => v);
-                            if (activeDifficulties.length === 0) return null;
-                            return (
-                                <div className="flex justify-center gap-0.5 py-0.5">
-                                    {activeDifficulties.map(([key]) => (
-                                        <div 
-                                            key={key}
-                                            className="w-2.5 h-2.5 rounded-full"
-                                            style={{ backgroundColor: difficultyColors[key] }}
-                                            title={difficultyLabels[key]}
-                                        />
-                                    ))}
-                                </div>
-                            );
-                        })()}
-                    </>
-                )}
-                
                 {/* Row 2: Progress Buttons (matching Station Board exactly) */}
                 <div className="flex gap-0.5 mt-1">
                     {[25, 50, 75, 100].map(pct => (
@@ -2294,23 +1265,16 @@ function WeeklyBoardTab({
                             key={pct}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (canEdit) {
-                                    // Toggle: if clicking the current progress level, reset to previous level (or 0 for 25%)
-                                    const newProgress = currentProgress === pct 
-                                        ? (pct === 25 ? 0 : pct - 25) 
-                                        : pct;
-                                    updateModuleProgress(module.id, module.projectId, station.id, newProgress);
-                                }
+                                updateModuleProgress(module.id, module.projectId, station.id, pct);
                             }}
-                            disabled={!canEdit}
                             className={`flex-1 text-xs py-0.5 rounded transition ${
                                 currentProgress >= pct 
                                     ? isComplete 
                                         ? 'bg-green-500 text-white' 
                                         : 'bg-autovol-teal text-white'
                                     : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                            } ${!canEdit ? 'cursor-not-allowed opacity-60' : ''}`}
-                            title={canEdit ? (currentProgress === pct ? `Click to set to ${pct === 25 ? 0 : pct - 25}%` : `Set to ${pct}%`) : 'View-only mode'}
+                            }`}
+                            title={`Set to ${pct}%`}
                         >
                             {pct === 100 ? '✓' : ''}
                         </button>
@@ -2331,7 +1295,7 @@ function WeeklyBoardTab({
             const count = scheduleSetup?.shift1?.[day] || 0;
             if (count > 0) {
                 // Calculate date for this day
-                const weekStart = displayWeek?.weekStart ? new Date(displayWeek.weekStart) : new Date();
+                const weekStart = currentWeek?.weekStart ? new Date(currentWeek.weekStart) : new Date();
                 const dayOffset = shift1Days.indexOf(day);
                 const dayDate = new Date(weekStart);
                 dayDate.setDate(dayDate.getDate() + dayOffset);
@@ -2385,39 +1349,13 @@ function WeeklyBoardTab({
         const { previous, current, next } = getModulesForStation(station);
         const startingModule = getStationStartingModule(station.id);
         const hasModules = previous.length > 0 || current.length > 0 || next.length > 0;
-        const capacityInfo = getStationCapacityInfo[station.id] || { capacity: 5, inProgress: 0, complete: 0, loadPercent: 0, status: 'under' };
-        
-        // Capacity bar colors based on status
-        const capacityBarColor = capacityInfo.status === 'over' ? 'bg-red-400' 
-            : capacityInfo.status === 'at' ? 'bg-yellow-400' 
-            : 'bg-green-400';
-        const capacityBgColor = capacityInfo.status === 'over' ? 'bg-red-200' 
-            : capacityInfo.status === 'at' ? 'bg-yellow-200' 
-            : 'bg-white/30';
         
         return (
-            <div key={station.id} className="flex-shrink-0 w-36 flex flex-col">
-                {/* Station Header - with capacity indicator - STICKY */}
-                <div 
-                    className={`${station.color} text-white px-2 py-2 text-center rounded-t-lg sticky top-0 z-20`}
-                    style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                >
+            <div key={station.id} className="flex-shrink-0 w-36">
+                {/* Station Header - matches Station Board */}
+                <div className={`${station.color} text-white px-2 py-2 text-center rounded-t-lg`}>
                     <div className="font-semibold text-xs truncate" title={station.name}>{station.dept}</div>
                     <div className="text-xs opacity-80">Start: {startingModule?.serialNumber?.slice(-4) || '—'}</div>
-                    
-                    {/* Capacity Indicator Bar */}
-                    <div className="mt-1.5">
-                        <div className={`h-1.5 rounded-full ${capacityBgColor} overflow-hidden`}>
-                            <div 
-                                className={`h-full ${capacityBarColor} transition-all duration-300`}
-                                style={{ width: `${capacityInfo.loadPercent}%` }}
-                            />
-                        </div>
-                        <div className="flex justify-between text-xs mt-0.5 opacity-90">
-                            <span>{capacityInfo.inProgress}/{capacityInfo.capacity}</span>
-                            <span>{capacityInfo.complete}✓</span>
-                        </div>
-                    </div>
                 </div>
                 
                 {/* Module Cards Container */}
@@ -2475,22 +1413,11 @@ function WeeklyBoardTab({
         const { previous, current, next } = firstStationModules;
         
         return (
-            <div className="flex-shrink-0 w-20 sticky left-0 z-30 bg-white flex flex-col" style={{ boxShadow: '4px 0 8px rgba(0,0,0,0.08)' }}>
-                {/* Header - matches station header height (includes capacity bar space) - STICKY */}
-                <div 
-                    className="bg-autovol-navy text-white px-2 py-2 text-center rounded-tl-lg sticky top-0 z-30"
-                    style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                >
+            <div className="flex-shrink-0 w-20 sticky left-0 z-10 bg-white" style={{ boxShadow: '4px 0 8px rgba(0,0,0,0.08)' }}>
+                {/* Header - matches station header height */}
+                <div className="bg-autovol-navy text-white px-2 py-2 text-center rounded-tl-lg">
                     <div className="font-semibold text-xs">Day</div>
                     <div className="text-xs opacity-80">Date</div>
-                    {/* Spacer to match capacity indicator height in station headers */}
-                    <div className="mt-1.5">
-                        <div className="h-1.5"></div>
-                        <div className="flex justify-between text-xs mt-0.5 opacity-0">
-                            <span>0/0</span>
-                            <span>0</span>
-                        </div>
-                    </div>
                 </div>
                 
                 {/* Row markers - aligned with module cards */}
@@ -2624,124 +1551,22 @@ function WeeklyBoardTab({
     
     return (
         <div className="space-y-4">
-            {/* View-Only Banner */}
-            {!canEdit && (
-                <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 flex items-center gap-3">
-                    <span className="text-xl">👁️</span>
-                    <div>
-                        <div className="font-semibold text-amber-800">View-Only Mode</div>
-                        <div className="text-sm text-amber-700">You have read-only access to this tab. Contact an administrator to request edit permissions.</div>
-                    </div>
-                </div>
-            )}
-            
             {/* Header with Week Info and Actions */}
             <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-4">
-                    <div>
-                        <h3 className="text-lg font-semibold text-autovol-navy">Weekly Board</h3>
-                        <p className="text-sm text-gray-500">
-                            Starting: <span className="font-mono">{displayWeek.startingModule}</span> • Line Balance: {lineBalance} modules
-                        </p>
-                    </div>
-                    
-                    {/* Week Selector Dropdown */}
-                    <div className="flex items-center gap-2">
-                        <select
-                            value={selectedWeekId || ''}
-                            onChange={(e) => setSelectedWeekId(e.target.value || null)}
-                            className="border rounded-lg px-3 py-2 text-sm font-medium bg-white"
-                        >
-                            <option value="">
-                                {currentWeek ? `Current: ${currentWeek.weekStart}` : 'Select Week'}
-                            </option>
-                            {weeks
-                                .sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart))
-                                .map(week => {
-                                    const isCurrent = currentWeek?.id === week.id;
-                                    const isPast = new Date(week.weekEnd) < new Date();
-                                    return (
-                                        <option key={week.id} value={week.id}>
-                                            {week.weekStart} → {week.weekEnd}
-                                            {isCurrent ? ' (Current)' : isPast ? ' (Past)' : ' (Future)'}
-                                        </option>
-                                    );
-                                })
-                            }
-                        </select>
-                        {selectedWeekId && selectedWeekId !== currentWeek?.id && (
-                            <button
-                                onClick={() => setSelectedWeekId(null)}
-                                className="text-xs text-blue-600 hover:text-blue-800 underline"
-                            >
-                                Back to Current
-                            </button>
-                        )}
-                    </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-autovol-navy">Weekly Board</h3>
+                    <p className="text-sm text-gray-500">
+                        Week of {currentWeek.weekStart} • Starting: <span className="font-mono">{currentWeek.startingModule}</span> • Line Balance: {lineBalance} modules
+                    </p>
                 </div>
                 <div className="flex gap-2">
-                    {/* View Mode Toggle */}
-                    <div className="flex items-center border rounded-lg overflow-hidden">
-                        <button
-                            onClick={() => setBoardViewMode('compact')}
-                            className={`px-3 py-2 text-sm font-medium transition ${
-                                boardViewMode === 'compact' 
-                                    ? 'bg-autovol-navy text-white' 
-                                    : 'bg-white text-gray-600 hover:bg-gray-100'
-                            }`}
-                            title="Compact view - Serial number only"
-                        >
-                            Compact
-                        </button>
-                        <button
-                            onClick={() => setBoardViewMode('detailed')}
-                            className={`px-3 py-2 text-sm font-medium transition ${
-                                boardViewMode === 'detailed' 
-                                    ? 'bg-autovol-navy text-white' 
-                                    : 'bg-white text-gray-600 hover:bg-gray-100'
-                            }`}
-                            title="Detailed view - Full module info"
-                        >
-                            Detailed
-                        </button>
-                    </div>
-                    
-                    {/* Reorder Mode Toggle - only show if canEdit */}
-                    {canEdit && !reorderMode && (
-                        <button
-                            onClick={() => setReorderMode(true)}
-                            className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium"
-                            title="Enter reorder mode to drag and drop modules"
-                        >
-                            📋 Reorder
-                        </button>
-                    )}
-                    {canEdit && reorderMode && (
-                        <div className="flex gap-1">
-                            <button
-                                onClick={cancelReorderMode}
-                                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => setShowReorderConfirm(true)}
-                                disabled={pendingReorders.length === 0}
-                                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Apply ({pendingReorders.length})
-                            </button>
-                        </div>
-                    )}
-                    {canEdit && (
-                        <button
-                            onClick={() => setProductionTab?.('schedule-setup')}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
-                            title="Change week configuration"
-                        >
-                            ⚙️ Edit Week
-                        </button>
-                    )}
+                    <button
+                        onClick={() => setProductionTab?.('schedule-setup')}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
+                        title="Change week configuration"
+                    >
+                        ⚙️ Edit Week
+                    </button>
                     <button
                         onClick={() => setShowHistoryModal(true)}
                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
@@ -2749,345 +1574,42 @@ function WeeklyBoardTab({
                         📊 Week History
                     </button>
                     <button
-                        onClick={handleExportPDF}
-                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
-                        title="Export schedule as 11x17 PDF"
+                        onClick={() => setShowCompleteModal(true)}
+                        className="px-4 py-2 btn-primary rounded-lg text-sm font-medium"
                     >
-                        📄 Export PDF
+                        ✓ Week Complete
                     </button>
-                    <button
-                        onClick={executeDetailedReport}
-                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
-                        title="Print detailed module report (11x17)"
-                    >
-                        🖨️ Print Report
-                    </button>
-                    {canEdit && (
-                        <button
-                            onClick={() => setShowCompleteModal(true)}
-                            className="px-4 py-2 btn-primary rounded-lg text-sm font-medium"
-                        >
-                            ✓ Week Complete
-                        </button>
-                    )}
                 </div>
             </div>
             
-            {/* Production Metrics Dashboard */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {/* Modules This Week */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">This Week</div>
-                        <span className="text-lg">📊</span>
-                    </div>
-                    <div className="mt-1">
-                        <span className="text-2xl font-bold text-autovol-navy">
-                            {Object.values(getStationCapacityInfo).reduce((sum, s) => sum + s.complete, 0)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">/ {lineBalance}</span>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">modules completed</div>
-                </div>
-                
-                {/* In Progress */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">In Progress</div>
-                        <span className="text-lg">🔄</span>
-                    </div>
-                    <div className="mt-1">
-                        <span className="text-2xl font-bold text-blue-600">
-                            {Object.values(getStationCapacityInfo).reduce((sum, s) => sum + s.inProgress, 0)}
-                        </span>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">across all stations</div>
-                </div>
-                
-                {/* Completion Rate - modules fully done at ALL stations */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">Completion Rate</div>
-                        <span className="text-lg">📈</span>
-                    </div>
-                    {(() => {
-                        // Count modules that are 100% complete at ALL stations (truly finished)
-                        const fullyCompleteModules = getRecentlyCompleted().length;
-                        const rate = lineBalance > 0 ? Math.round((fullyCompleteModules / lineBalance) * 100) : 0;
-                        const rateColor = rate >= 80 ? 'text-green-600' : rate >= 50 ? 'text-yellow-600' : 'text-red-600';
-                        return (
-                            <>
-                                <div className="mt-1">
-                                    <span className={`text-2xl font-bold ${rateColor}`}>{rate}%</span>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {fullyCompleteModules}/{lineBalance} modules done
-                                </div>
-                            </>
-                        );
-                    })()}
-                </div>
-                
-                {/* Stations at Capacity */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">Station Status</div>
-                        <span className="text-lg">🏭</span>
-                    </div>
-                    {(() => {
-                        const overCount = Object.values(getStationCapacityInfo).filter(s => s.status === 'over').length;
-                        const atCount = Object.values(getStationCapacityInfo).filter(s => s.status === 'at').length;
-                        return (
-                            <>
-                                <div className="mt-1 flex items-center gap-2">
-                                    {overCount > 0 && (
-                                        <span className="text-sm font-bold text-red-600">{overCount} over</span>
-                                    )}
-                                    {atCount > 0 && (
-                                        <span className="text-sm font-bold text-yellow-600">{atCount} at limit</span>
-                                    )}
-                                    {overCount === 0 && atCount === 0 && (
-                                        <span className="text-sm font-bold text-green-600">All clear</span>
-                                    )}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">capacity status</div>
-                            </>
-                        );
-                    })()}
-                </div>
-            </div>
-            
-            {/* Schedule Conflict Warning Banner */}
-            {(() => {
-                const overloadedStations = productionStages.filter(s => 
-                    getStationCapacityInfo[s.id]?.status === 'over'
-                );
-                if (overloadedStations.length === 0) return null;
-                
-                return (
-                    <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                            <div className="text-2xl">⚠️</div>
-                            <div className="flex-1">
-                                <div className="font-bold text-red-800">Schedule Conflict Detected</div>
-                                <div className="text-sm text-red-700 mt-1">
-                                    {overloadedStations.length} station{overloadedStations.length > 1 ? 's are' : ' is'} over capacity:
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {overloadedStations.map(station => {
-                                        const info = getStationCapacityInfo[station.id];
-                                        return (
-                                            <div 
-                                                key={station.id}
-                                                className="bg-white border border-red-300 rounded px-3 py-1.5 text-sm"
-                                            >
-                                                <span className="font-semibold text-red-800">{station.dept}</span>
-                                                <span className="text-red-600 ml-2">
-                                                    {info.inProgress}/{info.capacity} active
-                                                </span>
-                                                <span className="text-red-500 ml-1 text-xs">
-                                                    (+{info.inProgress - info.capacity} over)
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <div className="text-xs text-red-600 mt-2">
-                                    💡 Consider moving modules to next week or adjusting station capacity in Schedule Setup.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
-            
-            {/* Recently Completed Summary - Modules 100% at ALL stations */}
+            {/* Recently Completed Summary */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-green-700 font-medium text-sm mb-2">
-                    <span>✅ Fully Completed (All Stations)</span>
+                    <span>Recently Completed (Last 5)</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                     {getRecentlyCompleted().map((module, idx) => (
                         <div key={idx} className="bg-white border border-green-300 rounded px-2 py-1 text-xs">
-                            <span className="font-mono font-bold">{module.serialNumber}</span>
-                            <span className="text-green-600 ml-1">✓ Done</span>
+                            <span className="font-mono font-bold">{module.serialNumber?.slice(-4)}</span>
+                            <span className="text-gray-500 ml-1">@ {module.stationName?.split(' ')[0]}</span>
                         </div>
                     ))}
                     {getRecentlyCompleted().length === 0 && (
-                        <span className="text-sm text-gray-500">No modules fully completed yet (100% at all stations)</span>
+                        <span className="text-sm text-gray-500">No recently completed modules</span>
                     )}
                 </div>
             </div>
             
-            {/* Main Board Area with Modules Panel */}
-            <div className="flex gap-4">
-                {/* Modules On-Board Panel (Left Sidebar) */}
-                <div className="w-[180px] flex-shrink-0 no-print">
-                    <div className="bg-white border rounded-lg shadow-sm sticky top-0">
-                        <div className="bg-autovol-navy text-white px-3 py-2 rounded-t-lg">
-                            <div className="font-semibold text-sm">Modules On Board</div>
-                            <div className="text-xs opacity-80">{getModulesOnBoard.length} modules</div>
-                        </div>
+            {/* Station Board Grid with Date Markers */}
+            <div className="relative">
+                {/* Scrollable Station Grid with sticky date column */}
+                <div className="overflow-x-auto pb-4">
+                    <div className="flex gap-2 min-w-max">
+                        {/* Sticky Date Marker Column */}
+                        {renderDateMarkerColumn()}
                         
-                        {/* Difficulty Legend */}
-                        <div className="px-2 py-2 border-b bg-gray-50">
-                            <div className="text-xs text-gray-500 font-medium mb-1">Difficulty Indicators:</div>
-                            <div className="flex flex-wrap gap-1">
-                                {Object.entries(difficultyLabels).map(([key, label]) => (
-                                    <div key={key} className="flex items-center gap-0.5" title={label}>
-                                        <div 
-                                            className="w-2 h-2 rounded-full" 
-                                            style={{ backgroundColor: difficultyColors[key] }}
-                                        />
-                                        <span className="text-[9px] text-gray-500">{label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        
-                        {/* Module Tiles */}
-                        <div 
-                            className="overflow-y-auto p-2 space-y-2" 
-                            style={{ maxHeight: 'calc(100vh - 450px)', minHeight: '300px' }}
-                        >
-                            {getModulesOnBoard.map((module, idx) => {
-                                const difficulties = module.difficulties || {};
-                                const activeDifficulties = Object.entries(difficulties).filter(([_, v]) => v);
-                                const sectionColor = module.section === 'previous' ? 'border-l-red-400' : 
-                                                    module.section === 'next' ? 'border-l-green-400' : 'border-l-blue-400';
-                                
-                                return (
-                                    <div 
-                                        key={module.id || idx}
-                                        className={`bg-white border rounded shadow-sm text-xs cursor-pointer hover:shadow-md transition border-l-4 ${sectionColor}`}
-                                        onClick={() => {
-                                            // Scroll to this module on the board
-                                            const moduleCard = document.querySelector(`[data-module-serial="${module.serialNumber}"]`);
-                                            if (moduleCard) {
-                                                moduleCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-                                                moduleCard.classList.add('ring-2', 'ring-blue-500');
-                                                setTimeout(() => moduleCard.classList.remove('ring-2', 'ring-blue-500'), 2000);
-                                            }
-                                        }}
-                                        title="Click to highlight on board"
-                                    >
-                                        {/* Serial Number Header */}
-                                        <div className="bg-gray-100 px-2 py-1 font-mono font-bold text-center border-b">
-                                            {module.serialNumber?.slice(-7) || 'N/A'}
-                                        </div>
-                                        
-                                        {/* Hitch / Rear Info */}
-                                        <div className="grid grid-cols-2 divide-x text-center">
-                                            {/* Hitch Side */}
-                                            <div className="p-1">
-                                                <div className="text-[9px] text-gray-400 font-medium">(H)</div>
-                                                <div className="font-mono text-[10px] font-semibold truncate" title={module.hitchBLM}>
-                                                    {module.hitchBLM || '—'}
-                                                </div>
-                                                <div className="text-[9px] text-gray-600 truncate" title={module.hitchUnit}>
-                                                    {module.hitchUnit || '—'}
-                                                </div>
-                                                <div className="text-[9px] text-gray-500 truncate" title={module.hitchRoomType}>
-                                                    {module.hitchRoomType || '—'}
-                                                </div>
-                                            </div>
-                                            
-                                            {/* Rear Side */}
-                                            <div className="p-1">
-                                                <div className="text-[9px] text-gray-400 font-medium">(R)</div>
-                                                <div className="font-mono text-[10px] font-semibold truncate" title={module.rearBLM}>
-                                                    {module.rearBLM || '—'}
-                                                </div>
-                                                <div className="text-[9px] text-gray-600 truncate" title={module.rearUnit}>
-                                                    {module.rearUnit || module.hitchUnit || '—'}
-                                                </div>
-                                                <div className="text-[9px] text-gray-500 truncate" title={module.rearRoomType}>
-                                                    {module.rearRoomType || '—'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Difficulty Indicators */}
-                                        {activeDifficulties.length > 0 && (
-                                            <div className="flex justify-center gap-1 py-1 border-t bg-gray-50">
-                                                {activeDifficulties.map(([key]) => (
-                                                    <div 
-                                                        key={key}
-                                                        className="w-3 h-3 rounded-full"
-                                                        style={{ backgroundColor: difficultyColors[key] }}
-                                                        title={difficultyLabels[key]}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            
-                            {getModulesOnBoard.length === 0 && (
-                                <div className="text-center text-gray-400 py-4 text-xs">
-                                    No modules on board
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                
-                {/* Station Board Grid with Date Markers */}
-                <div 
-                    id="weekly-board-print-area"
-                    className="relative flex-1 min-w-0"
-                    ref={boardRef}
-                    tabIndex={0}
-                    onKeyDown={handleBoardKeyDown}
-                >
-                    {/* Horizontal Scroll Controls */}
-                    <div className="flex items-center justify-between mb-2 no-print">
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <span>💡</span>
-                            <span>Use <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">←</kbd> <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">→</kbd> arrow keys to scroll</span>
-                        </div>
-                        <div className="flex gap-1">
-                            <button
-                                onClick={() => {
-                                    const scrollContainer = boardRef.current?.querySelector('.board-scroll-container');
-                                    if (scrollContainer) scrollContainer.scrollBy({ left: -300, behavior: 'smooth' });
-                                }}
-                                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
-                                title="Scroll left"
-                            >
-                                ← Prev
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const scrollContainer = boardRef.current?.querySelector('.board-scroll-container');
-                                    if (scrollContainer) scrollContainer.scrollBy({ left: 300, behavior: 'smooth' });
-                                }}
-                                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
-                                title="Scroll right"
-                            >
-                                Next →
-                            </button>
-                        </div>
-                    </div>
-                    
-                    {/* Scrollable Station Grid with sticky headers */}
-                    <div 
-                        className="board-scroll-container overflow-auto pb-4 scrollbar-visible" 
-                        style={{ 
-                            scrollbarWidth: 'auto', 
-                            scrollbarColor: '#94a3b8 #f1f5f9',
-                            maxHeight: 'calc(100vh - 350px)',
-                            minHeight: '400px'
-                        }}
-                    >
-                        <div className="flex gap-2 min-w-max">
-                            {/* Sticky Date Marker Column */}
-                            {renderDateMarkerColumn()}
-                            
-                            {/* Station Columns */}
-                            {productionStages.map(station => renderStationColumn(station))}
-                        </div>
+                        {/* Station Columns */}
+                        {productionStages.map(station => renderStationColumn(station))}
                     </div>
                 </div>
             </div>
@@ -3114,19 +1636,6 @@ function WeeklyBoardTab({
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 rounded bg-green-50/30 border-green-300"></div>
                     <span>Next Week</span>
-                </div>
-                <span className="font-medium ml-4">Capacity:</span>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-2 rounded-full bg-green-400"></div>
-                    <span>Under</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-2 rounded-full bg-yellow-400"></div>
-                    <span>At Limit</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-2 rounded-full bg-red-400"></div>
-                    <span>Over</span>
                 </div>
             </div>
             
@@ -3224,16 +1733,9 @@ function WeeklyBoardTab({
                     lineBalance={getLineBalance()}
                     activeProjects={activeProjects}
                     allModules={allModules}
-                    onComplete={(data, nextWeekId) => {
+                    onComplete={(data) => {
                         completeWeek(data);
                         setShowCompleteModal(false);
-                        // Auto-advance to next week if one was created
-                        if (nextWeekId) {
-                            setSelectedWeekId(nextWeekId);
-                            addToast('Week completed! Switched to next week.', 'success');
-                        } else {
-                            addToast('Week completed!', 'success');
-                        }
                     }}
                     onClose={() => setShowCompleteModal(false)}
                     addWeek={addWeek}
@@ -3269,355 +1771,7 @@ function WeeklyBoardTab({
                         }
                     }}
                     onShopDrawing={handleShopDrawing}
-                    onMoveModule={openMoveModal}
                 />
-            )}
-            
-            {/* Move Module Modal */}
-            {showMoveModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[150] p-4" onClick={() => setShowMoveModal(null)}>
-                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-                        <div className="p-4 border-b flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-autovol-navy">Move Module in Schedule</h3>
-                            <button onClick={() => setShowMoveModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">×</button>
-                        </div>
-                        
-                        <div className="p-6 space-y-4">
-                            <div className="bg-gray-50 rounded-lg p-3">
-                                <div className="text-sm text-gray-500">Module</div>
-                                <div className="font-mono font-bold text-lg">{showMoveModal.module.serialNumber}</div>
-                                <div className="text-sm text-gray-500 mt-1">
-                                    Current position: <span className="font-semibold">#{showMoveModal.currentPosition}</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Move to position:
-                                </label>
-                                <select 
-                                    id="moveToPosition"
-                                    className="w-full border rounded-lg px-3 py-2"
-                                    defaultValue={showMoveModal.currentPosition}
-                                >
-                                    {allModules.map((m, idx) => (
-                                        <option key={m.id} value={idx + 1}>
-                                            #{idx + 1} - {m.serialNumber === showMoveModal.module.serialNumber ? '(current)' : m.serialNumber}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            
-                            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                                <label className="flex items-start gap-3 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        id="applyToAllStations"
-                                        defaultChecked={true}
-                                        className="mt-1 w-5 h-5 rounded text-blue-600"
-                                    />
-                                    <div>
-                                        <div className="font-semibold text-blue-800">Apply to ALL stations</div>
-                                        <div className="text-sm text-blue-700 mt-1">
-                                            This will update the build sequence for this module across the entire production line (AUTO-FC through Close-Up).
-                                        </div>
-                                        <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                                            <span>⚠️</span> Recommended to keep stations in sync
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-t flex justify-end gap-2">
-                            <button
-                                onClick={() => setShowMoveModal(null)}
-                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const newPosition = parseInt(document.getElementById('moveToPosition').value);
-                                    const applyToAll = document.getElementById('applyToAllStations').checked;
-                                    applyModuleMove(showMoveModal.module, newPosition, applyToAll);
-                                }}
-                                className="px-4 py-2 btn-primary rounded-lg"
-                            >
-                                Move Module
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
-            {/* Reorder Confirmation Modal */}
-            {showReorderConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[150] p-4" onClick={() => setShowReorderConfirm(false)}>
-                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-                        <div className="p-4 border-b flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-autovol-navy">⚠️ Confirm Schedule Changes</h3>
-                            <button onClick={() => setShowReorderConfirm(false)} className="p-2 hover:bg-gray-100 rounded-lg">×</button>
-                        </div>
-                        
-                        <div className="p-6 space-y-4">
-                            <div className="text-sm text-gray-600">
-                                You are about to reorder <span className="font-bold">{pendingReorders.length} module{pendingReorders.length > 1 ? 's' : ''}</span>:
-                            </div>
-                            
-                            <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                                {pendingReorders.map((reorder, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-sm">
-                                        <span className="font-mono font-bold">{reorder.moduleSerial}</span>
-                                        <span className="text-gray-500">
-                                            #{reorder.fromSeq} → {reorder.position} {reorder.targetSerial}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                                <label className="flex items-start gap-3 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        id="reorderApplyToAll"
-                                        defaultChecked={true}
-                                        className="mt-1 w-5 h-5 rounded text-blue-600"
-                                    />
-                                    <div>
-                                        <div className="font-semibold text-blue-800">Apply to ALL stations</div>
-                                        <div className="text-sm text-blue-700 mt-1">
-                                            This will update the build sequence across the entire production line.
-                                        </div>
-                                        <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                                            <span>⚠️</span> Recommended to keep stations in sync
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-t flex justify-end gap-2">
-                            <button
-                                onClick={() => setShowReorderConfirm(false)}
-                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const applyToAll = document.getElementById('reorderApplyToAll').checked;
-                                    applyPendingReorders(applyToAll);
-                                }}
-                                className="px-4 py-2 btn-primary rounded-lg"
-                            >
-                                Apply Changes
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
-            {/* Reorder Mode Banner */}
-            {reorderMode && (
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white rounded-xl shadow-2xl px-6 py-3 flex items-center gap-4">
-                    <div className="text-lg">📋</div>
-                    <div>
-                        <div className="font-semibold">Reorder Mode Active</div>
-                        <div className="text-sm opacity-90">Drag modules to reorder • {pendingReorders.length} change{pendingReorders.length !== 1 ? 's' : ''} pending</div>
-                    </div>
-                    <div className="h-8 w-px bg-blue-400"></div>
-                    <button
-                        onClick={cancelReorderMode}
-                        className="px-3 py-1.5 bg-blue-500 hover:bg-blue-400 rounded-lg text-sm"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={() => setShowReorderConfirm(true)}
-                        disabled={pendingReorders.length === 0}
-                        className="px-3 py-1.5 bg-white text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-semibold disabled:opacity-50"
-                    >
-                        Apply Changes
-                    </button>
-                </div>
-            )}
-            
-            {/* PDF Export Modal */}
-            {showPDFExport && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[150] p-4" onClick={() => setShowPDFExport(false)}>
-                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
-                        <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white z-10">
-                            <h3 className="text-lg font-bold text-autovol-navy">📄 Export Weekly Schedule</h3>
-                            <button onClick={() => setShowPDFExport(false)} className="p-2 hover:bg-gray-100 rounded-lg text-xl">×</button>
-                        </div>
-                        
-                        <div className="p-6 space-y-4">
-                            {/* Export Scope Selection */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    What to include in export:
-                                </label>
-                                <select
-                                    value={pdfExportScope}
-                                    onChange={(e) => setPdfExportScope(e.target.value)}
-                                    className="w-full border rounded-lg px-3 py-2 text-sm"
-                                >
-                                    <option value="current">Current Week Only (recommended for 1-page fit)</option>
-                                    <option value="with-prev">Current Week + Previous Week Carryover</option>
-                                    <option value="with-next">Current Week + Upcoming Preview</option>
-                                    <option value="all">All (Previous + Current + Upcoming)</option>
-                                </select>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    💡 "Current Week Only" fits best on a single 11×17 page
-                                </p>
-                            </div>
-                            
-                            {/* Preview Info */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="text-2xl">ℹ️</div>
-                                    <div>
-                                        <div className="font-semibold text-blue-800">Export Format</div>
-                                        <div className="text-sm text-blue-700 mt-1">
-                                            The schedule will be exported as a clean table view optimized for 11×17 landscape printing.
-                                            Color coding shows progress: white (0%), light green (25%), medium green (50%), green (75%), bright green (100%).
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Preview Table */}
-                            <div className="border rounded-lg overflow-hidden">
-                                <div className="bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600 border-b">
-                                    Preview (simplified)
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-xs">
-                                        <thead>
-                                            <tr className="bg-autovol-navy text-white">
-                                                <th className="px-2 py-1.5 text-left">Day</th>
-                                                {getPDFExportData.stations.slice(0, 5).map(s => (
-                                                    <th key={s.id} className="px-2 py-1.5 text-center">{s.dept}</th>
-                                                ))}
-                                                {getPDFExportData.stations.length > 5 && (
-                                                    <th className="px-2 py-1.5 text-center">+{getPDFExportData.stations.length - 5}</th>
-                                                )}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {getPDFExportData.rows.slice(0, 5).map((row, idx) => (
-                                                <tr key={idx} className="border-b">
-                                                    <td className={`px-2 py-1 font-medium ${
-                                                        row.weekSection === 'previous' ? 'bg-red-50 text-red-600' :
-                                                        row.weekSection === 'next' ? 'bg-green-50 text-green-600' : ''
-                                                    }`}>
-                                                        {row.dayLabel}
-                                                    </td>
-                                                    {getPDFExportData.stations.slice(0, 5).map(s => {
-                                                        const data = row.stations[s.id];
-                                                        const bgColor = !data ? '' : 
-                                                            data.progress === 0 ? 'bg-white' :
-                                                            data.progress === 25 ? 'bg-green-100' :
-                                                            data.progress === 50 ? 'bg-green-200' :
-                                                            data.progress === 75 ? 'bg-green-300' : 'bg-green-400';
-                                                        return (
-                                                            <td key={s.id} className={`px-2 py-1 text-center font-mono ${bgColor}`}>
-                                                                {data?.serialNumber?.slice(-5) || '—'}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                    {getPDFExportData.stations.length > 5 && (
-                                                        <td className="px-2 py-1 text-center text-gray-400">...</td>
-                                                    )}
-                                                </tr>
-                                            ))}
-                                            {getPDFExportData.rows.length > 5 && (
-                                                <tr>
-                                                    <td colSpan={Math.min(getPDFExportData.stations.length, 5) + 2} className="px-2 py-1 text-center text-gray-400 text-xs">
-                                                        ... and {getPDFExportData.rows.length - 5} more rows
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            
-                            {/* Export Stats */}
-                            <div className="grid grid-cols-3 gap-3 text-center">
-                                <div className="bg-gray-50 rounded-lg p-3">
-                                    <div className="text-2xl font-bold text-autovol-navy">{getPDFExportData.rows.length}</div>
-                                    <div className="text-xs text-gray-500">Total Rows</div>
-                                </div>
-                                <div className="bg-gray-50 rounded-lg p-3">
-                                    <div className="text-2xl font-bold text-autovol-navy">{getPDFExportData.stations.length}</div>
-                                    <div className="text-xs text-gray-500">Stations</div>
-                                </div>
-                                <div className="bg-gray-50 rounded-lg p-3">
-                                    <div className="text-2xl font-bold text-autovol-navy">11×17</div>
-                                    <div className="text-xs text-gray-500">Page Size</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
-                            <button
-                                onClick={() => setShowPDFExport(false)}
-                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={executePDFExport}
-                                className="px-4 py-2 btn-primary rounded-lg flex items-center gap-2"
-                            >
-                                <span>📄</span>
-                                Export PDF
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
-            {/* Toast Notifications Container */}
-            {toasts.length > 0 && (
-                <div className="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none">
-                    {toasts.map(toast => (
-                        <div 
-                            key={toast.id}
-                            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border-l-4 animate-slide-in ${
-                                toast.type === 'success' 
-                                    ? 'bg-green-50 border-green-500 text-green-800' 
-                                    : toast.type === 'warning'
-                                    ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
-                                    : 'bg-blue-50 border-blue-500 text-blue-800'
-                            }`}
-                            style={{
-                                animation: 'slideIn 0.3s ease-out',
-                                minWidth: '280px'
-                            }}
-                        >
-                            <div className="flex-shrink-0 text-xl">
-                                {toast.type === 'success' ? '✅' : toast.type === 'warning' ? '⚠️' : 'ℹ️'}
-                            </div>
-                            <div className="flex-1">
-                                <div className="font-medium text-sm">{toast.message}</div>
-                                {toast.stationName && (
-                                    <div className="text-xs opacity-75 mt-0.5">
-                                        Station: {toast.stationName}
-                                    </div>
-                                )}
-                            </div>
-                            <button 
-                                onClick={() => removeToast(toast.id)}
-                                className="flex-shrink-0 text-gray-400 hover:text-gray-600 text-lg"
-                            >
-                                ×
-                            </button>
-                        </div>
-                    ))}
-                </div>
             )}
         </div>
     );
@@ -3696,11 +1850,12 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
             shift: nextWeekShift
         };
         
-        // Auto-create next week if enabled and get its ID
-        let nextWeekId = null;
+        // Complete the current week (saves to history)
+        onComplete(weekData);
+        
+        // Auto-create next week if enabled
         if (createNextWeek && nextStartingModule && addWeek) {
             const nextWeekData = {
-                id: `week-${nextWeekDates.start}`, // Generate predictable ID
                 weekStart: nextWeekDates.start,
                 weekEnd: nextWeekDates.end,
                 startingModule: nextStartingModule,
@@ -3709,11 +1864,7 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
                 notes: `Auto-created from week ${currentWeek.weekStart}`
             };
             addWeek(nextWeekData);
-            nextWeekId = nextWeekData.id;
         }
-        
-        // Complete the current week (saves to history) and pass nextWeekId for auto-advance
-        onComplete(weekData, nextWeekId);
     };
     
     return (

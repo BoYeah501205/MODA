@@ -23,14 +23,14 @@
 ## Planned Features
 
 ### Production Tracking
-- [ ] Real-time station progress updates
-- [ ] Module completion notifications
-- [ ] Production metrics dashboard
+- [x] Real-time station progress updates ✅ (Dec 8, 2025)
+- [x] Module completion notifications ✅ (Dec 8, 2025)
+- [x] Production metrics dashboard ✅ (Dec 8, 2025)
 
 ### Weekly Board Enhancements
-- [ ] Drag-and-drop module reordering
-- [ ] Station capacity indicators
-- [ ] Schedule conflict warnings
+- [x] Drag-and-drop module reordering ✅ (Dec 8, 2025)
+- [x] Station capacity indicators ✅ (Dec 8, 2025)
+- [x] Schedule conflict warnings ✅ (Dec 8, 2025)
 
 ### Reporting
 - [ ] Export production reports
@@ -46,6 +46,16 @@
 
 ## Completed Features
 See [ACCOMPLISHMENTS.md](./ACCOMPLISHMENTS.md) for detailed history.
+
+### Weekly Board & Production Tracking Enhancements ✅ (Dec 8, 2025)
+- [x] Station capacity indicators with visual load bars (green/yellow/red)
+- [x] Module completion toast notifications with auto-dismiss
+- [x] Production metrics dashboard with KPI cards (This Week, In Progress, Completion Rate, Station Status)
+- [x] Schedule conflict warnings banner for overloaded stations
+- [x] Quick Move via right-click menu with "Apply to ALL stations" confirmation
+- [x] Reorder Mode with drag-and-drop and bulk apply confirmation
+- [x] Dark mode support (Ctrl+D toggle)
+- [x] Keyboard shortcuts with help modal (?)
 
 ### PreCon RFI System Integration ✅ (Dec 4, 2025)
 - [x] Created `RFIManager.jsx` component with full CRUD functionality

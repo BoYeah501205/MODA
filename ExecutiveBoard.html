@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Board - Autovol MODA</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link href="./css/executive-board.css" rel="stylesheet">
+    
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        /* Autovol Brand Colors */
+        :root {
+            --autovol-red: #E31B23;
+            --autovol-red-dark: #C41820;
+            --autovol-navy: #1E3A5F;
+            --autovol-navy-light: #2B4C7E;
+            --autovol-teal: #007B8A;
+        }
+        
+        /* Loading Animation */
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--autovol-red);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.3s ease;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+    <div id="root">
+        <!-- Loading State -->
+        <div class="min-h-screen flex items-center justify-center bg-gray-100">
+            <div class="text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading Executive Board...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Initialize Project Data (for demo/testing) -->
+    <script src="./js/data/projectData.js"></script>
+    
+    <!-- Executive Board Component -->
+    <script type="text/babel" src="./js/components/ExecutiveBoard.jsx"></script>
+    
+    <!-- Mount the App -->
+    <script type="text/babel">
+        // Wait for component to load
+        const checkAndRender = () => {
+            if (window.ExecutiveBoard) {
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                root.render(<window.ExecutiveBoard />);
+            } else {
+                setTimeout(checkAndRender, 100);
+            }
+        };
+        checkAndRender();
+    </script>
+</body>
+</html>

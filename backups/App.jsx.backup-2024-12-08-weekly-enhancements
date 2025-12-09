@@ -3454,7 +3454,6 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                                 productionStages={productionStages}
                                                 staggerConfig={staggerConfig}
                                                 currentWeek={currentWeek}
-                                                weeks={weeks}
                                                 scheduleSetup={weeklySchedule.scheduleSetup}
                                                 getLineBalance={weeklySchedule.getLineBalance}
                                                 completedWeeks={weeklySchedule.completedWeeks}
