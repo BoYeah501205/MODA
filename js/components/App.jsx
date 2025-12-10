@@ -547,28 +547,54 @@ function useAuth() {
         localStorage.setItem('autovol_users', JSON.stringify(users)); 
     }, [users]);
 
-    const login = (email, password, rememberMe) => {
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password && u.active);
-    if (user) {
-        // MIGRATION FIX: Ensure user has dashboardRole
-        let migratedUser = { ...user };
-        if (user.role && !user.dashboardRole) {
-            // Convert old role to dashboardRole
-            if (user.role === 'Admin') migratedUser.dashboardRole = 'admin';
-            else if (user.role === 'User') migratedUser.dashboardRole = 'employee';
-            migratedUser.isProtected = user.email === 'trevor@autovol.com';
-            delete migratedUser.role;
-            delete migratedUser.permissions;
+    const login = async (email, password, rememberMe) => {
+        // Try Firebase first
+        if (window.MODA_FIREBASE && MODA_FIREBASE.isInitialized) {
+            try {
+                const result = await MODA_FIREBASE.login(email, password);
+                if (result.success && result.user) {
+                    // Get profile from result (login now waits for profile to load)
+                    const profile = result.profile || MODA_FIREBASE.userProfile || {};
+                    console.log('[Auth] Firebase login success, profile:', profile);
+                    const session = {
+                        id: result.user.uid,
+                        email: result.user.email,
+                        name: profile.name || result.user.email.split('@')[0],
+                        dashboardRole: profile.dashboardRole || profile.role || 'employee',
+                        department: profile.department || '',
+                        isProtected: (profile.email || result.user.email).toLowerCase() === 'trevor@autovol.com'
+                    };
+                    setCurrentUser(session);
+                    if (rememberMe) localStorage.setItem('autovol_session', JSON.stringify(session));
+                    else sessionStorage.setItem('autovol_session', JSON.stringify(session));
+                    return { success: true };
+                }
+            } catch (err) {
+                console.log('[Auth] Firebase login failed, trying local:', err.message);
+                // Fall through to try local credentials
+            }
         }
         
-        const session = { ...migratedUser, password: undefined };
-        setCurrentUser(session);
-        if (rememberMe) localStorage.setItem('autovol_session', JSON.stringify(session));
-        else sessionStorage.setItem('autovol_session', JSON.stringify(session));
-        return { success: true };
-    }
-    return { success: false, error: 'Invalid email or password' };
-};
+        // Fallback to local users
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password && u.active);
+        if (user) {
+            let migratedUser = { ...user };
+            if (user.role && !user.dashboardRole) {
+                if (user.role === 'Admin') migratedUser.dashboardRole = 'admin';
+                else if (user.role === 'User') migratedUser.dashboardRole = 'employee';
+                migratedUser.isProtected = user.email === 'trevor@autovol.com';
+                delete migratedUser.role;
+                delete migratedUser.permissions;
+            }
+            
+            const session = { ...migratedUser, password: undefined };
+            setCurrentUser(session);
+            if (rememberMe) localStorage.setItem('autovol_session', JSON.stringify(session));
+            else sessionStorage.setItem('autovol_session', JSON.stringify(session));
+            return { success: true };
+        }
+        return { success: false, error: 'Invalid email or password' };
+    };
 
     const logout = () => { 
         setCurrentUser(null); 
@@ -607,7 +633,18 @@ function useAuth() {
         setUsers(users.map(u => u.id === userId ? { ...u, active: !u.active } : u)); 
     };
     
-    const resetPassword = (email) => { 
+    const resetPassword = async (email) => { 
+        // Try Firebase first
+        if (window.MODA_FIREBASE && MODA_FIREBASE.isInitialized) {
+            try {
+                await MODA_FIREBASE.resetPassword(email);
+                return { success: true, message: 'Password reset email sent! Check your inbox.' };
+            } catch (err) {
+                const msg = MODA_FIREBASE.getErrorMessage ? MODA_FIREBASE.getErrorMessage(err.code) : err.message;
+                return { success: false, error: msg };
+            }
+        }
+        // Fallback to local (simulated)
         const user = users.find(u => u.email.toLowerCase() === email.toLowerCase()); 
         return user ? { success: true, message: 'Password reset email sent (simulated)' } : { success: false, error: 'Email not found' }; 
     };
@@ -672,7 +709,7 @@ function useAuth() {
                 e.preventDefault();
                 setError(''); setLoading(true);
                 await new Promise(r => setTimeout(r, 500));
-                const result = auth.login(email, password, rememberMe);
+                const result = await auth.login(email, password, rememberMe);
                 if (!result.success) setError(result.error);
                 setLoading(false);
             };
@@ -735,8 +772,7 @@ function useAuth() {
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setError(''); setMessage(''); setLoading(true);
-                await new Promise(r => setTimeout(r, 500));
-                const result = auth.resetPassword(email);
+                const result = await auth.resetPassword(email);
                 if (result.success) setMessage(result.message);
                 else setError(result.error);
                 setLoading(false);
@@ -2572,7 +2608,12 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
 
                         
                         {activeTab === 'admin' && auth.canAccessAdmin && (
-                            <DashboardRoleManager auth={auth} />
+                            <>
+                                <FirebaseUserManager auth={auth} />
+                                <div className="mt-6">
+                                    <DashboardRoleManager auth={auth} />
+                                </div>
+                            </>
                         )}
 
                         {activeTab === 'admin' && !auth.canAccessAdmin && (

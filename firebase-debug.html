@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Debug - MODA</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        .card { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        input { width: 100%; padding: 10px; margin: 5px 0; box-sizing: border-box; }
+        button { background: #007B8A; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #005f6b; }
+        .error { color: #E31B23; background: #FDEAEA; padding: 10px; border-radius: 4px; }
+        .success { color: #007B8A; background: #E6F4F5; padding: 10px; border-radius: 4px; }
+        pre { background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        h1 { color: #1E3A5F; }
+    </style>
+</head>
+<body>
+    <h1>🔥 Firebase Debug Tool</h1>
+    <p>Use this page to diagnose and fix Firebase authentication issues.</p>
+
+    <div class="card">
+        <h3>1. Check Firebase Status</h3>
+        <button onclick="checkStatus()">Check Status</button>
+        <pre id="status">Click to check...</pre>
+    </div>
+
+    <div class="card">
+        <h3>2. Check User Profile in Firestore</h3>
+        <input type="email" id="checkEmail" placeholder="Email to check (e.g., trevor@autovol.com)" value="trevor@autovol.com">
+        <button onclick="checkProfile()">Check Profile</button>
+        <pre id="profileResult">Click to check...</pre>
+    </div>
+
+    <div class="card">
+        <h3>3. Test Login</h3>
+        <input type="email" id="loginEmail" placeholder="Email" value="trevor@autovol.com">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <button onclick="testLogin()">Test Login</button>
+        <pre id="loginResult">Enter credentials and click Test Login...</pre>
+    </div>
+
+    <div class="card">
+        <h3>4. Send Password Reset Email</h3>
+        <input type="email" id="resetEmail" placeholder="Email" value="trevor@autovol.com">
+        <button onclick="sendReset()">Send Reset Email</button>
+        <pre id="resetResult">Click to send...</pre>
+    </div>
+
+    <div class="card">
+        <h3>5. Create New User (for testing)</h3>
+        <input type="email" id="newEmail" placeholder="Email">
+        <input type="password" id="newPassword" placeholder="Password (min 6 chars)">
+        <input type="text" id="newName" placeholder="Display Name">
+        <button onclick="createUser()">Create User</button>
+        <pre id="createResult">Fill in details and click Create...</pre>
+    </div>
+
+    <script>
+        // Firebase configuration (same as MODA)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDntnW81kWQND7lnVJK1Vzowin3naJNKqo",
+            authDomain: "moda-9ee0f.firebaseapp.com",
+            projectId: "moda-9ee0f",
+            storageBucket: "moda-9ee0f.firebasestorage.app",
+            messagingSenderId: "189785366880",
+            appId: "1:189785366880:web:556705c3abdca5d692be05"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        async function checkStatus() {
+            const el = document.getElementById('status');
+            try {
+                const user = auth.currentUser;
+                el.textContent = JSON.stringify({
+                    firebaseInitialized: true,
+                    currentUser: user ? {
+                        uid: user.uid,
+                        email: user.email,
+                        emailVerified: user.emailVerified
+                    } : null,
+                    projectId: firebaseConfig.projectId
+                }, null, 2);
+            } catch (err) {
+                el.innerHTML = '<span class="error">' + err.message + '</span>';
+            }
+        }
+
+        async function checkProfile() {
+            const el = document.getElementById('profileResult');
+            const email = document.getElementById('checkEmail').value.toLowerCase().trim();
+            
+            try {
+                // Check by email
+                const snapshot = await db.collection('users').where('email', '==', email).get();
+                
+                if (snapshot.empty) {
+                    el.innerHTML = '<span class="error">No Firestore profile found for: ' + email + '</span>';
+                    return;
+                }
+                
+                const profiles = [];
+                snapshot.forEach(doc => {
+                    profiles.push({ id: doc.id, ...doc.data() });
+                });
+                
+                el.innerHTML = '<span class="success">Found ' + profiles.length + ' profile(s):</span>\n' + 
+                    JSON.stringify(profiles, null, 2);
+            } catch (err) {
+                el.innerHTML = '<span class="error">Error: ' + err.message + '</span>';
+            }
+        }
+
+        async function testLogin() {
+            const el = document.getElementById('loginResult');
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            el.textContent = 'Attempting login...';
+            
+            try {
+                const result = await auth.signInWithEmailAndPassword(email, password);
+                el.innerHTML = '<span class="success">✅ LOGIN SUCCESSFUL!</span>\n' + 
+                    JSON.stringify({
+                        uid: result.user.uid,
+                        email: result.user.email,
+                        emailVerified: result.user.emailVerified
+                    }, null, 2);
+            } catch (err) {
+                el.innerHTML = '<span class="error">❌ Login failed: ' + err.code + '</span>\n' + err.message;
+            }
+        }
+
+        async function sendReset() {
+            const el = document.getElementById('resetResult');
+            const email = document.getElementById('resetEmail').value;
+            
+            try {
+                await auth.sendPasswordResetEmail(email);
+                el.innerHTML = '<span class="success">✅ Password reset email sent to: ' + email + '</span>\n' +
+                    'Check your inbox (and spam folder).\n' +
+                    'Click the link in the email to set a new password.';
+            } catch (err) {
+                el.innerHTML = '<span class="error">❌ Error: ' + err.code + '</span>\n' + err.message;
+            }
+        }
+
+        async function createUser() {
+            const el = document.getElementById('createResult');
+            const email = document.getElementById('newEmail').value;
+            const password = document.getElementById('newPassword').value;
+            const name = document.getElementById('newName').value;
+            
+            if (!email || !password) {
+                el.innerHTML = '<span class="error">Email and password required</span>';
+                return;
+            }
+            
+            if (password.length < 6) {
+                el.innerHTML = '<span class="error">Password must be at least 6 characters</span>';
+                return;
+            }
+            
+            el.textContent = 'Creating user...';
+            
+            try {
+                // Create auth user
+                const result = await auth.createUserWithEmailAndPassword(email, password);
+                
+                // Create Firestore profile
+                await db.collection('users').doc(result.user.uid).set({
+                    email: email.toLowerCase(),
+                    name: name || email.split('@')[0],
+                    role: 'admin',
+                    dashboardRole: 'admin',
+                    department: '',
+                    active: true,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                el.innerHTML = '<span class="success">✅ User created successfully!</span>\n' + 
+                    JSON.stringify({
+                        uid: result.user.uid,
+                        email: result.user.email,
+                        password: password
+                    }, null, 2) +
+                    '\n\n⚠️ SAVE THIS PASSWORD! You can now use it to log into MODA.';
+            } catch (err) {
+                el.innerHTML = '<span class="error">❌ Error: ' + err.code + '</span>\n' + err.message;
+            }
+        }
+
+        // Check status on load
+        checkStatus();
+    </script>
+</body>
+</html>

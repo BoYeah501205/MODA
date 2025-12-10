@@ -15,6 +15,11 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
@@ -35,11 +40,15 @@
     <!-- API Client (Backend Integration) -->
     <script src="./js/api.js"></script>
     
+    <!-- Firebase Authentication -->
+    <script src="./js/firebase-auth.js"></script>
+    
     <!-- React Components -->
     <script type="text/babel" src="./js/components/TrainingMatrix.jsx"></script>
     <script type="text/babel" src="./js/components/WeeklyBoard.jsx"></script>
     <script type="text/babel" src="./js/components/RFIManager.jsx"></script>
     <script type="text/babel" src="./js/components/PreconModule.jsx"></script>
+    <script type="text/babel" src="./js/components/FirebaseUserManager.jsx"></script>
     <script type="text/babel" src="./js/components/App.jsx"></script>
 </body>
 </html>
