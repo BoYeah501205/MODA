@@ -101,7 +101,7 @@ const DEFAULT_DASHBOARD_ROLES = [
         id: 'admin',
         name: 'Admin',
         description: 'Full system access for operations management',
-        tabs: ['production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'automation', 'tracker', 'admin'],
+        tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'automation', 'tracker', 'admin'],
         capabilities: {
             canEdit: true,
             canDelete: true,
@@ -112,6 +112,7 @@ const DEFAULT_DASHBOARD_ROLES = [
         },
         // Admin can edit all tabs
         tabPermissions: {
+            executive: { canEdit: false },
             production: { canEdit: true },
             projects: { canEdit: true },
             people: { canEdit: true },
@@ -237,7 +238,7 @@ const DEFAULT_DASHBOARD_ROLES = [
 // Initialize roles in localStorage
 function initializeDashboardRoles() {
     const existing = localStorage.getItem('autovol_dashboard_roles');
-    const ROLES_VERSION = 2; // Increment this if you change DEFAULT_DASHBOARD_ROLES (v2: added tabPermissions)
+    const ROLES_VERSION = 3; // Increment this if you change DEFAULT_DASHBOARD_ROLES (v3: added executive tab to admin role)
     
     if (!existing) {
         // No roles exist, initialize
@@ -2406,6 +2407,25 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             const activeProjects = projects.filter(p => p.status === 'Active');
             const totalActiveModules = activeProjects.reduce((sum, p) => sum + (p.modules?.length || 0), 0);
 
+            // Weekly schedule integration for Executive Dashboard
+            const weeklySchedule = window.WeeklyBoardComponents?.useWeeklySchedule?.() || {
+                scheduleSetup: { shift1: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 }, shift2: { friday: 0, saturday: 0, sunday: 0 } },
+                completedWeeks: [],
+                updateShiftSchedule: () => {},
+                getShiftTotal: () => 0,
+                getLineBalance: () => 21,
+                completeWeek: () => {}
+            };
+
+            // Get current week for Executive Dashboard
+            const getCurrentWeek = () => {
+                const now = new Date();
+                const startOfYear = new Date(now.getFullYear(), 0, 1);
+                const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
+                return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+            };
+            const currentWeek = getCurrentWeek();
+
             return (
                 <div className="min-h-screen" style={{backgroundColor: 'var(--autovol-gray-bg)'}}>
                     {/* Header */}
@@ -2553,6 +2573,23 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                             />
                         )}
 
+                        {/* Executive Dashboard */}
+                        {activeTab === 'executive' && (
+                            window.ExecutiveDashboard ? (
+                                <window.ExecutiveDashboard
+                                    projects={projects}
+                                    completedWeeks={weeklySchedule.completedWeeks}
+                                    scheduleSetup={weeklySchedule.scheduleSetup}
+                                    currentWeek={currentWeek}
+                                />
+                            ) : (
+                                <div className="text-center py-20">
+                                    <div className="text-6xl mb-4">📊</div>
+                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Executive Dashboard</h2>
+                                    <p className="text-gray-600">Loading executive view...</p>
+                                </div>
+                            )
+                        )}
 
                         {activeTab === 'qa' && (
                             <div className="text-center py-20">
