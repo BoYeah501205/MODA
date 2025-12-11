@@ -1,0 +1,25 @@
+# Ignore executable and unnecessary files
+*.bat
+*.exe
+*.sh
+
+# Ignore development files
+node_modules
+.git
+.github
+.gitignore
+
+# Ignore backup folders
+backups/
+
+# Ignore documentation (optional - saves space)
+docs/
+
+# Ignore debug tools
+firebase-debug.html
+
+# Ignore package files (not needed for static hosting)
+package.json
+package-lock.json
+firebase.json
+.firebaserc

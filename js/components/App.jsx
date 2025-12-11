@@ -2178,10 +2178,19 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
         // Main Dashboard Component (requires authentication)
         function Dashboard({ auth }) {
             const [activeTab, setActiveTab] = useState('production');
-            const [projects, setProjects] = useState(() => {
-                const saved = localStorage.getItem('autovol_projects');
-                return saved ? JSON.parse(saved) : [];
-            });
+            
+            // Use Firestore hooks for projects (with localStorage fallback)
+            const { 
+                projects, 
+                setProjects, 
+                loading: projectsLoading, 
+                synced: projectsSynced 
+            } = window.FirestoreHooks?.useProjects() || {
+                projects: JSON.parse(localStorage.getItem('autovol_projects') || '[]'),
+                setProjects: (p) => localStorage.setItem('autovol_projects', JSON.stringify(p)),
+                loading: false,
+                synced: false
+            };
             const [trashedProjects, setTrashedProjects] = useState(() => {
                 const saved = localStorage.getItem('autovol_trash_projects');
                 if (saved) {
@@ -2318,12 +2327,15 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                 }));
             });
 
-            // Save to localStorage
+            // Save to localStorage (only when not synced to Firestore)
             useEffect(() => {
-                localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                // Only save to localStorage if not using Firestore (Firestore handles its own persistence)
+                if (!projectsSynced) {
+                    localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                }
                 // Sync to unified layer for any modules with close-up at 100%
                 MODA_UNIFIED.migrateFromProjects();
-            }, [projects]);
+            }, [projects, projectsSynced]);
 
             useEffect(() => {
                 localStorage.setItem('autovol_trash_projects', JSON.stringify(trashedProjects));

@@ -31,9 +31,6 @@
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
     <div id="root"></div>
     
-    <!-- Initialize Project Data -->
-    <script src="./js/data/projectData.js"></script>
-    
     <!-- MODA Core (Data Layer + Roles) -->
     <script src="./js/core/moda-core.js"></script>
     
@@ -42,6 +39,12 @@
     
     <!-- Firebase Authentication -->
     <script src="./js/firebase-auth.js"></script>
+    
+    <!-- Firebase Data Layer (Firestore sync) -->
+    <script src="./js/firebase-data.js"></script>
+    
+    <!-- Firestore Sync Hooks -->
+    <script src="./js/hooks/useFirestoreSync.js"></script>
     
     <!-- React Components -->
     <script type="text/babel" src="./js/components/TrainingMatrix.jsx"></script>

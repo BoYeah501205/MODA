@@ -7,9 +7,12 @@ export default defineConfig({
   root: '.',
   
   plugins: [
-    react({
-      include: '**/*.{jsx,tsx,js,ts}'
-    }),
+    // React plugin DISABLED - using Babel Standalone for JSX compilation
+    // The index.html uses <script type="text/babel"> which requires babel-standalone
+    // Vite's React plugin conflicts with this approach
+    // react({
+    //   include: '**/*.{jsx,tsx,js,ts}'
+    // }),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {

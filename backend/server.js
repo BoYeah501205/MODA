@@ -3,6 +3,7 @@
 // Express server with SQLite database
 // ============================================================================
 
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { initDatabase, getDatabase, closeDatabase, queryOne } from './db/database.js';
@@ -13,6 +14,7 @@ import moduleRoutes from './routes/modules.js';
 import employeeRoutes from './routes/employees.js';
 import transportRoutes from './routes/transport.js';
 import syncRoutes from './routes/sync.js';
+import inviteRoutes from './routes/invite.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -70,6 +72,7 @@ app.use('/api/modules', moduleRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/transport', transportRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/invite', inviteRoutes);
 
 // ===== Error Handler =====
 app.use((err, req, res, next) => {
@@ -144,6 +147,11 @@ Endpoints:
   Sync:
   POST /api/sync/import     - Import data from localStorage
   GET  /api/sync/export     - Export all data
+  
+  Invite (Email Service):
+  POST /api/invite/send     - Send branded invite email
+  POST /api/invite/resend   - Resend password reset email
+  GET  /api/invite/status   - Check email service status
 
 Press Ctrl+C to stop
 `);

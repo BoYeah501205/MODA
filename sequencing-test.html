@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Sequencing Tool - Test Page</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F0F2F5;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+    <div id="root"></div>
+    
+    <!-- Project Sequencing Component -->
+    <script type="text/babel" src="./js/components/ProjectSequencing.jsx"></script>
+    
+    <!-- Test App -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Sample test data
+        const sampleProject = {
+            id: 'test-project-1',
+            name: 'Alvarado Creek Apartments',
+            location: 'Phoenix, AZ',
+            status: 'Active'
+        };
+        
+        function TestApp() {
+            const [showModal, setShowModal] = useState(false);
+            const [componentLoaded, setComponentLoaded] = useState(false);
+            const [storedData, setStoredData] = useState(null);
+            
+            // Check component status
+            useEffect(() => {
+                const check = () => {
+                    const loaded = window.ProjectSequencing && window.ProjectSequencing.SequencingModal;
+                    setComponentLoaded(loaded);
+                    setStoredData(localStorage.getItem(`moda_sequences_${sampleProject.id}`));
+                };
+                check();
+                const interval = setInterval(check, 500);
+                return () => clearInterval(interval);
+            }, []);
+            
+            const handleSaveToProject = (modules) => {
+                console.log('Modules saved to project:', modules);
+                alert(`Saved ${modules.length} modules to project!`);
+            };
+            
+            return (
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                            📋 Project Sequencing Tool
+                        </h1>
+                        <p className="text-gray-500 mb-6">
+                            Excel-like sequence builder with setup wizard
+                        </p>
+                        
+                        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                            <h2 className="font-semibold text-gray-700 mb-2">Test Project</h2>
+                            <p className="text-gray-900 font-medium">{sampleProject.name}</p>
+                            <p className="text-sm text-gray-500">{sampleProject.location}</p>
+                        </div>
+                        
+                        <div className="flex gap-4 flex-wrap">
+                            <button
+                                onClick={() => setShowModal(true)}
+                                disabled={!componentLoaded}
+                                className={`px-6 py-3 rounded-lg font-semibold transition ${
+                                    componentLoaded
+                                        ? 'bg-purple-600 text-white hover:bg-purple-700'
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
+                                {componentLoaded ? '📋 Open Sequencing Tool' : '⏳ Loading...'}
+                            </button>
+                            
+                            <button
+                                onClick={() => {
+                                    localStorage.removeItem(`moda_sequences_${sampleProject.id}`);
+                                    setStoredData(null);
+                                    alert('Sequences cleared!');
+                                }}
+                                className="px-6 py-3 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition"
+                            >
+                                🗑️ Clear Data
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Status Panel */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                        <h2 className="font-semibold text-gray-700 mb-4">Component Status</h2>
+                        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                            <div className="flex items-center gap-2">
+                                <span className={`w-3 h-3 rounded-full ${componentLoaded ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span>SequencingModal</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className={`w-3 h-3 rounded-full ${window.ProjectSequencing?.SequenceBuilder ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span>SequenceBuilder</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className={`w-3 h-3 rounded-full ${window.ProjectSequencing?.PreviousView ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span>PreviousView</span>
+                            </div>
+                        </div>
+                        
+                        <div className="pt-4 border-t">
+                            <h3 className="font-semibold text-gray-700 mb-2">Stored Sequence Data</h3>
+                            <pre className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-60 font-mono">
+                                {storedData ? JSON.stringify(JSON.parse(storedData), null, 2) : 'No sequences stored'}
+                            </pre>
+                        </div>
+                    </div>
+                    
+                    {/* Modal */}
+                    {showModal && componentLoaded && (
+                        <window.ProjectSequencing.SequencingModal
+                            project={sampleProject}
+                            modules={[]}
+                            onClose={() => setShowModal(false)}
+                            onSaveToProject={handleSaveToProject}
+                        />
+                    )}
+                </div>
+            );
+        }
+        
+        // Wait for component to load then render
+        setTimeout(() => {
+            ReactDOM.render(<TestApp />, document.getElementById('root'));
+        }, 500);
+    </script>
+</body>
+</html>
