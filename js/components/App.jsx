@@ -2,6 +2,9 @@
 // Extracted from index.html for optimization
 
         const { useState, useEffect, useMemo, useRef } = React;
+        
+        // Feature flag helper
+        const isFeatureEnabled = (flag, userEmail) => window.MODA_FEATURE_FLAGS?.isEnabled(flag, userEmail) || false;
 
         // ===== AUTOVOL LOGO =====
         const AUTOVOL_LOGO = "./public/autovol-logo.png";
@@ -2177,7 +2180,14 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
 
         // Main Dashboard Component (requires authentication)
         function Dashboard({ auth }) {
-            const [activeTab, setActiveTab] = useState('production');
+            // Use URL-based navigation if feature flag is enabled, otherwise use local state
+            const useUrlNav = isFeatureEnabled('enableUrlNavigation', auth.currentUser?.email) && window.useUrlNavigation;
+            const [urlActiveTab, urlSetActiveTab] = useUrlNav ? window.useUrlNavigation('production') : [null, null];
+            const [localActiveTab, setLocalActiveTab] = useState('production');
+            
+            // Use URL navigation if available, otherwise fall back to local state
+            const activeTab = useUrlNav ? urlActiveTab : localActiveTab;
+            const setActiveTab = useUrlNav ? urlSetActiveTab : setLocalActiveTab;
             
             // Use Firestore hooks for projects (with localStorage fallback)
             const { 
@@ -2497,59 +2507,100 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                         </div>
                     </header>
 
-                    {/* Navigation Tabs - FILTERED BY ROLE */}
-                    <nav className="bg-white border-b">
-                        <div className="max-w-7xl mx-auto px-4">
-                            <div className="flex gap-1">
-                                {[
-                                    {id: 'executive', label: 'Executive', icon: 'icon-executive'},
-                                    {id: 'production', label: 'Production', icon: 'icon-production'},
-                                    {id: 'projects', label: 'Projects', icon: 'icon-projects'},
-                                    {id: 'people', label: 'People', icon: 'icon-people'},
-                                    {id: 'qa', label: 'QA', icon: 'icon-qa'},
-                                    {id: 'transport', label: 'Transport', icon: 'icon-transport'},
-                                    {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
-                                    {id: 'precon', label: 'Precon', icon: 'icon-precon'},
-                                    {id: 'onsite', label: 'On-Site', icon: 'icon-onsite'},
-                                    {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
-                                    {id: 'automation', label: 'Automation', icon: 'icon-automation'},
-                                    {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'}
-                                ]
-                                .filter(tab => auth.visibleTabs.includes(tab.id)) // FILTER BASED ON ROLE
-                                .map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => { setActiveTab(tab.id); setSelectedProject(null); }}
-                                        className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ${activeTab === tab.id ? 'active' : ''}`}
-                                        style={activeTab === tab.id 
-                                            ? {backgroundColor: 'var(--autovol-red)', color: 'white'} 
-                                            : {color: 'var(--autovol-navy)'}}
-                                    >
-                                        <span className={`tab-icon ${tab.icon}`}></span>
-                                        {tab.label}
-                                    </button>
-                                ))}
-                                {/* ADMIN TAB - ONLY VISIBLE WITH canAccessAdmin */}
-                                {auth.canAccessAdmin && (
-                                    <button
-                                        key="admin"
-                                        onClick={() => { setActiveTab('admin'); setSelectedProject(null); }}
-                                        className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ml-auto ${activeTab === 'admin' ? 'active' : ''}`}
-                                        style={activeTab === 'admin' 
-                                            ? {backgroundColor: 'var(--autovol-navy)', color: 'white'} 
-                                            : {backgroundColor: 'var(--autovol-gray-bg)', color: 'var(--autovol-navy)'}}
-                                    >
-                                        <span className="tab-icon icon-admin"></span>
-                                        Admin
-                                    </button>
-                                )}
+                    {/* Navigation - Grouped or Flat based on feature flag */}
+                    {isFeatureEnabled('enableNavGroups', auth.currentUser?.email) && window.NavigationGroups ? (
+                        <window.NavigationGroups
+                            activeTab={activeTab}
+                            setActiveTab={setActiveTab}
+                            visibleTabs={auth.visibleTabs}
+                            canAccessAdmin={auth.canAccessAdmin}
+                            setSelectedProject={setSelectedProject}
+                        />
+                    ) : (
+                        /* Original flat navigation */
+                        <nav className="bg-white border-b">
+                            <div className="max-w-7xl mx-auto px-4">
+                                <div className="flex gap-1">
+                                    {/* HOME TAB - Feature flagged */}
+                                    {isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
+                                        <button
+                                            onClick={() => { setActiveTab('home'); setSelectedProject(null); }}
+                                            className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ${activeTab === 'home' ? 'active' : ''}`}
+                                            style={activeTab === 'home' 
+                                                ? {backgroundColor: 'var(--autovol-teal)', color: 'white'} 
+                                                : {color: 'var(--autovol-navy)'}}
+                                        >
+                                            <span className="tab-icon icon-home"></span>
+                                            Home
+                                        </button>
+                                    )}
+                                    {[
+                                        {id: 'executive', label: 'Executive', icon: 'icon-executive'},
+                                        {id: 'production', label: 'Production', icon: 'icon-production'},
+                                        {id: 'projects', label: 'Projects', icon: 'icon-projects'},
+                                        {id: 'people', label: 'People', icon: 'icon-people'},
+                                        {id: 'qa', label: 'QA', icon: 'icon-qa'},
+                                        {id: 'transport', label: 'Transport', icon: 'icon-transport'},
+                                        {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
+                                        {id: 'precon', label: 'Precon', icon: 'icon-precon'},
+                                        {id: 'onsite', label: 'On-Site', icon: 'icon-onsite'},
+                                        {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
+                                        {id: 'automation', label: 'Automation', icon: 'icon-automation'},
+                                        {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'}
+                                    ]
+                                    .filter(tab => auth.visibleTabs.includes(tab.id)) // FILTER BASED ON ROLE
+                                    .map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => { setActiveTab(tab.id); setSelectedProject(null); }}
+                                            className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ${activeTab === tab.id ? 'active' : ''}`}
+                                            style={activeTab === tab.id 
+                                                ? {backgroundColor: 'var(--autovol-red)', color: 'white'} 
+                                                : {color: 'var(--autovol-navy)'}}
+                                        >
+                                            <span className={`tab-icon ${tab.icon}`}></span>
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                    {/* ADMIN TAB - ONLY VISIBLE WITH canAccessAdmin */}
+                                    {auth.canAccessAdmin && (
+                                        <button
+                                            key="admin"
+                                            onClick={() => { setActiveTab('admin'); setSelectedProject(null); }}
+                                            className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ml-auto ${activeTab === 'admin' ? 'active' : ''}`}
+                                            style={activeTab === 'admin' 
+                                                ? {backgroundColor: 'var(--autovol-navy)', color: 'white'} 
+                                                : {backgroundColor: 'var(--autovol-gray-bg)', color: 'var(--autovol-navy)'}}
+                                        >
+                                            <span className="tab-icon icon-admin"></span>
+                                            Admin
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    </nav>
-                    
+                        </nav>
+                    )}
 
                     {/* Main Content */}
                     <main className="max-w-7xl mx-auto px-4 py-6">
+                        {/* Dashboard Home - Feature flagged */}
+                        {activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
+                            window.DashboardHome ? (
+                                <window.DashboardHome
+                                    projects={projects}
+                                    employees={employees}
+                                    auth={auth}
+                                    onNavigate={(tab) => { setActiveTab(tab); setSelectedProject(null); }}
+                                />
+                            ) : (
+                                <div className="text-center py-20">
+                                    <div className="text-6xl mb-4">🏠</div>
+                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Dashboard Home</h2>
+                                    <p className="text-gray-600">Loading...</p>
+                                </div>
+                            )
+                        )}
+
                         {activeTab === 'production' && !selectedProject && (
                             <ProductionDashboard 
                                 projects={projects}

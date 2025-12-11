@@ -23,6 +23,14 @@
 
 /* ===== SVG ICON DEFINITIONS ===== */
 
+/* Home Icon - House */
+.icon-home {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M22 22L2 22' stroke='%23000000' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M2 11L6.06296 7.74968M22 11L13.8741 4.49931C12.7784 3.62279 11.2216 3.62279 10.1259 4.49931L9.34398 5.12486' stroke='%23000000' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M15.5 5.5V3.5C15.5 3.22386 15.7239 3 16 3H18.5C18.7761 3 19 3.22386 19 3.5V8.5' stroke='%23000000' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M4 22V9.5' stroke='%23000000' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M20 9.5V13.5M20 22V17.5' stroke='%23000000' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M15 22V17C15 15.5858 15 14.8787 14.5607 14.4393C14.1213 14 13.4142 14 12 14C10.5858 14 9.87868 14 9.43934 14.4393M9 22V17' stroke='%23000000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M14 9.5C14 10.6046 13.1046 11.5 12 11.5C10.8954 11.5 10 10.6046 10 9.5C10 8.39543 10.8954 7.5 12 7.5C13.1046 7.5 14 8.39543 14 9.5Z' stroke='%23000000' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
 /* Production Icon - Hammer */
 .icon-production {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 19.63L13.43 8.2L12.72 7.5L14.14 6.07L12 3.89C13.2 2.7 15.09 2.7 16.27 3.89L19.87 7.5L18.45 8.91H21.29L22 9.62L18.45 13.21L17.74 12.5V9.62L16.27 11.04L15.56 10.33L4.13 21.76L2 19.63Z' /%3E%3C/svg%3E");
@@ -360,4 +368,68 @@
         height: 14px;
         margin-right: 4px;
     }
+}
+
+/* ===== NAVIGATION GROUPS STYLES ===== */
+.nav-groups {
+    position: relative;
+    z-index: 100;
+    overflow: visible !important;
+}
+
+.nav-groups > div {
+    overflow: visible !important;
+}
+
+.nav-groups .flex {
+    overflow: visible !important;
+}
+
+.nav-group {
+    position: relative;
+    z-index: 100;
+}
+
+.nav-group-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.nav-group-header:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.nav-dropdown {
+    animation: dropdownFadeIn 0.15s ease-out;
+    z-index: 1000 !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.nav-dropdown-item:first-child {
+    border-radius: 0;
+}
+
+.nav-dropdown-item:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.nav-dropdown-item:hover {
+    background-color: var(--autovol-gray-bg);
+}
+
+.dropdown-arrow.expanded {
+    transform: rotate(180deg);
 }
