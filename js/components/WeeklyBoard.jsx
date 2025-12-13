@@ -686,9 +686,15 @@ function ScheduleSetupTab({
 
 // ===== MODULE CARD PROMPT COMPONENT =====
 // Reusable prompt that appears when clicking "..." on a module card
-function ModuleCardPrompt({ module, station, position, onClose, onViewDetails, onReportIssue, onShopDrawing, onMoveModule }) {
+// Added: onLogQAInspection for QA role users
+function ModuleCardPrompt({ module, station, position, onClose, onViewDetails, onReportIssue, onShopDrawing, onMoveModule, onLogQAInspection, userRole }) {
     const { useEffect, useRef } = React;
     const promptRef = useRef(null);
+    
+    // Check if user has QA role (qa or admin)
+    // userRole is an object with .id property (e.g., { id: 'qa', name: 'QA', ... })
+    const roleId = userRole?.id || userRole;
+    const isQARole = roleId === 'qa' || roleId === 'admin';
     
     // Close when clicking outside or pressing Escape
     useEffect(() => {
@@ -738,6 +744,18 @@ function ModuleCardPrompt({ module, station, position, onClose, onViewDetails, o
             >
                 <span>📐</span> Shop Drawing
             </button>
+            {/* QA Inspection - Only visible to QA role */}
+            {isQARole && onLogQAInspection && (
+                <>
+                    <div className="border-t my-1"></div>
+                    <button
+                        onClick={() => { onLogQAInspection(module, station); onClose(); }}
+                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-teal-50 flex items-center gap-3 text-teal-700"
+                    >
+                        <span className="icon-qa" style={{ width: '16px', height: '16px', display: 'inline-block' }}></span> Log QA Inspection
+                    </button>
+                </>
+            )}
             {onMoveModule && (
                 <>
                     <div className="border-t my-1"></div>
@@ -876,9 +894,15 @@ function WeeklyBoardTab({
     setProjects, // For updating module progress
     onReportIssue, // For opening report issue modal
     canEdit = true, // Tab-specific edit permission (false = view-only mode)
-    stationCapacities = {} // Optional: custom capacities per station { stationId: number }
+    stationCapacities = {}, // Optional: custom capacities per station { stationId: number }
+    userRole = null, // User's dashboard role (e.g., 'qa', 'admin')
+    onLogQAInspection = null // Callback for QA inspection (module, station) => void
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
+    
+    // Mobile detection
+    const isMobile = window.useIsMobile ? window.useIsMobile(768) : false;
+    
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
@@ -2622,6 +2646,49 @@ function WeeklyBoardTab({
         );
     }
     
+    // ===== MOBILE VIEW =====
+    // Show simplified swipeable view on mobile devices
+    if (isMobile) {
+        return (
+            <div className="space-y-4">
+                {/* Mobile Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-lg font-semibold text-autovol-navy">Weekly Board</h3>
+                        <p className="text-xs text-gray-500">
+                            Week: {displayWeek?.weekStart || 'Not set'} • {lineBalance} modules
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => setShowHistoryModal(true)}
+                        className="p-2 bg-gray-100 rounded-lg"
+                        title="Week History"
+                    >
+                        <span className="icon-history" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span>
+                    </button>
+                </div>
+                
+                {/* Mobile Weekly Board View */}
+                <MobileWeeklyBoardView
+                    productionStages={productionStages}
+                    getModulesForStation={getModulesForStation}
+                    getStationStartingModule={getStationStartingModule}
+                    getStationCapacityInfo={getStationCapacityInfo}
+                    onModuleClick={onModuleClick}
+                    canEdit={canEdit}
+                />
+                
+                {/* Week History Modal */}
+                {showHistoryModal && (
+                    <WeekHistoryModal
+                        completedWeeks={completedWeeks}
+                        onClose={() => setShowHistoryModal(false)}
+                    />
+                )}
+            </div>
+        );
+    }
+    
     return (
         <div className="space-y-4">
             {/* View-Only Banner */}
@@ -3270,6 +3337,8 @@ function WeeklyBoardTab({
                     }}
                     onShopDrawing={handleShopDrawing}
                     onMoveModule={openMoveModal}
+                    userRole={userRole}
+                    onLogQAInspection={onLogQAInspection}
                 />
             )}
             
@@ -4008,6 +4077,319 @@ function WeekHistoryModal({ completedWeeks, onClose }) {
     );
 }
 
+// ===== MOBILE WEEKLY BOARD VIEW =====
+// Swipeable single-station view for mobile devices
+function MobileWeeklyBoardView({ 
+    productionStages, 
+    getModulesForStation,
+    getStationStartingModule,
+    getStationCapacityInfo,
+    renderModuleCard,
+    CARD_HEIGHT,
+    onModuleClick,
+    onProgressUpdate,
+    canEdit
+}) {
+    const { useState, useRef, useEffect, useCallback } = React;
+    const [currentStationIndex, setCurrentStationIndex] = useState(0);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const [slideDirection, setSlideDirection] = useState(null);
+    const touchStartX = useRef(0);
+    const touchEndX = useRef(0);
+    const containerRef = useRef(null);
+    
+    const currentStation = productionStages[currentStationIndex];
+    const { previous, current, next } = getModulesForStation ? getModulesForStation(currentStation) : { previous: [], current: [], next: [] };
+    const startingModule = getStationStartingModule ? getStationStartingModule(currentStation.id) : null;
+    const capacityInfo = getStationCapacityInfo?.[currentStation.id] || { capacity: 5, inProgress: 0, complete: 0, loadPercent: 0, status: 'under' };
+    
+    // Navigate with animation
+    const navigateTo = useCallback((newIndex, direction) => {
+        if (isAnimating || newIndex < 0 || newIndex >= productionStages.length) return;
+        setIsAnimating(true);
+        setSlideDirection(direction);
+        setTimeout(() => {
+            setCurrentStationIndex(newIndex);
+            setSlideDirection(null);
+            setIsAnimating(false);
+        }, 200);
+    }, [isAnimating, productionStages.length]);
+    
+    // Swipe handlers - improved for Safari
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchEndX.current = e.touches[0].clientX;
+    };
+    
+    const handleTouchMove = (e) => {
+        touchEndX.current = e.touches[0].clientX;
+    };
+    
+    const handleTouchEnd = () => {
+        const swipeDistance = touchStartX.current - touchEndX.current;
+        const minSwipeDistance = 50;
+        
+        if (swipeDistance > minSwipeDistance && currentStationIndex < productionStages.length - 1) {
+            navigateTo(currentStationIndex + 1, 'left');
+        } else if (swipeDistance < -minSwipeDistance && currentStationIndex > 0) {
+            navigateTo(currentStationIndex - 1, 'right');
+        }
+    };
+    
+    // Arrow navigation handlers
+    const goToPrevious = () => navigateTo(currentStationIndex - 1, 'right');
+    const goToNext = () => navigateTo(currentStationIndex + 1, 'left');
+    
+    // Capacity bar colors
+    const capacityBarColor = capacityInfo.status === 'over' ? 'bg-red-400' 
+        : capacityInfo.status === 'at' ? 'bg-yellow-400' 
+        : 'bg-green-400';
+    
+    return (
+        <div className="mobile-weekly-board">
+            {/* Station Selector Pills */}
+            <div className="flex gap-1 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+                {productionStages.map((station, idx) => (
+                    <button
+                        key={station.id}
+                        onClick={() => setCurrentStationIndex(idx)}
+                        className={`flex-shrink-0 px-3 py-2 rounded-full text-xs font-medium transition-all ${
+                            idx === currentStationIndex 
+                                ? `${station.color} text-white shadow-md` 
+                                : 'bg-gray-100 text-gray-600'
+                        }`}
+                    >
+                        {station.dept}
+                    </button>
+                ))}
+            </div>
+            
+            {/* Current Station Card - with slide animation */}
+            <div 
+                ref={containerRef}
+                className={`touch-pan-y transition-all duration-200 ease-out ${slideDirection === 'left' ? 'opacity-0 -translate-x-4' : slideDirection === 'right' ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{ WebkitTransform: slideDirection === 'left' ? 'translateX(-16px)' : slideDirection === 'right' ? 'translateX(16px)' : 'translateX(0)' }}
+            >
+                {/* Station Header */}
+                <div className={`${currentStation.color} text-white px-4 py-3 rounded-t-xl`}>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <div className="font-bold text-lg">{currentStation.name}</div>
+                            <div className="text-sm opacity-80">
+                                Start: {startingModule?.serialNumber || 'Not set'}
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-2xl font-bold">{capacityInfo.inProgress}</div>
+                            <div className="text-xs opacity-80">of {capacityInfo.capacity}</div>
+                        </div>
+                    </div>
+                    
+                    {/* Capacity Bar */}
+                    <div className="mt-2">
+                        <div className="h-2 rounded-full bg-white/30 overflow-hidden">
+                            <div 
+                                className={`h-full ${capacityBarColor} transition-all duration-300`}
+                                style={{ width: `${Math.min(capacityInfo.loadPercent, 100)}%` }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-xs mt-1 opacity-90">
+                            <span>{capacityInfo.complete} complete</span>
+                            <span>{currentStationIndex + 1} of {productionStages.length}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Swipe Hint */}
+                <div className="bg-gray-100 text-center py-1 text-xs text-gray-500 flex items-center justify-center gap-2">
+                    {currentStationIndex > 0 && <span>← {productionStages[currentStationIndex - 1]?.dept}</span>}
+                    <span className="text-gray-400">|</span>
+                    <span>Swipe to navigate</span>
+                    <span className="text-gray-400">|</span>
+                    {currentStationIndex < productionStages.length - 1 && <span>{productionStages[currentStationIndex + 1]?.dept} →</span>}
+                </div>
+                
+                {/* Module List */}
+                <div className="bg-white border border-gray-200 rounded-b-xl p-3 space-y-2 max-h-96 overflow-y-auto">
+                    {previous.length === 0 && current.length === 0 && next.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400">
+                            <div className="text-3xl mb-2"><span className="icon-box inline-block w-8 h-8"></span></div>
+                            <div>No modules at this station</div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Previous Week */}
+                            {previous.length > 0 && (
+                                <>
+                                    <div className="text-xs font-semibold text-red-600 uppercase tracking-wide">Previous Week</div>
+                                    {previous.map(module => (
+                                        <MobileModuleCard 
+                                            key={module.id} 
+                                            module={module} 
+                                            station={currentStation}
+                                            section="previous"
+                                            onClick={onModuleClick}
+                                            onProgressUpdate={onProgressUpdate}
+                                            canEdit={canEdit}
+                                        />
+                                    ))}
+                                    <div className="border-t border-dashed border-red-200 my-2"></div>
+                                </>
+                            )}
+                            
+                            {/* Current Week */}
+                            {current.length > 0 && (
+                                <>
+                                    <div className="text-xs font-semibold text-autovol-teal uppercase tracking-wide">Current Week</div>
+                                    {current.map(module => (
+                                        <MobileModuleCard 
+                                            key={module.id} 
+                                            module={module} 
+                                            station={currentStation}
+                                            section="current"
+                                            onClick={onModuleClick}
+                                            onProgressUpdate={onProgressUpdate}
+                                            canEdit={canEdit}
+                                        />
+                                    ))}
+                                </>
+                            )}
+                            
+                            {/* Next Week */}
+                            {next.length > 0 && (
+                                <>
+                                    <div className="border-t border-dashed border-green-200 my-2"></div>
+                                    <div className="text-xs font-semibold text-green-600 uppercase tracking-wide">Next Week</div>
+                                    {next.map(module => (
+                                        <MobileModuleCard 
+                                            key={module.id} 
+                                            module={module} 
+                                            station={currentStation}
+                                            section="next"
+                                            onClick={onModuleClick}
+                                            onProgressUpdate={onProgressUpdate}
+                                            canEdit={canEdit}
+                                        />
+                                    ))}
+                                </>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+            
+            {/* Navigation Arrows - larger touch targets for mobile */}
+            <div className="flex justify-between mt-3 gap-4">
+                <button
+                    onClick={goToPrevious}
+                    disabled={currentStationIndex === 0 || isAnimating}
+                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-200 active:scale-95 ${
+                        currentStationIndex === 0 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-autovol-navy text-white shadow-md'
+                    }`}
+                    style={{ minHeight: '48px' }}
+                >
+                    <span className="icon-chevron-left inline-block w-4 h-4 mr-1" style={{ filter: currentStationIndex === 0 ? 'none' : 'invert(1)' }}></span>
+                    Previous
+                </button>
+                <button
+                    onClick={goToNext}
+                    disabled={currentStationIndex === productionStages.length - 1 || isAnimating}
+                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-200 active:scale-95 ${
+                        currentStationIndex === productionStages.length - 1 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-autovol-navy text-white shadow-md'
+                    }`}
+                    style={{ minHeight: '48px' }}
+                >
+                    Next
+                    <span className="icon-chevron-right inline-block w-4 h-4 ml-1" style={{ filter: currentStationIndex === productionStages.length - 1 ? 'none' : 'invert(1)' }}></span>
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// Mobile Module Card - simplified card for mobile view with progress buttons
+function MobileModuleCard({ module, station, section, onClick, onProgressUpdate, canEdit = true }) {
+    const { useState } = React;
+    const [showProgressButtons, setShowProgressButtons] = useState(false);
+    const progress = module.stageProgress?.[station.id] || 0;
+    const isComplete = progress === 100;
+    const isInProgress = progress > 0 && progress < 100;
+    
+    const sectionStyles = {
+        previous: 'border-red-200 bg-red-50/50',
+        current: isComplete ? 'border-green-300 bg-green-50' : isInProgress ? 'border-autovol-teal bg-white' : 'border-gray-200 bg-gray-50',
+        next: 'border-green-200 bg-green-50/50'
+    };
+    
+    const progressOptions = [0, 25, 50, 75, 100];
+    
+    const handleProgressClick = (e, value) => {
+        e.stopPropagation();
+        if (onProgressUpdate) {
+            onProgressUpdate(module, station, value);
+        }
+        setShowProgressButtons(false);
+    };
+    
+    return (
+        <div 
+            className={`p-3 rounded-lg border-2 ${sectionStyles[section]} transition-all`}
+            onClick={() => onClick?.(module, station)}
+        >
+            <div className="flex justify-between items-start">
+                <div className="flex-1">
+                    <div className="font-bold text-autovol-navy">{module.serialNumber}</div>
+                    <div className="text-xs text-gray-500">{module.projectName}</div>
+                    <div className="text-xs text-gray-400">{module.blmId || 'No BLM'}</div>
+                </div>
+                <div className="text-right">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); if (canEdit) setShowProgressButtons(!showProgressButtons); }}
+                        className={`text-lg font-bold px-2 py-1 rounded ${isComplete ? 'text-green-600 bg-green-100' : isInProgress ? 'text-autovol-teal bg-teal-50' : 'text-gray-400 bg-gray-100'} ${canEdit ? 'active:scale-95' : ''}`}
+                    >
+                        {progress}%
+                    </button>
+                    {isComplete && <div className="text-xs text-green-600 mt-1">Complete</div>}
+                </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div 
+                    className={`h-full transition-all duration-300 ${isComplete ? 'bg-green-500' : 'bg-autovol-teal'}`}
+                    style={{ width: `${progress}%` }}
+                />
+            </div>
+            
+            {/* Quick Progress Buttons */}
+            {showProgressButtons && canEdit && (
+                <div className="mt-3 flex gap-1 justify-center">
+                    {progressOptions.map(value => (
+                        <button
+                            key={value}
+                            onClick={(e) => handleProgressClick(e, value)}
+                            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${
+                                progress === value 
+                                    ? 'bg-autovol-teal text-white' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            {value}%
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // Export for use in App.jsx
 if (typeof window !== 'undefined') {
     window.WeeklyBoardComponents = {
@@ -4017,6 +4399,8 @@ if (typeof window !== 'undefined') {
         WeekCompleteModal,
         WeekHistoryModal,
         ModuleCardPrompt,
-        ModuleDetailsTable
+        ModuleDetailsTable,
+        MobileWeeklyBoardView,
+        MobileModuleCard
     };
 }

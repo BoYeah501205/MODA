@@ -4,8 +4,6 @@
 // Design principle: "Quick glimpse, not overwhelming"
 // ============================================================================
 
-const { useState, useEffect, useMemo } = React;
-
 // ===== FACTORY CONFIGURATION =====
 const FACTORIES = [
     { id: 'all', name: 'All Factories', icon: '🏭' },
@@ -269,11 +267,11 @@ function ExecutiveDashboard({
     scheduleSetup = {},
     currentWeek = null
 }) {
-    const [selectedFactory, setSelectedFactory] = useState('all');
-    const [lastRefresh, setLastRefresh] = useState(new Date());
+    const [selectedFactory, setSelectedFactory] = React.useState('all');
+    const [lastRefresh, setLastRefresh] = React.useState(new Date());
 
     // Calculate line balance (weekly target)
-    const lineBalance = useMemo(() => {
+    const lineBalance = React.useMemo(() => {
         const shift1 = scheduleSetup?.shift1 || {};
         const shift2 = scheduleSetup?.shift2 || {};
         return Object.values(shift1).reduce((sum, v) => sum + (v || 0), 0) +
@@ -283,7 +281,7 @@ function ExecutiveDashboard({
     const weeklyTarget = lineBalance || 21; // Default to 21 if not set
 
     // ===== COMPUTE METRICS =====
-    const metrics = useMemo(() => {
+    const metrics = React.useMemo(() => {
         const activeProjects = projects.filter(p => p.status === 'Active');
         const allModules = projects.flatMap(p => (p.modules || []).map(m => ({ 
             ...m, 
@@ -359,12 +357,12 @@ function ExecutiveDashboard({
     }, [projects, completedWeeks, currentWeek, weeklyTarget]);
 
     // Get automation data based on selected factory
-    const automationData = useMemo(() => {
+    const automationData = React.useMemo(() => {
         return getAutomationData(selectedFactory === 'all' ? 'nampa' : selectedFactory);
     }, [selectedFactory]);
 
     // Factory-specific metrics
-    const factoryMetrics = useMemo(() => {
+    const factoryMetrics = React.useMemo(() => {
         if (selectedFactory === 'all') {
             return {
                 nampa: metrics.thisWeek,

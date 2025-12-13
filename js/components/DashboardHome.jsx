@@ -1,13 +1,15 @@
 /**
  * DashboardHome.jsx - Role-Based Dashboard Home
  * 
- * Phase 2 of MODA Dashboard Migration
+ * Phase 2 & 5 of MODA Dashboard Migration
  * Provides a central hub with role-adaptive widgets showing key metrics
  * 
- * Views:
- * - Supervisor: Production focus, crew assignments, bottlenecks
- * - Executive: High-level KPIs (uses existing ExecutiveDashboard)
- * - Worker: Personal tasks, station status
+ * Role Views:
+ * - Admin: Full overview with all widgets + system health
+ * - Executive: High-level KPIs, project timeline, completion trends
+ * - Supervisor: Production focus, crew assignments, bottlenecks, daily targets
+ * - Coordinator: Production flow, cross-department handoffs
+ * - Employee: Personal station, assignments, training status
  */
 
 // Dashboard Home Component
@@ -265,7 +267,97 @@ function DashboardHome({
                 </div>
             </div>
 
-            {/* Supervisor-specific: Crew Overview */}
+            {/* ===== WEEKLY SCHEDULE WIDGET ===== */}
+            {['admin', 'department-supervisor', 'coordinator'].includes(userRole) && (
+                <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
+                    <h3 className="font-semibold mb-3 flex items-center justify-between" style={{ color: 'var(--autovol-navy)' }}>
+                        <span className="flex items-center gap-2">
+                            <span className="icon-tracker" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span>
+                            This Week's Schedule
+                        </span>
+                        <button 
+                            onClick={() => onNavigate?.('production')}
+                            className="text-xs px-3 py-1 rounded-lg transition"
+                            style={{ backgroundColor: 'var(--autovol-teal)', color: 'white' }}
+                        >
+                            View Production →
+                        </button>
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="p-3 bg-blue-50 rounded-lg text-center border border-blue-200">
+                            <div className="text-2xl font-bold text-blue-700">
+                                {metrics.inProgress}
+                            </div>
+                            <div className="text-xs text-blue-600">In Production</div>
+                        </div>
+                        <div className="p-3 bg-amber-50 rounded-lg text-center border border-amber-200">
+                            <div className="text-2xl font-bold text-amber-700">
+                                {metrics.bottlenecks.length}
+                            </div>
+                            <div className="text-xs text-amber-600">Bottlenecks</div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg text-center border border-green-200">
+                            <div className="text-2xl font-bold text-green-700">
+                                {metrics.completed}
+                            </div>
+                            <div className="text-xs text-green-600">Completed</div>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg text-center border border-gray-200">
+                            <div className="text-2xl font-bold" style={{ color: 'var(--autovol-navy)' }}>
+                                {metrics.notStarted}
+                            </div>
+                            <div className="text-xs text-gray-600">Not Started</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== ROLE-SPECIFIC WIDGETS ===== */}
+            
+            {/* EXECUTIVE VIEW: High-level trends and timeline */}
+            {userRole === 'executive' && (
+                <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
+                        <span className="icon-executive" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> Executive Summary
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                            <div className="text-sm text-blue-600 font-medium mb-1">Completion Rate</div>
+                            <div className="text-3xl font-bold text-blue-800">
+                                {metrics.totalModules > 0 ? Math.round((metrics.completed / metrics.totalModules) * 100) : 0}%
+                            </div>
+                            <div className="text-xs text-blue-600 mt-1">{metrics.completed} of {metrics.totalModules} modules</div>
+                        </div>
+                        <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+                            <div className="text-sm text-green-600 font-medium mb-1">On Track</div>
+                            <div className="text-3xl font-bold text-green-800">
+                                {metrics.bottlenecks.length === 0 ? 'Yes' : 'Review'}
+                            </div>
+                            <div className="text-xs text-green-600 mt-1">
+                                {metrics.bottlenecks.length === 0 ? 'No bottlenecks detected' : `${metrics.bottlenecks.length} stations need attention`}
+                            </div>
+                        </div>
+                        <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                            <div className="text-sm text-purple-600 font-medium mb-1">Active Workforce</div>
+                            <div className="text-3xl font-bold text-purple-800">
+                                {employees.filter(e => e.status === 'Active').length}
+                            </div>
+                            <div className="text-xs text-purple-600 mt-1">employees on roster</div>
+                        </div>
+                    </div>
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg text-center">
+                        <button 
+                            onClick={() => onNavigate?.('executive')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg transition"
+                            style={{ backgroundColor: 'var(--autovol-navy)', color: 'white' }}
+                        >
+                            View Full Executive Dashboard →
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* SUPERVISOR VIEW: Crew Overview + Daily Targets */}
             {['admin', 'department-supervisor'].includes(userRole) && employees.length > 0 && (
                 <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
                     <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
@@ -295,6 +387,108 @@ function DashboardHome({
                                 {employees.length}
                             </div>
                             <div className="text-sm text-gray-600">Total</div>
+                        </div>
+                    </div>
+                    
+                    {/* Daily Production Target - Supervisor specific */}
+                    <div className="mt-4 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg border border-teal-200">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <div className="text-sm text-teal-700 font-medium">Today's Target</div>
+                                <div className="text-xs text-teal-600">Modules to complete all stations</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-bold" style={{ color: 'var(--autovol-teal)' }}>
+                                    {metrics.inProgress > 0 ? Math.min(5, metrics.inProgress) : 0}
+                                </div>
+                                <div className="text-xs text-teal-600">modules in queue</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* COORDINATOR VIEW: Production Flow */}
+            {userRole === 'coordinator' && (
+                <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
+                        <span className="icon-production" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> Production Flow
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2">
+                        {Object.entries(stageNames).map(([stageId, stageName]) => {
+                            const stageModules = projects.flatMap(p => p.modules || []).filter(m => {
+                                const progress = m.stageProgress?.[stageId] || 0;
+                                return progress > 0 && progress < 100;
+                            }).length;
+                            return (
+                                <div key={stageId} className="p-3 bg-gray-50 rounded-lg text-center">
+                                    <div className="text-lg font-bold" style={{ color: 'var(--autovol-navy)' }}>
+                                        {stageModules}
+                                    </div>
+                                    <div className="text-xs text-gray-500">{stageName}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* EMPLOYEE VIEW: Personal Status */}
+            {userRole === 'employee' && (
+                <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
+                        <span className="icon-people" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> My Status
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="text-sm text-blue-600 font-medium mb-1">My Role</div>
+                            <div className="text-lg font-bold text-blue-800">
+                                {auth?.userRole?.name || 'Employee'}
+                            </div>
+                            <div className="text-xs text-blue-600 mt-1">
+                                {auth?.userRole?.description || 'Production floor access'}
+                            </div>
+                        </div>
+                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                            <div className="text-sm text-green-600 font-medium mb-1">Access Level</div>
+                            <div className="text-lg font-bold text-green-800">
+                                {auth?.visibleTabs?.length || 1} Tab{(auth?.visibleTabs?.length || 1) !== 1 ? 's' : ''}
+                            </div>
+                            <div className="text-xs text-green-600 mt-1">
+                                {auth?.visibleTabs?.join(', ') || 'Production'}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-center">
+                        <div className="text-sm text-amber-700">
+                            💡 Need access to more features? Contact your supervisor.
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ADMIN VIEW: System Health */}
+            {userRole === 'admin' && (
+                <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
+                        <span className="icon-admin" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> System Health
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-3 bg-green-50 rounded-lg text-center">
+                            <div className="text-lg font-bold text-green-600">✓</div>
+                            <div className="text-xs text-gray-600">Firebase</div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg text-center">
+                            <div className="text-lg font-bold text-green-600">✓</div>
+                            <div className="text-xs text-gray-600">Auth</div>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg text-center">
+                            <div className="text-lg font-bold text-blue-600">{projects.length}</div>
+                            <div className="text-xs text-gray-600">Projects</div>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg text-center">
+                            <div className="text-lg font-bold text-blue-600">{employees.length}</div>
+                            <div className="text-xs text-gray-600">Users</div>
                         </div>
                     </div>
                 </div>

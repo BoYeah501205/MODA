@@ -35,9 +35,9 @@ const NAV_GROUPS = [
         ]
     },
     {
-        id: 'precon',
-        label: 'Precon',
-        iconClass: 'icon-precon',
+        id: 'design',
+        label: 'Design & Planning',
+        iconClass: 'icon-design',
         tabs: [
             { id: 'precon', label: 'Precon', iconClass: 'icon-precon' },
             { id: 'engineering', label: 'Engineering', iconClass: 'icon-engineering' }
@@ -45,27 +45,28 @@ const NAV_GROUPS = [
     },
     {
         id: 'quality',
-        label: 'Quality',
+        label: 'QA',
         iconClass: 'icon-qa',
         tabs: [
             { id: 'qa', label: 'QA', iconClass: 'icon-qa' }
         ]
     },
     {
-        id: 'logistics',
-        label: 'Logistics',
-        iconClass: 'icon-transport',
+        id: 'site-logistics',
+        label: 'Site & Logistics',
+        iconClass: 'icon-site-logistics',
         tabs: [
             { id: 'transport', label: 'Transport', iconClass: 'icon-transport' },
-            { id: 'equipment', label: 'Tools & Equipment', iconClass: 'icon-equipment' }
+            { id: 'onsite', label: 'On-Site', iconClass: 'icon-onsite' }
         ]
     },
     {
-        id: 'field',
-        label: 'Field',
-        iconClass: 'icon-onsite',
+        id: 'supply',
+        label: 'Supply & Equipment',
+        iconClass: 'icon-supply',
         tabs: [
-            { id: 'onsite', label: 'On-Site', iconClass: 'icon-onsite' }
+            { id: 'equipment', label: 'Tools & Equipment', iconClass: 'icon-equipment' },
+            { id: 'supply-chain', label: 'Supply Chain', iconClass: 'icon-supply' }
         ]
     },
     {
@@ -153,18 +154,21 @@ function NavigationGroups({
         if (setSelectedProject) setSelectedProject(null);
     };
     
-    // Check if group should show as expanded
+    // Check if group should show as expanded (dropdown visible)
     const isGroupExpanded = (groupId) => {
-        // Always expand if active tab is in this group
-        if (activeGroupId === groupId) return true;
-        // Otherwise use manual expansion state
+        // Only use manual expansion state - user controls dropdown visibility
         return expandedGroups[groupId] || false;
+    };
+    
+    // Check if group contains the active tab (for styling)
+    const isGroupActive = (groupId) => {
+        return activeGroupId === groupId;
     };
 
     return (
-        <nav ref={navRef} className="nav-groups bg-white border-b">
+        <nav ref={navRef} className="nav-groups bg-white border-b nav-groups-container">
             <div className="max-w-7xl mx-auto px-4">
-                <div className="flex items-center gap-1 overflow-x-auto">
+                <div className="flex items-center gap-1 overflow-x-auto nav-groups-wrapper">
                     {/* Home Tab (if feature enabled) */}
                     {window.MODA_FEATURE_FLAGS?.isEnabled('enableDashboardHome') && (
                         <button
@@ -214,7 +218,7 @@ function NavigationGroups({
                                 <>
                                     <button
                                         onClick={() => toggleGroup(group.id)}
-                                        className={`nav-group-header px-4 py-3 text-sm font-medium transition rounded-t-lg whitespace-nowrap flex items-center gap-1 ${activeGroupId === group.id ? 'active' : ''}`}
+                                        className={`nav-group-header nav-group-button px-4 py-3 text-sm font-medium transition rounded-t-lg whitespace-nowrap flex items-center gap-1 ${activeGroupId === group.id ? 'active' : ''}`}
                                         style={activeGroupId === group.id 
                                             ? { backgroundColor: 'var(--autovol-red)', color: 'white' } 
                                             : { color: 'var(--autovol-navy)' }}

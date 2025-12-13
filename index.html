@@ -29,6 +29,7 @@
     <link href="./css/styles.css" rel="stylesheet">
     <link href="./css/professional-icons.css" rel="stylesheet">
     <link href="./css/dark-mode.css" rel="stylesheet">
+    <link href="./css/mobile.css" rel="stylesheet">
 </head>
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
     <div id="root"></div>
@@ -54,7 +55,11 @@
     <!-- URL Navigation Hook -->
     <script src="./js/hooks/useUrlNavigation.js"></script>
     
+    <!-- Mobile Hooks -->
+    <script src="./js/hooks/useMobile.js"></script>
+    
     <!-- React Components -->
+    <script type="text/babel" src="./js/components/MobileNavigation.jsx"></script>
     <script type="text/babel" src="./js/components/TrainingMatrix.jsx"></script>
     <script type="text/babel" src="./js/components/WeeklyBoard.jsx"></script>
     <script type="text/babel" src="./js/components/RFIManager.jsx"></script>
@@ -63,6 +68,20 @@
     <script type="text/babel" src="./js/components/ExecutiveDashboard.jsx"></script>
     <script type="text/babel" src="./js/components/DashboardHome.jsx"></script>
     <script type="text/babel" src="./js/components/NavigationGroups.jsx"></script>
+    <script type="text/babel" src="./js/components/UserProfileModal.jsx"></script>
+    
+    <!-- QA Module -->
+    <script src="./js/qa/qaConstants.js"></script>
+    <script type="text/babel" src="./js/components/QAModule.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/QADashboard.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/TravelersPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/InspectionsPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/DeviationsPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/TestingPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/QAReportsPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/TravelerDetailModal.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/QAInspectionModal.jsx"></script>
+    
     <script type="text/babel" src="./js/components/App.jsx"></script>
 </body>
 </html>

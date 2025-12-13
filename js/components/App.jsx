@@ -2229,12 +2229,12 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             const [searchTerm, setSearchTerm] = useState('');
             const [stageFilter, setStageFilter] = useState('all');
             
-            // Theme state (dark mode)
+            // Theme state (dark mode) - defaults to light mode
             const [darkMode, setDarkMode] = useState(() => {
                 const saved = localStorage.getItem('moda_theme');
                 if (saved) return saved === 'dark';
-                // Auto-detect system preference
-                return window.matchMedia('(prefers-color-scheme: dark)').matches;
+                // Default to light mode instead of system preference
+                return false;
             });
             
             // Keyboard shortcuts help modal
@@ -2451,16 +2451,37 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             return (
                 <div className="min-h-screen" style={{backgroundColor: 'var(--autovol-gray-bg)'}}>
                     {/* Header */}
-                    <header className="bg-white shadow-sm border-b">
+                    <header className="bg-white shadow-sm border-b mobile-header">
                         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
                             <div className="flex items-center gap-4">
+                                {/* Mobile Navigation - Hamburger Menu */}
+                                {window.MobileNavigation && (
+                                    <window.MobileNavigation
+                                        tabs={[
+                                            {id: 'executive', label: 'Executive', icon: 'icon-executive'},
+                                            {id: 'production', label: 'Production', icon: 'icon-production'},
+                                            {id: 'projects', label: 'Projects', icon: 'icon-projects'},
+                                            {id: 'people', label: 'People', icon: 'icon-people'},
+                                            {id: 'qa', label: 'QA', icon: 'icon-qa'},
+                                            {id: 'transport', label: 'Transport', icon: 'icon-transport'},
+                                            {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
+                                            {id: 'precon', label: 'Precon', icon: 'icon-precon'},
+                                            {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'}
+                                        ].filter(tab => auth.visibleTabs.includes(tab.id))}
+                                        activeTab={activeTab}
+                                        onTabChange={(tabId) => { setActiveTab(tabId); setSelectedProject(null); }}
+                                        currentUser={auth.currentUser}
+                                        onLogout={auth.logout}
+                                    />
+                                )}
                                 {/* Autovol Logo */}
                                 <img 
                                     src={AUTOVOL_LOGO}
                                     alt="Autovol Volumetric Modular" 
+                                    className="mobile-logo"
                                     style={{height: '45px', width: 'auto'}}
                                 />
-                                <div className="border-l pl-4" style={{borderColor: 'var(--autovol-teal)'}}>
+                                <div className="border-l pl-4 hide-mobile" style={{borderColor: 'var(--autovol-teal)'}}>
                                     <h1 className="text-lg font-bold" style={{color: 'var(--autovol-navy)'}}>Modular Operations Dashboard</h1>
                                     <p className="text-xs" style={{color: 'var(--autovol-teal)'}}>MODA</p>
                                 </div>
@@ -2469,7 +2490,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                 {/* Theme Toggle */}
                                 <button 
                                     onClick={() => setDarkMode(prev => !prev)}
-                                    className="theme-toggle"
+                                    className="theme-toggle hide-mobile-tablet"
                                     title={`Switch to ${darkMode ? 'light' : 'dark'} mode (Ctrl+D)`}
                                 >
                                     {darkMode ? '☀️' : '🌙'}
@@ -2477,7 +2498,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                 {/* Keyboard Shortcuts Help */}
                                 <button 
                                     onClick={() => setShowShortcutsHelp(true)}
-                                    className="theme-toggle"
+                                    className="theme-toggle hide-mobile-tablet"
                                     title="Keyboard shortcuts (?)"
                                 >
                                     ⌨️
@@ -2485,21 +2506,21 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                 {auth.isAdmin && (
                                     <button 
                                         onClick={() => setShowDataManagement(true)}
-                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center gap-1"
+                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center gap-1 hide-mobile-tablet"
                                         title="Data Management"
                                     >
                                         <span>⚙</span> Data
                                     </button>
                                 )}
-                                <div className="text-right">
-                                    <p className="text-sm font-medium" style={{color: 'var(--autovol-navy)'}}>{auth.currentUser?.name || 'User'}</p>
+                                <div className="text-right cursor-pointer hover:opacity-80 transition mobile-user-profile" onClick={() => setShowUserProfile(true)} title="View your profile">
+                                    <p className="text-sm font-medium hide-mobile" style={{color: 'var(--autovol-navy)'}}>{auth.currentUser?.name || 'User'}</p>
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${auth.isAdmin ? 'role-badge-admin' : 'role-badge-user'}`}>
                                         {auth.userRole?.name || auth.currentUser?.dashboardRole || 'User'}
                                     </span>
                                 </div>
                                 <button 
                                     onClick={auth.logout} 
-                                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition hide-mobile-tablet"
                                 >
                                     Sign Out
                                 </button>
@@ -2517,8 +2538,8 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                             setSelectedProject={setSelectedProject}
                         />
                     ) : (
-                        /* Original flat navigation */
-                        <nav className="bg-white border-b">
+                        /* Original flat navigation - hidden on mobile/tablet */
+                        <nav className="bg-white border-b hide-mobile-tablet">
                             <div className="max-w-7xl mx-auto px-4">
                                 <div className="flex gap-1">
                                     {/* HOME TAB - Feature flagged */}
@@ -2655,11 +2676,22 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                         )}
 
                         {activeTab === 'qa' && (
-                            <div className="text-center py-20">
-                                <div className="text-6xl mb-4">✅</div>
-                                <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>QA Module</h2>
-                                <p className="text-gray-600">Coming soon - Module integration pending</p>
-                            </div>
+                            window.QAModule ? (
+                                <window.QAModule 
+                                    projects={projects}
+                                    employees={employees}
+                                    currentUser={{ name: auth.currentUser?.name, role: auth.userRole?.name }}
+                                    canEdit={auth.canEditTab('qa')}
+                                />
+                            ) : (
+                                <div className="text-center py-20">
+                                    <div className="text-6xl mb-4">
+                                        <span className="icon-qa" style={{ width: '64px', height: '64px', display: 'inline-block' }}></span>
+                                    </div>
+                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>QA Module</h2>
+                                    <p className="text-gray-600">Loading QA Module...</p>
+                                </div>
+                            )
                         )}
 
                         {activeTab === 'transport' && (
@@ -2887,10 +2919,10 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                 if (searchTerm) {
                     const term = searchTerm.toLowerCase();
                     mods = mods.filter(m => 
-                        m.serialNumber.toLowerCase().includes(term) ||
-                        m.projectName?.toLowerCase().includes(term) ||
-                        m.specs.blmHitch?.toLowerCase().includes(term) ||
-                        m.specs.blmRear?.toLowerCase().includes(term)
+                        (m.serialNumber || '').toLowerCase().includes(term) ||
+                        (m.projectName || '').toLowerCase().includes(term) ||
+                        (m.specs?.blmHitch || '').toLowerCase().includes(term) ||
+                        (m.specs?.blmRear || '').toLowerCase().includes(term)
                     );
                 }
                 
@@ -2900,14 +2932,14 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                     let comparison = 0;
                     switch (sortConfig.key) {
                         case 'serial':
-                            comparison = a.serialNumber.localeCompare(b.serialNumber);
+                            comparison = (a.serialNumber || '').localeCompare(b.serialNumber || '');
                             break;
                         case 'project':
                             comparison = (a.projectName || '').localeCompare(b.projectName || '');
                             break;
                         case 'blm':
-                            const blmA = a.specs.blmHitch || a.specs.blmRear || '';
-                            const blmB = b.specs.blmHitch || b.specs.blmRear || '';
+                            const blmA = a.specs?.blmHitch || a.specs?.blmRear || '';
+                            const blmB = b.specs?.blmHitch || b.specs?.blmRear || '';
                             comparison = blmA.localeCompare(blmB);
                             break;
                         case 'phase':
@@ -2931,11 +2963,11 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             }, [unifiedModules, selectedPhase, selectedProject, searchTerm, sortConfig]);
             
             const phaseConfig = {
-                production: { label: 'Production', icon: '🏭', color: '#3B82F6' },
-                yard: { label: 'Yard', icon: '📦', color: '#6366F1' },
-                transport: { label: 'Transport', icon: '🚛', color: '#F59E0B' },
-                onsite: { label: 'On-Site', icon: '🏗', color: '#8B5CF6' },
-                complete: { label: 'Complete', icon: '✅', color: '#10B981' }
+                production: { label: 'Production', iconClass: 'icon-factory', color: '#3B82F6' },
+                yard: { label: 'Yard', iconClass: 'icon-box', color: '#6366F1' },
+                transport: { label: 'Transport', iconClass: 'icon-truck', color: '#F59E0B' },
+                onsite: { label: 'On-Site', iconClass: 'icon-building', color: '#8B5CF6' },
+                complete: { label: 'Complete', iconClass: 'icon-check-circle', color: '#10B981' }
             };
             
             const getPhaseColor = (phase) => phaseConfig[phase]?.color || '#6B7280';
@@ -2950,10 +2982,11 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
             return (
                 <div className="space-y-6">
                     {/* Header */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <h1 className="text-2xl font-bold" style={{color: 'var(--autovol-navy)'}}>
-                                📦 Module Lifecycle Tracker
+                            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2" style={{color: 'var(--autovol-navy)'}}>
+                                <span className="icon-box inline-block w-6 h-6"></span>
+                                Module Lifecycle Tracker
                             </h1>
                             <p className="text-gray-600 text-sm mt-1">
                                 Unified view of all modules: Production → Yard → Transport → On-Site → Complete
@@ -2965,13 +2998,13 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                         </div>
                     </div>
                     
-                    {/* Phase Summary Cards */}
-                    <div className="grid grid-cols-5 gap-4">
+                    {/* Phase Summary Cards - responsive grid */}
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
                         {Object.entries(phaseConfig).map(([phase, config]) => (
                             <button
                                 key={phase}
                                 onClick={() => setSelectedPhase(selectedPhase === phase ? 'all' : phase)}
-                                className={`p-4 rounded-lg border-2 transition-all ${
+                                className={`p-2 sm:p-4 rounded-lg border-2 transition-all ${
                                     selectedPhase === phase ? 'ring-2 ring-offset-2' : ''
                                 }`}
                                 style={{
@@ -2979,11 +3012,13 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                     backgroundColor: selectedPhase === phase ? config.color + '15' : 'white'
                                 }}
                             >
-                                <div className="text-3xl mb-2">{config.icon}</div>
-                                <div className="text-2xl font-bold" style={{color: config.color}}>
+                                <div className="flex justify-center mb-1 sm:mb-2">
+                                    <span className={`${config.iconClass} inline-block w-6 h-6 sm:w-8 sm:h-8`} style={{filter: `brightness(0) saturate(100%) sepia(1) hue-rotate(${phase === 'production' ? '200' : phase === 'yard' ? '220' : phase === 'transport' ? '30' : phase === 'onsite' ? '250' : '120'}deg)`}}></span>
+                                </div>
+                                <div className="text-lg sm:text-2xl font-bold" style={{color: config.color}}>
                                     {stats.byPhase?.[phase] || 0}
                                 </div>
-                                <div className="text-sm text-gray-600">{config.label}</div>
+                                <div className="text-xs sm:text-sm text-gray-600">{config.label}</div>
                             </button>
                         ))}
                     </div>
@@ -3030,13 +3065,14 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                             </h3>
                         </div>
                         
-                        <div className="max-h-[500px] overflow-y-auto">
+                        {/* Scrollable table container for mobile */}
+                        <div className="max-h-[500px] overflow-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
                             {filteredModules.length === 0 ? (
                                 <div className="p-8 text-center text-gray-500">
                                     No modules found matching your criteria
                                 </div>
                             ) : (
-                                <table className="w-full">
+                                <table className="w-full" style={{ minWidth: '700px' }}>
                                     <thead className="bg-gray-50 sticky top-0">
                                         <tr>
                                             <th 
@@ -3094,9 +3130,9 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                                         {mod.projectName || 'Unknown'}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm">
-                                                        {mod.specs.blmHitch || mod.specs.blmRear ? (
+                                                        {mod.specs?.blmHitch || mod.specs?.blmRear ? (
                                                             <span className="font-mono text-xs">
-                                                                {mod.specs.blmHitch}{mod.specs.blmHitch && mod.specs.blmRear && ' / '}{mod.specs.blmRear}
+                                                                {mod.specs?.blmHitch}{mod.specs?.blmHitch && mod.specs?.blmRear && ' / '}{mod.specs?.blmRear}
                                                             </span>
                                                         ) : (
                                                             <span className="text-gray-400">-</span>
@@ -3107,7 +3143,8 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                                             className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
                                                             style={{backgroundColor: phaseInfo?.color + '20', color: phaseInfo?.color}}
                                                         >
-                                                            {phaseInfo?.icon} {phaseInfo?.label}
+                                                            <span className={`${phaseInfo?.iconClass} inline-block w-3 h-3`}></span>
+                                                            {phaseInfo?.label}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3">
@@ -3163,7 +3200,7 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                             {Object.entries(phaseConfig).map(([phase, config], idx) => (
                                                 <React.Fragment key={phase}>
                                                     <div 
-                                                        className={`flex-1 p-3 rounded-lg text-center ${
+                                                        className={`flex-1 p-2 sm:p-3 rounded-lg text-center ${
                                                             selectedModule.currentPhase === phase ? 'ring-2' : ''
                                                         }`}
                                                         style={{
@@ -3171,7 +3208,9 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                                             ringColor: config.color
                                                         }}
                                                     >
-                                                        <div className="text-2xl">{config.icon}</div>
+                                                        <div className="flex justify-center">
+                                                            <span className={`${config.iconClass} inline-block w-5 h-5 sm:w-6 sm:h-6`}></span>
+                                                        </div>
                                                         <div className="text-xs mt-1" style={{
                                                             color: selectedModule.currentPhase === phase ? config.color : '#6B7280'
                                                         }}>{config.label}</div>
@@ -7589,50 +7628,256 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
         </div>
       );
 
-      const BoardView = () => (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <label style={{ fontWeight: '600', color: COLORS.charcoal, fontSize: '13px' }}>Project Filter:</label>
-              <select
-                value={filterProject}
-                onChange={e => setFilterProject(e.target.value)}
-                style={{ ...styles.input, width: '240px' }}
+      const MobileBoardView = () => {
+        const [currentStageIndex, setCurrentStageIndex] = useState(0);
+        const [isAnimating, setIsAnimating] = useState(false);
+        const [slideDirection, setSlideDirection] = useState(null);
+        const touchStartX = React.useRef(0);
+        const touchEndX = React.useRef(0);
+        
+        const currentStage = TRANSPORT_STAGES[currentStageIndex];
+        const stageModules = modulesByStage[currentStage.id] || [];
+        
+        // Navigate with smooth animation
+        const navigateTo = (newIndex, direction) => {
+          if (isAnimating || newIndex < 0 || newIndex >= TRANSPORT_STAGES.length) return;
+          setIsAnimating(true);
+          setSlideDirection(direction);
+          setTimeout(() => {
+            setCurrentStageIndex(newIndex);
+            setSlideDirection(null);
+            setIsAnimating(false);
+          }, 150);
+        };
+        
+        const handleTouchStart = (e) => { 
+          touchStartX.current = e.touches[0].clientX;
+          touchEndX.current = e.touches[0].clientX;
+        };
+        const handleTouchMove = (e) => { touchEndX.current = e.touches[0].clientX; };
+        const handleTouchEnd = () => {
+          const swipeDistance = touchStartX.current - touchEndX.current;
+          if (swipeDistance > 50 && currentStageIndex < TRANSPORT_STAGES.length - 1) {
+            navigateTo(currentStageIndex + 1, 'left');
+          } else if (swipeDistance < -50 && currentStageIndex > 0) {
+            navigateTo(currentStageIndex - 1, 'right');
+          }
+        };
+        
+        const goToPrevious = () => navigateTo(currentStageIndex - 1, 'right');
+        const goToNext = () => navigateTo(currentStageIndex + 1, 'left');
+        
+        // Animation styles
+        const getSlideStyle = () => {
+          if (slideDirection === 'left') return { opacity: 0, transform: 'translateX(-20px)', transition: 'all 0.15s ease-out' };
+          if (slideDirection === 'right') return { opacity: 0, transform: 'translateX(20px)', transition: 'all 0.15s ease-out' };
+          return { opacity: 1, transform: 'translateX(0)', transition: 'all 0.15s ease-out' };
+        };
+        
+        return (
+          <div className="mobile-transport-board">
+            {/* Stage Pills */}
+            <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '12px', WebkitOverflowScrolling: 'touch' }}>
+              {TRANSPORT_STAGES.map((stage, idx) => (
+                <button
+                  key={stage.id}
+                  onClick={() => !isAnimating && setCurrentStageIndex(idx)}
+                  style={{
+                    flexShrink: 0,
+                    padding: '10px 14px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    background: idx === currentStageIndex ? stage.color : '#e5e7eb',
+                    color: idx === currentStageIndex ? 'white' : '#666',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {stage.label} ({(modulesByStage[stage.id] || []).length})
+                </button>
+              ))}
+            </div>
+            
+            {/* Current Stage - with animation */}
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{ touchAction: 'pan-y', ...getSlideStyle() }}
+            >
+              <div style={{
+                background: currentStage.color,
+                color: 'white',
+                padding: '16px',
+                borderRadius: '12px 12px 0 0',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TransportIcon type={currentStage.iconType} color="white" />
+                    <span style={{ fontWeight: '700', fontSize: '16px' }}>{currentStage.label}</span>
+                  </div>
+                  <span style={{ background: 'rgba(255,255,255,0.25)', padding: '4px 12px', borderRadius: '12px', fontWeight: '700' }}>
+                    {stageModules.length}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>
+                  {currentStageIndex + 1} of {TRANSPORT_STAGES.length} • Swipe or use arrows
+                </div>
+              </div>
+              
+              {/* Modules List */}
+              <div style={{ background: 'white', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 12px 12px', padding: '12px', maxHeight: '400px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                {stageModules.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '32px', color: '#999' }}>No modules in this stage</div>
+                ) : (
+                  stageModules.map(module => (
+                    <div
+                      key={module.id}
+                      onClick={() => setSelectedModule(module)}
+                      style={{
+                        padding: '12px',
+                        marginBottom: '8px',
+                        background: '#f8f9fa',
+                        borderRadius: '8px',
+                        borderLeft: `4px solid ${currentStage.color}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: '700', fontFamily: "'JetBrains Mono', monospace" }}>{module.moduleId}</span>
+                        {module.scheduledDate && (
+                          <span style={{ fontSize: '11px', color: COLORS.red, fontWeight: '600' }}>
+                            {new Date(module.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '12px', color: COLORS.blue, fontWeight: '600' }}>{module.project}</div>
+                      {module.transportCompanyId && (
+                        <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>Carrier: {getCompanyName(module.transportCompanyId)}</div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            {/* Navigation Buttons - larger touch targets */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+              <button
+                onClick={goToPrevious}
+                disabled={currentStageIndex === 0 || isAnimating}
+                style={{
+                  flex: 1,
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: currentStageIndex === 0 ? 'not-allowed' : 'pointer',
+                  background: currentStageIndex === 0 ? '#e5e7eb' : COLORS.charcoal,
+                  color: currentStageIndex === 0 ? '#999' : 'white',
+                  transition: 'all 0.2s ease',
+                  minHeight: '48px',
+                }}
               >
-                <option value="all">All Projects ({modules.length} modules)</option>
-                {projects.map(p => (
-                  <option key={p} value={p}>{p} ({modules.filter(m => m.project === p).length})</option>
-                ))}
-              </select>
-            </div>
-            <div style={styles.statsBar}>
-              <div style={styles.statCard(COLORS.info)}>
-                <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.info }}>
-                  {modules.filter(m => m.stage === 'inTransit').length}
-                </span>
-                <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>In Transit</span>
-              </div>
-              <div style={styles.statCard(COLORS.warning)}>
-                <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.warning }}>
-                  {modules.filter(m => m.stage === 'scheduledTransit' || m.stage === 'scheduledShuttle').length}
-                </span>
-                <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Scheduled</span>
-              </div>
-              <div style={styles.statCard(COLORS.success)}>
-                <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.success }}>
-                  {modules.filter(m => m.stage === 'arrived').length}
-                </span>
-                <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Delivered</span>
-              </div>
+                Previous
+              </button>
+              <button
+                onClick={goToNext}
+                disabled={currentStageIndex === TRANSPORT_STAGES.length - 1 || isAnimating}
+                style={{
+                  flex: 1,
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: currentStageIndex === TRANSPORT_STAGES.length - 1 ? 'not-allowed' : 'pointer',
+                  background: currentStageIndex === TRANSPORT_STAGES.length - 1 ? '#e5e7eb' : COLORS.charcoal,
+                  color: currentStageIndex === TRANSPORT_STAGES.length - 1 ? '#999' : 'white',
+                  transition: 'all 0.2s ease',
+                  minHeight: '48px',
+                }}
+              >
+                Next
+              </button>
             </div>
           </div>
-          <div style={styles.boardContainer}>
-            {TRANSPORT_STAGES.map(stage => (
-              <StageColumn key={stage.id} stage={stage} modules={modulesByStage[stage.id]} />
-            ))}
+        );
+      };
+
+      const BoardView = () => {
+        // Mobile detection
+        const isMobile = window.useIsMobile ? window.useIsMobile(768) : (window.innerWidth < 768);
+        
+        if (isMobile) {
+          return (
+            <div>
+              {/* Mobile Filter */}
+              <div style={{ marginBottom: '16px' }}>
+                <select
+                  value={filterProject}
+                  onChange={e => setFilterProject(e.target.value)}
+                  style={{ ...styles.input, width: '100%' }}
+                >
+                  <option value="all">All Projects ({modules.length} modules)</option>
+                  {projects.map(p => (
+                    <option key={p} value={p}>{p} ({modules.filter(m => m.project === p).length})</option>
+                  ))}
+                </select>
+              </div>
+              <MobileBoardView />
+            </div>
+          );
+        }
+        
+        return (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <label style={{ fontWeight: '600', color: COLORS.charcoal, fontSize: '13px' }}>Project Filter:</label>
+                <select
+                  value={filterProject}
+                  onChange={e => setFilterProject(e.target.value)}
+                  style={{ ...styles.input, width: '240px' }}
+                >
+                  <option value="all">All Projects ({modules.length} modules)</option>
+                  {projects.map(p => (
+                    <option key={p} value={p}>{p} ({modules.filter(m => m.project === p).length})</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.statsBar}>
+                <div style={styles.statCard(COLORS.info)}>
+                  <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.info }}>
+                    {modules.filter(m => m.stage === 'inTransit').length}
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>In Transit</span>
+                </div>
+                <div style={styles.statCard(COLORS.warning)}>
+                  <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.warning }}>
+                    {modules.filter(m => m.stage === 'scheduledTransit' || m.stage === 'scheduledShuttle').length}
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Scheduled</span>
+                </div>
+                <div style={styles.statCard(COLORS.success)}>
+                  <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.success }}>
+                    {modules.filter(m => m.stage === 'arrived').length}
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Delivered</span>
+                </div>
+              </div>
+            </div>
+            <div style={styles.boardContainer}>
+              {TRANSPORT_STAGES.map(stage => (
+                <StageColumn key={stage.id} stage={stage} modules={modulesByStage[stage.id]} />
+              ))}
+            </div>
           </div>
-        </div>
-      );
+        );
+      };
 
       const YardsView = () => (
         <div>

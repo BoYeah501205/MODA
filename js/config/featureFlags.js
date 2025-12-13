@@ -14,7 +14,7 @@ const featureFlags = {
     
     // ===== PHASE 2: Dashboard Home =====
     enableDashboardHome: true,       // Show new Dashboard Home tab
-    enableRoleBasedViews: false,     // Role-adaptive dashboard content
+    enableRoleBasedViews: true,      // Role-adaptive dashboard content (Phase 5)
     
     // ===== PHASE 3: Navigation Grouping =====
     enableNavGroups: true,           // Collapsible navigation sections

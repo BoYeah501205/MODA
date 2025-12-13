@@ -3,17 +3,15 @@
 // Custom React hooks for detecting and responding to mobile devices
 // ============================================================================
 
-const { useState, useEffect, useMemo } = React;
-
 /**
  * Hook to detect if the current viewport is mobile-sized
  * @param {number} breakpoint - Width threshold in pixels (default: 768px)
  * @returns {boolean} - True if viewport width is below breakpoint
  */
 window.useIsMobile = (breakpoint = 768) => {
-    const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+    const [isMobile, setIsMobile] = React.useState(window.innerWidth < breakpoint);
     
-    useEffect(() => {
+    React.useEffect(() => {
         const handleResize = () => {
             setIsMobile(window.innerWidth < breakpoint);
         };
@@ -59,9 +57,9 @@ window.useViewportSize = function() {
  * @returns {boolean} - True if device supports touch
  */
 window.useIsTouchDevice = () => {
-    const [isTouch, setIsTouch] = useState(false);
+    const [isTouch, setIsTouch] = React.useState(false);
     
-    useEffect(() => {
+    React.useEffect(() => {
         const hasTouchSupport = (
             'ontouchstart' in window ||
             navigator.maxTouchPoints > 0 ||

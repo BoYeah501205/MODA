@@ -14,8 +14,8 @@ window.MobileNavigation = function MobileNavigation({
     currentUser,
     onLogout 
 }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const isMobile = window.useIsMobile(1024);
+    const [isOpen, setIsOpen] = React.useState(false);
+    const isMobile = window.useIsMobile ? window.useIsMobile(1024) : true;
     
     // Close drawer when clicking overlay
     const handleOverlayClick = () => {
@@ -29,7 +29,7 @@ window.MobileNavigation = function MobileNavigation({
     };
     
     // Prevent body scroll when drawer is open
-    useEffect(() => {
+    React.useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
         } else {
@@ -97,8 +97,8 @@ window.MobileNavigation = function MobileNavigation({
                             className={`mobile-nav-item ${activeTab === tab.id ? 'active' : ''}`}
                             onClick={() => handleTabSelect(tab.id)}
                         >
-                            <span className="mobile-nav-item-icon">{tab.icon}</span>
-                            <span className="mobile-nav-item-label">{tab.label.replace(/^[^\s]+\s/, '')}</span>
+                            <span className={`mobile-nav-item-icon ${tab.icon}`}></span>
+                            <span className="mobile-nav-item-label">{tab.label}</span>
                         </div>
                     ))}
                     
@@ -119,7 +119,7 @@ window.MobileNavigation = function MobileNavigation({
                             }}
                             style={{ color: '#dc2626' }}
                         >
-                            <span className="mobile-nav-item-icon">🚪</span>
+                            <span className="mobile-nav-item-icon icon-logout"></span>
                             <span className="mobile-nav-item-label">Logout</span>
                         </div>
                     )}
@@ -140,7 +140,7 @@ window.BottomNavigation = function BottomNavigation({
     onTabChange,
     maxItems = 5 
 }) {
-    const isMobile = window.useIsMobile(640);
+    const isMobile = window.useIsMobile ? window.useIsMobile(640) : true;
     
     // Don't render on tablet/desktop
     if (!isMobile) {
@@ -182,7 +182,7 @@ window.ResponsiveTabBar = function ResponsiveTabBar({
     onLogout,
     children
 }) {
-    const isMobile = window.useIsMobile(1024);
+    const isMobile = window.useIsMobile ? window.useIsMobile(1024) : true;
     
     return (
         <div style={{ 

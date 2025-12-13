@@ -6,7 +6,7 @@ for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set da
 set BACKUP_DATE=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%_%datetime:~8,2%%datetime:~10,2%
 
 :: Set paths - use local Documents (not OneDrive) for faster backups
-set SOURCE_DIR=C:\Projects\Autovol MODA\Autovol MODA - Optimized 12.1.25
+set SOURCE_DIR=C:\Projects\Autovol MODA\Autovol MODA 12525 0543\MODA
 set BACKUP_ROOT=C:\Projects\Autovol MODA\Backups
 set BACKUP_DIR=%BACKUP_ROOT%\MODA-Backup-%BACKUP_DATE%
 
