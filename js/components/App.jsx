@@ -2487,29 +2487,13 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
-                                {/* Theme Toggle */}
-                                <button 
-                                    onClick={() => setDarkMode(prev => !prev)}
-                                    className="theme-toggle hide-mobile-tablet"
-                                    title={`Switch to ${darkMode ? 'light' : 'dark'} mode (Ctrl+D)`}
-                                >
-                                    {darkMode ? '☀️' : '🌙'}
-                                </button>
-                                {/* Keyboard Shortcuts Help */}
-                                <button 
-                                    onClick={() => setShowShortcutsHelp(true)}
-                                    className="theme-toggle hide-mobile-tablet"
-                                    title="Keyboard shortcuts (?)"
-                                >
-                                    ⌨️
-                                </button>
                                 {auth.isAdmin && (
                                     <button 
                                         onClick={() => setShowDataManagement(true)}
                                         className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center gap-1 hide-mobile-tablet"
                                         title="Data Management"
                                     >
-                                        <span>⚙</span> Data
+                                        <span className="icon-settings" style={{width: '14px', height: '14px', display: 'inline-block'}}></span> Data
                                     </button>
                                 )}
                                 <div className="text-right cursor-pointer hover:opacity-80 transition mobile-user-profile" onClick={() => setShowUserProfile(true)} title="View your profile">
@@ -2518,12 +2502,32 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
                                         {auth.userRole?.name || auth.currentUser?.dashboardRole || 'User'}
                                     </span>
                                 </div>
-                                <button 
-                                    onClick={auth.logout} 
-                                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition hide-mobile-tablet"
-                                >
-                                    Sign Out
-                                </button>
+                                {/* User Controls Group */}
+                                <div className="flex items-center gap-1 hide-mobile-tablet">
+                                    {/* Theme Toggle */}
+                                    <button 
+                                        onClick={() => setDarkMode(prev => !prev)}
+                                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                                        title={`Switch to ${darkMode ? 'light' : 'dark'} mode (Ctrl+D)`}
+                                    >
+                                        <span className={darkMode ? 'icon-sun' : 'icon-moon'} style={{width: '16px', height: '16px', display: 'inline-block'}}></span>
+                                    </button>
+                                    {/* Keyboard Shortcuts Help */}
+                                    <button 
+                                        onClick={() => setShowShortcutsHelp(true)}
+                                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                                        title="Keyboard shortcuts (?)"
+                                    >
+                                        <span className="icon-keyboard" style={{width: '16px', height: '16px', display: 'inline-block'}}></span>
+                                    </button>
+                                    {/* Sign Out */}
+                                    <button 
+                                        onClick={auth.logout} 
+                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                                    >
+                                        Sign Out
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </header>
@@ -2873,6 +2877,10 @@ function DeleteConfirmModal({ role, onConfirm, onCancel, cannotDelete, reason })
         // ============================================================================
         // MODULE TRACKER PANEL - EXTRACTED TO TrackerModule.jsx
         // ============================================================================
+        const ENGINEERING_DEPARTMENTS = [
+            'Automation', 'Auto Floor/Ceiling', 'Auto Walls', 'Mezzanine', 'Electrical',
+            'Wall Set', 'Ceiling Set', 'Soffits', 'Mechanical', 'Plumbing', 'Exteriors',
+            'Drywall', 'Roofing', 'Pre-Finish', 'Final Finish', 'Sign-Off', 'Close-Up',
             'QA', 'Transport', 'On-Site', 'General'
         ];
 
