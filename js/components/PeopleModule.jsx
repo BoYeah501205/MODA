@@ -29,6 +29,7 @@
             };
 
             const getSortValue = (emp, column) => {
+                if (!emp) return '';
                 switch(column) {
                     case 'name':
                         return [emp.lastName, emp.firstName].filter(Boolean).join(' ').toLowerCase();
@@ -51,15 +52,17 @@
                 }
             };
 
-            const filteredEmployees = employees.filter(e => {
+            const filteredEmployees = (employees || []).filter(e => {
+                if (!e) return false;
+                const searchLower = (searchTerm || '').toLowerCase();
                 const fullName = [e.prefix, e.firstName, e.middleName, e.lastName, e.suffix]
                     .filter(Boolean).join(' ').toLowerCase();
-                const matchesSearch = 
-                    fullName.includes(searchTerm.toLowerCase()) ||
-                    e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    e.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    e.jobTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    e.email?.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesSearch = !searchTerm ||
+                    fullName.includes(searchLower) ||
+                    (e.name || '').toLowerCase().includes(searchLower) ||
+                    (e.department || '').toLowerCase().includes(searchLower) ||
+                    (e.jobTitle || '').toLowerCase().includes(searchLower) ||
+                    (e.email || '').toLowerCase().includes(searchLower);
                 const matchesPermission = permissionFilter === 'all' || e.permissions === permissionFilter;
                 return matchesSearch && matchesPermission;
             }).sort((a, b) => {
@@ -86,44 +89,148 @@
                 </th>
             );
 
-            const handleSaveEmployee = (employeeData) => {
-                if (editingEmployee) {
-                    setEmployees(employees.map(e => e.id === editingEmployee.id ? { ...e, ...employeeData } : e));
-                } else {
-                    setEmployees([...employees, { ...employeeData, id: Date.now(), accessStatus: 'none' }]);
+            // State for async operations
+            const [saving, setSaving] = useState(false);
+            const [inviting, setInviting] = useState(false);
+            const [actionMessage, setActionMessage] = useState('');
+
+            const handleSaveEmployee = async (employeeData) => {
+                setSaving(true);
+                setActionMessage('');
+                
+                try {
+                    // Check if Supabase is available
+                    const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                    
+                    if (editingEmployee) {
+                        // Update existing employee
+                        if (useSupabase) {
+                            const updated = await window.MODA_SUPABASE_DATA.employees.update(editingEmployee.id, employeeData);
+                            setEmployees(employees.map(e => e.id === editingEmployee.id ? updated : e));
+                        } else {
+                            setEmployees(employees.map(e => e.id === editingEmployee.id ? { ...e, ...employeeData } : e));
+                        }
+                    } else {
+                        // Create new employee
+                        let newEmployee;
+                        
+                        if (useSupabase) {
+                            // Check if user already exists in Supabase Auth
+                            if (employeeData.email) {
+                                const existingUser = await window.MODA_SUPABASE?.checkUserByEmail(employeeData.email);
+                                if (existingUser?.exists) {
+                                    // User already has MODA access - link them
+                                    employeeData.supabaseUserId = existingUser.user.id;
+                                    employeeData.accessStatus = 'active';
+                                    setActionMessage(`Linked to existing user: ${existingUser.user.email}`);
+                                }
+                            }
+                            
+                            newEmployee = await window.MODA_SUPABASE_DATA.employees.create(employeeData);
+                        } else {
+                            newEmployee = { ...employeeData, id: Date.now(), accessStatus: 'none' };
+                        }
+                        
+                        setEmployees([...employees, newEmployee]);
+                    }
+                    
+                    setShowEmployeeModal(false);
+                    setEditingEmployee(null);
+                } catch (error) {
+                    console.error('[PeopleModule] Save error:', error);
+                    setActionMessage(`Error: ${error.message}`);
+                } finally {
+                    setSaving(false);
                 }
-                setShowEmployeeModal(false);
-                setEditingEmployee(null);
             };
 
-            const handleDeleteEmployee = (id) => {
-                if (confirm('Are you sure you want to remove this employee?')) {
+            const handleDeleteEmployee = async (id) => {
+                if (!confirm('Are you sure you want to remove this employee?')) return;
+                
+                try {
+                    const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                    
+                    if (useSupabase) {
+                        await window.MODA_SUPABASE_DATA.employees.delete(id);
+                    }
+                    
                     setEmployees(employees.filter(e => e.id !== id));
+                } catch (error) {
+                    console.error('[PeopleModule] Delete error:', error);
+                    alert(`Error deleting employee: ${error.message}`);
                 }
             };
 
-            const handleSendInvite = (employee) => {
+            const handleSendInvite = async (employee) => {
                 const empName = [employee.prefix, employee.firstName, employee.middleName, employee.lastName, employee.suffix]
                     .filter(Boolean).join(' ') || employee.name || 'Employee';
-                // Simulate sending invite
-                setEmployees(employees.map(e => 
-                    e.id === employee.id 
-                        ? { ...e, accessStatus: 'invited', invitedAt: new Date().toISOString() } 
-                        : e
-                ));
+                
+                setInviting(true);
                 setShowInviteConfirm(null);
-                alert(`Invite sent to ${empName} at ${employee.email}!\n\n(In production, this would send an actual email)`);
+                
+                try {
+                    // Check if user already exists
+                    const existingUser = await window.MODA_SUPABASE?.checkUserByEmail(employee.email);
+                    
+                    if (existingUser?.exists) {
+                        // User already has account - just link them
+                        const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                        
+                        if (useSupabase) {
+                            await window.MODA_SUPABASE_DATA.employees.update(employee.id, {
+                                supabaseUserId: existingUser.user.id,
+                                accessStatus: 'active'
+                            });
+                        }
+                        
+                        setEmployees(employees.map(e => 
+                            e.id === employee.id 
+                                ? { ...e, supabaseUserId: existingUser.user.id, accessStatus: 'active' } 
+                                : e
+                        ));
+                        
+                        alert(`${empName} already has a MODA account and has been linked!\n\nNo invite email needed - they can log in immediately.`);
+                        return;
+                    }
+                    
+                    // Send invite via Supabase Edge Function
+                    const result = await window.MODA_SUPABASE?.inviteUser(employee.email, {
+                        name: empName,
+                        dashboardRole: employee.permissions === 'Admin' ? 'admin' : 'employee',
+                        invitedBy: window.MODA_SUPABASE?.userProfile?.name || 'MODA Admin'
+                    });
+                    
+                    if (result?.success) {
+                        // Update employee status
+                        const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                        
+                        if (useSupabase) {
+                            await window.MODA_SUPABASE_DATA.employees.update(employee.id, {
+                                accessStatus: 'invited'
+                            });
+                        }
+                        
+                        setEmployees(employees.map(e => 
+                            e.id === employee.id 
+                                ? { ...e, accessStatus: 'invited', invitedAt: new Date().toISOString() } 
+                                : e
+                        ));
+                        
+                        alert(`Invite sent to ${empName} at ${employee.email}!\n\nThey will receive an email with a link to set up their password.`);
+                    } else {
+                        throw new Error(result?.error || 'Failed to send invite');
+                    }
+                } catch (error) {
+                    console.error('[PeopleModule] Invite error:', error);
+                    alert(`Error sending invite: ${error.message}`);
+                } finally {
+                    setInviting(false);
+                }
             };
 
-            const handleResendInvite = (employee) => {
-                const empName = [employee.prefix, employee.firstName, employee.middleName, employee.lastName, employee.suffix]
-                    .filter(Boolean).join(' ') || employee.name || 'Employee';
-                setEmployees(employees.map(e => 
-                    e.id === employee.id 
-                        ? { ...e, invitedAt: new Date().toISOString() } 
-                        : e
-                ));
-                alert(`Invite resent to ${empName} at ${employee.email}!`);
+            const handleResendInvite = async (employee) => {
+                // Resend is the same as send
+                await handleSendInvite(employee);
             };
 
             const updateDepartmentSupervisor = (deptId, supervisorId) => {

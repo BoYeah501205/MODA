@@ -172,12 +172,26 @@ CREATE INDEX IF NOT EXISTS idx_modules_build_sequence ON modules(build_sequence)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS employees (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
+    -- Name fields (structured)
+    prefix TEXT,
+    first_name TEXT NOT NULL,
+    middle_name TEXT,
+    last_name TEXT NOT NULL,
+    suffix TEXT,
+    -- Job info
+    job_title TEXT,
     department TEXT,
-    role TEXT,
+    shift TEXT DEFAULT 'Shift-A',
+    hire_date DATE,
+    -- Contact
     email TEXT,
     phone TEXT,
-    hire_date DATE,
+    -- MODA Access
+    permissions TEXT DEFAULT 'No Access' CHECK (permissions IN ('No Access', 'User', 'Admin')),
+    access_status TEXT DEFAULT 'none' CHECK (access_status IN ('none', 'invited', 'active')),
+    -- Link to Supabase Auth user (null if no MODA access)
+    supabase_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    -- Status
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -220,6 +234,9 @@ CREATE POLICY "Admins can delete employees" ON employees
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department);
 CREATE INDEX IF NOT EXISTS idx_employees_is_active ON employees(is_active);
+CREATE INDEX IF NOT EXISTS idx_employees_email ON employees(email);
+CREATE INDEX IF NOT EXISTS idx_employees_supabase_user_id ON employees(supabase_user_id);
+CREATE INDEX IF NOT EXISTS idx_employees_last_name ON employees(last_name);
 
 -- ============================================================================
 -- TRANSPORT TABLE (for yard/shipping tracking)
@@ -300,3 +317,68 @@ ALTER PUBLICATION supabase_realtime ADD TABLE transport;
 -- UPDATE profiles 
 -- SET dashboard_role = 'admin', is_protected = true 
 -- WHERE email = 'trevor@autovol.com';
+
+-- ============================================================================
+-- MIGRATION: Update existing employees table (run if table already exists)
+-- ============================================================================
+-- If you already have an employees table with the old schema, run this:
+/*
+-- Add new columns
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS prefix TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS middle_name TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_name TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS suffix TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_title TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS shift TEXT DEFAULT 'Shift-A';
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'No Access';
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS access_status TEXT DEFAULT 'none';
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS supabase_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- Add constraints
+ALTER TABLE employees ADD CONSTRAINT chk_permissions CHECK (permissions IN ('No Access', 'User', 'Admin'));
+ALTER TABLE employees ADD CONSTRAINT chk_access_status CHECK (access_status IN ('none', 'invited', 'active'));
+
+-- Add indexes
+CREATE INDEX IF NOT EXISTS idx_employees_email ON employees(email);
+CREATE INDEX IF NOT EXISTS idx_employees_supabase_user_id ON employees(supabase_user_id);
+CREATE INDEX IF NOT EXISTS idx_employees_last_name ON employees(last_name);
+
+-- Migrate existing name data (if you had a single 'name' column)
+-- UPDATE employees SET first_name = split_part(name, ' ', 1), last_name = split_part(name, ' ', 2) WHERE first_name IS NULL;
+*/
+
+-- ============================================================================
+-- FUNCTION: Link employee to Supabase user by email
+-- ============================================================================
+CREATE OR REPLACE FUNCTION link_employee_to_user(employee_email TEXT)
+RETURNS UUID AS $$
+DECLARE
+    user_id UUID;
+BEGIN
+    -- Find user by email in auth.users
+    SELECT id INTO user_id FROM auth.users WHERE email = employee_email;
+    
+    IF user_id IS NOT NULL THEN
+        -- Update employee record with user ID and set status to active
+        UPDATE employees 
+        SET supabase_user_id = user_id, access_status = 'active'
+        WHERE email = employee_email AND supabase_user_id IS NULL;
+    END IF;
+    
+    RETURN user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- FUNCTION: Check if email exists in auth.users (for invite flow)
+-- ============================================================================
+CREATE OR REPLACE FUNCTION check_user_exists(check_email TEXT)
+RETURNS TABLE(user_id UUID, user_email TEXT, created_at TIMESTAMPTZ) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT u.id, u.email, u.created_at
+    FROM auth.users u
+    WHERE u.email = check_email;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

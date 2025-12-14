@@ -380,6 +380,72 @@
         }
     }
 
+    // Invite user by email (sends magic link)
+    // This calls a Supabase Edge Function that uses service_role key
+    async function inviteUser(email, metadata = {}) {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            // Call Edge Function for secure invite
+            const { data, error } = await supabase.functions.invoke('invite-user', {
+                body: { 
+                    email, 
+                    metadata,
+                    redirectTo: window.location.origin
+                }
+            });
+
+            if (error) {
+                console.error('[Supabase] Invite error:', error);
+                return { success: false, error: error.message };
+            }
+
+            if (data?.error) {
+                console.error('[Supabase] Invite function error:', data.error);
+                return { success: false, error: data.error };
+            }
+
+            console.log('[Supabase] Invite sent to:', email);
+            return { success: true, message: `Invite sent to ${email}` };
+
+        } catch (error) {
+            console.error('[Supabase] Invite exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Check if a user exists by email (uses profiles table)
+    async function checkUserByEmail(email) {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, email, name, dashboard_role, created_at')
+                .eq('email', email)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('[Supabase] Check user error:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { 
+                success: true, 
+                exists: !!data, 
+                user: data 
+            };
+
+        } catch (error) {
+            console.error('[Supabase] Check user exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // Expose global API
     window.MODA_SUPABASE = {
         initialize,
@@ -391,6 +457,8 @@
         onAuthStateChange,
         getAllUsers,
         updateUserRole,
+        inviteUser,
+        checkUserByEmail,
         get client() { return supabase; },
         get currentUser() { return currentUser; },
         get userProfile() { return userProfile; },

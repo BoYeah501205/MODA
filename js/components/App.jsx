@@ -606,15 +606,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             }, [activeTab, auth.visibleTabs, auth.isAdmin]);
             
             // People Module State
-            const [employees, setEmployees] = useState(() => {
-                const saved = localStorage.getItem('autovol_employees');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    // Use defaults if saved is empty array
-                    return parsed.length > 0 ? parsed : defaultEmployees;
-                }
-                return defaultEmployees;
-            });
+            const [employees, setEmployees] = useState([]);
+            const [employeesSynced, setEmployeesSynced] = useState(false);
             const [departments, setDepartments] = useState(() => {
                 const saved = localStorage.getItem('autovol_departments');
                 return saved ? JSON.parse(saved) : productionStages.map(s => ({
@@ -624,6 +617,40 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     employeeCount: 0
                 }));
             });
+
+            // Load employees from Supabase (or localStorage fallback)
+            useEffect(() => {
+                const loadEmployees = async () => {
+                    try {
+                        if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                            console.log('[App] Loading employees from Supabase...');
+                            const supabaseEmployees = await window.MODA_SUPABASE_DATA.employees.getAll();
+                            setEmployees(supabaseEmployees);
+                            setEmployeesSynced(true);
+                            console.log('[App] Loaded', supabaseEmployees.length, 'employees from Supabase');
+                        } else {
+                            // Fallback to localStorage
+                            console.log('[App] Supabase not available, using localStorage');
+                            const saved = localStorage.getItem('autovol_employees');
+                            if (saved) {
+                                const parsed = JSON.parse(saved);
+                                setEmployees(parsed.length > 0 ? parsed : []);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('[App] Error loading employees:', error);
+                        // Fallback to localStorage on error
+                        const saved = localStorage.getItem('autovol_employees');
+                        if (saved) {
+                            setEmployees(JSON.parse(saved));
+                        }
+                    }
+                };
+                
+                // Wait a bit for Supabase to initialize
+                const timer = setTimeout(loadEmployees, 500);
+                return () => clearTimeout(timer);
+            }, []);
 
             // Save to localStorage (only when not synced to Firestore)
             useEffect(() => {
@@ -643,8 +670,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 localStorage.setItem('autovol_trash_employees', JSON.stringify(trashedEmployees));
             }, [trashedEmployees]);
 
+            // Save employees to localStorage as backup (even when using Supabase)
             useEffect(() => {
-                localStorage.setItem('autovol_employees', JSON.stringify(employees));
+                if (employees.length > 0) {
+                    localStorage.setItem('autovol_employees', JSON.stringify(employees));
+                }
             }, [employees]);
 
             useEffect(() => {

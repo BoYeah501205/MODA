@@ -259,6 +259,63 @@
     // ============================================================================
 
     const EmployeesAPI = {
+        // Convert DB row to frontend format (snake_case to camelCase)
+        _toFrontend(row) {
+            if (!row) return null;
+            // Compute full name from parts (since we removed the generated column)
+            const nameParts = [
+                row.prefix,
+                row.first_name,
+                row.middle_name,
+                row.last_name,
+                row.suffix
+            ].filter(Boolean);
+            const computedName = nameParts.join(' ').trim();
+            
+            return {
+                id: row.id,
+                prefix: row.prefix || '',
+                firstName: row.first_name || '',
+                middleName: row.middle_name || '',
+                lastName: row.last_name || '',
+                suffix: row.suffix || '',
+                name: computedName,
+                jobTitle: row.job_title || '',
+                department: row.department || '',
+                shift: row.shift || 'Shift-A',
+                hireDate: row.hire_date || '',
+                email: row.email || '',
+                phone: row.phone || '',
+                permissions: row.permissions || 'No Access',
+                accessStatus: row.access_status || 'none',
+                supabaseUserId: row.supabase_user_id || null,
+                isActive: row.is_active !== false,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        },
+
+        // Convert frontend format to DB format (camelCase to snake_case)
+        _toDatabase(data) {
+            const dbData = {};
+            if (data.prefix !== undefined) dbData.prefix = data.prefix || null;
+            if (data.firstName !== undefined) dbData.first_name = data.firstName;
+            if (data.middleName !== undefined) dbData.middle_name = data.middleName || null;
+            if (data.lastName !== undefined) dbData.last_name = data.lastName;
+            if (data.suffix !== undefined) dbData.suffix = data.suffix || null;
+            if (data.jobTitle !== undefined) dbData.job_title = data.jobTitle || null;
+            if (data.department !== undefined) dbData.department = data.department || null;
+            if (data.shift !== undefined) dbData.shift = data.shift || 'Shift-A';
+            if (data.hireDate !== undefined) dbData.hire_date = data.hireDate || null;
+            if (data.email !== undefined) dbData.email = data.email || null;
+            if (data.phone !== undefined) dbData.phone = data.phone || null;
+            if (data.permissions !== undefined) dbData.permissions = data.permissions || 'No Access';
+            if (data.accessStatus !== undefined) dbData.access_status = data.accessStatus || 'none';
+            if (data.supabaseUserId !== undefined) dbData.supabase_user_id = data.supabaseUserId || null;
+            if (data.isActive !== undefined) dbData.is_active = data.isActive;
+            return dbData;
+        },
+
         // Get all employees
         async getAll() {
             if (!isAvailable()) throw new Error('Supabase not available');
@@ -266,10 +323,11 @@
             const { data, error } = await getClient()
                 .from('employees')
                 .select('*')
-                .order('name', { ascending: true });
+                .eq('is_active', true)
+                .order('last_name', { ascending: true });
             
             if (error) throw error;
-            return data || [];
+            return (data || []).map(row => this._toFrontend(row));
         },
 
         // Get single employee by ID
@@ -283,48 +341,114 @@
                 .single();
             
             if (error && error.code !== 'PGRST116') throw error;
-            return data;
+            return this._toFrontend(data);
+        },
+
+        // Get employee by email
+        async getByEmail(email) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('employees')
+                .select('*')
+                .eq('email', email)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') throw error;
+            return this._toFrontend(data);
+        },
+
+        // Check if user exists in Supabase Auth by email
+        async checkUserExists(email) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            try {
+                const { data, error } = await getClient()
+                    .rpc('check_user_exists', { check_email: email });
+                
+                if (error) {
+                    console.error('[Employees] checkUserExists error:', error);
+                    return null;
+                }
+                
+                return data && data.length > 0 ? data[0] : null;
+            } catch (err) {
+                console.error('[Employees] checkUserExists exception:', err);
+                return null;
+            }
+        },
+
+        // Link employee to existing Supabase user
+        async linkToUser(email) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            try {
+                const { data, error } = await getClient()
+                    .rpc('link_employee_to_user', { employee_email: email });
+                
+                if (error) {
+                    console.error('[Employees] linkToUser error:', error);
+                    return null;
+                }
+                
+                return data; // Returns user_id if linked, null if not found
+            } catch (err) {
+                console.error('[Employees] linkToUser exception:', err);
+                return null;
+            }
         },
 
         // Create new employee
         async create(employeeData) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            const dbData = this._toDatabase(employeeData);
+            
             const { data, error } = await getClient()
                 .from('employees')
-                .insert({
-                    name: employeeData.name,
-                    department: employeeData.department,
-                    role: employeeData.role,
-                    email: employeeData.email,
-                    phone: employeeData.phone
-                })
+                .insert(dbData)
                 .select()
                 .single();
             
             if (error) throw error;
             console.log('[Employees] Created:', data.id);
-            return data;
+            return this._toFrontend(data);
         },
 
         // Update employee
         async update(employeeId, updates) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            const dbData = this._toDatabase(updates);
+            
             const { data, error } = await getClient()
                 .from('employees')
-                .update(updates)
+                .update(dbData)
                 .eq('id', employeeId)
                 .select()
                 .single();
             
             if (error) throw error;
             console.log('[Employees] Updated:', employeeId);
-            return data;
+            return this._toFrontend(data);
         },
 
-        // Delete employee
+        // Delete employee (soft delete - sets is_active to false)
         async delete(employeeId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('employees')
+                .update({ is_active: false })
+                .eq('id', employeeId);
+            
+            if (error) throw error;
+            console.log('[Employees] Soft deleted:', employeeId);
+            return true;
+        },
+
+        // Hard delete employee (permanent)
+        async hardDelete(employeeId) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
             const { error } = await getClient()
@@ -333,7 +457,7 @@
                 .eq('id', employeeId);
             
             if (error) throw error;
-            console.log('[Employees] Deleted:', employeeId);
+            console.log('[Employees] Hard deleted:', employeeId);
             return true;
         },
 
