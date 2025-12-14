@@ -810,7 +810,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     </button>
                                     {/* Sign Out */}
                                     <button 
-                                        onClick={auth.logout} 
+                                        onClick={() => auth.logout()} 
                                         className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition"
                                     >
                                         Sign Out

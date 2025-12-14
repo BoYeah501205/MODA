@@ -3,7 +3,30 @@
 // Extracted from App.jsx for better maintainability
 // ============================================================================
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useCallback } = React;
+
+// Shared auth state - allows multiple components to share the same auth state
+let sharedAuthState = {
+    currentUser: null,
+    listeners: new Set()
+};
+
+// Initialize from storage
+(function initSharedState() {
+    const saved = localStorage.getItem('autovol_session');
+    if (saved) {
+        sharedAuthState.currentUser = JSON.parse(saved);
+    } else {
+        const sessionSaved = sessionStorage.getItem('autovol_session');
+        if (sessionSaved) {
+            sharedAuthState.currentUser = JSON.parse(sessionSaved);
+        }
+    }
+})();
+
+function notifyAuthListeners() {
+    sharedAuthState.listeners.forEach(listener => listener());
+}
 
 // Initialize roles in localStorage
 function initializeDashboardRoles() {
@@ -236,20 +259,60 @@ function useAuth() {
     // Initialize dashboard roles system
     initializeDashboardRoles();
     
-    // Simple state - load from localStorage on init
-    const [currentUser, setCurrentUser] = useState(() => {
-        const saved = localStorage.getItem('autovol_session');
-        if (saved) {
-            console.log('[Auth] Found saved session in localStorage');
-            return JSON.parse(saved);
-        }
-        const sessionSaved = sessionStorage.getItem('autovol_session');
-        if (sessionSaved) {
-            console.log('[Auth] Found saved session in sessionStorage');
-            return JSON.parse(sessionSaved);
-        }
-        return null;
-    });
+    // Use shared state with local re-render trigger
+    const [, forceUpdate] = useState(0);
+    
+    // Subscribe to shared state changes
+    useEffect(() => {
+        const listener = () => forceUpdate(n => n + 1);
+        sharedAuthState.listeners.add(listener);
+        return () => sharedAuthState.listeners.delete(listener);
+    }, []);
+    
+    // Getter/setter for currentUser that uses shared state
+    const currentUser = sharedAuthState.currentUser;
+    const setCurrentUser = useCallback((user) => {
+        sharedAuthState.currentUser = user;
+        notifyAuthListeners();
+    }, []);
+    
+    // Check for existing Supabase session on mount (only once)
+    const [sessionChecked, setSessionChecked] = useState(false);
+    useEffect(() => {
+        if (sessionChecked) return; // Only run once
+        
+        const checkExistingSession = async () => {
+            // Don't restore if user just logged out (no localStorage session)
+            const savedSession = localStorage.getItem('autovol_session');
+            if (!savedSession && !sessionStorage.getItem('autovol_session')) {
+                console.log('[Auth] No saved session, skipping restore');
+                setSessionChecked(true);
+                return;
+            }
+            
+            if (window.MODA_SUPABASE && MODA_SUPABASE.isInitialized && !currentUser) {
+                const supabaseUser = MODA_SUPABASE.currentUser;
+                const profile = MODA_SUPABASE.userProfile;
+                if (supabaseUser) {
+                    console.log('[Auth] Found existing Supabase session, restoring...');
+                    const session = {
+                        id: supabaseUser.id,
+                        email: supabaseUser.email,
+                        name: profile?.name || supabaseUser.email.split('@')[0],
+                        dashboardRole: profile?.dashboard_role || 'employee',
+                        department: profile?.department || '',
+                        isProtected: supabaseUser.email?.toLowerCase() === 'trevor@autovol.com'
+                    };
+                    setCurrentUser(session);
+                    localStorage.setItem('autovol_session', JSON.stringify(session));
+                }
+            }
+            setSessionChecked(true);
+        };
+        
+        // Small delay to let Supabase initialize
+        setTimeout(checkExistingSession, 1000);
+    }, [sessionChecked]);
     
     const [users, setUsers] = useState(() => {
         const saved = localStorage.getItem('autovol_users');
@@ -337,8 +400,9 @@ function useAuth() {
                 const result = await MODA_SUPABASE.login(email, password);
                 console.log('[Auth] Supabase login result:', result);
                 if (result.success && result.user) {
-                    // Use profile from login result (already fetched)
-                    const profile = result.profile || MODA_SUPABASE.userProfile || {};
+                    // Wait a moment for profile to load
+                    await new Promise(r => setTimeout(r, 800));
+                    const profile = MODA_SUPABASE.userProfile || {};
                     console.log('[Auth] Supabase login success, profile:', profile);
                     const session = {
                         id: result.user.id,
@@ -393,7 +457,7 @@ function useAuth() {
         // Clear local state immediately
         localStorage.removeItem('autovol_session'); 
         sessionStorage.removeItem('autovol_session');
-        setCurrentUser(null);
+        sharedAuthState.currentUser = null;
         
         // Try Supabase logout in background (don't wait for it)
         if (window.MODA_SUPABASE && MODA_SUPABASE.isInitialized) {

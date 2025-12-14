@@ -112,7 +112,6 @@
     }
 
     // Login with email/password
-    // Note: signInWithPassword Promise doesn't resolve reliably, so we use auth state listener
     async function login(email, password) {
         // Ensure initialized
         if (!supabase) {
@@ -124,80 +123,30 @@
             return { success: false, error: 'Supabase not initialized' };
         }
 
-        console.log('[Supabase] Calling signInWithPassword...');
-        
         try {
-            // Use fetch API directly to avoid SDK Promise hanging issues
-            const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': SUPABASE_ANON_KEY
-                },
-                body: JSON.stringify({ email, password })
+            console.log('[Supabase] Calling signInWithPassword...');
+            const response = await supabase.auth.signInWithPassword({
+                email,
+                password
             });
             
-            const result = await response.json();
-            console.log('[Supabase] Auth response status:', response.status);
+            console.log('[Supabase] signInWithPassword response:', response);
             
-            if (!response.ok || result.error) {
-                console.error('[Supabase] Login error:', result.error_description || result.error || result.msg);
-                return { success: false, error: result.error_description || result.error || result.msg || 'Login failed' };
+            const { data, error } = response;
+
+            if (error) {
+                console.error('[Supabase] Login error:', error);
+                return { success: false, error: error.message };
             }
-            
-            if (!result.user) {
-                console.error('[Supabase] No user in response');
+
+            if (!data || !data.user) {
+                console.error('[Supabase] Login returned no user');
                 return { success: false, error: 'Login failed - no user returned' };
             }
-            
-            console.log('[Supabase] Login succeeded, user:', result.user.email);
-            currentUser = result.user;
-            
-            // Fetch profile using fetch API to avoid SDK hanging
-            let profileData = null;
-            try {
-                console.log('[Supabase] Fetching profile...');
-                const profileResponse = await fetch(
-                    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${result.user.id}&select=*`,
-                    {
-                        headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${result.access_token}`
-                        }
-                    }
-                );
-                const profiles = await profileResponse.json();
-                console.log('[Supabase] Profile response:', profiles);
-                if (profiles && profiles.length > 0) {
-                    profileData = profiles[0];
-                    userProfile = profileData;
-                    console.log('[Supabase] Loaded profile, role:', profileData.dashboard_role);
-                } else {
-                    console.log('[Supabase] No profile found, using defaults');
-                    userProfile = {
-                        id: result.user.id,
-                        email: result.user.email,
-                        name: result.user.email.split('@')[0],
-                        dashboard_role: 'employee',
-                        is_protected: false
-                    };
-                    profileData = userProfile;
-                }
-            } catch (err) {
-                console.error('[Supabase] Profile fetch error:', err);
-                userProfile = {
-                    id: result.user.id,
-                    email: result.user.email,
-                    name: result.user.email.split('@')[0],
-                    dashboard_role: 'employee',
-                    is_protected: false
-                };
-                profileData = userProfile;
-            }
-            
-            console.log('[Supabase] Login complete, user:', result.user.email, 'role:', profileData?.dashboard_role);
-            return { success: true, user: result.user, profile: profileData };
-            
+
+            console.log('[Supabase] Login successful, user:', data.user?.email);
+            return { success: true, user: data.user };
+
         } catch (error) {
             console.error('[Supabase] Login exception:', error);
             return { success: false, error: error.message || 'Login failed' };

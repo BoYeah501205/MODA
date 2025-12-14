@@ -7,6 +7,10 @@
 const MODA_API = (function() {
     'use strict';
     
+    // Backend disabled - using Supabase instead
+    // Set to false to skip local backend checks
+    const USE_LOCAL_BACKEND = false;
+    
     // Dynamically determine backend URL based on how frontend is accessed
     // If accessing via IP, backend should also be accessed via same IP
     const getApiBase = () => {
@@ -19,13 +23,17 @@ const MODA_API = (function() {
     };
     
     const API_BASE = getApiBase();
-    let isBackendAvailable = null;
-    
-    console.log('[API] Backend URL:', API_BASE);
+    let isBackendAvailable = false; // Default to false since we use Supabase
     
     // ===== Private Helpers =====
     
     async function checkBackend() {
+        // Skip backend check if using Supabase
+        if (!USE_LOCAL_BACKEND) {
+            isBackendAvailable = false;
+            return false;
+        }
+        
         if (isBackendAvailable !== null) return isBackendAvailable;
         
         try {
@@ -38,7 +46,7 @@ const MODA_API = (function() {
             isBackendAvailable = false;
         }
         
-        console.log(`[API] Backend ${isBackendAvailable ? 'available' : 'unavailable'}, using ${isBackendAvailable ? 'API' : 'localStorage'}`);
+        console.log(`[API] Backend ${isBackendAvailable ? 'available' : 'not available'} - using ${isBackendAvailable ? 'API' : 'localStorage'}`);
         return isBackendAvailable;
     }
     
@@ -380,9 +388,17 @@ if (typeof window !== 'undefined') {
     window.MODA_API = MODA_API;
     
     // ===== AUTO-SYNC LAYER =====
-    // Automatically syncs localStorage changes to backend
+    // Disabled - using Supabase instead of local backend
+    // Set USE_LOCAL_BACKEND to true to re-enable
+    const USE_LOCAL_BACKEND_SYNC = false;
     
     (async function initAutoSync() {
+        // Skip if using Supabase
+        if (!USE_LOCAL_BACKEND_SYNC) {
+            console.log('[MODA] Backend not available - using localStorage only');
+            return;
+        }
+        
         // Check if backend is available on startup
         // Determine API base URL based on how frontend is accessed
         const hostname = window.location.hostname;
