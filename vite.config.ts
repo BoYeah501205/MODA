@@ -6,6 +6,9 @@ import path from 'path'
 export default defineConfig({
   root: '.',
   
+  // Tell Vite to treat these as static assets to copy
+  publicDir: false, // Disable default public dir handling
+  
   plugins: [
     // React plugin DISABLED - using Babel Standalone for JSX compilation
     // The index.html uses <script type="text/babel"> which requires babel-standalone

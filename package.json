@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run copy-assets",
+    "copy-assets": "node -e \"const fs=require('fs');const path=require('path');function copy(s,d){if(!fs.existsSync(s))return;fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>{const sp=path.join(s,f),dp=path.join(d,f);fs.statSync(sp).isDirectory()?copy(sp,dp):fs.copyFileSync(sp,dp)})};copy('js','dist/js');copy('css','dist/css');copy('public','dist/public');console.log('Assets copied!')\"",
     "preview": "vite preview",
     "serve": "vite preview --port 8000",
     "type-check": "tsc --noEmit",
