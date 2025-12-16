@@ -113,6 +113,7 @@
 
     // Login with email/password
     // Note: signInWithPassword Promise doesn't resolve reliably, so we use auth state listener
+    // Email is normalized to lowercase for case-insensitive login
     async function login(email, password) {
         // Ensure initialized
         if (!supabase) {
@@ -124,7 +125,9 @@
             return { success: false, error: 'Supabase not initialized' };
         }
 
-        console.log('[Supabase] Calling signInWithPassword...');
+        // Normalize email to lowercase for case-insensitive login
+        const normalizedEmail = email.trim().toLowerCase();
+        console.log('[Supabase] Calling signInWithPassword with:', normalizedEmail);
         
         try {
             // Use fetch API directly to avoid SDK Promise hanging issues
@@ -134,7 +137,7 @@
                     'Content-Type': 'application/json',
                     'apikey': SUPABASE_ANON_KEY
                 },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email: normalizedEmail, password })
             });
             
             const result = await response.json();

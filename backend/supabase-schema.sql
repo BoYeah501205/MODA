@@ -303,12 +303,80 @@ CREATE TRIGGER update_transport_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
+-- WEEKLY SCHEDULES TABLE (for Production Weekly Board)
+-- Only trevor@autovol.com can edit, all authenticated users can view
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS weekly_schedules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    -- Schedule type: 'current' for active schedule, 'completed' for historical
+    schedule_type TEXT DEFAULT 'current' CHECK (schedule_type IN ('current', 'completed')),
+    -- Week identifier (e.g., '2025-W50')
+    week_id TEXT,
+    -- Shift schedules (modules per day)
+    shift1 JSONB DEFAULT '{"monday": 5, "tuesday": 5, "wednesday": 5, "thursday": 5}'::jsonb,
+    shift2 JSONB DEFAULT '{"friday": 0, "saturday": 0, "sunday": 0}'::jsonb,
+    -- For completed weeks: snapshot data
+    line_balance INTEGER,
+    completed_at TIMESTAMPTZ,
+    schedule_snapshot JSONB,
+    -- Metadata
+    created_by UUID REFERENCES auth.users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE weekly_schedules ENABLE ROW LEVEL SECURITY;
+
+-- Everyone can view schedules
+CREATE POLICY "Authenticated users can view weekly_schedules" ON weekly_schedules
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Only trevor@autovol.com can insert/update/delete
+CREATE POLICY "Only schedule owner can insert weekly_schedules" ON weekly_schedules
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() 
+            AND LOWER(email) = 'trevor@autovol.com'
+        )
+    );
+
+CREATE POLICY "Only schedule owner can update weekly_schedules" ON weekly_schedules
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() 
+            AND LOWER(email) = 'trevor@autovol.com'
+        )
+    );
+
+CREATE POLICY "Only schedule owner can delete weekly_schedules" ON weekly_schedules
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() 
+            AND LOWER(email) = 'trevor@autovol.com'
+        )
+    );
+
+-- Index for faster queries
+CREATE INDEX IF NOT EXISTS idx_weekly_schedules_type ON weekly_schedules(schedule_type);
+CREATE INDEX IF NOT EXISTS idx_weekly_schedules_week_id ON weekly_schedules(week_id);
+
+-- Trigger for updated_at
+CREATE TRIGGER update_weekly_schedules_updated_at
+    BEFORE UPDATE ON weekly_schedules
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
 -- ENABLE REALTIME FOR TABLES
 -- ============================================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE projects;
 ALTER PUBLICATION supabase_realtime ADD TABLE modules;
 ALTER PUBLICATION supabase_realtime ADD TABLE employees;
 ALTER PUBLICATION supabase_realtime ADD TABLE transport;
+ALTER PUBLICATION supabase_realtime ADD TABLE weekly_schedules;
 
 -- ============================================================================
 -- SEED ADMIN USER (run after creating first user via signup)

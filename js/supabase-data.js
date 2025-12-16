@@ -491,6 +491,160 @@
     };
 
     // ============================================================================
+    // WEEKLY SCHEDULES API
+    // ============================================================================
+
+    const WeeklySchedulesAPI = {
+        // Get current schedule (there should only be one with schedule_type='current')
+        async getCurrent() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('weekly_schedules')
+                .select('*')
+                .eq('schedule_type', 'current')
+                .single();
+            
+            // PGRST116 = no rows found, which is fine for first load
+            if (error && error.code !== 'PGRST116') throw error;
+            return data;
+        },
+
+        // Get completed weeks history
+        async getCompleted(limit = 50) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('weekly_schedules')
+                .select('*')
+                .eq('schedule_type', 'completed')
+                .order('completed_at', { ascending: false })
+                .limit(limit);
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Create or update current schedule
+        async saveCurrent(scheduleData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Check if current schedule exists
+            const existing = await this.getCurrent();
+            
+            const payload = {
+                schedule_type: 'current',
+                shift1: scheduleData.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+                shift2: scheduleData.shift2 || { friday: 0, saturday: 0, sunday: 0 },
+                created_by: window.MODA_SUPABASE?.currentUser?.id
+            };
+            
+            if (existing) {
+                // Update existing
+                const { data, error } = await getClient()
+                    .from('weekly_schedules')
+                    .update(payload)
+                    .eq('id', existing.id)
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                console.log('[WeeklySchedules] Updated current schedule');
+                return data;
+            } else {
+                // Create new
+                const { data, error } = await getClient()
+                    .from('weekly_schedules')
+                    .insert(payload)
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                console.log('[WeeklySchedules] Created current schedule');
+                return data;
+            }
+        },
+
+        // Complete a week (creates historical record)
+        async completeWeek(weekData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('weekly_schedules')
+                .insert({
+                    schedule_type: 'completed',
+                    week_id: weekData.weekId,
+                    shift1: weekData.shift1,
+                    shift2: weekData.shift2,
+                    line_balance: weekData.lineBalance,
+                    completed_at: new Date().toISOString(),
+                    schedule_snapshot: weekData.scheduleSnapshot,
+                    created_by: window.MODA_SUPABASE?.currentUser?.id
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            console.log('[WeeklySchedules] Completed week:', weekData.weekId);
+            return data;
+        },
+
+        // Delete a completed week record
+        async deleteCompleted(scheduleId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('weekly_schedules')
+                .delete()
+                .eq('id', scheduleId);
+            
+            if (error) throw error;
+            console.log('[WeeklySchedules] Deleted:', scheduleId);
+            return true;
+        },
+
+        // Check if current user can edit schedules
+        canEdit() {
+            const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
+                              window.MODA_SUPABASE?.currentUser?.email || '';
+            return userEmail.toLowerCase() === 'trevor@autovol.com';
+        },
+
+        // Subscribe to real-time changes
+        onSnapshot(callback) {
+            if (!isAvailable()) {
+                console.warn('[WeeklySchedules] Supabase not available for real-time');
+                return () => {};
+            }
+
+            // Initial load
+            Promise.all([this.getCurrent(), this.getCompleted()])
+                .then(([current, completed]) => callback({ current, completed }))
+                .catch(console.error);
+
+            // Subscribe to changes
+            const subscription = getClient()
+                .channel('weekly-schedules-changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'weekly_schedules' },
+                    async (payload) => {
+                        console.log('[WeeklySchedules] Real-time update:', payload.eventType);
+                        const [current, completed] = await Promise.all([
+                            this.getCurrent(),
+                            this.getCompleted()
+                        ]);
+                        callback({ current, completed });
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                subscription.unsubscribe();
+            };
+        }
+    };
+
+    // ============================================================================
     // DATA MIGRATION UTILITIES
     // ============================================================================
 
@@ -577,6 +731,7 @@
         projects: ProjectsAPI,
         modules: ModulesAPI,
         employees: EmployeesAPI,
+        weeklySchedules: WeeklySchedulesAPI,
         migration: MigrationAPI
     };
 

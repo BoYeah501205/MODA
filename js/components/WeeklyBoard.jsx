@@ -5,44 +5,156 @@
 
 // ===== WEEKLY SCHEDULE MANAGEMENT HOOK =====
 // Manages schedule setup (shift assignments) and completed week history
+// Uses Supabase for persistence (shared across all users)
+// Only trevor@autovol.com can edit schedules
 const useWeeklySchedule = () => {
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useCallback, useRef } = React;
+    
+    const DEFAULT_SCHEDULE = {
+        shift1: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+        shift2: { friday: 0, saturday: 0, sunday: 0 }
+    };
     
     // Current week's schedule setup (per-day module assignments by shift)
-    const [scheduleSetup, setScheduleSetup] = useState(() => {
-        const saved = localStorage.getItem('autovol_schedule_setup');
-        return saved ? JSON.parse(saved) : {
-            shift1: { // Mon-Thu
-                monday: 5,
-                tuesday: 5,
-                wednesday: 5,
-                thursday: 5
-            },
-            shift2: { // Fri-Sun (future)
-                friday: 0,
-                saturday: 0,
-                sunday: 0
+    const [scheduleSetup, setScheduleSetup] = useState(DEFAULT_SCHEDULE);
+    
+    // Completed weeks history
+    const [completedWeeks, setCompletedWeeks] = useState([]);
+    
+    // Loading and sync state
+    const [loading, setLoading] = useState(true);
+    const [synced, setSynced] = useState(false);
+    
+    // Track if we can edit (only trevor@autovol.com)
+    const [canEdit, setCanEdit] = useState(false);
+    
+    // Ref to track if we're saving to prevent loops
+    const isSaving = useRef(false);
+    
+    // Check Supabase availability
+    const isSupabaseAvailable = useCallback(() => {
+        return window.MODA_SUPABASE_DATA?.isAvailable?.() && 
+               window.MODA_SUPABASE_DATA?.weeklySchedules;
+    }, []);
+    
+    // Load from Supabase on mount
+    useEffect(() => {
+        const loadFromSupabase = async () => {
+            if (!isSupabaseAvailable()) {
+                console.log('[WeeklySchedule] Supabase not available, using localStorage fallback');
+                // Fallback to localStorage
+                const savedSetup = localStorage.getItem('autovol_schedule_setup');
+                const savedWeeks = localStorage.getItem('autovol_completed_weeks');
+                if (savedSetup) setScheduleSetup(JSON.parse(savedSetup));
+                if (savedWeeks) setCompletedWeeks(JSON.parse(savedWeeks));
+                setLoading(false);
+                return;
+            }
+            
+            try {
+                const api = window.MODA_SUPABASE_DATA.weeklySchedules;
+                
+                // Check edit permission
+                setCanEdit(api.canEdit());
+                
+                // Load current schedule
+                const current = await api.getCurrent();
+                if (current) {
+                    setScheduleSetup({
+                        shift1: current.shift1 || DEFAULT_SCHEDULE.shift1,
+                        shift2: current.shift2 || DEFAULT_SCHEDULE.shift2
+                    });
+                }
+                
+                // Load completed weeks
+                const completed = await api.getCompleted();
+                setCompletedWeeks(completed.map(w => ({
+                    id: w.id,
+                    weekId: w.week_id,
+                    shift1: w.shift1,
+                    shift2: w.shift2,
+                    lineBalance: w.line_balance,
+                    completedAt: w.completed_at,
+                    scheduleSnapshot: w.schedule_snapshot
+                })));
+                
+                setSynced(true);
+                console.log('[WeeklySchedule] Loaded from Supabase');
+            } catch (err) {
+                console.error('[WeeklySchedule] Load error:', err);
+                // Fallback to localStorage
+                const savedSetup = localStorage.getItem('autovol_schedule_setup');
+                const savedWeeks = localStorage.getItem('autovol_completed_weeks');
+                if (savedSetup) setScheduleSetup(JSON.parse(savedSetup));
+                if (savedWeeks) setCompletedWeeks(JSON.parse(savedWeeks));
+            } finally {
+                setLoading(false);
             }
         };
-    });
+        
+        loadFromSupabase();
+        
+        // Subscribe to real-time updates
+        if (isSupabaseAvailable()) {
+            const unsubscribe = window.MODA_SUPABASE_DATA.weeklySchedules.onSnapshot(({ current, completed }) => {
+                if (isSaving.current) return; // Skip if we're the one saving
+                
+                if (current) {
+                    setScheduleSetup({
+                        shift1: current.shift1 || DEFAULT_SCHEDULE.shift1,
+                        shift2: current.shift2 || DEFAULT_SCHEDULE.shift2
+                    });
+                }
+                
+                if (completed) {
+                    setCompletedWeeks(completed.map(w => ({
+                        id: w.id,
+                        weekId: w.week_id,
+                        shift1: w.shift1,
+                        shift2: w.shift2,
+                        lineBalance: w.line_balance,
+                        completedAt: w.completed_at,
+                        scheduleSnapshot: w.schedule_snapshot
+                    })));
+                }
+            });
+            
+            return () => unsubscribe?.();
+        }
+    }, [isSupabaseAvailable]);
     
-    // Completed weeks history (global, with project indicators)
-    const [completedWeeks, setCompletedWeeks] = useState(() => {
-        const saved = localStorage.getItem('autovol_completed_weeks');
-        return saved ? JSON.parse(saved) : [];
-    });
-    
-    // Persist to localStorage
+    // Save to Supabase when schedule changes (debounced)
     useEffect(() => {
+        if (loading) return; // Don't save during initial load
+        
+        // Always save to localStorage as backup
         localStorage.setItem('autovol_schedule_setup', JSON.stringify(scheduleSetup));
-    }, [scheduleSetup]);
+        
+        // Save to Supabase if available and user can edit
+        if (isSupabaseAvailable() && canEdit) {
+            isSaving.current = true;
+            const saveTimeout = setTimeout(async () => {
+                try {
+                    await window.MODA_SUPABASE_DATA.weeklySchedules.saveCurrent(scheduleSetup);
+                    setSynced(true);
+                } catch (err) {
+                    console.error('[WeeklySchedule] Save error:', err);
+                    setSynced(false);
+                } finally {
+                    isSaving.current = false;
+                }
+            }, 500); // Debounce 500ms
+            
+            return () => clearTimeout(saveTimeout);
+        }
+    }, [scheduleSetup, loading, isSupabaseAvailable, canEdit]);
     
-    useEffect(() => {
-        localStorage.setItem('autovol_completed_weeks', JSON.stringify(completedWeeks));
-    }, [completedWeeks]);
-    
-    // Update shift schedule
-    const updateShiftSchedule = (shift, day, value) => {
+    // Update shift schedule (only if user can edit)
+    const updateShiftSchedule = useCallback((shift, day, value) => {
+        if (!canEdit) {
+            console.warn('[WeeklySchedule] Cannot edit - only trevor@autovol.com can modify schedules');
+            return;
+        }
         setScheduleSetup(prev => ({
             ...prev,
             [shift]: {
@@ -50,46 +162,94 @@ const useWeeklySchedule = () => {
                 [day]: parseInt(value) || 0
             }
         }));
-    };
+    }, [canEdit]);
     
     // Get total modules for a shift
-    const getShiftTotal = (shift) => {
+    const getShiftTotal = useCallback((shift) => {
         const shiftData = scheduleSetup[shift] || {};
         return Object.values(shiftData).reduce((sum, val) => sum + (val || 0), 0);
-    };
+    }, [scheduleSetup]);
     
     // Get total line balance (all shifts combined)
-    const getLineBalance = () => {
+    const getLineBalance = useCallback(() => {
         return getShiftTotal('shift1') + getShiftTotal('shift2');
-    };
+    }, [getShiftTotal]);
     
     // Complete a week - creates historical record
-    const completeWeek = (weekData) => {
+    const completeWeek = useCallback(async (weekData) => {
+        if (!canEdit) {
+            console.warn('[WeeklySchedule] Cannot complete week - only trevor@autovol.com can modify schedules');
+            return null;
+        }
+        
         const completedWeek = {
-            id: `completed-week-${Date.now()}`,
-            ...weekData,
-            completedAt: new Date().toISOString(),
+            weekId: weekData.weekId || `week-${Date.now()}`,
+            shift1: scheduleSetup.shift1,
+            shift2: scheduleSetup.shift2,
             lineBalance: weekData.lineBalance || getLineBalance(),
             scheduleSnapshot: { ...scheduleSetup }
         };
-        setCompletedWeeks(prev => [completedWeek, ...prev]);
-        return completedWeek;
-    };
+        
+        if (isSupabaseAvailable()) {
+            try {
+                const saved = await window.MODA_SUPABASE_DATA.weeklySchedules.completeWeek(completedWeek);
+                const formattedWeek = {
+                    id: saved.id,
+                    ...completedWeek,
+                    completedAt: saved.completed_at
+                };
+                setCompletedWeeks(prev => [formattedWeek, ...prev]);
+                return formattedWeek;
+            } catch (err) {
+                console.error('[WeeklySchedule] Complete week error:', err);
+            }
+        }
+        
+        // Fallback to localStorage
+        const localWeek = {
+            id: `completed-week-${Date.now()}`,
+            ...completedWeek,
+            completedAt: new Date().toISOString()
+        };
+        setCompletedWeeks(prev => {
+            const updated = [localWeek, ...prev];
+            localStorage.setItem('autovol_completed_weeks', JSON.stringify(updated));
+            return updated;
+        });
+        return localWeek;
+    }, [canEdit, scheduleSetup, getLineBalance, isSupabaseAvailable]);
     
     // Get completed week by ID
-    const getCompletedWeek = (weekId) => {
+    const getCompletedWeek = useCallback((weekId) => {
         return completedWeeks.find(w => w.id === weekId);
-    };
+    }, [completedWeeks]);
     
     // Get recent completed weeks (for summary view)
-    const getRecentWeeks = (count = 10) => {
+    const getRecentWeeks = useCallback((count = 10) => {
         return completedWeeks.slice(0, count);
-    };
+    }, [completedWeeks]);
     
     // Delete a completed week record
-    const deleteCompletedWeek = (weekId) => {
-        setCompletedWeeks(prev => prev.filter(w => w.id !== weekId));
-    };
+    const deleteCompletedWeek = useCallback(async (weekId) => {
+        if (!canEdit) {
+            console.warn('[WeeklySchedule] Cannot delete - only trevor@autovol.com can modify schedules');
+            return;
+        }
+        
+        if (isSupabaseAvailable()) {
+            try {
+                await window.MODA_SUPABASE_DATA.weeklySchedules.deleteCompleted(weekId);
+            } catch (err) {
+                console.error('[WeeklySchedule] Delete error:', err);
+            }
+        }
+        
+        setCompletedWeeks(prev => {
+            const updated = prev.filter(w => w.id !== weekId);
+            localStorage.setItem('autovol_completed_weeks', JSON.stringify(updated));
+            return updated;
+        });
+    }, [canEdit, isSupabaseAvailable]);
     
     return {
         scheduleSetup,
@@ -100,7 +260,10 @@ const useWeeklySchedule = () => {
         completeWeek,
         getCompletedWeek,
         getRecentWeeks,
-        deleteCompletedWeek
+        deleteCompletedWeek,
+        loading,
+        synced,
+        canEdit
     };
 };
 

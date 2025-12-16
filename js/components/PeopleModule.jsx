@@ -95,47 +95,63 @@
             const [actionMessage, setActionMessage] = useState('');
 
             const handleSaveEmployee = async (employeeData) => {
+                console.log('[PeopleModule] handleSaveEmployee called with:', employeeData);
                 setSaving(true);
                 setActionMessage('');
                 
                 try {
-                    // Check if Supabase is available
-                    const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                    let newEmployee;
+                    const fullName = [employeeData.firstName, employeeData.lastName].filter(Boolean).join(' ');
                     
                     if (editingEmployee) {
                         // Update existing employee
-                        if (useSupabase) {
-                            const updated = await window.MODA_SUPABASE_DATA.employees.update(editingEmployee.id, employeeData);
-                            setEmployees(employees.map(e => e.id === editingEmployee.id ? updated : e));
-                        } else {
-                            setEmployees(employees.map(e => e.id === editingEmployee.id ? { ...e, ...employeeData } : e));
-                        }
+                        const updated = { ...editingEmployee, ...employeeData };
+                        setEmployees(employees.map(e => e.id === editingEmployee.id ? updated : e));
+                        setActionMessage(`Updated ${fullName}`);
                     } else {
                         // Create new employee
-                        let newEmployee;
+                        const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
                         
                         if (useSupabase) {
-                            // Check if user already exists in Supabase Auth
-                            if (employeeData.email) {
-                                const existingUser = await window.MODA_SUPABASE?.checkUserByEmail(employeeData.email);
-                                if (existingUser?.exists) {
-                                    // User already has MODA access - link them
-                                    employeeData.supabaseUserId = existingUser.user.id;
-                                    employeeData.accessStatus = 'active';
-                                    setActionMessage(`Linked to existing user: ${existingUser.user.email}`);
-                                }
+                            // Try Supabase with timeout
+                            try {
+                                const timeoutPromise = new Promise((_, reject) => 
+                                    setTimeout(() => reject(new Error('Timeout')), 5000)
+                                );
+                                const createPromise = window.MODA_SUPABASE_DATA.employees.create(employeeData);
+                                newEmployee = await Promise.race([createPromise, timeoutPromise]);
+                                console.log('[PeopleModule] Created in Supabase:', newEmployee);
+                            } catch (err) {
+                                console.warn('[PeopleModule] Supabase failed, using local:', err.message);
+                                newEmployee = { 
+                                    ...employeeData, 
+                                    id: `emp_${Date.now()}`, 
+                                    accessStatus: 'none',
+                                    createdAt: new Date().toISOString()
+                                };
                             }
-                            
-                            newEmployee = await window.MODA_SUPABASE_DATA.employees.create(employeeData);
                         } else {
-                            newEmployee = { ...employeeData, id: Date.now(), accessStatus: 'none' };
+                            // Local storage fallback
+                            newEmployee = { 
+                                ...employeeData, 
+                                id: `emp_${Date.now()}`, 
+                                accessStatus: 'none',
+                                createdAt: new Date().toISOString()
+                            };
                         }
                         
-                        setEmployees([...employees, newEmployee]);
+                        setEmployees(prev => [...prev, newEmployee]);
+                        console.log('[PeopleModule] Employee added:', newEmployee);
+                        setActionMessage(`Added ${fullName} to directory`);
                     }
                     
-                    setShowEmployeeModal(false);
-                    setEditingEmployee(null);
+                    // Close modal after short delay to show success message
+                    setTimeout(() => {
+                        setShowEmployeeModal(false);
+                        setEditingEmployee(null);
+                        setActionMessage('');
+                    }, 1000);
+                    
                 } catch (error) {
                     console.error('[PeopleModule] Save error:', error);
                     setActionMessage(`Error: ${error.message}`);
@@ -450,14 +466,18 @@
                                                             </button>
                                                             {/* Show Send Invite for users with permission but not yet invited */}
                                                             {(emp.permissions === 'User' || emp.permissions === 'Admin') && 
-                                                             emp.accessStatus !== 'invited' && emp.accessStatus !== 'active' && emp.email && (
-                                                                <button 
-                                                                    onClick={() => setShowInviteConfirm(emp)}
-                                                                    className="text-sm hover:underline"
-                                                                    style={{color: 'var(--autovol-red)'}}
-                                                                >
-                                                                    Send Invite
-                                                                </button>
+                                                             emp.accessStatus !== 'invited' && emp.accessStatus !== 'active' && (
+                                                                emp.email ? (
+                                                                    <button 
+                                                                        onClick={() => setShowInviteConfirm(emp)}
+                                                                        className="text-sm hover:underline"
+                                                                        style={{color: 'var(--autovol-red)'}}
+                                                                    >
+                                                                        Send Invite
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-xs text-gray-400 italic">Add email to invite</span>
+                                                                )
                                                             )}
                                                             {/* Show Resend for invited but not active */}
                                                             {emp.accessStatus === 'invited' && (
@@ -573,9 +593,11 @@
                     {showEmployeeModal && (
                         <EmployeeModal 
                             employee={editingEmployee}
-                            onClose={() => { setShowEmployeeModal(false); setEditingEmployee(null); }}
+                            onClose={() => { setShowEmployeeModal(false); setEditingEmployee(null); setActionMessage(''); }}
                             onSave={handleSaveEmployee}
                             departments={departments}
+                            saving={saving}
+                            successMessage={actionMessage}
                         />
                     )}
 
@@ -735,7 +757,7 @@
         }
 
         // Employee Modal (Add/Edit)
-        function EmployeeModal({ employee, onClose, onSave, departments }) {
+        function EmployeeModal({ employee, onClose, onSave, departments, saving, successMessage }) {
             const [formData, setFormData] = useState({
                 prefix: employee?.prefix || '',
                 firstName: employee?.firstName || '',
@@ -769,11 +791,12 @@
             };
 
             const handleSubmit = () => {
+                console.log('[EmployeeModal] handleSubmit called with formData:', formData);
                 onSave(formData);
             };
 
             return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{zIndex: 9999}} onClick={onClose}>
                     <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-4">
@@ -782,6 +805,13 @@
                                 </h2>
                                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
                             </div>
+                            
+                            {/* Success Message */}
+                            {successMessage && (
+                                <div className="mb-4 p-3 rounded-lg text-sm font-medium" style={{backgroundColor: '#E6F4F5', color: '#007B8A'}}>
+                                    {successMessage}
+                                </div>
+                            )}
                             
                             <div className="space-y-4">
                                 {/* Row 1: Prefix, First Name, Middle Name */}
@@ -975,10 +1005,10 @@
                                 </button>
                                 <button 
                                     onClick={handleSubmit}
-                                    disabled={!formData.firstName || !formData.lastName}
+                                    disabled={!formData.firstName || !formData.lastName || saving}
                                     className="px-4 py-2 btn-primary rounded-lg disabled:opacity-50"
                                 >
-                                    {employee ? 'Save Changes' : 'Add Employee'}
+                                    {saving ? 'Saving...' : (employee ? 'Save Changes' : 'Add Employee')}
                                 </button>
                             </div>
                         </div>
