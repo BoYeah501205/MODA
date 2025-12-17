@@ -50,9 +50,9 @@
                 .from('projects')
                 .select('*')
                 .eq('id', projectId)
-                .single();
+                .maybeSingle();
             
-            if (error && error.code !== 'PGRST116') throw error;
+            if (error) throw error;
             return data;
         },
 
@@ -169,9 +169,9 @@
                 .from('modules')
                 .select('*')
                 .eq('id', moduleId)
-                .single();
+                .maybeSingle();
             
-            if (error && error.code !== 'PGRST116') throw error;
+            if (error) throw error;
             return data;
         },
 
@@ -338,9 +338,9 @@
                 .from('employees')
                 .select('*')
                 .eq('id', employeeId)
-                .single();
+                .maybeSingle();
             
-            if (error && error.code !== 'PGRST116') throw error;
+            if (error) throw error;
             return this._toFrontend(data);
         },
 
@@ -352,9 +352,9 @@
                 .from('employees')
                 .select('*')
                 .eq('email', email)
-                .single();
+                .maybeSingle();
             
-            if (error && error.code !== 'PGRST116') throw error;
+            if (error) throw error;
             return this._toFrontend(data);
         },
 
@@ -503,11 +503,10 @@
                 .from('weekly_schedules')
                 .select('*')
                 .eq('schedule_type', 'current')
-                .single();
+                .maybeSingle();  // Use maybeSingle to avoid 406 when no rows exist
             
-            // PGRST116 = no rows found, which is fine for first load
-            if (error && error.code !== 'PGRST116') throw error;
-            return data;
+            if (error) throw error;
+            return data;  // Returns null if no rows found (expected for first load)
         },
 
         // Get completed weeks history
