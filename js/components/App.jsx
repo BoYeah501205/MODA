@@ -738,16 +738,30 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 
                 // Sync changed projects to Supabase (debounced)
                 if (projectsSynced && window.MODA_SUPABASE_DATA?.isAvailable?.() && Array.isArray(projects)) {
+                    // Helper to check if ID is a valid UUID (not a timestamp)
+                    const isValidUUID = (id) => {
+                        if (!id) return false;
+                        // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+                        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                        return uuidRegex.test(String(id));
+                    };
+                    
                     // Find projects that changed
                     const syncToSupabase = async () => {
                         const lastProjects = lastSyncedProjects.current || [];
                         for (const project of projects) {
+                            // Only sync projects with valid Supabase UUIDs (skip timestamp IDs)
+                            if (!isValidUUID(project.id)) {
+                                console.log('[App] Skipping sync for non-UUID project:', project.name, project.id);
+                                continue;
+                            }
+                            
                             const lastVersion = lastProjects.find(p => p.id === project.id);
                             // Check if project changed (compare modules array length or stringify)
                             if (!lastVersion || JSON.stringify(lastVersion) !== JSON.stringify(project)) {
                                 try {
                                     await window.MODA_SUPABASE_DATA.projects.update(project.id, project);
-                                    console.log('[App] Synced project to Supabase:', project.name);
+                                    console.log('[App] Synced project to Supabase:', project.name, 'modules:', project.modules?.length || 0);
                                 } catch (err) {
                                     console.error('[App] Error syncing project to Supabase:', err);
                                 }
