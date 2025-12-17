@@ -1,7 +1,7 @@
 // MODA Dashboard - React Components
 // Extracted from index.html for optimization
 
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
         
         // Feature flag helper
         const isFeatureEnabled = (flag, userEmail) => window.MODA_FEATURE_FLAGS?.isEnabled(flag, userEmail) || false;
