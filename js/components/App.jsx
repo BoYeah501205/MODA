@@ -3704,7 +3704,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [name, setName] = useState('');
             const [location, setLocation] = useState('');
             const [description, setDescription] = useState('');
-            const [status, setStatus] = useState('Pre-Construction');
+            const [status, setStatus] = useState('Planning');
             const [sharepointSite, setSharepointSite] = useState('ProductDevelopmentAutovolPrefab');
             const [sharepointChannel, setSharepointChannel] = useState('');
             const [shopDrawingLinksText, setShopDrawingLinksText] = useState('');
@@ -3789,10 +3789,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         onChange={(e) => setStatus(e.target.value)}
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
-                                        <option value="Pre-Construction">Pre-Construction</option>
-                                        <option value="Planned">Planned</option>
+                                        <option value="Planning">Planning</option>
                                         <option value="Active">Active</option>
+                                        <option value="On Hold">On Hold</option>
                                         <option value="Complete">Complete</option>
+                                        <option value="Archived">Archived</option>
                                     </select>
                                 </div>
                                 
