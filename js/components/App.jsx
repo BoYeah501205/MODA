@@ -470,8 +470,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         function Dashboard({ auth }) {
             // Use URL-based navigation if feature flag is enabled, otherwise use local state
             const useUrlNav = isFeatureEnabled('enableUrlNavigation', auth.currentUser?.email) && window.useUrlNavigation;
-            const [urlActiveTab, urlSetActiveTab] = useUrlNav ? window.useUrlNavigation('production') : [null, null];
-            const [localActiveTab, setLocalActiveTab] = useState('production');
+            const [urlActiveTab, urlSetActiveTab] = useUrlNav ? window.useUrlNavigation('home') : [null, null];
+            const [localActiveTab, setLocalActiveTab] = useState('home');
             
             // Use URL navigation if available, otherwise fall back to local state
             const activeTab = useUrlNav ? urlActiveTab : localActiveTab;
