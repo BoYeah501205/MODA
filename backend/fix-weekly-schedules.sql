@@ -3,10 +3,10 @@
 -- Run this in Supabase SQL Editor to fix the table structure
 -- ============================================================================
 
--- Drop the old table (if it exists with wrong schema)
+-- Drop the old table completely
 DROP TABLE IF EXISTS weekly_schedules CASCADE;
 
--- Create table with correct schema matching supabase-data.js expectations
+-- Create table with correct schema
 CREATE TABLE weekly_schedules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     schedule_type TEXT DEFAULT 'current' CHECK (schedule_type IN ('current', 'completed')),
@@ -21,25 +21,16 @@ CREATE TABLE weekly_schedules (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable Row Level Security
-ALTER TABLE weekly_schedules ENABLE ROW LEVEL SECURITY;
-
--- Allow all authenticated users full access (using auth.uid() IS NOT NULL)
-CREATE POLICY "Allow authenticated select" ON weekly_schedules
-    FOR SELECT USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "Allow authenticated insert" ON weekly_schedules
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-
-CREATE POLICY "Allow authenticated update" ON weekly_schedules
-    FOR UPDATE USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "Allow authenticated delete" ON weekly_schedules
-    FOR DELETE USING (auth.uid() IS NOT NULL);
+-- DISABLE Row Level Security (allows all access)
+ALTER TABLE weekly_schedules DISABLE ROW LEVEL SECURITY;
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_weekly_schedules_type ON weekly_schedules(schedule_type);
 CREATE INDEX IF NOT EXISTS idx_weekly_schedules_week_id ON weekly_schedules(week_id);
 
+-- Grant access to authenticated users
+GRANT ALL ON weekly_schedules TO authenticated;
+GRANT ALL ON weekly_schedules TO anon;
+
 -- Success message
-DO $$ BEGIN RAISE NOTICE 'weekly_schedules table created successfully!'; END $$;
+DO $$ BEGIN RAISE NOTICE 'weekly_schedules table created successfully with RLS DISABLED!'; END $$;
