@@ -42,7 +42,15 @@ function RFIManager({ projects = [], employees = [] }) {
 
     // ===== LOAD/SAVE DATA =====
     useEffect(() => {
-        const stored = JSON.parse(localStorage.getItem('moda_rfis') || '[]');
+        let stored = [];
+        try {
+            const saved = localStorage.getItem('moda_rfis');
+            if (saved && saved !== 'undefined' && saved !== 'null') {
+                stored = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('[RFIManager] Error parsing localStorage:', e);
+        }
         if (stored.length === 0) {
             // Create sample RFIs for demo
             const samples = createSampleRFIs();

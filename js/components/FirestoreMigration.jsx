@@ -9,8 +9,20 @@ function FirestoreMigrationPanel({ onClose }) {
 
     // Check localStorage data on mount
     React.useEffect(() => {
-        const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
-        const employees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
+        let projects = [];
+        let employees = [];
+        try {
+            const savedProjects = localStorage.getItem('autovol_projects');
+            if (savedProjects && savedProjects !== 'undefined' && savedProjects !== 'null') {
+                projects = JSON.parse(savedProjects);
+            }
+            const savedEmployees = localStorage.getItem('autovol_employees');
+            if (savedEmployees && savedEmployees !== 'undefined' && savedEmployees !== 'null') {
+                employees = JSON.parse(savedEmployees);
+            }
+        } catch (e) {
+            console.error('[FirestoreMigration] Error parsing localStorage:', e);
+        }
         
         setLocalData({
             projects: projects.length,

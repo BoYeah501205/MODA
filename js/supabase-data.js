@@ -504,14 +504,16 @@
         async getCurrent() {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            // Use limit(1) instead of maybeSingle to handle duplicate rows gracefully
             const { data, error } = await getClient()
                 .from('weekly_schedules')
                 .select('*')
                 .eq('schedule_type', 'current')
-                .maybeSingle();  // Use maybeSingle to avoid 406 when no rows exist
+                .order('created_at', { ascending: false })
+                .limit(1);
             
             if (error) throw error;
-            return data;  // Returns null if no rows found (expected for first load)
+            return data && data.length > 0 ? data[0] : null;  // Returns null if no rows found
         },
 
         // Get completed weeks history
@@ -544,28 +546,28 @@
             };
             
             if (existing) {
-                // Update existing
+                // Update existing - use limit(1) instead of single() to avoid PGRST116
                 const { data, error } = await getClient()
                     .from('weekly_schedules')
                     .update(payload)
                     .eq('id', existing.id)
                     .select()
-                    .single();
+                    .limit(1);
                 
                 if (error) throw error;
                 console.log('[WeeklySchedules] Updated current schedule');
-                return data;
+                return data && data.length > 0 ? data[0] : null;
             } else {
-                // Create new
+                // Create new - use limit(1) instead of single()
                 const { data, error } = await getClient()
                     .from('weekly_schedules')
                     .insert(payload)
                     .select()
-                    .single();
+                    .limit(1);
                 
                 if (error) throw error;
                 console.log('[WeeklySchedules] Created current schedule');
-                return data;
+                return data && data.length > 0 ? data[0] : null;
             }
         },
 
@@ -586,11 +588,11 @@
                     created_by: window.MODA_SUPABASE?.currentUser?.id
                 })
                 .select()
-                .single();
+                .limit(1);
             
             if (error) throw error;
             console.log('[WeeklySchedules] Completed week:', weekData.weekId);
-            return data;
+            return data && data.length > 0 ? data[0] : null;
         },
 
         // Delete a completed week record
@@ -661,7 +663,15 @@
 
             try {
                 // Import projects
-                const localProjects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                let localProjects = [];
+                try {
+                    const savedProjects = localStorage.getItem('autovol_projects');
+                    if (savedProjects && savedProjects !== 'undefined' && savedProjects !== 'null') {
+                        localProjects = JSON.parse(savedProjects);
+                    }
+                } catch (e) {
+                    console.error('[Migration] Error parsing projects:', e);
+                }
                 for (const project of localProjects) {
                     try {
                         await ProjectsAPI.create({
@@ -680,7 +690,15 @@
                 }
 
                 // Import employees
-                const localEmployees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
+                let localEmployees = [];
+                try {
+                    const savedEmployees = localStorage.getItem('autovol_employees');
+                    if (savedEmployees && savedEmployees !== 'undefined' && savedEmployees !== 'null') {
+                        localEmployees = JSON.parse(savedEmployees);
+                    }
+                } catch (e) {
+                    console.error('[Migration] Error parsing employees:', e);
+                }
                 for (const employee of localEmployees) {
                     try {
                         await EmployeesAPI.create({

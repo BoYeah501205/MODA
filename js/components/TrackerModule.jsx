@@ -17,9 +17,18 @@
             // Load and sync unified modules
             useEffect(() => {
                 const loadUnified = () => {
-                    MODA_UNIFIED.migrateFromProjects();
-                    setUnifiedModules(MODA_UNIFIED.getAll());
-                    setStats(MODA_UNIFIED.getStats());
+                    // Check if MODA_UNIFIED is available
+                    if (typeof MODA_UNIFIED === 'undefined' || !MODA_UNIFIED) {
+                        console.warn('[ModuleTrackerPanel] MODA_UNIFIED not available yet');
+                        return;
+                    }
+                    try {
+                        MODA_UNIFIED.migrateFromProjects();
+                        setUnifiedModules(MODA_UNIFIED.getAll());
+                        setStats(MODA_UNIFIED.getStats());
+                    } catch (err) {
+                        console.error('[ModuleTrackerPanel] Error loading unified modules:', err);
+                    }
                 };
                 loadUnified();
                 
@@ -367,20 +376,20 @@
                                         <div className="grid grid-cols-2 gap-4 text-sm">
                                             <div className="p-3 bg-gray-50 rounded">
                                                 <div className="text-gray-500">BLM Hitch</div>
-                                                <div className="font-mono">{selectedModule.specs.blmHitch || '-'}</div>
+                                                <div className="font-mono">{selectedModule.specs?.blmHitch || '-'}</div>
                                             </div>
                                             <div className="p-3 bg-gray-50 rounded">
                                                 <div className="text-gray-500">BLM Rear</div>
-                                                <div className="font-mono">{selectedModule.specs.blmRear || '-'}</div>
+                                                <div className="font-mono">{selectedModule.specs?.blmRear || '-'}</div>
                                             </div>
                                             <div className="p-3 bg-gray-50 rounded">
                                                 <div className="text-gray-500">Unit Type</div>
-                                                <div>{selectedModule.specs.unit || '-'}</div>
+                                                <div>{selectedModule.specs?.unit || '-'}</div>
                                             </div>
                                             <div className="p-3 bg-gray-50 rounded">
                                                 <div className="text-gray-500">Dimensions</div>
                                                 <div>
-                                                    {selectedModule.specs.width && selectedModule.specs.length 
+                                                    {selectedModule.specs?.width && selectedModule.specs?.length 
                                                         ? `${selectedModule.specs.width}' x ${selectedModule.specs.length}'`
                                                         : '-'
                                                     }
@@ -390,7 +399,7 @@
                                     </div>
                                     
                                     {/* Difficulties */}
-                                    {Object.values(selectedModule.specs.difficulties || {}).some(v => v) && (
+                                    {Object.values(selectedModule.specs?.difficulties || {}).some(v => v) && (
                                         <div>
                                             <h3 className="font-semibold mb-3">Difficulties</h3>
                                             <div className="flex flex-wrap gap-2">

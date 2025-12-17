@@ -54,8 +54,14 @@
                 } else {
                     // Fallback to localStorage
                     console.log('[Projects] Firebase unavailable, using localStorage');
-                    const localProjects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
-                    setProjects(localProjects);
+                    try {
+                        const saved = localStorage.getItem('autovol_projects');
+                        const localProjects = (saved && saved !== 'undefined' && saved !== 'null') ? JSON.parse(saved) : [];
+                        setProjects(localProjects);
+                    } catch (e) {
+                        console.error('[Projects] Error parsing localStorage:', e);
+                        setProjects([]);
+                    }
                     setSynced(false);
                     setLoading(false);
                 }
@@ -63,8 +69,14 @@
                 console.error('[Projects] Load error:', err);
                 setError(err.message);
                 // Fallback to localStorage on error
-                const localProjects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
-                setProjects(localProjects);
+                try {
+                    const saved = localStorage.getItem('autovol_projects');
+                    const localProjects = (saved && saved !== 'undefined' && saved !== 'null') ? JSON.parse(saved) : [];
+                    setProjects(localProjects);
+                } catch (e) {
+                    console.error('[Projects] Error parsing localStorage fallback:', e);
+                    setProjects([]);
+                }
                 setSynced(false);
                 setLoading(false);
             }
@@ -180,16 +192,28 @@
                     });
                 } else {
                     console.log('[Employees] Firebase unavailable, using localStorage');
-                    const localEmployees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
-                    setEmployees(localEmployees);
+                    try {
+                        const saved = localStorage.getItem('autovol_employees');
+                        const localEmployees = (saved && saved !== 'undefined' && saved !== 'null') ? JSON.parse(saved) : [];
+                        setEmployees(localEmployees);
+                    } catch (e) {
+                        console.error('[Employees] Error parsing localStorage:', e);
+                        setEmployees([]);
+                    }
                     setSynced(false);
                     setLoading(false);
                 }
             } catch (err) {
                 console.error('[Employees] Load error:', err);
                 setError(err.message);
-                const localEmployees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
-                setEmployees(localEmployees);
+                try {
+                    const saved = localStorage.getItem('autovol_employees');
+                    const localEmployees = (saved && saved !== 'undefined' && saved !== 'null') ? JSON.parse(saved) : [];
+                    setEmployees(localEmployees);
+                } catch (e) {
+                    console.error('[Employees] Error parsing localStorage fallback:', e);
+                    setEmployees([]);
+                }
                 setSynced(false);
                 setLoading(false);
             }

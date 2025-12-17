@@ -9,7 +9,15 @@ function PreconModule({ projects, employees }) {
     
     // Get RFI stats for badges
     const getRfiStats = () => {
-        const rfis = JSON.parse(localStorage.getItem('autovol_rfis') || '[]');
+        let rfis = [];
+        try {
+            const saved = localStorage.getItem('autovol_rfis');
+            if (saved && saved !== 'undefined' && saved !== 'null') {
+                rfis = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('[PreconModule] Error parsing RFIs:', e);
+        }
         const open = rfis.filter(r => r.status === 'Open').length;
         const pending = rfis.filter(r => r.status === 'Pending').length;
         const overdue = rfis.filter(r => {

@@ -412,7 +412,15 @@
             if (!isInitialized()) throw new Error('Firebase not initialized');
             
             try {
-                const localProjects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                let localProjects = [];
+                try {
+                    const saved = localStorage.getItem('autovol_projects');
+                    if (saved && saved !== 'undefined' && saved !== 'null') {
+                        localProjects = JSON.parse(saved);
+                    }
+                } catch (e) {
+                    console.error('[Migration] Error parsing projects:', e);
+                }
                 console.log('[Migration] Found', localProjects.length, 'projects in localStorage');
                 
                 if (localProjects.length === 0) {
@@ -459,7 +467,15 @@
             if (!isInitialized()) throw new Error('Firebase not initialized');
             
             try {
-                const localEmployees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
+                let localEmployees = [];
+                try {
+                    const saved = localStorage.getItem('autovol_employees');
+                    if (saved && saved !== 'undefined' && saved !== 'null') {
+                        localEmployees = JSON.parse(saved);
+                    }
+                } catch (e) {
+                    console.error('[Migration] Error parsing employees:', e);
+                }
                 console.log('[Migration] Found', localEmployees.length, 'employees in localStorage');
                 
                 if (localEmployees.length === 0) {

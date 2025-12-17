@@ -42,11 +42,19 @@ const useWeeklySchedule = () => {
         const loadFromSupabase = async () => {
             if (!isSupabaseAvailable()) {
                 console.log('[WeeklySchedule] Supabase not available, using localStorage fallback');
-                // Fallback to localStorage
-                const savedSetup = localStorage.getItem('autovol_schedule_setup');
-                const savedWeeks = localStorage.getItem('autovol_completed_weeks');
-                if (savedSetup) setScheduleSetup(JSON.parse(savedSetup));
-                if (savedWeeks) setCompletedWeeks(JSON.parse(savedWeeks));
+                // Fallback to localStorage with safe parsing
+                try {
+                    const savedSetup = localStorage.getItem('autovol_schedule_setup');
+                    const savedWeeks = localStorage.getItem('autovol_completed_weeks');
+                    if (savedSetup && savedSetup !== 'undefined' && savedSetup !== 'null') {
+                        setScheduleSetup(JSON.parse(savedSetup));
+                    }
+                    if (savedWeeks && savedWeeks !== 'undefined' && savedWeeks !== 'null') {
+                        setCompletedWeeks(JSON.parse(savedWeeks));
+                    }
+                } catch (e) {
+                    console.error('[WeeklySchedule] Error parsing localStorage:', e);
+                }
                 setLoading(false);
                 return;
             }
@@ -82,11 +90,19 @@ const useWeeklySchedule = () => {
                 console.log('[WeeklySchedule] Loaded from Supabase');
             } catch (err) {
                 console.error('[WeeklySchedule] Load error:', err);
-                // Fallback to localStorage
-                const savedSetup = localStorage.getItem('autovol_schedule_setup');
-                const savedWeeks = localStorage.getItem('autovol_completed_weeks');
-                if (savedSetup) setScheduleSetup(JSON.parse(savedSetup));
-                if (savedWeeks) setCompletedWeeks(JSON.parse(savedWeeks));
+                // Fallback to localStorage with safe parsing
+                try {
+                    const savedSetup = localStorage.getItem('autovol_schedule_setup');
+                    const savedWeeks = localStorage.getItem('autovol_completed_weeks');
+                    if (savedSetup && savedSetup !== 'undefined' && savedSetup !== 'null') {
+                        setScheduleSetup(JSON.parse(savedSetup));
+                    }
+                    if (savedWeeks && savedWeeks !== 'undefined' && savedWeeks !== 'null') {
+                        setCompletedWeeks(JSON.parse(savedWeeks));
+                    }
+                } catch (parseErr) {
+                    console.error('[WeeklySchedule] Error parsing localStorage fallback:', parseErr);
+                }
             } finally {
                 setLoading(false);
             }
@@ -2290,15 +2306,19 @@ function WeeklyBoardTab({
     
     // Render a module card with progress buttons and menu (Station Board style)
     const renderModuleCard = (module, station, weekSection = 'current') => {
-        const currentProgress = module.stationProgress || 0;
+        const currentProgress = module.stageProgress?.[station.id] || 0;
         const isComplete = currentProgress === 100;
         const moduleIsSelected = isSelected(module.id, station.id);
         
-        // Determine border/background based on week section, selection, and completion
+        // Determine border/background based on week section, selection, completion, and hold status
         let borderClass = 'border';
         let bgClass = 'bg-white';
         
-        if (moduleIsSelected) {
+        // Hold status takes priority for visual indication (thick red border)
+        if (module.isOnHold) {
+            borderClass = 'border-4 border-red-500';
+            bgClass = 'bg-red-50';
+        } else if (moduleIsSelected) {
             borderClass = 'border-2 border-blue-500';
             bgClass = 'bg-blue-50';
         } else if (isComplete) {
@@ -2474,35 +2494,117 @@ function WeeklyBoardTab({
                     </>
                 )}
                 
-                {/* Row 2: Progress Buttons (matching Station Board exactly) */}
-                <div className="flex gap-0.5 mt-1">
-                    {[25, 50, 75, 100].map(pct => (
+                {/* Row 2: Progress Buttons - Special for Sign-Off station */}
+                {station.id === 'sign-off' ? (
+                    // Sign-Off station: 0%/100%/Hold buttons
+                    <div className="flex gap-0.5 mt-1">
                         <button
-                            key={pct}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (canEdit) {
-                                    // Toggle: if clicking the current progress level, reset to previous level (or 0 for 25%)
-                                    const newProgress = currentProgress === pct 
-                                        ? (pct === 25 ? 0 : pct - 25) 
-                                        : pct;
-                                    updateModuleProgress(module.id, module.projectId, station.id, newProgress);
+                                    updateModuleProgress(module.id, module.projectId, station.id, 0);
+                                    // Clear hold status if set
+                                    if (module.isOnHold) {
+                                        setProjects(prev => prev.map(p => ({
+                                            ...p,
+                                            modules: p.modules.map(m => m.id === module.id ? { ...m, isOnHold: false } : m)
+                                        })));
+                                    }
                                 }
                             }}
                             disabled={!canEdit}
                             className={`flex-1 text-xs py-0.5 rounded transition ${
-                                currentProgress >= pct 
-                                    ? isComplete 
-                                        ? 'bg-green-500 text-white' 
-                                        : 'bg-autovol-teal text-white'
+                                currentProgress === 0 && !module.isOnHold
+                                    ? 'bg-gray-500 text-white' 
                                     : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                             } ${!canEdit ? 'cursor-not-allowed opacity-60' : ''}`}
-                            title={canEdit ? (currentProgress === pct ? `Click to set to ${pct === 25 ? 0 : pct - 25}%` : `Set to ${pct}%`) : 'View-only mode'}
+                            title="Reset to 0%"
                         >
-                            {pct === 100 ? '✓' : ''}
+                            0%
                         </button>
-                    ))}
-                </div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (canEdit) {
+                                    updateModuleProgress(module.id, module.projectId, station.id, 100);
+                                    // Clear hold status if set
+                                    if (module.isOnHold) {
+                                        setProjects(prev => prev.map(p => ({
+                                            ...p,
+                                            modules: p.modules.map(m => m.id === module.id ? { ...m, isOnHold: false } : m)
+                                        })));
+                                    }
+                                }
+                            }}
+                            disabled={!canEdit}
+                            className={`flex-1 text-xs py-0.5 rounded transition ${
+                                isComplete && !module.isOnHold
+                                    ? 'bg-green-500 text-white' 
+                                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            } ${!canEdit ? 'cursor-not-allowed opacity-60' : ''}`}
+                            title="Mark complete (100%)"
+                        >
+                            ✓
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (canEdit) {
+                                    // Toggle hold status
+                                    setProjects(prev => prev.map(p => ({
+                                        ...p,
+                                        modules: p.modules.map(m => m.id === module.id ? { ...m, isOnHold: !m.isOnHold } : m)
+                                    })));
+                                    addToast(
+                                        module.isOnHold ? `${module.serialNumber} removed from hold` : `${module.serialNumber} placed on hold`,
+                                        module.isOnHold ? 'success' : 'warning',
+                                        module.serialNumber,
+                                        station.dept
+                                    );
+                                }
+                            }}
+                            disabled={!canEdit}
+                            className={`flex-1 text-xs py-0.5 rounded transition ${
+                                module.isOnHold
+                                    ? 'bg-red-500 text-white' 
+                                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            } ${!canEdit ? 'cursor-not-allowed opacity-60' : ''}`}
+                            title={module.isOnHold ? "Remove from hold" : "Place on hold"}
+                        >
+                            !
+                        </button>
+                    </div>
+                ) : (
+                    // Standard progress buttons for other stations
+                    <div className="flex gap-0.5 mt-1">
+                        {[25, 50, 75, 100].map(pct => (
+                            <button
+                                key={pct}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (canEdit) {
+                                        // Toggle: if clicking the current progress level, reset to previous level (or 0 for 25%)
+                                        const newProgress = currentProgress === pct 
+                                            ? (pct === 25 ? 0 : pct - 25) 
+                                            : pct;
+                                        updateModuleProgress(module.id, module.projectId, station.id, newProgress);
+                                    }
+                                }}
+                                disabled={!canEdit}
+                                className={`flex-1 text-xs py-0.5 rounded transition ${
+                                    currentProgress >= pct 
+                                        ? isComplete 
+                                            ? 'bg-green-500 text-white' 
+                                            : 'bg-autovol-teal text-white'
+                                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                } ${!canEdit ? 'cursor-not-allowed opacity-60' : ''}`}
+                                title={canEdit ? (currentProgress === pct ? `Click to set to ${pct === 25 ? 0 : pct - 25}%` : `Set to ${pct}%`) : 'View-only mode'}
+                            >
+                                {pct === 100 ? '✓' : ''}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     };

@@ -28,6 +28,20 @@ const MODA_API = (function() {
     
     // ===== Private Helpers =====
     
+    // Safe JSON parse helper to prevent "undefined is not valid JSON" errors
+    function safeParseJSON(key, defaultValue = []) {
+        try {
+            const saved = localStorage.getItem(key);
+            if (saved && saved !== 'undefined' && saved !== 'null') {
+                return JSON.parse(saved);
+            }
+            return defaultValue;
+        } catch (e) {
+            console.error(`[API] Error parsing ${key}:`, e);
+            return defaultValue;
+        }
+    }
+    
     async function checkBackend() {
         // Skip backend check if using Supabase
         if (!USE_LOCAL_BACKEND) {
@@ -97,15 +111,14 @@ const MODA_API = (function() {
             list: async function(includeDeleted = false) {
                 if (!await checkBackend()) {
                     // Fallback to localStorage
-                    const saved = localStorage.getItem('autovol_projects');
-                    return saved ? JSON.parse(saved) : [];
+                    return safeParseJSON('autovol_projects', []);
                 }
                 return request(`/projects?includeDeleted=${includeDeleted}`);
             },
             
             get: async function(id) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     return projects.find(p => p.id === id);
                 }
                 return request(`/projects/${id}`);
@@ -113,7 +126,7 @@ const MODA_API = (function() {
             
             create: async function(project) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     projects.push(project);
                     localStorage.setItem('autovol_projects', JSON.stringify(projects));
                     return { id: project.id };
@@ -123,7 +136,7 @@ const MODA_API = (function() {
             
             update: async function(id, updates) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     const index = projects.findIndex(p => p.id === id);
                     if (index !== -1) {
                         projects[index] = { ...projects[index], ...updates };
@@ -136,11 +149,11 @@ const MODA_API = (function() {
             
             delete: async function(id) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     const project = projects.find(p => p.id === id);
                     if (project) {
                         // Move to trash
-                        const trash = JSON.parse(localStorage.getItem('autovol_trash_projects') || '[]');
+                        const trash = safeParseJSON('autovol_trash_projects', []);
                         trash.push({ ...project, deletedAt: Date.now() });
                         localStorage.setItem('autovol_trash_projects', JSON.stringify(trash));
                         // Remove from active
@@ -153,11 +166,11 @@ const MODA_API = (function() {
             
             restore: async function(id) {
                 if (!await checkBackend()) {
-                    const trash = JSON.parse(localStorage.getItem('autovol_trash_projects') || '[]');
+                    const trash = safeParseJSON('autovol_trash_projects', []);
                     const project = trash.find(p => p.id === id);
                     if (project) {
                         delete project.deletedAt;
-                        const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                        const projects = safeParseJSON('autovol_projects', []);
                         projects.push(project);
                         localStorage.setItem('autovol_projects', JSON.stringify(projects));
                         localStorage.setItem('autovol_trash_projects', JSON.stringify(trash.filter(p => p.id !== id)));
@@ -173,7 +186,7 @@ const MODA_API = (function() {
         modules: {
             list: async function(filters = {}) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     let modules = projects.flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name })));
                     
                     if (filters.projectId) modules = modules.filter(m => m.projectId === filters.projectId);
@@ -188,7 +201,7 @@ const MODA_API = (function() {
             
             get: async function(id) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     for (const p of projects) {
                         const mod = (p.modules || []).find(m => m.id === id);
                         if (mod) return { ...mod, projectId: p.id, projectName: p.name };
@@ -200,7 +213,7 @@ const MODA_API = (function() {
             
             create: async function(module) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     const project = projects.find(p => p.id === module.projectId);
                     if (project) {
                         if (!project.modules) project.modules = [];
@@ -214,7 +227,7 @@ const MODA_API = (function() {
             
             update: async function(id, updates) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     for (const p of projects) {
                         const index = (p.modules || []).findIndex(m => m.id === id);
                         if (index !== -1) {
@@ -230,7 +243,7 @@ const MODA_API = (function() {
             
             updateProgress: async function(id, stageId, progress) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     for (const p of projects) {
                         const mod = (p.modules || []).find(m => m.id === id);
                         if (mod) {
@@ -247,7 +260,7 @@ const MODA_API = (function() {
             
             delete: async function(id) {
                 if (!await checkBackend()) {
-                    const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                    const projects = safeParseJSON('autovol_projects', []);
                     for (const p of projects) {
                         const index = (p.modules || []).findIndex(m => m.id === id);
                         if (index !== -1) {
@@ -282,7 +295,7 @@ const MODA_API = (function() {
             
             get: async function(id) {
                 if (!await checkBackend()) {
-                    const employees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
+                    const employees = safeParseJSON('autovol_employees', []);
                     return employees.find(e => e.id === id);
                 }
                 return request(`/employees/${id}`);
@@ -290,7 +303,7 @@ const MODA_API = (function() {
             
             create: async function(employee) {
                 if (!await checkBackend()) {
-                    const employees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
+                    const employees = safeParseJSON('autovol_employees', []);
                     employees.push(employee);
                     localStorage.setItem('autovol_employees', JSON.stringify(employees));
                     return { id: employee.id };
@@ -300,7 +313,7 @@ const MODA_API = (function() {
             
             update: async function(id, updates) {
                 if (!await checkBackend()) {
-                    const employees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
+                    const employees = safeParseJSON('autovol_employees', []);
                     const index = employees.findIndex(e => e.id === id);
                     if (index !== -1) {
                         employees[index] = { ...employees[index], ...updates };
@@ -313,10 +326,10 @@ const MODA_API = (function() {
             
             delete: async function(id) {
                 if (!await checkBackend()) {
-                    const employees = JSON.parse(localStorage.getItem('autovol_employees') || '[]');
+                    const employees = safeParseJSON('autovol_employees', []);
                     const employee = employees.find(e => e.id === id);
                     if (employee) {
-                        const trash = JSON.parse(localStorage.getItem('autovol_trash_employees') || '[]');
+                        const trash = safeParseJSON('autovol_trash_employees', []);
                         trash.push({ ...employee, deletedAt: Date.now() });
                         localStorage.setItem('autovol_trash_employees', JSON.stringify(trash));
                         localStorage.setItem('autovol_employees', JSON.stringify(employees.filter(e => e.id !== id)));
@@ -337,11 +350,11 @@ const MODA_API = (function() {
                 }
                 
                 const data = {
-                    projects: JSON.parse(localStorage.getItem('autovol_projects') || '[]'),
-                    trashedProjects: JSON.parse(localStorage.getItem('autovol_trash_projects') || '[]'),
-                    employees: JSON.parse(localStorage.getItem('autovol_employees') || '[]'),
-                    trashedEmployees: JSON.parse(localStorage.getItem('autovol_trash_employees') || '[]'),
-                    departments: JSON.parse(localStorage.getItem('autovol_departments') || '[]')
+                    projects: safeParseJSON('autovol_projects', []),
+                    trashedProjects: safeParseJSON('autovol_trash_projects', []),
+                    employees: safeParseJSON('autovol_employees', []),
+                    trashedEmployees: safeParseJSON('autovol_trash_employees', []),
+                    departments: safeParseJSON('autovol_departments', [])
                 };
                 
                 return request('/sync/import', { method: 'POST', body: data });
@@ -372,8 +385,8 @@ const MODA_API = (function() {
             stats: async function() {
                 if (!await checkBackend()) {
                     return {
-                        projects: JSON.parse(localStorage.getItem('autovol_projects') || '[]').length,
-                        employees: JSON.parse(localStorage.getItem('autovol_employees') || '[]').length,
+                        projects: safeParseJSON('autovol_projects', []).length,
+                        employees: safeParseJSON('autovol_employees', []).length,
                         backend: false
                     };
                 }
@@ -425,14 +438,14 @@ if (typeof window !== 'undefined') {
                         console.log(`[MODA] Loaded ${data.projects.length} projects from backend`);
                         
                         // Trigger page reload to pick up new data (only if data changed)
-                        const currentProjects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                        const currentProjects = safeParseJSON('autovol_projects', []);
                         if (JSON.stringify(currentProjects) !== JSON.stringify(data.projects)) {
                             console.log('[MODA] Data changed, reloading...');
                             // Don't auto-reload, let user see the data
                         }
                     } else {
                         // Backend is empty, push localStorage data to it
-                        const localProjects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                        const localProjects = safeParseJSON('autovol_projects', []);
                         if (localProjects.length > 0) {
                             console.log('[MODA] Backend empty, syncing localStorage data...');
                             await MODA_API.sync.importFromLocalStorage();

@@ -32,7 +32,14 @@ function useDashboardRoles() {
     const [roles, setRoles] = useState(() => {
         initializeDashboardRoles();
         const saved = localStorage.getItem('autovol_dashboard_roles');
-        return saved ? JSON.parse(saved) : window.DEFAULT_DASHBOARD_ROLES;
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                console.error('[Auth] Error parsing dashboard roles:', e);
+            }
+        }
+        return window.DEFAULT_DASHBOARD_ROLES;
     });
 
     useEffect(() => {

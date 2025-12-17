@@ -477,18 +477,68 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const activeTab = useUrlNav ? urlActiveTab : localActiveTab;
             const setActiveTab = useUrlNav ? urlSetActiveTab : setLocalActiveTab;
             
-            // Use Firestore hooks for projects (with localStorage fallback)
-            const { 
-                projects, 
-                setProjects, 
-                loading: projectsLoading, 
-                synced: projectsSynced 
-            } = window.FirestoreHooks?.useProjects() || {
-                projects: JSON.parse(localStorage.getItem('autovol_projects') || '[]'),
-                setProjects: (p) => localStorage.setItem('autovol_projects', JSON.stringify(p)),
-                loading: false,
-                synced: false
-            };
+            // Projects state - loaded from Supabase with localStorage fallback
+            const [projects, setProjectsState] = useState([]);
+            const [projectsLoading, setProjectsLoading] = useState(true);
+            const [projectsSynced, setProjectsSynced] = useState(false);
+            
+            // Wrapper to save projects to both state and localStorage
+            const setProjects = useCallback((newProjects) => {
+                setProjectsState(prevProjects => {
+                    const projectsArray = typeof newProjects === 'function' 
+                        ? newProjects(prevProjects) 
+                        : newProjects;
+                    // Save to localStorage as backup (only if valid array)
+                    if (Array.isArray(projectsArray)) {
+                        localStorage.setItem('autovol_projects', JSON.stringify(projectsArray));
+                    }
+                    return projectsArray || [];
+                });
+            }, []);
+            
+            // Load projects from Supabase on mount
+            useEffect(() => {
+                const loadProjects = async () => {
+                    try {
+                        if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                            console.log('[App] Loading projects from Supabase...');
+                            const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
+                            setProjectsState(supabaseProjects || []);
+                            setProjectsSynced(true);
+                            console.log('[App] Loaded', supabaseProjects?.length || 0, 'projects from Supabase');
+                        } else {
+                            // Fallback to localStorage
+                            console.log('[App] Supabase not available, using localStorage for projects');
+                            try {
+                                const saved = localStorage.getItem('autovol_projects');
+                                if (saved && saved !== 'undefined' && saved !== 'null') {
+                                    setProjectsState(JSON.parse(saved));
+                                }
+                            } catch (e) {
+                                console.error('[App] Error parsing projects from localStorage:', e);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('[App] Error loading projects:', error);
+                        // Fallback to localStorage on error
+                        try {
+                            const saved = localStorage.getItem('autovol_projects');
+                            if (saved && saved !== 'undefined' && saved !== 'null') {
+                                setProjectsState(JSON.parse(saved));
+                            }
+                        } catch (e) {
+                            console.error('[App] Error parsing projects fallback:', e);
+                        }
+                    } finally {
+                        setProjectsLoading(false);
+                    }
+                };
+                
+                // Wait for Supabase to initialize
+                const timer = setTimeout(loadProjects, 500);
+                return () => clearTimeout(timer);
+            }, []);
+            
             const [trashedProjects, setTrashedProjects] = useState(() => {
                 const saved = localStorage.getItem('autovol_trash_projects');
                 if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -639,17 +689,25 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             // Fallback to localStorage
                             console.log('[App] Supabase not available, using localStorage');
                             const saved = localStorage.getItem('autovol_employees');
-                            if (saved) {
-                                const parsed = JSON.parse(saved);
-                                setEmployees(parsed.length > 0 ? parsed : []);
+                            if (saved && saved !== 'undefined' && saved !== 'null') {
+                                try {
+                                    const parsed = JSON.parse(saved);
+                                    setEmployees(parsed.length > 0 ? parsed : []);
+                                } catch (e) {
+                                    console.error('[App] Error parsing employees from localStorage:', e);
+                                }
                             }
                         }
                     } catch (error) {
                         console.error('[App] Error loading employees:', error);
                         // Fallback to localStorage on error
                         const saved = localStorage.getItem('autovol_employees');
-                        if (saved) {
-                            setEmployees(JSON.parse(saved));
+                        if (saved && saved !== 'undefined' && saved !== 'null') {
+                            try {
+                                setEmployees(JSON.parse(saved));
+                            } catch (e) {
+                                console.error('[App] Error parsing employees fallback:', e);
+                            }
                         }
                     }
                 };
@@ -662,7 +720,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // Save to localStorage (only when not synced to Firestore)
             useEffect(() => {
                 // Only save to localStorage if not using Firestore (Firestore handles its own persistence)
-                if (!projectsSynced) {
+                if (!projectsSynced && Array.isArray(projects) && projects.length > 0) {
                     localStorage.setItem('autovol_projects', JSON.stringify(projects));
                 }
                 // Sync to unified layer for any modules with close-up at 100%
@@ -1123,8 +1181,24 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     {showProjectModal && (
                         <NewProjectModal 
                             onClose={() => setShowProjectModal(false)}
-                            onSave={(project) => {
-                                setProjects([...projects, { ...project, id: Date.now(), modules: [], createdAt: new Date().toISOString() }]);
+                            onSave={async (project) => {
+                                const newProject = { ...project, id: Date.now(), modules: [], createdAt: new Date().toISOString() };
+                                
+                                // Save to Supabase if available
+                                if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                                    try {
+                                        const savedProject = await window.MODA_SUPABASE_DATA.projects.create(newProject);
+                                        console.log('[App] Project saved to Supabase:', savedProject.id);
+                                        // Use the Supabase-generated ID
+                                        setProjects([...projects, { ...newProject, id: savedProject.id }]);
+                                    } catch (err) {
+                                        console.error('[App] Error saving project to Supabase:', err);
+                                        // Fallback to local state
+                                        setProjects([...projects, newProject]);
+                                    }
+                                } else {
+                                    setProjects([...projects, newProject]);
+                                }
                                 setShowProjectModal(false);
                             }}
                         />
@@ -1236,7 +1310,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [reportIssueContext, setReportIssueContext] = useState(null);
             const [engineeringIssues, setEngineeringIssues] = useState(() => {
                 const saved = localStorage.getItem('autovol_engineering_issues');
-                return saved ? JSON.parse(saved) : [];
+                if (saved && saved !== 'undefined' && saved !== 'null') {
+                    try { return JSON.parse(saved); } catch (e) { return []; }
+                }
+                return [];
             });
             
             // Production weeks integration
@@ -1866,13 +1943,19 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [editMode, setEditMode] = useState(false);
             const [editingModule, setEditingModule] = useState(null);
             const [showLicensePlates, setShowLicensePlates] = useState(false);
+            const [showGoOnlineModal, setShowGoOnlineModal] = useState(false);
+            const [goOnlineNotification, setGoOnlineNotification] = useState(null);
+            const [importNotification, setImportNotification] = useState(null);
             
             // Report Issue State
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
             const [reportIssueContext, setReportIssueContext] = useState(null);
             const [engineeringIssues, setEngineeringIssues] = useState(() => {
                 const saved = localStorage.getItem('autovol_engineering_issues');
-                return saved ? JSON.parse(saved) : [];
+                if (saved && saved !== 'undefined' && saved !== 'null') {
+                    try { return JSON.parse(saved); } catch (e) { return []; }
+                }
+                return [];
             });
             
             const [difficultyFilters, setDifficultyFilters] = useState({
@@ -1969,6 +2052,13 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 }));
                 updateProjectModules([...modules, ...newModules]);
                 setShowImportModal(false);
+                
+                // Show success notification
+                setImportNotification({
+                    message: `Successfully imported ${newModules.length} module${newModules.length !== 1 ? 's' : ''}!`,
+                    type: 'success'
+                });
+                setTimeout(() => setImportNotification(null), 5000);
             };
 
             // Update project status
@@ -2027,9 +2117,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            {project.status !== 'Active' && (
+                            {project.status !== 'Active' && modules.length > 0 && (
                                 <button
-                                    onClick={() => updateProjectStatus('Active')}
+                                    onClick={() => setShowGoOnlineModal(true)}
                                     className="px-4 py-2 btn-secondary rounded-lg transition"
                                 >
                                     Go Online
@@ -2407,6 +2497,212 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             }}
                         />
                     )}
+                    
+                    {/* Go Online Modal */}
+                    {showGoOnlineModal && (
+                        <GoOnlineModal
+                            project={currentProject}
+                            modules={modules}
+                            onClose={() => setShowGoOnlineModal(false)}
+                            onConfirm={(selectedModuleIds, insertAfterSerial) => {
+                                // Update project status to Active
+                                const updatedProjects = projects.map(p => {
+                                    if (p.id !== project.id) return p;
+                                    
+                                    // If specific modules selected, mark them as online
+                                    const updatedModules = p.modules.map(m => {
+                                        if (selectedModuleIds === 'all' || selectedModuleIds.includes(m.id)) {
+                                            return { ...m, isOnline: true };
+                                        }
+                                        return m;
+                                    });
+                                    
+                                    return { ...p, status: 'Active', modules: updatedModules };
+                                });
+                                setProjects(updatedProjects);
+                                setShowGoOnlineModal(false);
+                                
+                                // Show success notification
+                                const count = selectedModuleIds === 'all' ? modules.length : selectedModuleIds.length;
+                                setGoOnlineNotification({
+                                    message: `Project "${project.name}" is now Active with ${count} module${count !== 1 ? 's' : ''} online!`,
+                                    type: 'success'
+                                });
+                                setTimeout(() => setGoOnlineNotification(null), 5000);
+                            }}
+                        />
+                    )}
+                    
+                    {/* Go Online Success Notification */}
+                    {goOnlineNotification && (
+                        <div className="fixed top-4 right-4 z-[200] bg-green-50 border-l-4 border-green-500 text-green-800 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in">
+                            <span className="text-xl">✅</span>
+                            <span className="font-medium">{goOnlineNotification.message}</span>
+                            <button onClick={() => setGoOnlineNotification(null)} className="text-green-600 hover:text-green-800 ml-2">×</button>
+                        </div>
+                    )}
+                    
+                    {/* Import Success Notification */}
+                    {importNotification && (
+                        <div className="fixed top-4 right-4 z-[200] bg-blue-50 border-l-4 border-blue-500 text-blue-800 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in">
+                            <span className="text-xl">📥</span>
+                            <span className="font-medium">{importNotification.message}</span>
+                            <button onClick={() => setImportNotification(null)} className="text-blue-600 hover:text-blue-800 ml-2">×</button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // ===== GO ONLINE MODAL =====
+        function GoOnlineModal({ project, modules, onClose, onConfirm }) {
+            const [mode, setMode] = useState('all'); // 'all' or 'select'
+            const [selectedModules, setSelectedModules] = useState(new Set());
+            const [insertAfter, setInsertAfter] = useState('');
+            
+            // Get modules already online (for insert after dropdown)
+            const onlineModules = modules.filter(m => m.isOnline);
+            
+            const toggleModule = (moduleId) => {
+                setSelectedModules(prev => {
+                    const next = new Set(prev);
+                    if (next.has(moduleId)) {
+                        next.delete(moduleId);
+                    } else {
+                        next.add(moduleId);
+                    }
+                    return next;
+                });
+            };
+            
+            const selectAll = () => setSelectedModules(new Set(modules.map(m => m.id)));
+            const selectNone = () => setSelectedModules(new Set());
+            
+            const handleConfirm = () => {
+                if (mode === 'all') {
+                    onConfirm('all', null);
+                } else {
+                    onConfirm(Array.from(selectedModules), insertAfter);
+                }
+            };
+            
+            return (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b bg-green-50">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-green-800">Go Online</h2>
+                                    <p className="text-sm text-green-600">Activate project: {project.name}</p>
+                                </div>
+                                <button onClick={onClose} className="p-2 hover:bg-green-100 rounded-lg text-2xl text-green-600">×</button>
+                            </div>
+                        </div>
+                        
+                        <div className="p-6 space-y-4">
+                            {/* Mode Selection */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-semibold text-gray-700">Which modules to put online?</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => setMode('all')}
+                                        className={`p-3 rounded-lg border-2 text-left transition ${
+                                            mode === 'all' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="font-semibold text-gray-800">All Modules</div>
+                                        <div className="text-sm text-gray-500">{modules.length} modules</div>
+                                    </button>
+                                    <button
+                                        onClick={() => setMode('select')}
+                                        className={`p-3 rounded-lg border-2 text-left transition ${
+                                            mode === 'select' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="font-semibold text-gray-800">Select Modules</div>
+                                        <div className="text-sm text-gray-500">e.g., prototypes only</div>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {/* Module Selection (if select mode) */}
+                            {mode === 'select' && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="block text-sm font-semibold text-gray-700">
+                                            Select Modules ({selectedModules.size} selected)
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">Select All</button>
+                                            <button onClick={selectNone} className="text-xs text-gray-500 hover:underline">Clear</button>
+                                        </div>
+                                    </div>
+                                    <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
+                                        {modules.map(m => (
+                                            <label key={m.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedModules.has(m.id)}
+                                                    onChange={() => toggleModule(m.id)}
+                                                    className="w-4 h-4 text-green-600 rounded"
+                                                />
+                                                <span className="font-mono text-sm">{m.serialNumber}</span>
+                                                {m.isPrototype && <span className="text-yellow-500 text-xs">★ Prototype</span>}
+                                                <span className="text-xs text-gray-400 ml-auto">#{m.buildSequence}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Insert After (for prototypes) */}
+                                    {onlineModules.length > 0 && (
+                                        <div className="mt-3">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Insert after existing module (optional)
+                                            </label>
+                                            <select
+                                                value={insertAfter}
+                                                onChange={(e) => setInsertAfter(e.target.value)}
+                                                className="w-full border rounded-lg px-3 py-2 text-sm"
+                                            >
+                                                <option value="">At end of schedule</option>
+                                                {onlineModules.map(m => (
+                                                    <option key={m.id} value={m.serialNumber}>
+                                                        After {m.serialNumber} (#{m.buildSequence})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {/* Summary */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="text-sm text-gray-600">
+                                    <strong>Summary:</strong> Project will be set to <span className="text-green-600 font-semibold">Active</span> status with{' '}
+                                    {mode === 'all' ? (
+                                        <span className="font-semibold">{modules.length} modules</span>
+                                    ) : (
+                                        <span className="font-semibold">{selectedModules.size} selected modules</span>
+                                    )}{' '}
+                                    ready for production scheduling.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="p-4 border-t flex justify-end gap-2">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirm}
+                                disabled={mode === 'select' && selectedModules.size === 0}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Go Online
+                            </button>
+                        </div>
+                    </div>
                 </div>
             );
         }
@@ -3555,7 +3851,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         }
 
         ReactDOM.render(<App />, document.getElementById('root'));
-        // ============================================================================
+
+// ============================================================================
 // EMERGENCY RECOVERY FUNCTION
 // Accessible from browser console in case of lockout
 // ============================================================================
@@ -3563,7 +3860,15 @@ window.MODA_EMERGENCY_ADMIN_RESTORE = function() {
     console.log('🚨 EMERGENCY ADMIN RESTORE INITIATED');
     
     // Restore Trevor as protected admin
-    const users = JSON.parse(localStorage.getItem('autovol_users') || '[]');
+    let users = [];
+    try {
+        const saved = localStorage.getItem('autovol_users');
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            users = JSON.parse(saved);
+        }
+    } catch (e) {
+        console.error('Error parsing users:', e);
+    }
     const trevor = users.find(u => 
         u.email === 'trevor@autovol.com' || 
         (u.firstName === 'Trevor' && u.lastName === 'Fletcher')
