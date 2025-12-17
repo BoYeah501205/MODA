@@ -30,6 +30,8 @@ const useWeeklySchedule = () => {
     
     // Ref to track if we're saving to prevent loops
     const isSaving = useRef(false);
+    // Ref to track if update came from real-time (skip save)
+    const isFromRealtime = useRef(false);
     
     // Check Supabase availability
     const isSupabaseAvailable = useCallback(() => {
@@ -116,6 +118,7 @@ const useWeeklySchedule = () => {
                 if (isSaving.current) return; // Skip if we're the one saving
                 
                 if (current) {
+                    isFromRealtime.current = true; // Mark as real-time update to skip save
                     setScheduleSetup({
                         shift1: current.shift1 || DEFAULT_SCHEDULE.shift1,
                         shift2: current.shift2 || DEFAULT_SCHEDULE.shift2
@@ -142,6 +145,12 @@ const useWeeklySchedule = () => {
     // Save to Supabase when schedule changes (debounced)
     useEffect(() => {
         if (loading) return; // Don't save during initial load
+        
+        // Skip save if this update came from real-time subscription
+        if (isFromRealtime.current) {
+            isFromRealtime.current = false; // Reset flag
+            return;
+        }
         
         // Always save to localStorage as backup
         localStorage.setItem('autovol_schedule_setup', JSON.stringify(scheduleSetup));
