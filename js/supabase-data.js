@@ -666,6 +666,512 @@
     };
 
     // ============================================================================
+    // QA MODULE API
+    // ============================================================================
+
+    const QAAPI = {
+        // Get all travelers for a project
+        async getTravelers(projectId = null) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            let query = getClient().from('qa_travelers').select('*');
+            if (projectId) query = query.eq('project_id', projectId);
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Get traveler by module ID
+        async getTravelerByModule(moduleId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('qa_travelers')
+                .select('*')
+                .eq('module_id', moduleId)
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Create or update traveler
+        async saveTraveler(travelerData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const existing = await this.getTravelerByModule(travelerData.module_id);
+            
+            if (existing) {
+                const { data, error } = await getClient()
+                    .from('qa_travelers')
+                    .update({ ...travelerData, updated_at: new Date().toISOString() })
+                    .eq('id', existing.id)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            } else {
+                const { data, error } = await getClient()
+                    .from('qa_travelers')
+                    .insert(travelerData)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            }
+        },
+
+        // Get all deviations
+        async getDeviations(projectId = null) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            let query = getClient().from('qa_deviations').select('*');
+            if (projectId) query = query.eq('project_id', projectId);
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Create deviation
+        async createDeviation(deviationData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('qa_deviations')
+                .insert(deviationData)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Update deviation
+        async updateDeviation(deviationId, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('qa_deviations')
+                .update({ ...updates, updated_at: new Date().toISOString() })
+                .eq('id', deviationId)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Get all test results
+        async getTests(projectId = null) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            let query = getClient().from('qa_tests').select('*');
+            if (projectId) query = query.eq('project_id', projectId);
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Create test result
+        async createTest(testData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('qa_tests')
+                .insert(testData)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        }
+    };
+
+    // ============================================================================
+    // RFI API
+    // ============================================================================
+
+    const RFIAPI = {
+        // Get all RFIs
+        async getAll(projectId = null) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            let query = getClient().from('rfis').select('*');
+            if (projectId) query = query.eq('project_id', projectId);
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Get RFI by ID
+        async getById(rfiId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('rfis')
+                .select('*')
+                .eq('id', rfiId)
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Create RFI
+        async create(rfiData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('rfis')
+                .insert(rfiData)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[RFIs] Created:', data[0]?.id);
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Update RFI
+        async update(rfiId, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('rfis')
+                .update({ ...updates, updated_at: new Date().toISOString() })
+                .eq('id', rfiId)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Delete RFI
+        async delete(rfiId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('rfis')
+                .delete()
+                .eq('id', rfiId);
+            
+            if (error) throw error;
+            return true;
+        }
+    };
+
+    // ============================================================================
+    // TRANSPORT API
+    // ============================================================================
+
+    const TransportAPI = {
+        // Yards
+        async getYards() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('transport_yards')
+                .select('*')
+                .order('name', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        async saveYard(yardData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            if (yardData.id) {
+                const { data, error } = await getClient()
+                    .from('transport_yards')
+                    .update({ ...yardData, updated_at: new Date().toISOString() })
+                    .eq('id', yardData.id)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            } else {
+                const { data, error } = await getClient()
+                    .from('transport_yards')
+                    .insert(yardData)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            }
+        },
+
+        // Companies
+        async getCompanies() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('transport_companies')
+                .select('*')
+                .order('name', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        async saveCompany(companyData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            if (companyData.id) {
+                const { data, error } = await getClient()
+                    .from('transport_companies')
+                    .update({ ...companyData, updated_at: new Date().toISOString() })
+                    .eq('id', companyData.id)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            } else {
+                const { data, error } = await getClient()
+                    .from('transport_companies')
+                    .insert(companyData)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            }
+        },
+
+        // Transport Modules
+        async getModules(projectId = null) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            let query = getClient().from('transport_modules').select('*');
+            if (projectId) query = query.eq('project_id', projectId);
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        },
+
+        async saveModule(moduleData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            if (moduleData.id) {
+                const { data, error } = await getClient()
+                    .from('transport_modules')
+                    .update({ ...moduleData, updated_at: new Date().toISOString() })
+                    .eq('id', moduleData.id)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            } else {
+                const { data, error } = await getClient()
+                    .from('transport_modules')
+                    .insert(moduleData)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            }
+        }
+    };
+
+    // ============================================================================
+    // EQUIPMENT API
+    // ============================================================================
+
+    const EquipmentAPI = {
+        // Get all equipment
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('equipment')
+                .select('*')
+                .order('name', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Save equipment (create or update)
+        async save(equipmentData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            if (equipmentData.id) {
+                const { data, error } = await getClient()
+                    .from('equipment')
+                    .update({ ...equipmentData, updated_at: new Date().toISOString() })
+                    .eq('id', equipmentData.id)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            } else {
+                const { data, error } = await getClient()
+                    .from('equipment')
+                    .insert(equipmentData)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            }
+        },
+
+        // Delete equipment
+        async delete(equipmentId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('equipment')
+                .delete()
+                .eq('id', equipmentId);
+            
+            if (error) throw error;
+            return true;
+        },
+
+        // Get vendors
+        async getVendors() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('equipment_vendors')
+                .select('*')
+                .order('name', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Save vendor
+        async saveVendor(vendorData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            if (vendorData.id) {
+                const { data, error } = await getClient()
+                    .from('equipment_vendors')
+                    .update({ ...vendorData, updated_at: new Date().toISOString() })
+                    .eq('id', vendorData.id)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            } else {
+                const { data, error } = await getClient()
+                    .from('equipment_vendors')
+                    .insert(vendorData)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            }
+        },
+
+        // Get inventory logs
+        async getLogs(equipmentId = null) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            let query = getClient().from('equipment_logs').select('*');
+            if (equipmentId) query = query.eq('equipment_id', equipmentId);
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Create log entry
+        async createLog(logData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('equipment_logs')
+                .insert(logData)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        }
+    };
+
+    // ============================================================================
+    // TRAINING API
+    // ============================================================================
+
+    const TrainingAPI = {
+        // Get training progress for all employees
+        async getProgress() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('training_progress')
+                .select('*')
+                .order('updated_at', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Save training progress
+        async saveProgress(progressData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Upsert based on employee_id + station_id + skill_id
+            const { data, error } = await getClient()
+                .from('training_progress')
+                .upsert(progressData, { 
+                    onConflict: 'employee_id,station_id,skill_id',
+                    ignoreDuplicates: false 
+                })
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Get training stations config
+        async getStations() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('training_stations')
+                .select('*')
+                .order('sort_order', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Save training station config
+        async saveStation(stationData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            if (stationData.id) {
+                const { data, error } = await getClient()
+                    .from('training_stations')
+                    .update({ ...stationData, updated_at: new Date().toISOString() })
+                    .eq('id', stationData.id)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            } else {
+                const { data, error } = await getClient()
+                    .from('training_stations')
+                    .insert(stationData)
+                    .select()
+                    .limit(1);
+                if (error) throw error;
+                return data && data.length > 0 ? data[0] : null;
+            }
+        }
+    };
+
+    // ============================================================================
     // DATA MIGRATION UTILITIES
     // ============================================================================
 
@@ -769,6 +1275,11 @@
         modules: ModulesAPI,
         employees: EmployeesAPI,
         weeklySchedules: WeeklySchedulesAPI,
+        qa: QAAPI,
+        rfis: RFIAPI,
+        transport: TransportAPI,
+        equipment: EquipmentAPI,
+        training: TrainingAPI,
         migration: MigrationAPI
     };
 
