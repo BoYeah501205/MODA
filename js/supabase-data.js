@@ -72,30 +72,45 @@
                     end_date: projectData.endDate || null
                 })
                 .select()
-                .single();
+                .limit(1);
             
             if (error) throw error;
-            console.log('[Projects] Created:', data.id);
-            return data;
+            const created = data && data.length > 0 ? data[0] : null;
+            console.log('[Projects] Created:', created?.id);
+            return created;
         },
 
         // Update existing project
         async update(projectId, updates) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            // Extract only the fields we want to update (avoid sending React internal fields)
+            const updatePayload = {
+                name: updates.name,
+                status: updates.status,
+                location: updates.location,
+                modules: updates.modules || [],
+                client: updates.client,
+                start_date: updates.startDate || updates.start_date,
+                end_date: updates.endDate || updates.end_date,
+                updated_at: new Date().toISOString()
+            };
+            
+            // Remove undefined values
+            Object.keys(updatePayload).forEach(key => 
+                updatePayload[key] === undefined && delete updatePayload[key]
+            );
+            
             const { data, error } = await getClient()
                 .from('projects')
-                .update({
-                    ...updates,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updatePayload)
                 .eq('id', projectId)
                 .select()
-                .single();
+                .limit(1);
             
             if (error) throw error;
-            console.log('[Projects] Updated:', projectId);
-            return data;
+            console.log('[Projects] Updated:', projectId, 'modules:', updatePayload.modules?.length || 0);
+            return data && data.length > 0 ? data[0] : null;
         },
 
         // Delete project
