@@ -44,23 +44,17 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
         return fallback;
     };
     
-    // QA Travelers (one per module)
-    const [travelers, setTravelers] = React.useState(() => {
-        const saved = localStorage.getItem('moda_qa_travelers');
-        return safeParseJSON(saved, {});
-    });
+    // QA Travelers (one per module) - keyed by module serial number
+    const [travelers, setTravelers] = React.useState({});
     
     // Deviations (NC items)
-    const [deviations, setDeviations] = React.useState(() => {
-        const saved = localStorage.getItem('moda_qa_deviations');
-        return safeParseJSON(saved, []);
-    });
+    const [deviations, setDeviations] = React.useState([]);
     
     // Test Results
-    const [testResults, setTestResults] = React.useState(() => {
-        const saved = localStorage.getItem('moda_qa_tests');
-        return safeParseJSON(saved, []);
-    });
+    const [testResults, setTestResults] = React.useState([]);
+    
+    // Loading state
+    const [isLoading, setIsLoading] = React.useState(true);
     
     // Filters
     const [selectedProject, setSelectedProject] = React.useState('all');
@@ -74,18 +68,102 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
     const [selectedModule, setSelectedModule] = React.useState(null);
     const [selectedTraveler, setSelectedTraveler] = React.useState(null);
     
-    // Save to localStorage
+    // Load data from Supabase on mount
     React.useEffect(() => {
+        const loadData = async () => {
+            try {
+                if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                    console.log('[QA] Loading data from Supabase...');
+                    const [travelersData, deviationsData, testsData] = await Promise.all([
+                        window.MODA_SUPABASE_DATA.qa.getTravelers(),
+                        window.MODA_SUPABASE_DATA.qa.getDeviations(),
+                        window.MODA_SUPABASE_DATA.qa.getTests()
+                    ]);
+                    
+                    // Convert travelers array to object keyed by module_id
+                    const travelersObj = {};
+                    travelersData.forEach(t => {
+                        travelersObj[t.module_id] = t.checklist || {};
+                    });
+                    
+                    setTravelers(travelersObj);
+                    setDeviations(deviationsData);
+                    setTestResults(testsData);
+                    console.log('[QA] Loaded from Supabase:', travelersData.length, 'travelers,', deviationsData.length, 'deviations,', testsData.length, 'tests');
+                } else {
+                    // Fallback to localStorage
+                    console.log('[QA] Supabase not available, using localStorage');
+                    const savedTravelers = localStorage.getItem('moda_qa_travelers');
+                    const savedDeviations = localStorage.getItem('moda_qa_deviations');
+                    const savedTests = localStorage.getItem('moda_qa_tests');
+                    
+                    setTravelers(safeParseJSON(savedTravelers, {}));
+                    setDeviations(safeParseJSON(savedDeviations, []));
+                    setTestResults(safeParseJSON(savedTests, []));
+                }
+            } catch (error) {
+                console.error('[QA] Error loading data:', error);
+                // Fallback to localStorage on error
+                const savedTravelers = localStorage.getItem('moda_qa_travelers');
+                const savedDeviations = localStorage.getItem('moda_qa_deviations');
+                const savedTests = localStorage.getItem('moda_qa_tests');
+                
+                setTravelers(safeParseJSON(savedTravelers, {}));
+                setDeviations(safeParseJSON(savedDeviations, []));
+                setTestResults(safeParseJSON(savedTests, []));
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        
+        // Wait for Supabase to initialize
+        const timer = setTimeout(loadData, 500);
+        return () => clearTimeout(timer);
+    }, []);
+    
+    // Save travelers to Supabase (debounced)
+    const lastSavedTravelers = React.useRef(null);
+    React.useEffect(() => {
+        if (isLoading) return;
+        
+        // Always save to localStorage as backup
         localStorage.setItem('moda_qa_travelers', JSON.stringify(travelers));
-    }, [travelers]);
+        
+        // Sync to Supabase
+        if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+            const syncTravelers = async () => {
+                const lastTravelers = lastSavedTravelers.current || {};
+                for (const [moduleId, checklist] of Object.entries(travelers)) {
+                    if (JSON.stringify(lastTravelers[moduleId]) !== JSON.stringify(checklist)) {
+                        try {
+                            await window.MODA_SUPABASE_DATA.qa.saveTraveler({
+                                module_id: moduleId,
+                                checklist: checklist
+                            });
+                        } catch (err) {
+                            console.error('[QA] Error saving traveler:', err);
+                        }
+                    }
+                }
+                lastSavedTravelers.current = JSON.parse(JSON.stringify(travelers));
+            };
+            
+            const timeout = setTimeout(syncTravelers, 1000);
+            return () => clearTimeout(timeout);
+        }
+    }, [travelers, isLoading]);
     
+    // Save deviations to localStorage (Supabase sync happens on create/update)
     React.useEffect(() => {
+        if (isLoading) return;
         localStorage.setItem('moda_qa_deviations', JSON.stringify(deviations));
-    }, [deviations]);
+    }, [deviations, isLoading]);
     
+    // Save test results to localStorage (Supabase sync happens on create)
     React.useEffect(() => {
+        if (isLoading) return;
         localStorage.setItem('moda_qa_tests', JSON.stringify(testResults));
-    }, [testResults]);
+    }, [testResults, isLoading]);
     
     // Production stage IDs (must match App.jsx)
     const PRODUCTION_STAGE_IDS = [

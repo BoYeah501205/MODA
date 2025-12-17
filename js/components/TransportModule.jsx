@@ -83,18 +83,10 @@
         return fallback;
       };
       const [activeView, setActiveView] = useState('board');
-      const [modules, setModules] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEYS.modules);
-        return safeParseJSON(saved, SAMPLE_MODULES);
-      });
-      const [yards, setYards] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEYS.yards);
-        return safeParseJSON(saved, DEFAULT_YARDS);
-      });
-      const [companies, setCompanies] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEYS.companies);
-        return safeParseJSON(saved, SAMPLE_COMPANIES);
-      });
+      const [modules, setModules] = useState([]);
+      const [yards, setYards] = useState([]);
+      const [companies, setCompanies] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
       const [selectedModule, setSelectedModule] = useState(null);
       const [showAddYard, setShowAddYard] = useState(false);
       const [showAddCompany, setShowAddCompany] = useState(false);
@@ -102,10 +94,46 @@
       const [editingYard, setEditingYard] = useState(null);
       const [editingCompany, setEditingCompany] = useState(null);
 
-      // Save to localStorage
-      useEffect(() => { localStorage.setItem(STORAGE_KEYS.modules, JSON.stringify(modules)); }, [modules]);
-      useEffect(() => { localStorage.setItem(STORAGE_KEYS.yards, JSON.stringify(yards)); }, [yards]);
-      useEffect(() => { localStorage.setItem(STORAGE_KEYS.companies, JSON.stringify(companies)); }, [companies]);
+      // Load data from Supabase on mount
+      useEffect(() => {
+        const loadData = async () => {
+          try {
+            if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+              console.log('[Transport] Loading data from Supabase...');
+              const [modulesData, yardsData, companiesData] = await Promise.all([
+                window.MODA_SUPABASE_DATA.transport.getModules(),
+                window.MODA_SUPABASE_DATA.transport.getYards(),
+                window.MODA_SUPABASE_DATA.transport.getCompanies()
+              ]);
+              
+              setModules(modulesData.length > 0 ? modulesData : safeParseJSON(localStorage.getItem(STORAGE_KEYS.modules), SAMPLE_MODULES));
+              setYards(yardsData.length > 0 ? yardsData : safeParseJSON(localStorage.getItem(STORAGE_KEYS.yards), DEFAULT_YARDS));
+              setCompanies(companiesData.length > 0 ? companiesData : safeParseJSON(localStorage.getItem(STORAGE_KEYS.companies), SAMPLE_COMPANIES));
+              console.log('[Transport] Loaded from Supabase:', modulesData.length, 'modules,', yardsData.length, 'yards,', companiesData.length, 'companies');
+            } else {
+              console.log('[Transport] Supabase not available, using localStorage');
+              setModules(safeParseJSON(localStorage.getItem(STORAGE_KEYS.modules), SAMPLE_MODULES));
+              setYards(safeParseJSON(localStorage.getItem(STORAGE_KEYS.yards), DEFAULT_YARDS));
+              setCompanies(safeParseJSON(localStorage.getItem(STORAGE_KEYS.companies), SAMPLE_COMPANIES));
+            }
+          } catch (error) {
+            console.error('[Transport] Error loading data:', error);
+            setModules(safeParseJSON(localStorage.getItem(STORAGE_KEYS.modules), SAMPLE_MODULES));
+            setYards(safeParseJSON(localStorage.getItem(STORAGE_KEYS.yards), DEFAULT_YARDS));
+            setCompanies(safeParseJSON(localStorage.getItem(STORAGE_KEYS.companies), SAMPLE_COMPANIES));
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        
+        const timer = setTimeout(loadData, 500);
+        return () => clearTimeout(timer);
+      }, []);
+
+      // Save to localStorage as backup
+      useEffect(() => { if (!isLoading) localStorage.setItem(STORAGE_KEYS.modules, JSON.stringify(modules)); }, [modules, isLoading]);
+      useEffect(() => { if (!isLoading) localStorage.setItem(STORAGE_KEYS.yards, JSON.stringify(yards)); }, [yards, isLoading]);
+      useEffect(() => { if (!isLoading) localStorage.setItem(STORAGE_KEYS.companies, JSON.stringify(companies)); }, [companies, isLoading]);
 
       // Sync from unified layer - import modules marked "Ready for Yard" from Station Board
       useEffect(() => {

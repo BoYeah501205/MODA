@@ -40,26 +40,80 @@ function RFIManager({ projects = [], employees = [] }) {
         white: '#FFFFFF'
     };
 
+    const [isLoading, setIsLoading] = useState(true);
+
     // ===== LOAD/SAVE DATA =====
     useEffect(() => {
-        let stored = [];
-        try {
-            const saved = localStorage.getItem('moda_rfis');
-            if (saved && saved !== 'undefined' && saved !== 'null') {
-                stored = JSON.parse(saved);
+        const loadData = async () => {
+            try {
+                if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                    console.log('[RFI] Loading data from Supabase...');
+                    const rfisData = await window.MODA_SUPABASE_DATA.rfis.getAll();
+                    
+                    if (rfisData.length > 0) {
+                        setRfis(rfisData);
+                        console.log('[RFI] Loaded', rfisData.length, 'RFIs from Supabase');
+                    } else {
+                        // Fallback to localStorage or create samples
+                        let stored = [];
+                        try {
+                            const saved = localStorage.getItem('moda_rfis');
+                            if (saved && saved !== 'undefined' && saved !== 'null') {
+                                stored = JSON.parse(saved);
+                            }
+                        } catch (e) {
+                            console.error('[RFI] Error parsing localStorage:', e);
+                        }
+                        if (stored.length === 0) {
+                            const samples = createSampleRFIs();
+                            setRfis(samples);
+                        } else {
+                            setRfis(stored);
+                        }
+                    }
+                } else {
+                    console.log('[RFI] Supabase not available, using localStorage');
+                    let stored = [];
+                    try {
+                        const saved = localStorage.getItem('moda_rfis');
+                        if (saved && saved !== 'undefined' && saved !== 'null') {
+                            stored = JSON.parse(saved);
+                        }
+                    } catch (e) {
+                        console.error('[RFI] Error parsing localStorage:', e);
+                    }
+                    if (stored.length === 0) {
+                        const samples = createSampleRFIs();
+                        setRfis(samples);
+                    } else {
+                        setRfis(stored);
+                    }
+                }
+            } catch (error) {
+                console.error('[RFI] Error loading data:', error);
+                let stored = [];
+                try {
+                    const saved = localStorage.getItem('moda_rfis');
+                    if (saved && saved !== 'undefined' && saved !== 'null') {
+                        stored = JSON.parse(saved);
+                    }
+                } catch (e) { /* ignore */ }
+                setRfis(stored.length > 0 ? stored : createSampleRFIs());
+            } finally {
+                setIsLoading(false);
             }
-        } catch (e) {
-            console.error('[RFIManager] Error parsing localStorage:', e);
-        }
-        if (stored.length === 0) {
-            // Create sample RFIs for demo
-            const samples = createSampleRFIs();
-            setRfis(samples);
-            localStorage.setItem('moda_rfis', JSON.stringify(samples));
-        } else {
-            setRfis(stored);
-        }
+        };
+        
+        const timer = setTimeout(loadData, 500);
+        return () => clearTimeout(timer);
     }, []);
+
+    // Save to localStorage as backup when RFIs change
+    useEffect(() => {
+        if (!isLoading && rfis.length > 0) {
+            localStorage.setItem('moda_rfis', JSON.stringify(rfis));
+        }
+    }, [rfis, isLoading]);
 
     const saveRFIs = (updatedRFIs) => {
         setRfis(updatedRFIs);

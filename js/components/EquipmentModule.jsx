@@ -170,42 +170,70 @@
             const [filterStatus, setFilterStatus] = useState('All');
             const [filterToolStatus, setFilterToolStatus] = useState('All');
 
-            // Load data
+            const [isLoading, setIsLoading] = useState(true);
+            
+            const safeParseJSON = (str, fallback) => {
+                if (str && str !== 'undefined' && str !== 'null') {
+                    try { return JSON.parse(str); } catch (e) { return fallback; }
+                }
+                return fallback;
+            };
+
+            // Load data from Supabase on mount
             useEffect(() => {
-                const savedEquipment = localStorage.getItem('modaEquipmentV2');
-                const savedVendors = localStorage.getItem('modaVendorsV2');
-                const savedLogs = localStorage.getItem('modaInventoryLogs');
-                const savedResolutions = localStorage.getItem('modaMissingResolutions');
-                
-                const safeParseJSON = (str, fallback) => {
-                    if (str && str !== 'undefined' && str !== 'null') {
-                        try { return JSON.parse(str); } catch (e) { return fallback; }
+                const loadData = async () => {
+                    try {
+                        if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                            console.log('[Equipment] Loading data from Supabase...');
+                            const [equipmentData, vendorsData, logsData] = await Promise.all([
+                                window.MODA_SUPABASE_DATA.equipment.getAll(),
+                                window.MODA_SUPABASE_DATA.equipment.getVendors(),
+                                window.MODA_SUPABASE_DATA.equipment.getLogs()
+                            ]);
+                            
+                            setEquipment(equipmentData.length > 0 ? equipmentData : safeParseJSON(localStorage.getItem('modaEquipmentV2'), equipmentInitialData));
+                            setVendors(vendorsData.length > 0 ? vendorsData : safeParseJSON(localStorage.getItem('modaVendorsV2'), equipmentInitialVendors));
+                            setInventoryLogs(logsData.length > 0 ? logsData : safeParseJSON(localStorage.getItem('modaInventoryLogs'), []));
+                            setMissingResolutions(safeParseJSON(localStorage.getItem('modaMissingResolutions'), []));
+                            console.log('[Equipment] Loaded from Supabase:', equipmentData.length, 'items,', vendorsData.length, 'vendors,', logsData.length, 'logs');
+                        } else {
+                            console.log('[Equipment] Supabase not available, using localStorage');
+                            setEquipment(safeParseJSON(localStorage.getItem('modaEquipmentV2'), equipmentInitialData));
+                            setVendors(safeParseJSON(localStorage.getItem('modaVendorsV2'), equipmentInitialVendors));
+                            setInventoryLogs(safeParseJSON(localStorage.getItem('modaInventoryLogs'), []));
+                            setMissingResolutions(safeParseJSON(localStorage.getItem('modaMissingResolutions'), []));
+                        }
+                    } catch (error) {
+                        console.error('[Equipment] Error loading data:', error);
+                        setEquipment(safeParseJSON(localStorage.getItem('modaEquipmentV2'), equipmentInitialData));
+                        setVendors(safeParseJSON(localStorage.getItem('modaVendorsV2'), equipmentInitialVendors));
+                        setInventoryLogs(safeParseJSON(localStorage.getItem('modaInventoryLogs'), []));
+                        setMissingResolutions(safeParseJSON(localStorage.getItem('modaMissingResolutions'), []));
+                    } finally {
+                        setIsLoading(false);
                     }
-                    return fallback;
                 };
                 
-                setEquipment(safeParseJSON(savedEquipment, equipmentInitialData));
-                setVendors(safeParseJSON(savedVendors, equipmentInitialVendors));
-                setInventoryLogs(safeParseJSON(savedLogs, []));
-                setMissingResolutions(safeParseJSON(savedResolutions, []));
+                const timer = setTimeout(loadData, 500);
+                return () => clearTimeout(timer);
             }, []);
 
-            // Save data
+            // Save data to localStorage as backup
             useEffect(() => {
-                if (equipment.length > 0) localStorage.setItem('modaEquipmentV2', JSON.stringify(equipment));
-            }, [equipment]);
+                if (!isLoading && equipment.length > 0) localStorage.setItem('modaEquipmentV2', JSON.stringify(equipment));
+            }, [equipment, isLoading]);
 
             useEffect(() => {
-                if (vendors.length > 0) localStorage.setItem('modaVendorsV2', JSON.stringify(vendors));
-            }, [vendors]);
+                if (!isLoading && vendors.length > 0) localStorage.setItem('modaVendorsV2', JSON.stringify(vendors));
+            }, [vendors, isLoading]);
 
             useEffect(() => {
-                localStorage.setItem('modaInventoryLogs', JSON.stringify(inventoryLogs));
-            }, [inventoryLogs]);
+                if (!isLoading) localStorage.setItem('modaInventoryLogs', JSON.stringify(inventoryLogs));
+            }, [inventoryLogs, isLoading]);
 
             useEffect(() => {
-                localStorage.setItem('modaMissingResolutions', JSON.stringify(missingResolutions));
-            }, [missingResolutions]);
+                if (!isLoading) localStorage.setItem('modaMissingResolutions', JSON.stringify(missingResolutions));
+            }, [missingResolutions, isLoading]);
 
             // Notification system
             const showNotification = (message, type = 'info') => {
