@@ -2,6 +2,7 @@
 // MODA API Client
 // Frontend API layer for communicating with backend
 // Falls back to localStorage when backend is unavailable
+// Backend disabled for production - using Supabase instead
 // ============================================================================
 
 const MODA_API = (function() {
