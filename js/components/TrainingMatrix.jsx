@@ -125,12 +125,15 @@ function TrainingMatrixView({ employees: propEmployees, currentUser, isAdmin }) 
     const depts = useMemo(() => [...new Set(trainingEmployees.map(e => e.department).filter(Boolean))].sort(), [trainingEmployees]);
     
     const filtered = useMemo(() => {
-        let r = trainingEmployees.filter(e => 
-            `${e.firstName} ${e.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) && 
-            (deptFilter === 'all' || e.department === deptFilter)
-        );
+        let r = trainingEmployees.filter(e => {
+            if (!e) return false;
+            const fullName = `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase();
+            return fullName.includes((searchTerm || '').toLowerCase()) && 
+                (deptFilter === 'all' || e.department === deptFilter);
+        });
         r.sort((a, b) => {
-            if (sortBy === 'name') return `${a.lastName}`.localeCompare(`${b.lastName}`);
+            if (!a || !b) return 0;
+            if (sortBy === 'name') return (a.lastName || '').localeCompare(b.lastName || '');
             if (sortBy === 'department') return (a.department || '').localeCompare(b.department || '');
             if (sortBy === 'hireDate') return new Date(a.hireDate || 0) - new Date(b.hireDate || 0);
             return 0;
