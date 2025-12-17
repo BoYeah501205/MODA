@@ -726,7 +726,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 return () => clearTimeout(timer);
             }, []);
 
-            // Save to localStorage (only when not synced to Firestore)
+            // Save to localStorage and sync to Supabase when projects change
+            const lastSyncedProjects = useRef(null);
             useEffect(() => {
                 // Only save to localStorage if not using Firestore (Firestore handles its own persistence)
                 if (!projectsSynced && Array.isArray(projects) && projects.length > 0) {
@@ -734,6 +735,31 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 }
                 // Sync to unified layer for any modules with close-up at 100%
                 MODA_UNIFIED.migrateFromProjects();
+                
+                // Sync changed projects to Supabase (debounced)
+                if (projectsSynced && window.MODA_SUPABASE_DATA?.isAvailable?.() && Array.isArray(projects)) {
+                    // Find projects that changed
+                    const syncToSupabase = async () => {
+                        const lastProjects = lastSyncedProjects.current || [];
+                        for (const project of projects) {
+                            const lastVersion = lastProjects.find(p => p.id === project.id);
+                            // Check if project changed (compare modules array length or stringify)
+                            if (!lastVersion || JSON.stringify(lastVersion) !== JSON.stringify(project)) {
+                                try {
+                                    await window.MODA_SUPABASE_DATA.projects.update(project.id, project);
+                                    console.log('[App] Synced project to Supabase:', project.name);
+                                } catch (err) {
+                                    console.error('[App] Error syncing project to Supabase:', err);
+                                }
+                            }
+                        }
+                        lastSyncedProjects.current = JSON.parse(JSON.stringify(projects));
+                    };
+                    
+                    // Debounce the sync
+                    const syncTimeout = setTimeout(syncToSupabase, 1000);
+                    return () => clearTimeout(syncTimeout);
+                }
             }, [projects, projectsSynced]);
 
             useEffect(() => {
