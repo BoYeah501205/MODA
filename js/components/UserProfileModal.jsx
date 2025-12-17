@@ -21,7 +21,7 @@ function UserProfileModal({ auth, employees = [], onClose, darkMode, setDarkMode
         const email = auth?.currentUser?.email;
         if (!email) return null;
         return employees.find(e => 
-            e.email?.toLowerCase() === email.toLowerCase()
+            (e.email || '').toLowerCase() === (email || '').toLowerCase()
         );
     }, [auth?.currentUser?.email, employees]);
     

@@ -341,14 +341,14 @@ window.ProjectSequencing.SequenceBuilder = function SequenceBuilder({ project, i
     
     const getDisplayModules = () => {
         let result = [...modules];
-        if (searchTerm) { const t = searchTerm.toLowerCase(); result = result.filter(m => Object.values(m).some(v => String(v).toLowerCase().includes(t))); }
+        if (searchTerm) { const t = (searchTerm || '').toLowerCase(); result = result.filter(m => Object.values(m).some(v => String(v || '').toLowerCase().includes(t))); }
         Object.entries(columnFilters).forEach(([colId, fv]) => {
             if (fv !== '' && fv !== undefined) {
                 const col = SEQUENCE_COLUMNS.find(c => c.id === colId);
                 if (col?.type === 'checkbox') {
                     if (fv === 'checked') result = result.filter(m => m[colId] === true);
                     else if (fv === 'unchecked') result = result.filter(m => m[colId] === false);
-                } else { result = result.filter(m => String(m[colId] || '').toLowerCase().includes(fv.toLowerCase())); }
+                } else { result = result.filter(m => String(m[colId] || '').toLowerCase().includes((fv || '').toLowerCase())); }
             }
         });
         if (sortConfig.column) result.sort((a, b) => { const av = a[sortConfig.column], bv = b[sortConfig.column]; return (av < bv ? -1 : av > bv ? 1 : 0) * (sortConfig.direction === 'asc' ? 1 : -1); });

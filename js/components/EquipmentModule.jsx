@@ -213,7 +213,7 @@
             const isSerialIdDuplicate = (serialId, excludeId = null) => {
                 return equipment.some(e => 
                     e.serialId && 
-                    e.serialId.toLowerCase() === serialId.toLowerCase() && 
+                    (e.serialId || '').toLowerCase() === (serialId || '').toLowerCase() && 
                     e.id !== excludeId
                 );
             };
@@ -363,10 +363,10 @@
             // Filtered equipment
             const filteredEquipment = equipment.filter(item => {
                 const matchesSearch = 
-                    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (item.serialId && item.serialId.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                    (item.assignedTo && item.assignedTo.toLowerCase().includes(searchTerm.toLowerCase()));
+                    (item.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+                    (item.id || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+                    (item.serialId || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+                    (item.assignedTo || '').toLowerCase().includes((searchTerm || '').toLowerCase());
                 const matchesType = filterType === 'All' || item.type === filterType;
                 const matchesStatus = filterStatus === 'All' || item.status === filterStatus;
                 const matchesToolStatus = filterToolStatus === 'All' || item.toolStatus === filterToolStatus;
@@ -1528,7 +1528,7 @@
             const [searchTerm, setSearchTerm] = useState('');
 
             const filteredVendors = vendors.filter(v =>
-                v.name.toLowerCase().includes(searchTerm.toLowerCase())
+                (v.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
             );
 
             return (
@@ -2097,7 +2097,8 @@
                     </div>
                 </div>
             );
-        }
+        }
+
 
 // Export for use in App.jsx
 window.EquipmentApp = EquipmentApp;

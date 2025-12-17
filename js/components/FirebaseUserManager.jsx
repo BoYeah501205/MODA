@@ -152,12 +152,12 @@ function FirebaseUserManager({ auth }) {
     // Filter users by search term
     const filteredUsers = firebaseUsers.filter(user => {
         if (!searchTerm) return true;
-        const term = searchTerm.toLowerCase();
+        const term = (searchTerm || '').toLowerCase();
         return (
-            user.email?.toLowerCase().includes(term) ||
-            user.name?.toLowerCase().includes(term) ||
-            user.department?.toLowerCase().includes(term) ||
-            user.dashboardRole?.toLowerCase().includes(term)
+            (user.email || '').toLowerCase().includes(term) ||
+            (user.name || '').toLowerCase().includes(term) ||
+            (user.department || '').toLowerCase().includes(term) ||
+            (user.dashboardRole || '').toLowerCase().includes(term)
         );
     });
 

@@ -256,8 +256,8 @@ function useAuth() {
         if (saved) {
             const savedUsers = JSON.parse(saved);
             // Merge in any new INITIAL_USERS that don't exist in saved
-            const savedEmails = savedUsers.map(u => u.email.toLowerCase());
-            const newUsers = INITIAL_USERS.filter(u => !savedEmails.includes(u.email.toLowerCase()));
+            const savedEmails = savedUsers.map(u => (u.email || '').toLowerCase());
+            const newUsers = INITIAL_USERS.filter(u => !savedEmails.includes((u.email || '').toLowerCase()));
             if (newUsers.length > 0) {
                 return [...savedUsers, ...newUsers];
             }
@@ -346,7 +346,7 @@ function useAuth() {
                         name: profile.name || result.user.email.split('@')[0],
                         dashboardRole: profile.dashboard_role || 'employee',
                         department: profile.department || '',
-                        isProtected: (profile.email || result.user.email).toLowerCase() === 'trevor@autovol.com'
+                        isProtected: ((profile.email || result.user.email) || '').toLowerCase() === 'trevor@autovol.com'
                     };
                     console.log('[Auth] Setting session:', session);
                     setCurrentUser(session);
@@ -367,7 +367,7 @@ function useAuth() {
         }
         
         // Fallback to local users (offline/demo mode only)
-        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password && u.active);
+        const user = users.find(u => (u.email || '').toLowerCase() === (email || '').toLowerCase() && u.password === password && u.active);
         if (user) {
             let migratedUser = { ...user };
             if (user.role && !user.dashboardRole) {
@@ -452,7 +452,7 @@ function useAuth() {
             }
         }
         // Fallback to local (simulated - offline mode only)
-        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase()); 
+        const user = users.find(u => (u.email || '').toLowerCase() === (email || '').toLowerCase()); 
         return user ? { success: true, message: 'Password reset email sent (simulated)' } : { success: false, error: 'Email not found' }; 
     };
 

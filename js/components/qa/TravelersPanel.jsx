@@ -70,9 +70,9 @@ function TravelersPanel({
     const getFilteredModules = (section) => {
         return modules.filter(module => {
             const matchesSearch = !searchTerm || 
-                module.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                module.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                module.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+                (module.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+                (module.projectName || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+                (module.serialNumber || '').toLowerCase().includes((searchTerm || '').toLowerCase());
             
             if (!matchesSearch) return false;
             

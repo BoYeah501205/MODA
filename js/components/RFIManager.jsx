@@ -143,9 +143,9 @@ function RFIManager({ projects = [], employees = [] }) {
         return rfis.filter(rfi => {
             const status = getRFIStatus(rfi);
             const matchesSearch = !filters.search || 
-                rfi.id.toLowerCase().includes(filters.search.toLowerCase()) ||
-                rfi.subject.toLowerCase().includes(filters.search.toLowerCase()) ||
-                (rfi.module && rfi.module.toLowerCase().includes(filters.search.toLowerCase()));
+                (rfi.id || '').toLowerCase().includes((filters.search || '').toLowerCase()) ||
+                (rfi.subject || '').toLowerCase().includes((filters.search || '').toLowerCase()) ||
+                (rfi.module || '').toLowerCase().includes((filters.search || '').toLowerCase());
             const matchesStatus = !filters.status || status === filters.status;
             const matchesPriority = !filters.priority || rfi.priority === filters.priority;
             const matchesProject = !filters.project || rfi.project === filters.project;
@@ -338,7 +338,7 @@ function RFIManager({ projects = [], employees = [] }) {
                 'priority-medium': { bg: '#FEF3C7', color: '#92400E' },
                 'priority-low': { bg: '#DBEAFE', color: '#1E40AF' }
             };
-            const key = `${type}-${value.toLowerCase()}`;
+            const key = `${type}-${(value || '').toLowerCase()}`;
             const c = colors[key] || { bg: COLORS.gray200, color: COLORS.gray700 };
             return {
                 padding: '4px 10px',
