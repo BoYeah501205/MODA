@@ -144,7 +144,10 @@ function useDashboardRoles() {
     const [roles, setRoles] = useState(() => {
         initializeDashboardRoles();
         const saved = localStorage.getItem('autovol_dashboard_roles');
-        return saved ? JSON.parse(saved) : DEFAULT_DASHBOARD_ROLES;
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try { return JSON.parse(saved); } catch (e) { /* fall through */ }
+        }
+        return DEFAULT_DASHBOARD_ROLES;
     });
 
     useEffect(() => {

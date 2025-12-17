@@ -239,22 +239,27 @@ function useAuth() {
     // Simple state - load from localStorage on init
     const [currentUser, setCurrentUser] = useState(() => {
         const saved = localStorage.getItem('autovol_session');
-        if (saved) {
-            console.log('[Auth] Found saved session in localStorage');
-            return JSON.parse(saved);
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try {
+                console.log('[Auth] Found saved session in localStorage');
+                return JSON.parse(saved);
+            } catch (e) { console.error('[Auth] Failed to parse localStorage session:', e); }
         }
         const sessionSaved = sessionStorage.getItem('autovol_session');
-        if (sessionSaved) {
-            console.log('[Auth] Found saved session in sessionStorage');
-            return JSON.parse(sessionSaved);
+        if (sessionSaved && sessionSaved !== 'undefined' && sessionSaved !== 'null') {
+            try {
+                console.log('[Auth] Found saved session in sessionStorage');
+                return JSON.parse(sessionSaved);
+            } catch (e) { console.error('[Auth] Failed to parse sessionStorage session:', e); }
         }
         return null;
     });
     
     const [users, setUsers] = useState(() => {
         const saved = localStorage.getItem('autovol_users');
-        if (saved) {
-            const savedUsers = JSON.parse(saved);
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            let savedUsers;
+            try { savedUsers = JSON.parse(saved); } catch (e) { return INITIAL_USERS; }
             // Merge in any new INITIAL_USERS that don't exist in saved
             const savedEmails = savedUsers.map(u => (u.email || '').toLowerCase());
             const newUsers = INITIAL_USERS.filter(u => !savedEmails.includes((u.email || '').toLowerCase()));
