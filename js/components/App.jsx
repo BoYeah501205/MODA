@@ -491,21 +491,25 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             };
             const [trashedProjects, setTrashedProjects] = useState(() => {
                 const saved = localStorage.getItem('autovol_trash_projects');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    // Auto-purge items older than 90 days
-                    const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
-                    return parsed.filter(p => p.deletedAt > ninetyDaysAgo);
+                if (saved && saved !== 'undefined' && saved !== 'null') {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        // Auto-purge items older than 90 days
+                        const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+                        return parsed.filter(p => p.deletedAt > ninetyDaysAgo);
+                    } catch (e) { return []; }
                 }
                 return [];
             });
             const [trashedEmployees, setTrashedEmployees] = useState(() => {
                 const saved = localStorage.getItem('autovol_trash_employees');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    // Auto-purge items older than 90 days
-                    const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
-                    return parsed.filter(e => e.deletedAt > ninetyDaysAgo);
+                if (saved && saved !== 'undefined' && saved !== 'null') {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        // Auto-purge items older than 90 days
+                        const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+                        return parsed.filter(e => e.deletedAt > ninetyDaysAgo);
+                    } catch (e) { return []; }
                 }
                 return [];
             });
@@ -610,7 +614,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [employeesSynced, setEmployeesSynced] = useState(false);
             const [departments, setDepartments] = useState(() => {
                 const saved = localStorage.getItem('autovol_departments');
-                return saved ? JSON.parse(saved) : productionStages.map(s => ({
+                if (saved && saved !== 'undefined' && saved !== 'null') {
+                    try { return JSON.parse(saved); } catch (e) { /* fall through */ }
+                }
+                return productionStages.map(s => ({
                     id: s.id,
                     name: s.name,
                     supervisor: null,
