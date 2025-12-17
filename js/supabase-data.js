@@ -838,10 +838,12 @@
         },
 
         // Check if current user can edit schedules
+        // Only trevor@autovol.com and stephanie@autovol.com can modify schedule setup
         canEdit() {
             const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
                               window.MODA_SUPABASE?.currentUser?.email || '';
-            return userEmail.toLowerCase() === 'trevor@autovol.com';
+            const allowedEditors = ['trevor@autovol.com', 'stephanie@autovol.com'];
+            return allowedEditors.includes(userEmail.toLowerCase());
         },
 
         // Subscribe to real-time changes
@@ -1479,6 +1481,287 @@
     };
 
     // ============================================================================
+    // STATION STAGGERS API
+    // ============================================================================
+
+    const StationStaggersAPI = {
+        // Get current staggers configuration
+        async get() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('station_staggers')
+                .select('*')
+                .eq('id', 'current')
+                .limit(1);
+            
+            if (error) throw error;
+            return data && data.length > 0 ? data[0].staggers : null;
+        },
+
+        // Save staggers configuration
+        async save(staggers) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('station_staggers')
+                .upsert({
+                    id: 'current',
+                    staggers: staggers,
+                    updated_at: new Date().toISOString(),
+                    updated_by: window.MODA_SUPABASE?.currentUser?.id || null
+                }, { onConflict: 'id' })
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[StationStaggers] Saved configuration');
+            return data && data.length > 0 ? data[0] : null;
+        }
+    };
+
+    // ============================================================================
+    // STAGGER CHANGE LOG API
+    // ============================================================================
+
+    const StaggerChangeLogAPI = {
+        // Get all change log entries
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('stagger_change_log')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            return (data || []).map(row => ({
+                id: row.id,
+                description: row.description,
+                changes: row.changes || {},
+                staggersSnapshot: row.staggers_snapshot || {},
+                changedBy: row.changed_by,
+                timestamp: row.created_at
+            }));
+        },
+
+        // Add a change log entry
+        async add(entry) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('stagger_change_log')
+                .insert({
+                    description: entry.description,
+                    changes: entry.changes || {},
+                    staggers_snapshot: entry.staggersSnapshot || {},
+                    changed_by: entry.changedBy,
+                    changed_by_id: window.MODA_SUPABASE?.currentUser?.id || null
+                })
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[StaggerChangeLog] Added entry:', entry.description);
+            return data && data.length > 0 ? data[0] : null;
+        }
+    };
+
+    // ============================================================================
+    // ENGINEERING ISSUES API
+    // ============================================================================
+
+    const EngineeringIssuesAPI = {
+        // Get all issues
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('engineering_issues')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            return (data || []).map(row => ({
+                id: row.id,
+                moduleId: row.module_id,
+                projectId: row.project_id,
+                title: row.title,
+                description: row.description,
+                severity: row.severity,
+                status: row.status,
+                assignedTo: row.assigned_to,
+                reportedBy: row.reported_by,
+                resolution: row.resolution,
+                resolvedAt: row.resolved_at,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            }));
+        },
+
+        // Create issue
+        async create(issue) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('engineering_issues')
+                .insert({
+                    module_id: issue.moduleId,
+                    project_id: issue.projectId,
+                    title: issue.title,
+                    description: issue.description,
+                    severity: issue.severity || 'medium',
+                    status: issue.status || 'open',
+                    assigned_to: issue.assignedTo,
+                    reported_by: issue.reportedBy,
+                    reported_by_id: window.MODA_SUPABASE?.currentUser?.id || null
+                })
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[EngineeringIssues] Created:', issue.title);
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Update issue
+        async update(issueId, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const dbUpdates = {};
+            if (updates.title !== undefined) dbUpdates.title = updates.title;
+            if (updates.description !== undefined) dbUpdates.description = updates.description;
+            if (updates.severity !== undefined) dbUpdates.severity = updates.severity;
+            if (updates.status !== undefined) dbUpdates.status = updates.status;
+            if (updates.assignedTo !== undefined) dbUpdates.assigned_to = updates.assignedTo;
+            if (updates.resolution !== undefined) dbUpdates.resolution = updates.resolution;
+            if (updates.status === 'resolved') dbUpdates.resolved_at = new Date().toISOString();
+            dbUpdates.updated_at = new Date().toISOString();
+            
+            const { data, error } = await getClient()
+                .from('engineering_issues')
+                .update(dbUpdates)
+                .eq('id', issueId)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[EngineeringIssues] Updated:', issueId);
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Delete issue
+        async delete(issueId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('engineering_issues')
+                .delete()
+                .eq('id', issueId);
+            
+            if (error) throw error;
+            console.log('[EngineeringIssues] Deleted:', issueId);
+            return true;
+        }
+    };
+
+    // ============================================================================
+    // TRASHED PROJECTS API
+    // ============================================================================
+
+    const TrashedProjectsAPI = {
+        // Get all trashed projects
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('trashed_projects')
+                .select('*')
+                .order('deleted_at', { ascending: false });
+            
+            if (error) throw error;
+            return (data || []).map(row => ({
+                id: row.id,
+                originalId: row.original_id,
+                name: row.name,
+                status: row.status,
+                location: row.location,
+                modules: row.modules || [],
+                projectData: row.project_data || {},
+                deletedAt: new Date(row.deleted_at).getTime(),
+                deletedBy: row.deleted_by_name
+            }));
+        },
+
+        // Move project to trash
+        async trash(project) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('trashed_projects')
+                .insert({
+                    original_id: project.id,
+                    name: project.name,
+                    status: project.status,
+                    location: project.location,
+                    modules: project.modules || [],
+                    project_data: project,
+                    deleted_by: window.MODA_SUPABASE?.currentUser?.id || null,
+                    deleted_by_name: window.MODA_SUPABASE?.currentUser?.name || 'Unknown'
+                })
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[TrashedProjects] Trashed:', project.name);
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Restore project from trash (returns project data)
+        async restore(trashedId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Get the trashed project
+            const { data: trashed, error: fetchError } = await getClient()
+                .from('trashed_projects')
+                .select('*')
+                .eq('id', trashedId)
+                .limit(1);
+            
+            if (fetchError) throw fetchError;
+            if (!trashed || trashed.length === 0) throw new Error('Trashed project not found');
+            
+            const projectData = trashed[0].project_data || {
+                id: trashed[0].original_id,
+                name: trashed[0].name,
+                status: trashed[0].status,
+                location: trashed[0].location,
+                modules: trashed[0].modules
+            };
+            
+            // Delete from trash
+            await this.permanentDelete(trashedId);
+            
+            console.log('[TrashedProjects] Restored:', trashed[0].name);
+            return projectData;
+        },
+
+        // Permanently delete from trash
+        async permanentDelete(trashedId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('trashed_projects')
+                .delete()
+                .eq('id', trashedId);
+            
+            if (error) throw error;
+            console.log('[TrashedProjects] Permanently deleted:', trashedId);
+            return true;
+        }
+    };
+
+    // ============================================================================
     // EXPOSE GLOBAL API
     // ============================================================================
 
@@ -1489,7 +1772,11 @@
         employees: EmployeesAPI,
         departments: DepartmentsAPI,
         trashedEmployees: TrashedEmployeesAPI,
+        trashedProjects: TrashedProjectsAPI,
         weeklySchedules: WeeklySchedulesAPI,
+        stationStaggers: StationStaggersAPI,
+        staggerChangeLog: StaggerChangeLogAPI,
+        engineeringIssues: EngineeringIssuesAPI,
         qa: QAAPI,
         rfis: RFIAPI,
         transport: TransportAPI,

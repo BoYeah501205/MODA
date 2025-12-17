@@ -6,7 +6,7 @@
 // ===== WEEKLY SCHEDULE MANAGEMENT HOOK =====
 // Manages schedule setup (shift assignments) and completed week history
 // Uses Supabase for persistence (shared across all users)
-// Only trevor@autovol.com can edit schedules
+// Only trevor@autovol.com and stephanie@autovol.com can edit schedules
 const useWeeklySchedule = () => {
     const { useState, useEffect, useCallback, useRef } = React;
     
@@ -177,7 +177,7 @@ const useWeeklySchedule = () => {
     // Update shift schedule (only if user can edit)
     const updateShiftSchedule = useCallback((shift, day, value) => {
         if (!canEdit) {
-            console.warn('[WeeklySchedule] Cannot edit - only trevor@autovol.com can modify schedules');
+            console.warn('[WeeklySchedule] Cannot edit - only trevor@autovol.com or stephanie@autovol.com can modify schedules');
             return;
         }
         setScheduleSetup(prev => ({
@@ -203,7 +203,7 @@ const useWeeklySchedule = () => {
     // Complete a week - creates historical record
     const completeWeek = useCallback(async (weekData) => {
         if (!canEdit) {
-            console.warn('[WeeklySchedule] Cannot complete week - only trevor@autovol.com can modify schedules');
+            console.warn('[WeeklySchedule] Cannot complete week - only trevor@autovol.com or stephanie@autovol.com can modify schedules');
             return null;
         }
         
@@ -257,7 +257,7 @@ const useWeeklySchedule = () => {
     // Delete a completed week record
     const deleteCompletedWeek = useCallback(async (weekId) => {
         if (!canEdit) {
-            console.warn('[WeeklySchedule] Cannot delete - only trevor@autovol.com can modify schedules');
+            console.warn('[WeeklySchedule] Cannot delete - only trevor@autovol.com or stephanie@autovol.com can modify schedules');
             return;
         }
         
@@ -595,6 +595,17 @@ function ScheduleSetupTab({
     
     return (
         <div className="space-y-6">
+            {/* View-Only Banner for non-authorized users */}
+            {!canEdit && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3">
+                    <span className="text-amber-600 text-xl">&#128274;</span>
+                    <div>
+                        <div className="font-medium text-amber-800">View-Only Mode</div>
+                        <div className="text-sm text-amber-600">Only Trevor or Stephanie can modify the schedule setup. Changes sync to all users automatically.</div>
+                    </div>
+                </div>
+            )}
+            
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -615,12 +626,14 @@ function ScheduleSetupTab({
                         <span className="font-semibold">Production Week Schedule</span>
                         <span className="text-sm opacity-75 ml-2">Configure starting module for Weekly Board</span>
                     </div>
-                    <button 
-                        onClick={handleOpenAdd} 
-                        className="px-3 py-1 bg-white text-autovol-teal rounded font-medium text-sm hover:bg-gray-100"
-                    >
-                        + Add Week
-                    </button>
+                    {canEdit && (
+                        <button 
+                            onClick={handleOpenAdd} 
+                            className="px-3 py-1 bg-white text-autovol-teal rounded font-medium text-sm hover:bg-gray-100"
+                        >
+                            + Add Week
+                        </button>
+                    )}
                 </div>
                 
                 <div className="p-4">
@@ -673,20 +686,22 @@ function ScheduleSetupTab({
                                                 Starting: <span className="font-mono">{week.startingModule || 'Not set'}</span>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <button 
-                                                onClick={() => handleOpenEdit(week)} 
-                                                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(week.id)} 
-                                                className="px-3 py-1 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
+                                        {canEdit && (
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => handleOpenEdit(week)} 
+                                                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(week.id)} 
+                                                    className="px-3 py-1 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -811,7 +826,8 @@ function ScheduleSetupTab({
                                             max="20"
                                             value={scheduleSetup.shift1[day] || 0}
                                             onChange={(e) => updateShiftSchedule('shift1', day, e.target.value)}
-                                            className="w-20 border rounded px-3 py-2 text-center font-mono"
+                                            className={`w-20 border rounded px-3 py-2 text-center font-mono ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                            disabled={!canEdit}
                                         />
                                     </td>
                                 </tr>

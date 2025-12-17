@@ -183,38 +183,106 @@ const useProductionWeeks = () => {
         return [];
     });
     
-    const [staggerConfig, setStaggerConfig] = useState(() => {
-        const saved = localStorage.getItem('autovol_station_staggers');
-        if (saved && saved !== 'undefined' && saved !== 'null') {
-            try { return JSON.parse(saved); } catch (e) { return { ...stationStaggers }; }
-        }
-        return { ...stationStaggers };
-    });
+    const [staggerConfig, setStaggerConfig] = useState({ ...stationStaggers });
+    const [staggersLoaded, setStaggersLoaded] = useState(false);
     
     // Stagger change log - tracks all saved stagger configurations
-    const [staggerChangeLog, setStaggerChangeLog] = useState(() => {
-        const saved = localStorage.getItem('autovol_stagger_change_log');
-        if (saved && saved !== 'undefined' && saved !== 'null') {
-            try { return JSON.parse(saved); } catch (e) { return []; }
-        }
-        return [];
-    });
+    const [staggerChangeLog, setStaggerChangeLog] = useState([]);
+    const [changeLogLoaded, setChangeLogLoaded] = useState(false);
     
     // Track if there are unsaved changes
     const [hasUnsavedStaggerChanges, setHasUnsavedStaggerChanges] = useState(false);
     const [pendingStaggerChanges, setPendingStaggerChanges] = useState({});
     
+    // Load staggers and change log from Supabase on mount
+    useEffect(() => {
+        const loadFromSupabase = async () => {
+            try {
+                if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                    // Load staggers
+                    try {
+                        const supabaseStaggers = await window.MODA_SUPABASE_DATA.stationStaggers.get();
+                        if (supabaseStaggers) {
+                            setStaggerConfig(supabaseStaggers);
+                            console.log('[App] Loaded staggers from Supabase');
+                        } else {
+                            // Fallback to localStorage
+                            const saved = localStorage.getItem('autovol_station_staggers');
+                            if (saved && saved !== 'undefined' && saved !== 'null') {
+                                try { setStaggerConfig(JSON.parse(saved)); } catch (e) { /* use defaults */ }
+                            }
+                        }
+                    } catch (err) {
+                        console.log('[App] Staggers table may not exist, using localStorage');
+                        const saved = localStorage.getItem('autovol_station_staggers');
+                        if (saved && saved !== 'undefined' && saved !== 'null') {
+                            try { setStaggerConfig(JSON.parse(saved)); } catch (e) { /* use defaults */ }
+                        }
+                    }
+                    setStaggersLoaded(true);
+                    
+                    // Load change log
+                    try {
+                        const supabaseLog = await window.MODA_SUPABASE_DATA.staggerChangeLog.getAll();
+                        if (supabaseLog && supabaseLog.length > 0) {
+                            setStaggerChangeLog(supabaseLog);
+                            console.log('[App] Loaded', supabaseLog.length, 'stagger change log entries from Supabase');
+                        } else {
+                            const saved = localStorage.getItem('autovol_stagger_change_log');
+                            if (saved && saved !== 'undefined' && saved !== 'null') {
+                                try { setStaggerChangeLog(JSON.parse(saved)); } catch (e) { /* empty */ }
+                            }
+                        }
+                    } catch (err) {
+                        console.log('[App] Stagger change log table may not exist, using localStorage');
+                        const saved = localStorage.getItem('autovol_stagger_change_log');
+                        if (saved && saved !== 'undefined' && saved !== 'null') {
+                            try { setStaggerChangeLog(JSON.parse(saved)); } catch (e) { /* empty */ }
+                        }
+                    }
+                    setChangeLogLoaded(true);
+                } else {
+                    // Fallback to localStorage
+                    const savedStaggers = localStorage.getItem('autovol_station_staggers');
+                    if (savedStaggers && savedStaggers !== 'undefined' && savedStaggers !== 'null') {
+                        try { setStaggerConfig(JSON.parse(savedStaggers)); } catch (e) { /* use defaults */ }
+                    }
+                    setStaggersLoaded(true);
+                    
+                    const savedLog = localStorage.getItem('autovol_stagger_change_log');
+                    if (savedLog && savedLog !== 'undefined' && savedLog !== 'null') {
+                        try { setStaggerChangeLog(JSON.parse(savedLog)); } catch (e) { /* empty */ }
+                    }
+                    setChangeLogLoaded(true);
+                }
+            } catch (error) {
+                console.error('[App] Error loading staggers:', error);
+                setStaggersLoaded(true);
+                setChangeLogLoaded(true);
+            }
+        };
+        
+        const timer = setTimeout(loadFromSupabase, 600);
+        return () => clearTimeout(timer);
+    }, []);
+    
     useEffect(() => {
         localStorage.setItem('autovol_production_weeks', JSON.stringify(weeks));
     }, [weeks]);
     
+    // Save staggers to localStorage as backup
     useEffect(() => {
-        localStorage.setItem('autovol_station_staggers', JSON.stringify(staggerConfig));
-    }, [staggerConfig]);
+        if (staggersLoaded) {
+            localStorage.setItem('autovol_station_staggers', JSON.stringify(staggerConfig));
+        }
+    }, [staggerConfig, staggersLoaded]);
     
+    // Save change log to localStorage as backup
     useEffect(() => {
-        localStorage.setItem('autovol_stagger_change_log', JSON.stringify(staggerChangeLog));
-    }, [staggerChangeLog]);
+        if (changeLogLoaded) {
+            localStorage.setItem('autovol_stagger_change_log', JSON.stringify(staggerChangeLog));
+        }
+    }, [staggerChangeLog, changeLogLoaded]);
     
     const addWeek = (weekData) => {
         const newWeek = { ...weekData, id: `week-${Date.now()}`, createdAt: new Date().toISOString() };
@@ -239,7 +307,7 @@ const useProductionWeeks = () => {
     };
     
     // Save stagger changes with description to change log
-    const saveStaggerChanges = (description, userName = 'Unknown') => {
+    const saveStaggerChanges = async (description, userName = 'Unknown') => {
         if (!hasUnsavedStaggerChanges) return;
         
         const logEntry = {
@@ -248,8 +316,19 @@ const useProductionWeeks = () => {
             description: description || 'No description provided',
             changedBy: userName,
             changes: { ...pendingStaggerChanges },
-            fullConfig: { ...staggerConfig }
+            staggersSnapshot: { ...staggerConfig }
         };
+        
+        // Save to Supabase if available
+        if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+            try {
+                await window.MODA_SUPABASE_DATA.stationStaggers.save(staggerConfig);
+                await window.MODA_SUPABASE_DATA.staggerChangeLog.add(logEntry);
+                console.log('[App] Saved staggers to Supabase');
+            } catch (err) {
+                console.error('[App] Error saving staggers to Supabase:', err);
+            }
+        }
         
         setStaggerChangeLog(prev => [logEntry, ...prev]);
         setPendingStaggerChanges({});
@@ -261,8 +340,9 @@ const useProductionWeeks = () => {
     // Revert to a previous stagger configuration
     const revertToStaggerConfig = (logEntryId) => {
         const entry = staggerChangeLog.find(e => e.id === logEntryId);
-        if (entry && entry.fullConfig) {
-            setStaggerConfig({ ...entry.fullConfig });
+        const snapshot = entry?.staggersSnapshot || entry?.fullConfig;
+        if (snapshot) {
+            setStaggerConfig({ ...snapshot });
             setPendingStaggerChanges({});
             setHasUnsavedStaggerChanges(false);
         }
@@ -1415,6 +1495,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const currentWeek = getCurrentWeek();
             
             // Weekly schedule integration (from WeeklyBoard.jsx)
+            // canEdit is controlled by useWeeklySchedule - only trevor@autovol.com and stephanie@autovol.com can edit
             const weeklySchedule = window.WeeklyBoardComponents?.useWeeklySchedule?.() || {
                 scheduleSetup: { shift1: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 }, shift2: { friday: 0, saturday: 0, sunday: 0 } },
                 completedWeeks: [],
@@ -1424,7 +1505,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 completeWeek: () => {},
                 getCompletedWeek: () => null,
                 getRecentWeeks: () => [],
-                deleteCompletedWeek: () => {}
+                deleteCompletedWeek: () => {},
+                canEdit: false,
+                loading: false,
+                synced: false
             };
             
             // Save engineering issues to localStorage
@@ -1722,7 +1806,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 allModules={activeProjects.flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name })))}
                                                 projects={projects}
                                                 setProjects={setProjects}
-                                                canEdit={auth.canEditTab('production')}
+                                                canEdit={weeklySchedule.canEdit}
                                             />
                                         ) : (
                                             <div className="text-center py-8 text-gray-500">
