@@ -76,18 +76,24 @@
     };
 
     function TransportApp() {
+      const safeParseJSON = (str, fallback) => {
+        if (str && str !== 'undefined' && str !== 'null') {
+          try { return JSON.parse(str); } catch (e) { return fallback; }
+        }
+        return fallback;
+      };
       const [activeView, setActiveView] = useState('board');
       const [modules, setModules] = useState(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.modules);
-        return saved ? JSON.parse(saved) : SAMPLE_MODULES;
+        return safeParseJSON(saved, SAMPLE_MODULES);
       });
       const [yards, setYards] = useState(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.yards);
-        return saved ? JSON.parse(saved) : DEFAULT_YARDS;
+        return safeParseJSON(saved, DEFAULT_YARDS);
       });
       const [companies, setCompanies] = useState(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.companies);
-        return saved ? JSON.parse(saved) : SAMPLE_COMPANIES;
+        return safeParseJSON(saved, SAMPLE_COMPANIES);
       });
       const [selectedModule, setSelectedModule] = useState(null);
       const [showAddYard, setShowAddYard] = useState(false);

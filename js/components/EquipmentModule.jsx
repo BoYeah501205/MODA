@@ -177,10 +177,17 @@
                 const savedLogs = localStorage.getItem('modaInventoryLogs');
                 const savedResolutions = localStorage.getItem('modaMissingResolutions');
                 
-                setEquipment(savedEquipment ? JSON.parse(savedEquipment) : equipmentInitialData);
-                setVendors(savedVendors ? JSON.parse(savedVendors) : equipmentInitialVendors);
-                setInventoryLogs(savedLogs ? JSON.parse(savedLogs) : []);
-                setMissingResolutions(savedResolutions ? JSON.parse(savedResolutions) : []);
+                const safeParseJSON = (str, fallback) => {
+                    if (str && str !== 'undefined' && str !== 'null') {
+                        try { return JSON.parse(str); } catch (e) { return fallback; }
+                    }
+                    return fallback;
+                };
+                
+                setEquipment(safeParseJSON(savedEquipment, equipmentInitialData));
+                setVendors(safeParseJSON(savedVendors, equipmentInitialVendors));
+                setInventoryLogs(safeParseJSON(savedLogs, []));
+                setMissingResolutions(safeParseJSON(savedResolutions, []));
             }, []);
 
             // Save data

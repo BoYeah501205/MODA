@@ -103,12 +103,18 @@ function TrainingMatrixView({ employees: propEmployees, currentUser, isAdmin }) 
         if (propEmployees?.length > 0) {
             setTrainingEmployees(propEmployees.filter(e => e.jobTitle === 'Line Solutioneer'));
         }
+        const safeParseJSON = (str, fallback) => {
+            if (str && str !== 'undefined' && str !== 'null') {
+                try { return JSON.parse(str); } catch (e) { return fallback; }
+            }
+            return fallback;
+        };
         const stored = localStorage.getItem('moda_training_stations');
-        setTrainingStations(stored ? JSON.parse(stored) : DEFAULT_TRAINING_STATIONS);
+        setTrainingStations(safeParseJSON(stored, DEFAULT_TRAINING_STATIONS));
         const prog = localStorage.getItem('moda_training_progress');
-        if (prog) setTrainingProgress(JSON.parse(prog));
+        if (prog && prog !== 'undefined' && prog !== 'null') setTrainingProgress(safeParseJSON(prog, {}));
         const coll = localStorage.getItem('moda_training_collapsed');
-        if (coll) setCollapsedStations(JSON.parse(coll));
+        if (coll && coll !== 'undefined' && coll !== 'null') setCollapsedStations(safeParseJSON(coll, {}));
     }, [propEmployees]);
 
     // Save data

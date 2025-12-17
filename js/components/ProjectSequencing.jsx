@@ -33,12 +33,14 @@ const DEFAULT_COLUMNS = [
 // Get column order from localStorage or use default
 function getColumnOrder() {
     const saved = localStorage.getItem('moda_sequence_column_order');
-    if (saved) {
-        const order = JSON.parse(saved);
-        // Validate all columns exist
-        if (order.length === DEFAULT_COLUMNS.length && order.every(id => DEFAULT_COLUMNS.find(c => c.id === id))) {
-            return order;
-        }
+    if (saved && saved !== 'undefined' && saved !== 'null') {
+        try {
+            const order = JSON.parse(saved);
+            // Validate all columns exist
+            if (order.length === DEFAULT_COLUMNS.length && order.every(id => DEFAULT_COLUMNS.find(c => c.id === id))) {
+                return order;
+            }
+        } catch (e) { /* ignore */ }
     }
     return DEFAULT_COLUMNS.map(c => c.id);
 }
@@ -72,7 +74,7 @@ window.ProjectSequencing.SequencingModal = function SequencingModal({ project, m
             <div className="bg-white rounded-xl shadow-2xl p-6"><p className="text-red-600">Error: No project</p>
             <button onClick={onClose} className="mt-4 px-4 py-2 bg-gray-200 rounded-lg">Close</button></div></div>);
     }
-    const getSequences = () => { const s = localStorage.getItem(`moda_sequences_${project.id}`); return s ? JSON.parse(s) : { current: null, previous: [] }; };
+    const getSequences = () => { const s = localStorage.getItem(`moda_sequences_${project.id}`); if (s && s !== 'undefined' && s !== 'null') { try { return JSON.parse(s); } catch (e) { return { current: null, previous: [] }; } } return { current: null, previous: [] }; };
     const [sequences, setSequences] = useState(() => getSequences());
     const [view, setView] = useState(null);
     const hasCurrent = sequences.current !== null, hasPrevious = sequences.previous?.length > 0;

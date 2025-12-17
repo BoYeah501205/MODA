@@ -254,13 +254,19 @@ function ExecutiveBoard({ projects: externalProjects, employees: externalEmploye
     const [projects, setProjects] = useState(() => {
         if (externalProjects) return externalProjects;
         const saved = localStorage.getItem('autovol_projects');
-        return saved ? JSON.parse(saved) : [];
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try { return JSON.parse(saved); } catch (e) { return []; }
+        }
+        return [];
     });
     
     const [employees, setEmployees] = useState(() => {
         if (externalEmployees) return externalEmployees;
         const saved = localStorage.getItem('autovol_employees');
-        return saved ? JSON.parse(saved) : [];
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try { return JSON.parse(saved); } catch (e) { return []; }
+        }
+        return [];
     });
 
     const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -272,8 +278,12 @@ function ExecutiveBoard({ projects: externalProjects, employees: externalEmploye
         const interval = setInterval(() => {
             const savedProjects = localStorage.getItem('autovol_projects');
             const savedEmployees = localStorage.getItem('autovol_employees');
-            if (savedProjects) setProjects(JSON.parse(savedProjects));
-            if (savedEmployees) setEmployees(JSON.parse(savedEmployees));
+            if (savedProjects && savedProjects !== 'undefined' && savedProjects !== 'null') {
+                try { setProjects(JSON.parse(savedProjects)); } catch (e) { /* ignore */ }
+            }
+            if (savedEmployees && savedEmployees !== 'undefined' && savedEmployees !== 'null') {
+                try { setEmployees(JSON.parse(savedEmployees)); } catch (e) { /* ignore */ }
+            }
             setLastRefresh(new Date());
         }, 5 * 60 * 1000);
         return () => clearInterval(interval);
@@ -393,8 +403,12 @@ function ExecutiveBoard({ projects: externalProjects, employees: externalEmploye
     const handleRefresh = () => {
         const savedProjects = localStorage.getItem('autovol_projects');
         const savedEmployees = localStorage.getItem('autovol_employees');
-        if (savedProjects) setProjects(JSON.parse(savedProjects));
-        if (savedEmployees) setEmployees(JSON.parse(savedEmployees));
+        if (savedProjects && savedProjects !== 'undefined' && savedProjects !== 'null') {
+            try { setProjects(JSON.parse(savedProjects)); } catch (e) { /* ignore */ }
+        }
+        if (savedEmployees && savedEmployees !== 'undefined' && savedEmployees !== 'null') {
+            try { setEmployees(JSON.parse(savedEmployees)); } catch (e) { /* ignore */ }
+        }
         setLastRefresh(new Date());
     };
 

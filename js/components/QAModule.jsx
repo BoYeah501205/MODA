@@ -36,22 +36,30 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
     // Active sub-tab
     const [activeSubTab, setActiveSubTab] = React.useState('dashboard');
     
+    // Safe JSON parse helper
+    const safeParseJSON = (str, fallback) => {
+        if (str && str !== 'undefined' && str !== 'null') {
+            try { return JSON.parse(str); } catch (e) { return fallback; }
+        }
+        return fallback;
+    };
+    
     // QA Travelers (one per module)
     const [travelers, setTravelers] = React.useState(() => {
         const saved = localStorage.getItem('moda_qa_travelers');
-        return saved ? JSON.parse(saved) : {};
+        return safeParseJSON(saved, {});
     });
     
     // Deviations (NC items)
     const [deviations, setDeviations] = React.useState(() => {
         const saved = localStorage.getItem('moda_qa_deviations');
-        return saved ? JSON.parse(saved) : [];
+        return safeParseJSON(saved, []);
     });
     
     // Test Results
     const [testResults, setTestResults] = React.useState(() => {
         const saved = localStorage.getItem('moda_qa_tests');
-        return saved ? JSON.parse(saved) : [];
+        return safeParseJSON(saved, []);
     });
     
     // Filters

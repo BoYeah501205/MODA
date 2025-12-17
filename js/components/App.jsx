@@ -177,18 +177,27 @@ const DEFAULT_DASHBOARD_ROLES = window.DEFAULT_DASHBOARD_ROLES || [];
 const useProductionWeeks = () => {
     const [weeks, setWeeks] = useState(() => {
         const saved = localStorage.getItem('autovol_production_weeks');
-        return saved ? JSON.parse(saved) : [];
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try { return JSON.parse(saved); } catch (e) { return []; }
+        }
+        return [];
     });
     
     const [staggerConfig, setStaggerConfig] = useState(() => {
         const saved = localStorage.getItem('autovol_station_staggers');
-        return saved ? JSON.parse(saved) : { ...stationStaggers };
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try { return JSON.parse(saved); } catch (e) { return { ...stationStaggers }; }
+        }
+        return { ...stationStaggers };
     });
     
     // Stagger change log - tracks all saved stagger configurations
     const [staggerChangeLog, setStaggerChangeLog] = useState(() => {
         const saved = localStorage.getItem('autovol_stagger_change_log');
-        return saved ? JSON.parse(saved) : [];
+        if (saved && saved !== 'undefined' && saved !== 'null') {
+            try { return JSON.parse(saved); } catch (e) { return []; }
+        }
+        return [];
     });
     
     // Track if there are unsaved changes
