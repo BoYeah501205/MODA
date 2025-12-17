@@ -944,7 +944,7 @@
                 suffix: employee?.suffix || '',
                 jobTitle: employee?.jobTitle || '',
                 department: employee?.department || '',
-                shift: employee?.shift || 'Shift-A',
+                shift: employee?.shift || 'N/A',
                 hireDate: employee?.hireDate || '',
                 email: employee?.email || '',
                 phone: employee?.phone || '',
@@ -1090,6 +1090,7 @@
                                             onChange={(e) => setFormData({ ...formData, shift: e.target.value })}
                                             className="w-full px-3 py-2 border rounded-lg"
                                         >
+                                            <option value="N/A">N/A</option>
                                             <option value="Shift-A">Shift-A (Mon-Thu)</option>
                                             <option value="Shift-B">Shift-B (Fri-Sun)</option>
                                         </select>

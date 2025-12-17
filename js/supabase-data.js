@@ -282,7 +282,7 @@
                 name: computedName,
                 jobTitle: row.job_title || '',
                 department: row.department || '',
-                shift: row.shift || 'Shift-A',
+                shift: row.shift || 'N/A',
                 hireDate: row.hire_date || '',
                 email: row.email || '',
                 phone: row.phone || '',
@@ -308,7 +308,7 @@
             if (data.suffix !== undefined) dbData.suffix = data.suffix || null;
             if (data.jobTitle !== undefined) dbData.job_title = data.jobTitle || null;
             if (data.department !== undefined) dbData.department = data.department || null;
-            if (data.shift !== undefined) dbData.shift = data.shift || 'Shift-A';
+            if (data.shift !== undefined) dbData.shift = data.shift || 'N/A';
             if (data.hireDate !== undefined) dbData.hire_date = data.hireDate || null;
             if (data.email !== undefined) dbData.email = data.email || null;
             if (data.phone !== undefined) dbData.phone = data.phone || null;
