@@ -18,6 +18,10 @@
             const [showDeptModal, setShowDeptModal] = useState(false);
             const [editingDept, setEditingDept] = useState(null);
             const [showDeleteDeptConfirm, setShowDeleteDeptConfirm] = useState(null);
+            
+            // Inactive employee state
+            const [showInactiveModal, setShowInactiveModal] = useState(null);
+            const [showInactiveFilter, setShowInactiveFilter] = useState(false);
 
             const handleSort = (column) => {
                 if (sortColumn === column) {
@@ -54,6 +58,11 @@
 
             const filteredEmployees = (employees || []).filter(e => {
                 if (!e) return false;
+                // Filter by active/inactive status
+                const isActive = e.isActive !== false; // Default to active if not set
+                if (!showInactiveFilter && !isActive) return false; // Hide inactive unless filter is on
+                if (showInactiveFilter && isActive) return false; // When showing inactive, hide active
+                
                 const searchLower = (searchTerm || '').toLowerCase();
                 const fullName = [e.prefix, e.firstName, e.middleName, e.lastName, e.suffix]
                     .filter(Boolean).join(' ').toLowerCase();
@@ -249,6 +258,67 @@
                 await handleSendInvite(employee);
             };
 
+            // Mark employee as inactive with reason and notes
+            const handleMarkInactive = async (employee, inactiveReason, inactiveNotes) => {
+                try {
+                    const updateData = {
+                        isActive: false,
+                        inactiveReason: inactiveReason,
+                        inactiveNotes: inactiveNotes,
+                        inactiveDate: new Date().toISOString().split('T')[0] // YYYY-MM-DD
+                    };
+                    
+                    const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                    
+                    if (useSupabase) {
+                        await window.MODA_SUPABASE_DATA.employees.update(employee.id, updateData);
+                    }
+                    
+                    setEmployees(employees.map(e => 
+                        e.id === employee.id ? { ...e, ...updateData } : e
+                    ));
+                    
+                    const empName = [employee.firstName, employee.lastName].filter(Boolean).join(' ');
+                    setActionMessage(`${empName} marked as inactive`);
+                    setShowInactiveModal(null);
+                    
+                    setTimeout(() => setActionMessage(''), 3000);
+                } catch (error) {
+                    console.error('[PeopleModule] Mark inactive error:', error);
+                    alert(`Error marking employee inactive: ${error.message}`);
+                }
+            };
+
+            // Reactivate an inactive employee
+            const handleReactivate = async (employee) => {
+                if (!confirm(`Reactivate ${employee.firstName} ${employee.lastName}?`)) return;
+                
+                try {
+                    const updateData = {
+                        isActive: true,
+                        inactiveReason: null,
+                        inactiveNotes: null,
+                        inactiveDate: null
+                    };
+                    
+                    const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                    
+                    if (useSupabase) {
+                        await window.MODA_SUPABASE_DATA.employees.update(employee.id, updateData);
+                    }
+                    
+                    setEmployees(employees.map(e => 
+                        e.id === employee.id ? { ...e, ...updateData } : e
+                    ));
+                    
+                    setActionMessage(`${employee.firstName} ${employee.lastName} reactivated`);
+                    setTimeout(() => setActionMessage(''), 3000);
+                } catch (error) {
+                    console.error('[PeopleModule] Reactivate error:', error);
+                    alert(`Error reactivating employee: ${error.message}`);
+                }
+            };
+
             const updateDepartmentSupervisor = (deptId, supervisorId) => {
                 setDepartments(departments.map(d => 
                     d.id === deptId ? { ...d, supervisor: supervisorId } : d
@@ -408,6 +478,12 @@
                                     <option value="Admin">Admin ({permissionCounts['Admin']})</option>
                                 </select>
                                 <button
+                                    onClick={() => setShowInactiveFilter(!showInactiveFilter)}
+                                    className={`px-3 py-2 rounded-lg border ${showInactiveFilter ? 'bg-gray-700 text-white border-gray-700' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                                >
+                                    {showInactiveFilter ? '← Back to Active' : 'View Inactive'}
+                                </button>
+                                <button
                                     onClick={() => { setEditingEmployee(null); setShowEmployeeModal(true); }}
                                     className="px-4 py-2 btn-primary rounded-lg"
                                 >
@@ -416,7 +492,7 @@
                             </div>
 
                             <p className="text-sm text-gray-500">
-                                Showing {filteredEmployees.length} of {employees.length} employees
+                                Showing {filteredEmployees.length} {showInactiveFilter ? 'inactive' : 'active'} employees
                             </p>
 
                             {/* Employee List */}
@@ -486,6 +562,22 @@
                                                                     className="text-sm text-orange-600 hover:underline"
                                                                 >
                                                                     Resend
+                                                                </button>
+                                                            )}
+                                                            {/* Show Mark Inactive for active employees, Reactivate for inactive */}
+                                                            {emp.isActive !== false ? (
+                                                                <button 
+                                                                    onClick={() => setShowInactiveModal(emp)}
+                                                                    className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
+                                                                >
+                                                                    Mark Inactive
+                                                                </button>
+                                                            ) : (
+                                                                <button 
+                                                                    onClick={() => handleReactivate(emp)}
+                                                                    className="text-sm text-green-600 hover:underline"
+                                                                >
+                                                                    Reactivate
                                                                 </button>
                                                             )}
                                                             <button 
@@ -752,6 +844,92 @@
                         </div>
                         );
                     })()}
+
+                    {/* Mark Inactive Modal */}
+                    {showInactiveModal && (() => {
+                        const emp = showInactiveModal;
+                        const empName = [emp.firstName, emp.lastName].filter(Boolean).join(' ');
+                        return (
+                        <MarkInactiveModal
+                            employee={emp}
+                            employeeName={empName}
+                            onClose={() => setShowInactiveModal(null)}
+                            onConfirm={(reason, notes) => handleMarkInactive(emp, reason, notes)}
+                        />
+                        );
+                    })()}
+                </div>
+            );
+        }
+
+        // Mark Inactive Modal Component
+        function MarkInactiveModal({ employee, employeeName, onClose, onConfirm }) {
+            const [reason, setReason] = useState('');
+            const [notes, setNotes] = useState('');
+            
+            const INACTIVE_REASONS = [
+                { value: 'Termination', label: 'Termination' },
+                { value: 'Resignation', label: 'Resignation' },
+                { value: 'Leave-of-Absence', label: 'Leave of Absence' },
+                { value: 'Deceased', label: 'Deceased' },
+                { value: 'Other', label: 'Other' }
+            ];
+            
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold mb-2 text-gray-800">Mark Employee Inactive</h3>
+                        <p className="text-gray-600 mb-4">
+                            Mark <strong>{employeeName}</strong> as inactive?
+                        </p>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Inactive Reason <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={reason}
+                                    onChange={(e) => setReason(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-400"
+                                >
+                                    <option value="">Select reason...</option>
+                                    {INACTIVE_REASONS.map(r => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Notes (optional)
+                                </label>
+                                <textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Add any additional details..."
+                                    rows={3}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-400 resize-none"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-2 justify-end mt-6">
+                            <button 
+                                onClick={onClose}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => onConfirm(reason, notes)}
+                                disabled={!reason}
+                                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Mark Inactive
+                            </button>
+                        </div>
+                    </div>
                 </div>
             );
         }

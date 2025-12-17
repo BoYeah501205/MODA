@@ -290,6 +290,9 @@
                 accessStatus: row.access_status || 'none',
                 supabaseUserId: row.supabase_user_id || null,
                 isActive: row.is_active !== false,
+                inactiveReason: row.inactive_reason || null,
+                inactiveNotes: row.inactive_notes || null,
+                inactiveDate: row.inactive_date || null,
                 createdAt: row.created_at,
                 updatedAt: row.updated_at
             };
@@ -313,17 +316,19 @@
             if (data.accessStatus !== undefined) dbData.access_status = data.accessStatus || 'none';
             if (data.supabaseUserId !== undefined) dbData.supabase_user_id = data.supabaseUserId || null;
             if (data.isActive !== undefined) dbData.is_active = data.isActive;
+            if (data.inactiveReason !== undefined) dbData.inactive_reason = data.inactiveReason || null;
+            if (data.inactiveNotes !== undefined) dbData.inactive_notes = data.inactiveNotes || null;
+            if (data.inactiveDate !== undefined) dbData.inactive_date = data.inactiveDate || null;
             return dbData;
         },
 
-        // Get all employees
+        // Get all employees (both active and inactive for filtering)
         async getAll() {
             if (!isAvailable()) throw new Error('Supabase not available');
             
             const { data, error } = await getClient()
                 .from('employees')
                 .select('*')
-                .eq('is_active', true)
                 .order('last_name', { ascending: true });
             
             if (error) throw error;
