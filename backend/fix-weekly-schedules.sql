@@ -24,21 +24,18 @@ CREATE TABLE weekly_schedules (
 -- Enable Row Level Security
 ALTER TABLE weekly_schedules ENABLE ROW LEVEL SECURITY;
 
--- Allow all authenticated users to view
-CREATE POLICY "Authenticated users can view weekly_schedules" ON weekly_schedules
-    FOR SELECT USING (auth.role() = 'authenticated');
+-- Allow all authenticated users full access (using auth.uid() IS NOT NULL)
+CREATE POLICY "Allow authenticated select" ON weekly_schedules
+    FOR SELECT USING (auth.uid() IS NOT NULL);
 
--- Allow all authenticated users to insert
-CREATE POLICY "Authenticated users can insert weekly_schedules" ON weekly_schedules
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Allow authenticated insert" ON weekly_schedules
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
--- Allow all authenticated users to update
-CREATE POLICY "Authenticated users can update weekly_schedules" ON weekly_schedules
-    FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow authenticated update" ON weekly_schedules
+    FOR UPDATE USING (auth.uid() IS NOT NULL);
 
--- Allow all authenticated users to delete
-CREATE POLICY "Authenticated users can delete weekly_schedules" ON weekly_schedules
-    FOR DELETE USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow authenticated delete" ON weekly_schedules
+    FOR DELETE USING (auth.uid() IS NOT NULL);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_weekly_schedules_type ON weekly_schedules(schedule_type);
