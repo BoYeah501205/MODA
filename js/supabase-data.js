@@ -511,6 +511,219 @@
     };
 
     // ============================================================================
+    // DEPARTMENTS API
+    // ============================================================================
+
+    const DepartmentsAPI = {
+        // Get all departments
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('departments')
+                .select('*')
+                .order('sort_order', { ascending: true });
+            
+            if (error) throw error;
+            return (data || []).map(d => ({
+                id: d.id,
+                name: d.name,
+                supervisor: d.supervisor,
+                employeeCount: d.employee_count || 0
+            }));
+        },
+
+        // Save department (create or update)
+        async save(deptData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const dbData = {
+                id: deptData.id,
+                name: deptData.name,
+                supervisor: deptData.supervisor || null,
+                employee_count: deptData.employeeCount || 0
+            };
+            
+            const { data, error } = await getClient()
+                .from('departments')
+                .upsert(dbData, { onConflict: 'id' })
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[Departments] Saved:', deptData.id);
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Save all departments (bulk upsert)
+        async saveAll(departments) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const dbData = departments.map((d, idx) => ({
+                id: d.id,
+                name: d.name,
+                supervisor: d.supervisor || null,
+                employee_count: d.employeeCount || 0,
+                sort_order: idx
+            }));
+            
+            const { data, error } = await getClient()
+                .from('departments')
+                .upsert(dbData, { onConflict: 'id' })
+                .select();
+            
+            if (error) throw error;
+            console.log('[Departments] Saved all:', departments.length);
+            return data || [];
+        },
+
+        // Delete department
+        async delete(deptId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('departments')
+                .delete()
+                .eq('id', deptId);
+            
+            if (error) throw error;
+            return true;
+        }
+    };
+
+    // ============================================================================
+    // TRASHED EMPLOYEES API
+    // ============================================================================
+
+    const TrashedEmployeesAPI = {
+        // Get all trashed employees
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('trashed_employees')
+                .select('*')
+                .order('deleted_at', { ascending: false });
+            
+            if (error) throw error;
+            return (data || []).map(row => ({
+                id: row.id,
+                originalId: row.original_id,
+                prefix: row.prefix || '',
+                firstName: row.first_name || '',
+                middleName: row.middle_name || '',
+                lastName: row.last_name || '',
+                suffix: row.suffix || '',
+                jobTitle: row.job_title || '',
+                department: row.department || '',
+                shift: row.shift || 'N/A',
+                hireDate: row.hire_date || '',
+                email: row.email || '',
+                phone: row.phone || '',
+                permissions: row.permissions || 'No Access',
+                accessStatus: row.access_status || 'none',
+                deletedAt: row.deleted_at
+            }));
+        },
+
+        // Move employee to trash
+        async trash(employee) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const dbData = {
+                original_id: employee.id,
+                prefix: employee.prefix || null,
+                first_name: employee.firstName,
+                middle_name: employee.middleName || null,
+                last_name: employee.lastName,
+                suffix: employee.suffix || null,
+                job_title: employee.jobTitle || null,
+                department: employee.department || null,
+                shift: employee.shift || 'N/A',
+                hire_date: employee.hireDate || null,
+                email: employee.email || null,
+                phone: employee.phone || null,
+                permissions: employee.permissions || 'No Access',
+                access_status: employee.accessStatus || 'none',
+                deleted_by: window.MODA_SUPABASE?.currentUser?.id || null
+            };
+            
+            const { data, error } = await getClient()
+                .from('trashed_employees')
+                .insert(dbData)
+                .select()
+                .limit(1);
+            
+            if (error) throw error;
+            console.log('[TrashedEmployees] Trashed:', employee.id);
+            return data && data.length > 0 ? data[0] : null;
+        },
+
+        // Restore employee from trash
+        async restore(trashedId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Get the trashed employee data
+            const { data: trashed, error: fetchError } = await getClient()
+                .from('trashed_employees')
+                .select('*')
+                .eq('id', trashedId)
+                .limit(1);
+            
+            if (fetchError) throw fetchError;
+            if (!trashed || trashed.length === 0) throw new Error('Trashed employee not found');
+            
+            const row = trashed[0];
+            
+            // Re-create in employees table
+            const employeeData = {
+                prefix: row.prefix,
+                first_name: row.first_name,
+                middle_name: row.middle_name,
+                last_name: row.last_name,
+                suffix: row.suffix,
+                job_title: row.job_title,
+                department: row.department,
+                shift: row.shift,
+                hire_date: row.hire_date,
+                email: row.email,
+                phone: row.phone,
+                permissions: row.permissions,
+                access_status: row.access_status,
+                is_active: true
+            };
+            
+            const { data: restored, error: insertError } = await getClient()
+                .from('employees')
+                .insert(employeeData)
+                .select()
+                .limit(1);
+            
+            if (insertError) throw insertError;
+            
+            // Delete from trash
+            await this.permanentDelete(trashedId);
+            
+            console.log('[TrashedEmployees] Restored:', trashedId);
+            return restored && restored.length > 0 ? restored[0] : null;
+        },
+
+        // Permanently delete from trash
+        async permanentDelete(trashedId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('trashed_employees')
+                .delete()
+                .eq('id', trashedId);
+            
+            if (error) throw error;
+            console.log('[TrashedEmployees] Permanently deleted:', trashedId);
+            return true;
+        }
+    };
+
+    // ============================================================================
     // WEEKLY SCHEDULES API
     // ============================================================================
 
@@ -1274,6 +1487,8 @@
         projects: ProjectsAPI,
         modules: ModulesAPI,
         employees: EmployeesAPI,
+        departments: DepartmentsAPI,
+        trashedEmployees: TrashedEmployeesAPI,
         weeklySchedules: WeeklySchedulesAPI,
         qa: QAAPI,
         rfis: RFIAPI,

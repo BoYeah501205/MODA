@@ -671,29 +671,57 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // People Module State
             const [employees, setEmployees] = useState([]);
             const [employeesSynced, setEmployeesSynced] = useState(false);
-            const [departments, setDepartments] = useState(() => {
-                const saved = localStorage.getItem('autovol_departments');
-                if (saved && saved !== 'undefined' && saved !== 'null') {
-                    try { return JSON.parse(saved); } catch (e) { /* fall through */ }
-                }
-                return productionStages.map(s => ({
-                    id: s.id,
-                    name: s.name,
-                    supervisor: null,
-                    employeeCount: 0
-                }));
-            });
+            const [departments, setDepartments] = useState([]);
+            const [departmentsLoaded, setDepartmentsLoaded] = useState(false);
 
-            // Load employees from Supabase (or localStorage fallback)
+            // Default departments based on production stages
+            const getDefaultDepartments = () => productionStages.map(s => ({
+                id: s.id,
+                name: s.name,
+                supervisor: null,
+                employeeCount: 0
+            }));
+
+            // Load employees and departments from Supabase (or localStorage fallback)
             useEffect(() => {
-                const loadEmployees = async () => {
+                const loadPeopleData = async () => {
                     try {
                         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
-                            console.log('[App] Loading employees from Supabase...');
+                            console.log('[App] Loading people data from Supabase...');
+                            
+                            // Load employees
                             const supabaseEmployees = await window.MODA_SUPABASE_DATA.employees.getAll();
                             setEmployees(supabaseEmployees);
                             setEmployeesSynced(true);
                             console.log('[App] Loaded', supabaseEmployees.length, 'employees from Supabase');
+                            
+                            // Load departments
+                            try {
+                                const supabaseDepts = await window.MODA_SUPABASE_DATA.departments.getAll();
+                                if (supabaseDepts && supabaseDepts.length > 0) {
+                                    setDepartments(supabaseDepts);
+                                    console.log('[App] Loaded', supabaseDepts.length, 'departments from Supabase');
+                                } else {
+                                    // Fallback to localStorage or defaults
+                                    const saved = localStorage.getItem('autovol_departments');
+                                    if (saved && saved !== 'undefined' && saved !== 'null') {
+                                        try { setDepartments(JSON.parse(saved)); } 
+                                        catch (e) { setDepartments(getDefaultDepartments()); }
+                                    } else {
+                                        setDepartments(getDefaultDepartments());
+                                    }
+                                }
+                            } catch (deptErr) {
+                                console.log('[App] Departments table may not exist yet, using localStorage');
+                                const saved = localStorage.getItem('autovol_departments');
+                                if (saved && saved !== 'undefined' && saved !== 'null') {
+                                    try { setDepartments(JSON.parse(saved)); } 
+                                    catch (e) { setDepartments(getDefaultDepartments()); }
+                                } else {
+                                    setDepartments(getDefaultDepartments());
+                                }
+                            }
+                            setDepartmentsLoaded(true);
                         } else {
                             // Fallback to localStorage
                             console.log('[App] Supabase not available, using localStorage');
@@ -706,9 +734,18 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     console.error('[App] Error parsing employees from localStorage:', e);
                                 }
                             }
+                            // Load departments from localStorage
+                            const savedDepts = localStorage.getItem('autovol_departments');
+                            if (savedDepts && savedDepts !== 'undefined' && savedDepts !== 'null') {
+                                try { setDepartments(JSON.parse(savedDepts)); } 
+                                catch (e) { setDepartments(getDefaultDepartments()); }
+                            } else {
+                                setDepartments(getDefaultDepartments());
+                            }
+                            setDepartmentsLoaded(true);
                         }
                     } catch (error) {
-                        console.error('[App] Error loading employees:', error);
+                        console.error('[App] Error loading people data:', error);
                         // Fallback to localStorage on error
                         const saved = localStorage.getItem('autovol_employees');
                         if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -718,11 +755,19 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 console.error('[App] Error parsing employees fallback:', e);
                             }
                         }
+                        const savedDepts = localStorage.getItem('autovol_departments');
+                        if (savedDepts && savedDepts !== 'undefined' && savedDepts !== 'null') {
+                            try { setDepartments(JSON.parse(savedDepts)); } 
+                            catch (e) { setDepartments(getDefaultDepartments()); }
+                        } else {
+                            setDepartments(getDefaultDepartments());
+                        }
+                        setDepartmentsLoaded(true);
                     }
                 };
                 
                 // Wait a bit for Supabase to initialize
-                const timer = setTimeout(loadEmployees, 500);
+                const timer = setTimeout(loadPeopleData, 500);
                 return () => clearTimeout(timer);
             }, []);
 
