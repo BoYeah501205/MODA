@@ -126,8 +126,16 @@
             
             // Migrate existing project modules to unified format
             migrateFromProjects: function() {
-                const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
-                const existingUnified = JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '{}');
+                let projects = [];
+                let existingUnified = {};
+                const projectsStr = localStorage.getItem('autovol_projects');
+                const unifiedStr = localStorage.getItem(this.STORAGE_KEY);
+                if (projectsStr && projectsStr !== 'undefined' && projectsStr !== 'null') {
+                    try { projects = JSON.parse(projectsStr); } catch (e) { projects = []; }
+                }
+                if (unifiedStr && unifiedStr !== 'undefined' && unifiedStr !== 'null') {
+                    try { existingUnified = JSON.parse(unifiedStr); } catch (e) { existingUnified = {}; }
+                }
                 
                 const unifiedModules = { ...existingUnified };
                 let migratedCount = 0;
@@ -170,7 +178,11 @@
             
             // Get all unified modules
             getAll: function() {
-                return JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '{}');
+                const str = localStorage.getItem(this.STORAGE_KEY);
+                if (str && str !== 'undefined' && str !== 'null') {
+                    try { return JSON.parse(str); } catch (e) { return {}; }
+                }
+                return {};
             },
             
             // Get module by ID
@@ -315,7 +327,11 @@
             // Sync unified modules back to project modules (for backwards compatibility)
             syncToProjects: function() {
                 const unified = this.getAll();
-                const projects = JSON.parse(localStorage.getItem('autovol_projects') || '[]');
+                let projects = [];
+                const projectsStr = localStorage.getItem('autovol_projects');
+                if (projectsStr && projectsStr !== 'undefined' && projectsStr !== 'null') {
+                    try { projects = JSON.parse(projectsStr); } catch (e) { projects = []; }
+                }
                 
                 projects.forEach(project => {
                     (project.modules || []).forEach(mod => {
