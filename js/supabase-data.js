@@ -372,6 +372,7 @@
                 email: row.email || '',
                 phone: row.phone || '',
                 permissions: row.permissions || 'No Access',
+                dashboardRole: row.dashboard_role || 'employee',
                 accessStatus: row.access_status || 'none',
                 supabaseUserId: row.supabase_user_id || null,
                 isActive: row.is_active !== false,
@@ -398,6 +399,7 @@
             if (data.email !== undefined) dbData.email = data.email || null;
             if (data.phone !== undefined) dbData.phone = data.phone || null;
             if (data.permissions !== undefined) dbData.permissions = data.permissions || 'No Access';
+            if (data.dashboardRole !== undefined) dbData.dashboard_role = data.dashboardRole || 'employee';
             if (data.accessStatus !== undefined) dbData.access_status = data.accessStatus || 'none';
             if (data.supabaseUserId !== undefined) dbData.supabase_user_id = data.supabaseUserId || null;
             if (data.isActive !== undefined) dbData.is_active = data.isActive;
