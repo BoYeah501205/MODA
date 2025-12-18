@@ -97,18 +97,97 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
 
                 setLoading(true);
                 try {
-                    // Update the user's password using Supabase
-                    const { error: updateError } = await window.MODA_SUPABASE.client.auth.updateUser({
-                        password: password
+                    // Get current session to get access token
+                    const { data: sessionData } = await window.MODA_SUPABASE.client.auth.getSession();
+                    const accessToken = sessionData?.session?.access_token;
+                    
+                    if (!accessToken) {
+                        setError('Session expired. Please use the invite link again.');
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Use direct fetch API to avoid SDK Promise hanging issues
+                    const SUPABASE_URL = 'https://syreuphexagezawjyjgt.supabase.co';
+                    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cmV1cGhleGFnZXphd2p5amd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2Mzc1MDEsImV4cCI6MjA4MTIxMzUwMX0.-0Th_v-LDCXER9v06-mjfdEUZtRxZZSHHWypmTQXmbs';
+                    
+                    console.log('[SetPasswordForm] Updating password via fetch API...');
+                    
+                    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${accessToken}`
+                        },
+                        body: JSON.stringify({ password: password })
                     });
 
-                    if (updateError) {
-                        setError(updateError.message);
-                    } else {
-                        // Password set successfully - the auth state change will log them in
-                        if (onComplete) onComplete();
+                    const result = await response.json();
+                    console.log('[SetPasswordForm] Update response:', response.status, result);
+
+                    if (!response.ok || result.error) {
+                        setError(result.error_description || result.error || result.msg || 'Failed to set password');
+                        setLoading(false);
+                        return;
                     }
+
+                    console.log('[SetPasswordForm] Password updated successfully');
+                    
+                    // Ensure profile exists - create if missing
+                    const userId = result.id;
+                    const userEmail = result.email;
+                    const userName = result.user_metadata?.name || userEmail?.split('@')[0] || 'User';
+                    
+                    if (userId) {
+                        try {
+                            // Check if profile exists
+                            const profileCheck = await fetch(
+                                `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id`,
+                                {
+                                    headers: {
+                                        'apikey': SUPABASE_ANON_KEY,
+                                        'Authorization': `Bearer ${accessToken}`
+                                    }
+                                }
+                            );
+                            const profiles = await profileCheck.json();
+                            
+                            if (!profiles || profiles.length === 0) {
+                                console.log('[SetPasswordForm] Profile missing, creating...');
+                                // Profile doesn't exist, create it
+                                const createProfile = await fetch(
+                                    `${SUPABASE_URL}/rest/v1/profiles`,
+                                    {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'apikey': SUPABASE_ANON_KEY,
+                                            'Authorization': `Bearer ${accessToken}`,
+                                            'Prefer': 'return=minimal'
+                                        },
+                                        body: JSON.stringify({
+                                            id: userId,
+                                            email: userEmail,
+                                            name: userName,
+                                            dashboard_role: result.user_metadata?.dashboard_role || 'employee',
+                                            is_protected: false
+                                        })
+                                    }
+                                );
+                                console.log('[SetPasswordForm] Profile create response:', createProfile.status);
+                            } else {
+                                console.log('[SetPasswordForm] Profile already exists');
+                            }
+                        } catch (profileErr) {
+                            console.warn('[SetPasswordForm] Profile check/create error (non-fatal):', profileErr);
+                        }
+                    }
+
+                    // Password set successfully - complete the flow
+                    if (onComplete) onComplete();
                 } catch (err) {
+                    console.error('[SetPasswordForm] Exception:', err);
                     setError(err.message || 'Failed to set password');
                 }
                 setLoading(false);

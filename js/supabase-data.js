@@ -9,6 +9,49 @@
 (function() {
     'use strict';
 
+    // Supabase configuration for direct fetch API calls
+    const SUPABASE_URL = 'https://syreuphexagezawjyjgt.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cmV1cGhleGFnZXphd2p5amd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2Mzc1MDEsImV4cCI6MjA4MTIxMzUwMX0.-0Th_v-LDCXER9v06-mjfdEUZtRxZZSHHWypmTQXmbs';
+
+    // Helper function to make direct fetch API calls (avoids SDK Promise hanging issues)
+    async function supabaseFetch(endpoint, options = {}) {
+        // Try to get access token from localStorage (where Supabase stores it)
+        let accessToken = null;
+        try {
+            const storageKey = `sb-syreuphexagezawjyjgt-auth-token`;
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                accessToken = parsed?.access_token;
+            }
+        } catch (e) {
+            console.warn('[supabaseFetch] Could not get token from storage:', e);
+        }
+        
+        const headers = {
+            'apikey': SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json',
+            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+            ...options.headers
+        };
+        
+        console.log('[supabaseFetch] Fetching:', endpoint);
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+            ...options,
+            headers
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            console.error('[supabaseFetch] Error:', response.status, error);
+            throw new Error(error.message || error.error || 'Supabase request failed');
+        }
+        
+        const data = await response.json();
+        console.log('[supabaseFetch] Success:', endpoint, 'rows:', data?.length);
+        return data;
+    }
+
     // Check if Supabase client is available
     if (!window.MODA_SUPABASE) {
         console.warn('[Supabase Data] Supabase client not initialized, using localStorage only');
@@ -29,17 +72,32 @@
     // ============================================================================
 
     const ProjectsAPI = {
-        // Get all projects
+        // Get all projects (uses direct fetch to avoid SDK Promise hanging)
         async getAll() {
+            console.log('[ProjectsAPI.getAll] Starting, isAvailable:', isAvailable());
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            const { data, error } = await getClient()
-                .from('projects')
-                .select('*')
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            return data || [];
+            try {
+                console.log('[ProjectsAPI.getAll] Calling supabaseFetch...');
+                // Use direct fetch API to avoid SDK Promise hanging issues
+                const data = await supabaseFetch('projects?select=*&order=created_at.desc');
+                console.log('[Projects] Fetched', data?.length || 0, 'projects via direct API');
+                return data || [];
+            } catch (fetchError) {
+                console.warn('[Projects] Direct fetch failed, trying SDK:', fetchError.message);
+                // Fallback to SDK with timeout
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('SDK timeout')), 5000)
+                );
+                const sdkPromise = getClient()
+                    .from('projects')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                const { data, error } = await Promise.race([sdkPromise, timeoutPromise]);
+                if (error) throw error;
+                return data || [];
+            }
         },
 
         // Get single project by ID
@@ -339,15 +397,25 @@
 
         // Get all employees (both active and inactive for filtering)
         async getAll() {
+            console.log('[EmployeesAPI.getAll] Starting, isAvailable:', isAvailable());
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            const { data, error } = await getClient()
-                .from('employees')
-                .select('*')
-                .order('last_name', { ascending: true });
-            
-            if (error) throw error;
-            return (data || []).map(row => this._toFrontend(row));
+            try {
+                console.log('[EmployeesAPI.getAll] Calling supabaseFetch...');
+                // Use direct fetch API to avoid SDK Promise hanging issues
+                const data = await supabaseFetch('employees?select=*&order=last_name.asc');
+                console.log('[Employees] Fetched', data?.length || 0, 'employees via direct API');
+                return (data || []).map(row => this._toFrontend(row));
+            } catch (fetchError) {
+                console.warn('[Employees] Direct fetch failed, trying SDK:', fetchError.message);
+                const { data, error } = await getClient()
+                    .from('employees')
+                    .select('*')
+                    .order('last_name', { ascending: true });
+                
+                if (error) throw error;
+                return (data || []).map(row => this._toFrontend(row));
+            }
         },
 
         // Get single employee by ID
@@ -519,18 +587,31 @@
         async getAll() {
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            const { data, error } = await getClient()
-                .from('departments')
-                .select('*')
-                .order('sort_order', { ascending: true });
-            
-            if (error) throw error;
-            return (data || []).map(d => ({
-                id: d.id,
-                name: d.name,
-                supervisor: d.supervisor,
-                employeeCount: d.employee_count || 0
-            }));
+            try {
+                // Use direct fetch API to avoid SDK Promise hanging issues
+                const data = await supabaseFetch('departments?select=*&order=sort_order.asc');
+                console.log('[Departments] Fetched', data?.length || 0, 'departments via direct API');
+                return (data || []).map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    supervisor: d.supervisor,
+                    employeeCount: d.employee_count || 0
+                }));
+            } catch (fetchError) {
+                console.warn('[Departments] Direct fetch failed, trying SDK:', fetchError.message);
+                const { data, error } = await getClient()
+                    .from('departments')
+                    .select('*')
+                    .order('sort_order', { ascending: true });
+                
+                if (error) throw error;
+                return (data || []).map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    supervisor: d.supervisor,
+                    employeeCount: d.employee_count || 0
+                }));
+            }
         },
 
         // Save department (create or update)
