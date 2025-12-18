@@ -536,28 +536,35 @@
         async delete(employeeId) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            const { error } = await getClient()
-                .from('employees')
-                .update({ is_active: false })
-                .eq('id', employeeId);
-            
-            if (error) throw error;
-            console.log('[Employees] Soft deleted:', employeeId);
-            return true;
+            console.log('[Employees] Soft deleting via direct API:', employeeId);
+            try {
+                await supabaseFetch(`employees?id=eq.${employeeId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ is_active: false })
+                });
+                console.log('[Employees] Soft deleted:', employeeId);
+                return true;
+            } catch (fetchError) {
+                console.error('[Employees] Direct soft delete failed:', fetchError.message);
+                throw fetchError;
+            }
         },
 
         // Hard delete employee (permanent)
         async hardDelete(employeeId) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            const { error } = await getClient()
-                .from('employees')
-                .delete()
-                .eq('id', employeeId);
-            
-            if (error) throw error;
-            console.log('[Employees] Hard deleted:', employeeId);
-            return true;
+            console.log('[Employees] Hard deleting via direct API:', employeeId);
+            try {
+                await supabaseFetch(`employees?id=eq.${employeeId}`, {
+                    method: 'DELETE'
+                });
+                console.log('[Employees] Hard deleted:', employeeId);
+                return true;
+            } catch (fetchError) {
+                console.error('[Employees] Direct hard delete failed:', fetchError.message);
+                throw fetchError;
+            }
         },
 
         // Subscribe to real-time changes

@@ -170,16 +170,19 @@
             };
 
             const handleDeleteEmployee = async (id) => {
+                console.log('[PeopleModule] handleDeleteEmployee called for:', id);
                 if (!confirm('Are you sure you want to remove this employee?')) return;
                 
                 try {
                     const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
+                    console.log('[PeopleModule] useSupabase:', useSupabase);
                     
                     if (useSupabase) {
                         await window.MODA_SUPABASE_DATA.employees.delete(id);
                     }
                     
                     setEmployees(employees.filter(e => e.id !== id));
+                    console.log('[PeopleModule] Employee removed from UI');
                 } catch (error) {
                     console.error('[PeopleModule] Delete error:', error);
                     alert(`Error deleting employee: ${error.message}`);
