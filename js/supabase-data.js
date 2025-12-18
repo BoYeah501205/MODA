@@ -47,9 +47,21 @@
             throw new Error(error.message || error.error || 'Supabase request failed');
         }
         
-        const data = await response.json();
-        console.log('[supabaseFetch] Success:', endpoint, 'rows:', data?.length);
-        return data;
+        // Handle empty responses (e.g., DELETE, PATCH without return)
+        const text = await response.text();
+        if (!text || text.trim() === '') {
+            console.log('[supabaseFetch] Success (empty response):', endpoint);
+            return null;
+        }
+        
+        try {
+            const data = JSON.parse(text);
+            console.log('[supabaseFetch] Success:', endpoint, 'rows:', data?.length);
+            return data;
+        } catch (e) {
+            console.log('[supabaseFetch] Success (non-JSON response):', endpoint);
+            return null;
+        }
     }
 
     // Check if Supabase client is available
