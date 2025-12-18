@@ -486,39 +486,50 @@
             }
         },
 
-        // Create new employee
+        // Create new employee (uses direct fetch to avoid SDK timeout)
         async create(employeeData) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
             const dbData = this._toDatabase(employeeData);
+            console.log('[Employees] Creating employee via direct API:', dbData);
             
-            const { data, error } = await getClient()
-                .from('employees')
-                .insert(dbData)
-                .select()
-                .single();
-            
-            if (error) throw error;
-            console.log('[Employees] Created:', data.id);
-            return this._toFrontend(data);
+            try {
+                const data = await supabaseFetch('employees?select=*', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                
+                const created = Array.isArray(data) ? data[0] : data;
+                console.log('[Employees] Created:', created?.id);
+                return this._toFrontend(created);
+            } catch (fetchError) {
+                console.error('[Employees] Direct create failed:', fetchError.message);
+                throw fetchError;
+            }
         },
 
-        // Update employee
+        // Update employee (uses direct fetch to avoid SDK timeout)
         async update(employeeId, updates) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
             const dbData = this._toDatabase(updates);
+            console.log('[Employees] Updating employee via direct API:', employeeId, dbData);
             
-            const { data, error } = await getClient()
-                .from('employees')
-                .update(dbData)
-                .eq('id', employeeId)
-                .select()
-                .single();
-            
-            if (error) throw error;
-            console.log('[Employees] Updated:', employeeId);
-            return this._toFrontend(data);
+            try {
+                const data = await supabaseFetch(`employees?id=eq.${employeeId}&select=*`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                
+                const updated = Array.isArray(data) ? data[0] : data;
+                console.log('[Employees] Updated:', employeeId);
+                return this._toFrontend(updated);
+            } catch (fetchError) {
+                console.error('[Employees] Direct update failed:', fetchError.message);
+                throw fetchError;
+            }
         },
 
         // Delete employee (soft delete - sets is_active to false)
