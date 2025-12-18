@@ -572,8 +572,8 @@ function DashboardRoleManager({ auth }) {
                                                     border: index === 0 ? 'none' : '1px solid #E5E7EB'
                                                 }}
                                             >
-                                                <span>{tab.icon}</span>
-                                                <span>{tab.label.replace(tab.icon + ' ', '')}</span>
+                                                <span className={tab.icon} style={{ width: '16px', height: '16px' }}></span>
+                                                <span>{tab.label}</span>
                                             </div>
                                         );
                                     })
