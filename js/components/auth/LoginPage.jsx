@@ -97,9 +97,23 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
 
                 setLoading(true);
                 try {
-                    // Get current session to get access token
-                    const { data: sessionData } = await window.MODA_SUPABASE.client.auth.getSession();
-                    const accessToken = sessionData?.session?.access_token;
+                    // Get access token from localStorage (avoids SDK Promise hanging)
+                    const SUPABASE_URL = 'https://syreuphexagezawjyjgt.supabase.co';
+                    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cmV1cGhleGFnZXphd2p5amd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2Mzc1MDEsImV4cCI6MjA4MTIxMzUwMX0.-0Th_v-LDCXER9v06-mjfdEUZtRxZZSHHWypmTQXmbs';
+                    
+                    let accessToken = null;
+                    try {
+                        const storageKey = 'sb-syreuphexagezawjyjgt-auth-token';
+                        const stored = localStorage.getItem(storageKey);
+                        if (stored) {
+                            const parsed = JSON.parse(stored);
+                            accessToken = parsed?.access_token;
+                        }
+                    } catch (e) {
+                        console.warn('[SetPasswordForm] Could not get token from storage:', e);
+                    }
+                    
+                    console.log('[SetPasswordForm] Got access token:', !!accessToken);
                     
                     if (!accessToken) {
                         setError('Session expired. Please use the invite link again.');
@@ -107,10 +121,6 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
                         return;
                     }
 
-                    // Use direct fetch API to avoid SDK Promise hanging issues
-                    const SUPABASE_URL = 'https://syreuphexagezawjyjgt.supabase.co';
-                    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cmV1cGhleGFnZXphd2p5amd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2Mzc1MDEsImV4cCI6MjA4MTIxMzUwMX0.-0Th_v-LDCXER9v06-mjfdEUZtRxZZSHHWypmTQXmbs';
-                    
                     console.log('[SetPasswordForm] Updating password via fetch API...');
                     
                     const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
