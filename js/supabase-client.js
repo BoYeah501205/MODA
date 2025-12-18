@@ -425,32 +425,44 @@
     }
 
     // Check if a user exists by email (uses profiles table)
+    // Uses direct fetch API to avoid SDK Promise hanging
     async function checkUserByEmail(email) {
         if (!supabase) {
-            return { success: false, error: 'Supabase not initialized' };
+            return { success: false, exists: false, error: 'Supabase not initialized' };
         }
 
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, email, name, dashboard_role, created_at')
-                .eq('email', email)
-                .single();
+            console.log('[Supabase] Checking user by email via direct API:', email);
+            
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/profiles?select=id,email,name,dashboard_role,created_at&email=eq.${encodeURIComponent(email)}`,
+                {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
 
-            if (error && error.code !== 'PGRST116') {
-                console.error('[Supabase] Check user error:', error);
-                return { success: false, error: error.message };
+            const data = await response.json();
+            console.log('[Supabase] Check user response:', response.status, data);
+
+            if (!response.ok) {
+                console.error('[Supabase] Check user error:', data);
+                return { success: false, exists: false, error: data.message || 'Check failed' };
             }
 
+            const user = Array.isArray(data) && data.length > 0 ? data[0] : null;
+            
             return { 
                 success: true, 
-                exists: !!data, 
-                user: data 
+                exists: !!user, 
+                user: user 
             };
 
         } catch (error) {
             console.error('[Supabase] Check user exception:', error);
-            return { success: false, error: error.message };
+            return { success: false, exists: false, error: error.message };
         }
     }
 
