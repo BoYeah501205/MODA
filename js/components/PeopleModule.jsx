@@ -187,6 +187,7 @@
             };
 
             const handleSendInvite = async (employee) => {
+                console.log('[PeopleModule] handleSendInvite called for:', employee.email);
                 const empName = [employee.prefix, employee.firstName, employee.middleName, employee.lastName, employee.suffix]
                     .filter(Boolean).join(' ') || employee.name || 'Employee';
                 
@@ -195,7 +196,9 @@
                 
                 try {
                     // Check if user already exists
+                    console.log('[PeopleModule] Checking if user exists...');
                     const existingUser = await window.MODA_SUPABASE?.checkUserByEmail(employee.email);
+                    console.log('[PeopleModule] existingUser result:', existingUser);
                     
                     if (existingUser?.exists) {
                         // User already has account - just link them
