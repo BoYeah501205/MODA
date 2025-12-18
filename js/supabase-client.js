@@ -391,23 +391,28 @@
         }
 
         try {
-            // Call Edge Function for secure invite
-            const { data, error } = await supabase.functions.invoke('invite-user', {
-                body: { 
-                    email, 
+            console.log('[Supabase] Sending invite to:', email);
+            
+            // Use direct fetch to avoid SDK Promise hanging issues
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    email,
                     metadata,
                     redirectTo: window.location.origin
-                }
+                })
             });
 
-            if (error) {
-                console.error('[Supabase] Invite error:', error);
-                return { success: false, error: error.message };
-            }
+            const data = await response.json();
+            console.log('[Supabase] Invite response:', response.status, data);
 
-            if (data?.error) {
-                console.error('[Supabase] Invite function error:', data.error);
-                return { success: false, error: data.error };
+            if (!response.ok || data.error) {
+                console.error('[Supabase] Invite error:', data.error);
+                return { success: false, error: data.error || 'Failed to send invite' };
             }
 
             console.log('[Supabase] Invite sent to:', email);
