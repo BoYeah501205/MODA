@@ -512,7 +512,10 @@ function ScheduleSetupTab({
         productionGoal: 20, 
         dailyGoal: 5, 
         startingModule: '', 
-        notes: '' 
+        notes: '',
+        // Per-week daily targets
+        shift1: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+        shift2: { friday: 0, saturday: 0, sunday: 0 }
     });
     
     const sortedModules = [...(allModules || [])].sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
@@ -546,7 +549,16 @@ function ScheduleSetupTab({
     };
     
     const resetForm = () => { 
-        setFormData({ weekStart: '', weekEnd: '', productionGoal: 20, dailyGoal: 5, startingModule: '', notes: '' }); 
+        setFormData({ 
+            weekStart: '', 
+            weekEnd: '', 
+            productionGoal: 20, 
+            dailyGoal: 5, 
+            startingModule: '', 
+            notes: '',
+            shift1: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+            shift2: { friday: 0, saturday: 0, sunday: 0 }
+        }); 
         setError(''); 
     };
     
@@ -559,7 +571,9 @@ function ScheduleSetupTab({
             productionGoal: week.productionGoal || 20, 
             dailyGoal: week.dailyGoal || 5, 
             startingModule: week.startingModule || '', 
-            notes: week.notes || '' 
+            notes: week.notes || '',
+            shift1: week.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+            shift2: week.shift2 || { friday: 0, saturday: 0, sunday: 0 }
         }); 
         setEditingWeek(week); 
         setShowAddWeek(true); 
@@ -568,7 +582,32 @@ function ScheduleSetupTab({
     
     const handleWeekSelect = (weekStartValue) => { 
         const weekEnd = getWeekSunday(weekStartValue); 
-        setFormData(prev => ({ ...prev, weekStart: weekStartValue, weekEnd: weekEnd, productionGoal: getLineBalance() })); 
+        // Use current global schedule as default for new weeks
+        setFormData(prev => ({ 
+            ...prev, 
+            weekStart: weekStartValue, 
+            weekEnd: weekEnd, 
+            productionGoal: getLineBalance(),
+            shift1: scheduleSetup?.shift1 || prev.shift1,
+            shift2: scheduleSetup?.shift2 || prev.shift2
+        })); 
+    };
+    
+    // Calculate line balance for form data
+    const getFormLineBalance = () => {
+        const s1 = formData.shift1 || {};
+        const s2 = formData.shift2 || {};
+        return (s1.monday || 0) + (s1.tuesday || 0) + (s1.wednesday || 0) + (s1.thursday || 0) +
+               (s2.friday || 0) + (s2.saturday || 0) + (s2.sunday || 0);
+    };
+    
+    // Update daily target in form
+    const updateFormDailyTarget = (shift, day, value) => {
+        const numValue = parseInt(value) || 0;
+        setFormData(prev => ({
+            ...prev,
+            [shift]: { ...prev[shift], [day]: numValue }
+        }));
     };
     
     const handleSave = () => { 
@@ -613,8 +652,13 @@ function ScheduleSetupTab({
                     <p className="text-sm text-gray-500">Configure weekly production schedule and starting modules</p>
                 </div>
                 <div className="bg-autovol-teal text-white px-4 py-2 rounded-lg">
-                    <span className="text-sm">Line Balance:</span>
-                    <span className="ml-2 text-xl font-bold">{getLineBalance()}</span>
+                    <span className="text-sm">Current Week Balance:</span>
+                    <span className="ml-2 text-xl font-bold">
+                        {currentWeek?.shift1 
+                            ? (currentWeek.shift1.monday || 0) + (currentWeek.shift1.tuesday || 0) + 
+                              (currentWeek.shift1.wednesday || 0) + (currentWeek.shift1.thursday || 0)
+                            : getLineBalance()}
+                    </span>
                     <span className="text-sm ml-1">modules/week</span>
                 </div>
             </div>
@@ -661,6 +705,10 @@ function ScheduleSetupTab({
                             {weeks.sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart)).map(week => {
                                 const isCurrentWeek = currentWeek?.id === week.id;
                                 const isPast = new Date(week.weekEnd) < new Date();
+                                // Calculate per-week line balance
+                                const weekShift1 = week.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 };
+                                const weekLineBalance = (weekShift1.monday || 0) + (weekShift1.tuesday || 0) + 
+                                                       (weekShift1.wednesday || 0) + (weekShift1.thursday || 0);
                                 return (
                                     <div 
                                         key={week.id} 
@@ -681,9 +729,17 @@ function ScheduleSetupTab({
                                                 {isPast && !isCurrentWeek && (
                                                     <span className="px-2 py-0.5 bg-gray-400 text-white text-xs rounded-full">Past</span>
                                                 )}
+                                                <span className="px-2 py-0.5 bg-autovol-teal text-white text-xs rounded-full">
+                                                    {weekLineBalance} modules
+                                                </span>
                                             </div>
                                             <div className="text-sm text-gray-600 mt-1">
                                                 Starting: <span className="font-mono">{week.startingModule || 'Not set'}</span>
+                                                {week.shift1 && (
+                                                    <span className="ml-3 text-gray-400">
+                                                        M:{weekShift1.monday} T:{weekShift1.tuesday} W:{weekShift1.wednesday} Th:{weekShift1.thursday}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         {canEdit && (
@@ -760,12 +816,39 @@ function ScheduleSetupTab({
                                 </p>
                             </div>
                             
+                            {/* Daily Targets Section */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-autovol-navy text-white px-3 py-2 flex items-center justify-between">
+                                    <span className="font-medium text-sm">Daily Targets (Shift #1)</span>
+                                    <span className="text-sm bg-white/20 px-2 py-0.5 rounded">
+                                        Total: <span className="font-bold">{getFormLineBalance()}</span> modules
+                                    </span>
+                                </div>
+                                <div className="p-3 grid grid-cols-4 gap-2">
+                                    {['monday', 'tuesday', 'wednesday', 'thursday'].map(day => (
+                                        <div key={day} className="text-center">
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                {day.charAt(0).toUpperCase() + day.slice(1, 3)}
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="20"
+                                                value={formData.shift1?.[day] || 0}
+                                                onChange={(e) => updateFormDailyTarget('shift1', day, e.target.value)}
+                                                className="w-full border rounded px-2 py-1 text-center font-mono text-sm"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
                                 <textarea 
                                     value={formData.notes} 
                                     onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))} 
-                                    className="w-full border rounded-lg px-3 py-2 h-20"
+                                    className="w-full border rounded-lg px-3 py-2 h-16"
                                     placeholder="Any notes about this week..."
                                 />
                             </div>
