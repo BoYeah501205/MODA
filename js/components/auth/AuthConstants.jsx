@@ -24,6 +24,7 @@ window.ALL_AVAILABLE_TABS = [
 
 // Default role configurations
 // tabPermissions: per-tab edit permissions. If not specified, falls back to global canEdit capability.
+// editableTabs: array of tab IDs this role can edit (used by canUserEditTab function)
 window.DEFAULT_DASHBOARD_ROLES = [
     {
         id: 'admin',
@@ -38,24 +39,162 @@ window.DEFAULT_DASHBOARD_ROLES = [
             canAccessAdmin: true,
             canExportData: true
         },
-        tabPermissions: {
-            executive: { canEdit: false },
-            production: { canEdit: true },
-            projects: { canEdit: true },
-            people: { canEdit: true },
-            qa: { canEdit: true },
-            transport: { canEdit: true },
-            equipment: { canEdit: true },
-            precon: { canEdit: true },
-            rfi: { canEdit: true },
-            onsite: { canEdit: true },
-            engineering: { canEdit: true },
-            automation: { canEdit: true },
-            tracker: { canEdit: true },
-            admin: { canEdit: true }
-        },
+        editableTabs: ['production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'automation', 'tracker', 'admin', 'schedule_setup', 'weekly_board', 'station_stagger'],
         isDefault: false,
         isProtected: true
+    },
+    {
+        id: 'production_management',
+        name: 'Production Management',
+        description: 'Manages production schedules, weekly board, and station configuration',
+        tabs: ['executive', 'production', 'projects', 'people', 'qa'],
+        capabilities: {
+            canEdit: true,
+            canDelete: true,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: true
+        },
+        editableTabs: ['production', 'projects', 'schedule_setup', 'weekly_board', 'station_stagger'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'production_supervisor',
+        name: 'Production Supervisor',
+        description: 'Floor supervisor - can edit Weekly Board but not schedule setup',
+        tabs: ['production', 'projects', 'people', 'qa'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: true
+        },
+        editableTabs: ['production', 'weekly_board'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'qa_inspector',
+        name: 'QA Inspector',
+        description: 'Quality assurance - can edit QA records and inspections',
+        tabs: ['production', 'qa', 'projects'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: true
+        },
+        editableTabs: ['qa'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'transportation',
+        name: 'Transportation',
+        description: 'Manages yard, shipping, and logistics',
+        tabs: ['production', 'transport', 'projects'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: true
+        },
+        editableTabs: ['transport'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'supply_chain',
+        name: 'Supply Chain',
+        description: 'Manages inventory, materials, and procurement',
+        tabs: ['production', 'projects', 'equipment'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: true
+        },
+        editableTabs: ['equipment'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'preconstruction',
+        name: 'Preconstruction',
+        description: 'Project setup, module specs, and planning',
+        tabs: ['projects', 'production', 'engineering', 'precon'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: true
+        },
+        editableTabs: ['projects', 'precon'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'onsite',
+        name: 'On-Site',
+        description: 'Field operations, delivery tracking, and site reporting',
+        tabs: ['production', 'onsite', 'transport', 'projects'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: false
+        },
+        editableTabs: ['onsite'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'engineering',
+        name: 'Engineering',
+        description: 'Engineering documentation, issues, and drawings',
+        tabs: ['production', 'engineering', 'projects', 'qa'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: true
+        },
+        editableTabs: ['engineering', 'station_stagger'],
+        isDefault: false,
+        isProtected: false
+    },
+    {
+        id: 'maintenance',
+        name: 'Maintenance',
+        description: 'Equipment maintenance and repair tracking',
+        tabs: ['production', 'equipment'],
+        capabilities: {
+            canEdit: true,
+            canDelete: false,
+            canCreate: true,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: false
+        },
+        editableTabs: ['equipment'],
+        isDefault: false,
+        isProtected: false
     },
     {
         id: 'executive',
@@ -70,12 +209,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
             canAccessAdmin: false,
             canExportData: true
         },
-        tabPermissions: {
-            executive: { canEdit: false },
-            production: { canEdit: false },
-            projects: { canEdit: false },
-            people: { canEdit: false }
-        },
+        editableTabs: [],
         isDefault: false,
         isProtected: false
     },
@@ -92,11 +226,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
             canAccessAdmin: false,
             canExportData: true
         },
-        tabPermissions: {
-            production: { canEdit: true },
-            projects: { canEdit: true },
-            people: { canEdit: false }
-        },
+        editableTabs: ['production'],
         isDefault: false,
         isProtected: false
     },
@@ -113,10 +243,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
             canAccessAdmin: false,
             canExportData: false
         },
-        tabPermissions: {
-            production: { canEdit: true },
-            projects: { canEdit: false }
-        },
+        editableTabs: ['production'],
         isDefault: false,
         isProtected: false
     },
@@ -133,9 +260,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
             canAccessAdmin: false,
             canExportData: false
         },
-        tabPermissions: {
-            production: { canEdit: false }
-        },
+        editableTabs: [],
         isDefault: true,
         isProtected: false
     },
@@ -152,7 +277,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
             canAccessAdmin: false,
             canExportData: false
         },
-        tabPermissions: {},
+        editableTabs: [],
         isDefault: false,
         isProtected: true
     }

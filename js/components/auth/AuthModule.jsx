@@ -8,7 +8,7 @@ const { useState, useEffect } = React;
 // Initialize roles in localStorage
 function initializeDashboardRoles() {
     const existing = localStorage.getItem('autovol_dashboard_roles');
-    const ROLES_VERSION = 3; // Increment this if you change DEFAULT_DASHBOARD_ROLES (v3: added executive tab to admin role)
+    const ROLES_VERSION = 4; // Increment this if you change DEFAULT_DASHBOARD_ROLES (v4: added new roles - production_management, qa_inspector, etc.)
     
     if (!existing) {
         // No roles exist, initialize
