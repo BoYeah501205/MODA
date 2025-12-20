@@ -656,7 +656,8 @@ function ScheduleSetupTab({
                     <span className="ml-2 text-xl font-bold">
                         {currentWeek?.shift1 
                             ? (currentWeek.shift1.monday || 0) + (currentWeek.shift1.tuesday || 0) + 
-                              (currentWeek.shift1.wednesday || 0) + (currentWeek.shift1.thursday || 0)
+                              (currentWeek.shift1.wednesday || 0) + (currentWeek.shift1.thursday || 0) +
+                              (currentWeek.shift2?.friday || 0) + (currentWeek.shift2?.saturday || 0) + (currentWeek.shift2?.sunday || 0)
                             : getLineBalance()}
                     </span>
                     <span className="text-sm ml-1">modules/week</span>
@@ -705,10 +706,13 @@ function ScheduleSetupTab({
                             {weeks.sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart)).map(week => {
                                 const isCurrentWeek = currentWeek?.id === week.id;
                                 const isPast = new Date(week.weekEnd) < new Date();
-                                // Calculate per-week line balance
+                                // Calculate per-week line balance for both shifts
                                 const weekShift1 = week.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 };
-                                const weekLineBalance = (weekShift1.monday || 0) + (weekShift1.tuesday || 0) + 
-                                                       (weekShift1.wednesday || 0) + (weekShift1.thursday || 0);
+                                const weekShift2 = week.shift2 || { friday: 0, saturday: 0, sunday: 0 };
+                                const shift1Total = (weekShift1.monday || 0) + (weekShift1.tuesday || 0) + 
+                                                   (weekShift1.wednesday || 0) + (weekShift1.thursday || 0);
+                                const shift2Total = (weekShift2.friday || 0) + (weekShift2.saturday || 0) + (weekShift2.sunday || 0);
+                                const weekLineBalance = shift1Total + shift2Total;
                                 return (
                                     <div 
                                         key={week.id} 
@@ -735,11 +739,12 @@ function ScheduleSetupTab({
                                             </div>
                                             <div className="text-sm text-gray-600 mt-1">
                                                 Starting: <span className="font-mono">{week.startingModule || 'Not set'}</span>
-                                                {week.shift1 && (
-                                                    <span className="ml-3 text-gray-400">
-                                                        M:{weekShift1.monday} T:{weekShift1.tuesday} W:{weekShift1.wednesday} Th:{weekShift1.thursday}
-                                                    </span>
-                                                )}
+                                                <span className="ml-3 text-gray-400">
+                                                    S1: M:{weekShift1.monday} T:{weekShift1.tuesday} W:{weekShift1.wednesday} Th:{weekShift1.thursday}
+                                                    {shift2Total > 0 && (
+                                                        <span className="ml-2">S2: F:{weekShift2.friday} Sa:{weekShift2.saturday} Su:{weekShift2.sunday}</span>
+                                                    )}
+                                                </span>
                                             </div>
                                         </div>
                                         {canEdit && (
@@ -816,12 +821,13 @@ function ScheduleSetupTab({
                                 </p>
                             </div>
                             
-                            {/* Daily Targets Section */}
+                            {/* Daily Targets Section - Shift #1 */}
                             <div className="border rounded-lg overflow-hidden">
                                 <div className="bg-autovol-navy text-white px-3 py-2 flex items-center justify-between">
-                                    <span className="font-medium text-sm">Daily Targets (Shift #1)</span>
+                                    <span className="font-medium text-sm">Shift #1 (Mon - Thu)</span>
                                     <span className="text-sm bg-white/20 px-2 py-0.5 rounded">
-                                        Total: <span className="font-bold">{getFormLineBalance()}</span> modules
+                                        {(formData.shift1?.monday || 0) + (formData.shift1?.tuesday || 0) + 
+                                         (formData.shift1?.wednesday || 0) + (formData.shift1?.thursday || 0)} modules
                                     </span>
                                 </div>
                                 <div className="p-3 grid grid-cols-4 gap-2">
@@ -841,6 +847,40 @@ function ScheduleSetupTab({
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                            
+                            {/* Daily Targets Section - Shift #2 */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-gray-600 text-white px-3 py-2 flex items-center justify-between">
+                                    <span className="font-medium text-sm">Shift #2 (Fri - Sun)</span>
+                                    <span className="text-sm bg-white/20 px-2 py-0.5 rounded">
+                                        {(formData.shift2?.friday || 0) + (formData.shift2?.saturday || 0) + 
+                                         (formData.shift2?.sunday || 0)} modules
+                                    </span>
+                                </div>
+                                <div className="p-3 grid grid-cols-3 gap-2">
+                                    {['friday', 'saturday', 'sunday'].map(day => (
+                                        <div key={day} className="text-center">
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                {day.charAt(0).toUpperCase() + day.slice(1, 3)}
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="20"
+                                                value={formData.shift2?.[day] || 0}
+                                                onChange={(e) => updateFormDailyTarget('shift2', day, e.target.value)}
+                                                className="w-full border rounded px-2 py-1 text-center font-mono text-sm"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Total Line Balance */}
+                            <div className="bg-autovol-teal/10 border border-autovol-teal rounded-lg p-3 flex items-center justify-between">
+                                <span className="font-medium text-autovol-navy">Total Line Balance</span>
+                                <span className="text-xl font-bold text-autovol-teal">{getFormLineBalance()} modules/week</span>
                             </div>
                             
                             <div>
@@ -879,93 +919,10 @@ function ScheduleSetupTab({
                 setProjects={setProjects}
             />
             
-            {/* Shift 1 Table - Mon-Thu */}
-            <div className="bg-white border rounded-lg overflow-hidden">
-                <div className="bg-autovol-navy text-white px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="font-semibold">Shift #1</span>
-                        <span className="text-sm opacity-75">Mon - Thu</span>
-                    </div>
-                    <div className="bg-white/20 px-3 py-1 rounded">
-                        Total: <span className="font-bold">{getShiftTotal('shift1')}</span> modules
-                    </div>
-                </div>
-                <div className="p-4">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b">
-                                <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Day</th>
-                                <th className="text-center py-2 px-3 text-sm font-medium text-gray-600">Module Qty</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {shift1Days.map(day => (
-                                <tr key={day} className="border-b last:border-0">
-                                    <td className="py-3 px-3 font-medium text-gray-700">{dayLabels[day]}</td>
-                                    <td className="py-3 px-3 text-center">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="20"
-                                            value={scheduleSetup.shift1[day] || 0}
-                                            onChange={(e) => updateShiftSchedule('shift1', day, e.target.value)}
-                                            className={`w-20 border rounded px-3 py-2 text-center font-mono ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                            disabled={!canEdit}
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            {/* Shift 2 Table - Fri-Sun (Future) */}
-            <div className="bg-white border rounded-lg overflow-hidden opacity-60">
-                <div className="bg-gray-600 text-white px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="font-semibold">Shift #2</span>
-                        <span className="text-sm opacity-75">Fri - Sun</span>
-                        <span className="bg-yellow-500 text-yellow-900 text-xs px-2 py-0.5 rounded ml-2">Coming Soon</span>
-                    </div>
-                    <div className="bg-white/20 px-3 py-1 rounded">
-                        Total: <span className="font-bold">{getShiftTotal('shift2')}</span> modules
-                    </div>
-                </div>
-                <div className="p-4">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b">
-                                <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Day</th>
-                                <th className="text-center py-2 px-3 text-sm font-medium text-gray-600">Module Qty</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {shift2Days.map(day => (
-                                <tr key={day} className="border-b last:border-0">
-                                    <td className="py-3 px-3 font-medium text-gray-400">{dayLabels[day]}</td>
-                                    <td className="py-3 px-3 text-center">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="20"
-                                            value={scheduleSetup.shift2[day] || 0}
-                                            onChange={(e) => updateShiftSchedule('shift2', day, e.target.value)}
-                                            className="w-20 border rounded px-3 py-2 text-center font-mono bg-gray-100"
-                                            disabled
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
             {/* Info Note */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
                 <strong>Note:</strong> Days with '0' modules assigned will not display on the Weekly Board.
-                The Line Balance represents the total modules we are counting as complete for the week across all stations.
+                Configure daily targets when adding or editing a production week above.
             </div>
         </div>
     );
