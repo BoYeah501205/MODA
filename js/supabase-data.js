@@ -950,9 +950,14 @@
             return true;
         },
 
-        // Check if current user can edit schedules
-        // Only trevor@autovol.com and stephanie@autovol.com can modify schedule setup
+        // Check if current user can edit schedule setup
+        // Uses role-based permissions from dashboardRoles.js
         canEdit() {
+            // Use the global canUserEditTab function if available
+            if (typeof window.canUserEditTab === 'function') {
+                return window.canUserEditTab('schedule_setup');
+            }
+            // Fallback to hardcoded emails for backward compatibility
             const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
                               window.MODA_SUPABASE?.currentUser?.email || '';
             const allowedEditors = ['trevor@autovol.com', 'stephanie@autovol.com'];

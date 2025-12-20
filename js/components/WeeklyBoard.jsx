@@ -177,7 +177,7 @@ const useWeeklySchedule = () => {
     // Update shift schedule (only if user can edit)
     const updateShiftSchedule = useCallback((shift, day, value) => {
         if (!canEdit) {
-            console.warn('[WeeklySchedule] Cannot edit - only trevor@autovol.com or stephanie@autovol.com can modify schedules');
+            console.warn('[WeeklySchedule] Cannot edit - user role does not have schedule_setup permission');
             return;
         }
         setScheduleSetup(prev => ({
@@ -203,7 +203,7 @@ const useWeeklySchedule = () => {
     // Complete a week - creates historical record
     const completeWeek = useCallback(async (weekData) => {
         if (!canEdit) {
-            console.warn('[WeeklySchedule] Cannot complete week - only trevor@autovol.com or stephanie@autovol.com can modify schedules');
+            console.warn('[WeeklySchedule] Cannot complete week - user role does not have schedule_setup permission');
             return null;
         }
         
@@ -640,7 +640,7 @@ function ScheduleSetupTab({
                     <span className="text-amber-600 text-xl">&#128274;</span>
                     <div>
                         <div className="font-medium text-amber-800">View-Only Mode</div>
-                        <div className="text-sm text-amber-600">Only Trevor or Stephanie can modify the schedule setup. Changes sync to all users automatically.</div>
+                        <div className="text-sm text-amber-600">Your role does not have permission to modify the schedule setup. Contact an Admin or Production Management to make changes.</div>
                     </div>
                 </div>
             )}
