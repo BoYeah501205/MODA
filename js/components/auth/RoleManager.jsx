@@ -14,7 +14,10 @@ function DashboardRoleManager({ auth }) {
         setDefaultRole, 
         moveTab, 
         toggleTab, 
-        toggleCapability
+        toggleCapability,
+        getTabPermission,
+        toggleTabPermission,
+        setTabPermissions
     } = auth.dashboardRoles;
     
     const [selectedRoleId, setSelectedRoleId] = useState(roles[0]?.id);
@@ -406,6 +409,202 @@ function DashboardRoleManager({ auth }) {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+
+                            {/* Per-Tab Permission Matrix */}
+                            <div style={{ marginBottom: '25px' }}>
+                                <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--autovol-navy)', marginBottom: '12px' }}>
+                                    Tab Permission Matrix
+                                </div>
+                                <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>
+                                    Configure specific permissions for each tab/feature
+                                </p>
+
+                                <div style={{ 
+                                    border: '2px solid #E5E7EB', 
+                                    borderRadius: '6px', 
+                                    overflow: 'hidden',
+                                    fontSize: '12px'
+                                }}>
+                                    {/* Header Row */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                        background: '#F3F4F6',
+                                        borderBottom: '2px solid #E5E7EB',
+                                        fontWeight: '600',
+                                        color: 'var(--autovol-navy)'
+                                    }}>
+                                        <div style={{ padding: '10px 12px' }}>Tab / Feature</div>
+                                        <div style={{ padding: '10px 8px', textAlign: 'center' }}>View</div>
+                                        <div style={{ padding: '10px 8px', textAlign: 'center' }}>Edit</div>
+                                        <div style={{ padding: '10px 8px', textAlign: 'center' }}>Create</div>
+                                        <div style={{ padding: '10px 8px', textAlign: 'center' }}>Delete</div>
+                                    </div>
+
+                                    {/* Main Tabs */}
+                                    {(window.ALL_AVAILABLE_TABS || []).map((tab, index) => {
+                                        const perms = selectedRole.tabPermissions?.[tab.id] || { canView: false, canEdit: false, canCreate: false, canDelete: false };
+                                        const isInTabs = selectedRole.tabs?.includes(tab.id);
+                                        
+                                        return (
+                                            <div 
+                                                key={tab.id}
+                                                style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                                    borderBottom: '1px solid #E5E7EB',
+                                                    background: index % 2 === 0 ? 'white' : '#FAFAFA'
+                                                }}
+                                            >
+                                                <div style={{ 
+                                                    padding: '8px 12px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '8px',
+                                                    color: 'var(--autovol-navy)',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    <span className={tab.icon} style={{ width: '14px', height: '14px', opacity: 0.7 }}></span>
+                                                    {tab.label}
+                                                </div>
+                                                {['canView', 'canEdit', 'canCreate', 'canDelete'].map(perm => (
+                                                    <div key={perm} style={{ padding: '8px', textAlign: 'center' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={perms[perm] || false}
+                                                            onChange={() => toggleTabPermission(selectedRole.id, tab.id, perm)}
+                                                            style={{ 
+                                                                width: '16px', 
+                                                                height: '16px', 
+                                                                cursor: 'pointer',
+                                                                accentColor: perm === 'canDelete' ? '#EF4444' : 'var(--autovol-teal)'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Special Features Section Header */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                        background: '#E0F2FE',
+                                        borderBottom: '1px solid #E5E7EB',
+                                        fontWeight: '600',
+                                        color: '#0369A1'
+                                    }}>
+                                        <div style={{ padding: '8px 12px' }}>Special Features</div>
+                                        <div style={{ padding: '8px', textAlign: 'center' }}></div>
+                                        <div style={{ padding: '8px', textAlign: 'center' }}></div>
+                                        <div style={{ padding: '8px', textAlign: 'center' }}></div>
+                                        <div style={{ padding: '8px', textAlign: 'center' }}></div>
+                                    </div>
+
+                                    {/* Special Features */}
+                                    {(window.SPECIAL_FEATURES || []).map((feature, index) => {
+                                        const perms = selectedRole.tabPermissions?.[feature.id] || { canView: false, canEdit: false, canCreate: false, canDelete: false };
+                                        
+                                        return (
+                                            <div 
+                                                key={feature.id}
+                                                style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                                    borderBottom: '1px solid #E5E7EB',
+                                                    background: index % 2 === 0 ? '#F0F9FF' : '#E0F2FE'
+                                                }}
+                                            >
+                                                <div style={{ 
+                                                    padding: '8px 12px', 
+                                                    paddingLeft: '24px',
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '8px',
+                                                    color: '#0369A1',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    {feature.label}
+                                                    <span style={{ 
+                                                        fontSize: '10px', 
+                                                        color: '#6B7280',
+                                                        fontWeight: '400'
+                                                    }}>
+                                                        ({feature.parentTab})
+                                                    </span>
+                                                </div>
+                                                {['canView', 'canEdit', 'canCreate', 'canDelete'].map(perm => (
+                                                    <div key={perm} style={{ padding: '8px', textAlign: 'center' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={perms[perm] || false}
+                                                            onChange={() => toggleTabPermission(selectedRole.id, feature.id, perm)}
+                                                            style={{ 
+                                                                width: '16px', 
+                                                                height: '16px', 
+                                                                cursor: 'pointer',
+                                                                accentColor: perm === 'canDelete' ? '#EF4444' : '#0EA5E9'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Quick Actions */}
+                                <div style={{ 
+                                    display: 'flex', 
+                                    gap: '8px', 
+                                    marginTop: '12px',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    <button
+                                        onClick={() => {
+                                            // Set all visible tabs to view-only
+                                            const newPerms = {};
+                                            selectedRole.tabs?.forEach(tabId => {
+                                                newPerms[tabId] = { canView: true, canEdit: false, canCreate: false, canDelete: false };
+                                            });
+                                            updateRole(selectedRole.id, { tabPermissions: { ...selectedRole.tabPermissions, ...newPerms } });
+                                        }}
+                                        style={{
+                                            padding: '6px 12px',
+                                            fontSize: '11px',
+                                            border: '1px solid #D1D5DB',
+                                            borderRadius: '4px',
+                                            background: 'white',
+                                            cursor: 'pointer',
+                                            color: '#374151'
+                                        }}
+                                    >
+                                        Set All View-Only
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // Set all visible tabs to full edit
+                                            const newPerms = {};
+                                            selectedRole.tabs?.forEach(tabId => {
+                                                newPerms[tabId] = { canView: true, canEdit: true, canCreate: true, canDelete: false };
+                                            });
+                                            updateRole(selectedRole.id, { tabPermissions: { ...selectedRole.tabPermissions, ...newPerms } });
+                                        }}
+                                        style={{
+                                            padding: '6px 12px',
+                                            fontSize: '11px',
+                                            border: '1px solid #D1D5DB',
+                                            borderRadius: '4px',
+                                            background: 'white',
+                                            cursor: 'pointer',
+                                            color: '#374151'
+                                        }}
+                                    >
+                                        Set All Edit + Create
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Tab Visibility */}

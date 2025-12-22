@@ -8,7 +8,7 @@ const { useState, useEffect } = React;
 // Initialize roles in localStorage
 function initializeDashboardRoles() {
     const existing = localStorage.getItem('autovol_dashboard_roles');
-    const ROLES_VERSION = 4; // Increment this if you change DEFAULT_DASHBOARD_ROLES (v4: added new roles - production_management, qa_inspector, etc.)
+    const ROLES_VERSION = 5; // Increment this if you change DEFAULT_DASHBOARD_ROLES (v5: migrated to full tabPermissions with canView/canEdit/canCreate/canDelete)
     
     if (!existing) {
         // No roles exist, initialize
@@ -133,48 +133,70 @@ function useDashboardRoles() {
         return role?.capabilities?.[capability] || false;
     };
 
-    // Check if a role can edit a specific tab
-    // Falls back to global canEdit capability if tabPermissions not defined
-    const canEditTab = (roleId, tabId) => {
+    // Get full tab permissions for a specific tab
+    // Returns { canView, canEdit, canCreate, canDelete }
+    const getTabPermission = (roleId, tabId) => {
         const role = getRoleById(roleId);
-        if (!role) return false;
+        const defaultPerms = { canView: false, canEdit: false, canCreate: false, canDelete: false };
+        if (!role) return defaultPerms;
         
-        // Check tab-specific permission first
-        if (role.tabPermissions && role.tabPermissions[tabId] !== undefined) {
-            return role.tabPermissions[tabId]?.canEdit || false;
+        if (role.tabPermissions && role.tabPermissions[tabId]) {
+            return { ...defaultPerms, ...role.tabPermissions[tabId] };
         }
         
-        // Fall back to global canEdit capability
-        return role.capabilities?.canEdit || false;
+        // If tab is in viewable tabs but no specific permissions, default to view-only
+        if (role.tabs?.includes(tabId)) {
+            return { canView: true, canEdit: false, canCreate: false, canDelete: false };
+        }
+        
+        return defaultPerms;
     };
 
-    // Toggle tab-specific edit permission
-    const toggleTabPermission = (roleId, tabId) => {
+    // Check if a role can perform a specific action on a tab
+    const hasTabPermission = (roleId, tabId, permission) => {
+        const perms = getTabPermission(roleId, tabId);
+        return perms[permission] || false;
+    };
+
+    // Convenience methods for common permission checks
+    const canViewTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canView');
+    const canEditTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canEdit');
+    const canCreateInTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canCreate');
+    const canDeleteInTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canDelete');
+
+    // Toggle a specific permission for a tab
+    const toggleTabPermission = (roleId, tabId, permission = 'canEdit') => {
         const role = roles.find(r => r.id === roleId);
         if (!role) return;
 
         const currentPermissions = role.tabPermissions || {};
-        const currentTabPerm = currentPermissions[tabId] || { canEdit: role.capabilities?.canEdit || false };
+        const currentTabPerm = currentPermissions[tabId] || { 
+            canView: role.tabs?.includes(tabId) || false, 
+            canEdit: false, 
+            canCreate: false, 
+            canDelete: false 
+        };
         
         const tabPermissions = {
             ...currentPermissions,
-            [tabId]: { ...currentTabPerm, canEdit: !currentTabPerm.canEdit }
+            [tabId]: { ...currentTabPerm, [permission]: !currentTabPerm[permission] }
         };
 
         updateRole(roleId, { tabPermissions });
     };
 
-    // Get tab permission for a specific tab
-    const getTabPermission = (roleId, tabId) => {
-        const role = getRoleById(roleId);
-        if (!role) return { canEdit: false };
-        
-        if (role.tabPermissions && role.tabPermissions[tabId]) {
-            return role.tabPermissions[tabId];
-        }
-        
-        // Default to global canEdit
-        return { canEdit: role.capabilities?.canEdit || false };
+    // Set all permissions for a tab at once
+    const setTabPermissions = (roleId, tabId, permissions) => {
+        const role = roles.find(r => r.id === roleId);
+        if (!role) return;
+
+        const currentPermissions = role.tabPermissions || {};
+        const tabPermissions = {
+            ...currentPermissions,
+            [tabId]: { ...currentPermissions[tabId], ...permissions }
+        };
+
+        updateRole(roleId, { tabPermissions });
     };
 
     return { 
@@ -189,9 +211,15 @@ function useDashboardRoles() {
         getRoleById,
         getVisibleTabs,
         hasCapability,
+        // Per-tab permission methods
+        getTabPermission,
+        hasTabPermission,
+        canViewTab,
         canEditTab,
+        canCreateInTab,
+        canDeleteInTab,
         toggleTabPermission,
-        getTabPermission
+        setTabPermissions
     };
 }
 

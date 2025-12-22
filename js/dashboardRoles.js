@@ -453,8 +453,51 @@ function canUserEditTab(tabId) {
         // Admin always has full edit access
         if (role.id === 'admin') return true;
         
-        // Check editableTabs array
-        return role.editableTabs?.includes(tabId) || false;
+        // Check tabPermissions object (new structure)
+        if (role.tabPermissions && role.tabPermissions[tabId]) {
+            return role.tabPermissions[tabId].canEdit || false;
+        }
+        
+        // Fallback to editableTabs array (legacy structure)
+        if (role.editableTabs) {
+            return role.editableTabs.includes(tabId) || false;
+        }
+        
+        return false;
+    } catch (e) {
+        console.error('Error checking tab permissions:', e);
+        return false;
+    }
+}
+
+// Check if current user can perform a specific action on a tab
+// Actions: 'canView', 'canEdit', 'canCreate', 'canDelete'
+function canUserPerformAction(tabId, action) {
+    const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
+                     localStorage.getItem('autovol_user_role') || 'employee';
+    
+    const rolesJson = localStorage.getItem('autovol_dashboard_roles');
+    if (!rolesJson) return false;
+    
+    try {
+        const roles = JSON.parse(rolesJson);
+        const role = roles.find(r => r.id === userRole);
+        if (!role) return false;
+        
+        // Admin always has full access
+        if (role.id === 'admin') return true;
+        
+        // Check tabPermissions object
+        if (role.tabPermissions && role.tabPermissions[tabId]) {
+            return role.tabPermissions[tabId][action] || false;
+        }
+        
+        // For canView, check if tab is in viewable tabs
+        if (action === 'canView') {
+            return role.tabs?.includes(tabId) || false;
+        }
+        
+        return false;
     } catch (e) {
         console.error('Error checking tab permissions:', e);
         return false;
@@ -463,3 +506,4 @@ function canUserEditTab(tabId) {
 
 // Export for global access
 window.canUserEditTab = canUserEditTab;
+window.canUserPerformAction = canUserPerformAction;
