@@ -1,6 +1,7 @@
 // ============================================================================
 // MODA DASHBOARD ROLE MANAGER
 // Extracted from App.jsx for better maintainability
+// v2.0 - Added Per-Tab Permission Matrix UI
 // ============================================================================
 
 const { useState } = React;
