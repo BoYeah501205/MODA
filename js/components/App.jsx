@@ -1281,7 +1281,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     projects={projects} 
                                     employees={employees} 
                                     currentUser={auth.user}
-                                    modules={modules}
                                 />
                             ) : (
                                 <div className="text-center py-20">
