@@ -467,50 +467,10 @@ const REPORT_TYPES = [
 function OnSiteTab({ projects = [], employees = [], currentUser = null, modules = [] }) {
     const [activeSubTab, setActiveSubTab] = useState('dashboard');
     
-    // Use Supabase hooks if available, otherwise fall back to localStorage hooks
-    const useSupabase = typeof window.useSupabaseOnSite === 'function' && window.MODA_ONSITE;
-    
-    // localStorage-based hooks (fallback)
+    // localStorage-based hooks (always called to satisfy React's rules of hooks)
     const scheduleHook = useSetSchedule();
-    const localIssueHook = useSetIssues();
-    const localReportHook = useDailySiteReports();
-    
-    // Supabase-based hooks (primary when available)
-    const supabaseHook = useSupabase ? window.useSupabaseOnSite() : null;
-    
-    // Unified interface - prefer Supabase when available
-    const issueHook = useSupabase ? {
-        issues: supabaseHook.issues,
-        addIssue: supabaseHook.createIssue,
-        updateIssue: supabaseHook.updateIssue,
-        resolveIssue: supabaseHook.resolveIssue,
-        getIssuesBySet: (setId) => supabaseHook.issues.filter(i => i.set_id === setId),
-        getIssuesByModule: supabaseHook.getIssuesByModule,
-        getOpenIssues: supabaseHook.getOpenIssues
-    } : localIssueHook;
-    
-    const reportHook = useSupabase ? {
-        reports: supabaseHook.reports,
-        createOrGetReport: supabaseHook.createOrGetReport,
-        updateReport: supabaseHook.updateReport,
-        getReportByDate: supabaseHook.getReportByDate,
-        getReportsForProject: supabaseHook.getReportsForProject,
-        getRecentReports: () => supabaseHook.reports.slice(0, 10),
-        addGlobalItem: async (reportId, item) => {
-            return supabaseHook.createGlobalIssue({
-                report_id: reportId,
-                issue_type: 'other',
-                priority: item.priority || 'fyi',
-                description: item.text
-            });
-        },
-        addIssueToReport: async (reportId, issueData) => {
-            return supabaseHook.createIssue({
-                report_id: reportId,
-                ...issueData
-            });
-        }
-    } : localReportHook;
+    const issueHook = useSetIssues();
+    const reportHook = useDailySiteReports();
     
     // Modal states
     const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -522,13 +482,7 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null, modules 
     const [selectedProject, setSelectedProject] = useState(null);
     const [activeReportId, setActiveReportId] = useState(null);
 
-    // Set active report in Supabase hook when it changes
-    useEffect(() => {
-        if (supabaseHook && activeReportId) {
-            supabaseHook.setActiveReport(activeReportId);
-        }
-    }, [activeReportId, supabaseHook]);
-
+    
     const subTabs = [
         { id: 'dashboard', label: 'Dashboard', iconClass: 'icon-dashboard' },
         { id: 'daily-report', label: 'Daily Report', iconClass: 'icon-report' },
@@ -546,12 +500,8 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null, modules 
         }
     };
 
-    const handleIssueSubmit = async (issueData) => {
-        if (useSupabase) {
-            await supabaseHook.createIssue(issueData);
-        } else {
-            localIssueHook.addIssue(issueData);
-        }
+    const handleIssueSubmit = (issueData) => {
+        issueHook.addIssue(issueData);
         setShowIssueModal(false);
         setShowNewIssueLogger(false);
         setIssueContext(null);
