@@ -422,20 +422,20 @@ function useDailySiteReports() {
 // CONSTANTS
 // ============================================================================
 
-// Issue Categories - Keep simple, expand as needed
+// Issue Categories - Use CSS icon classes (no emojis)
 const ISSUE_CATEGORIES = [
-    { id: 'quality-defect', label: 'Quality Defect', icon: '⚠️', description: 'Damage, defects found during set' },
-    { id: 'question', label: 'Question', icon: '❓', description: 'Needs clarification or decision' },
-    { id: 'site-issue', label: 'Site-Issue', icon: '📍', description: 'Site conditions, access, GC coordination' },
-    { id: 'drawing-issue', label: 'Drawing Issue', icon: '📐', description: 'Discrepancy with plans/specs' },
-    { id: 'other', label: 'Other', icon: '📋', description: 'Free-text fill-in for edge cases', allowCustom: true }
+    { id: 'quality-defect', label: 'Quality Defect', iconClass: 'icon-quality-issue', description: 'Damage, defects found during set' },
+    { id: 'question', label: 'Question', iconClass: 'icon-question', description: 'Needs clarification or decision' },
+    { id: 'site-issue', label: 'Site-Issue', iconClass: 'icon-site-issue', description: 'Site conditions, access, GC coordination' },
+    { id: 'drawing-issue', label: 'Drawing Issue', iconClass: 'icon-drawing-issue', description: 'Discrepancy with plans/specs' },
+    { id: 'other', label: 'Other', iconClass: 'icon-other', description: 'Free-text fill-in for edge cases', allowCustom: true }
 ];
 
-// Global Items Priority Levels
+// Global Items Priority Levels - Use CSS icon classes
 const GLOBAL_ITEM_PRIORITIES = [
-    { id: 'attention', label: 'Attention', color: '#DC2626', bgColor: '#FEE2E2', icon: '🔴' },
-    { id: 'fyi', label: 'FYI', color: '#2563EB', bgColor: '#DBEAFE', icon: '🔵' },
-    { id: 'resolved', label: 'Resolved', color: '#16A34A', bgColor: '#DCFCE7', icon: '✅' }
+    { id: 'attention', label: 'Attention', color: '#DC2626', bgColor: '#FEE2E2', iconClass: 'icon-attention' },
+    { id: 'fyi', label: 'FYI', color: '#2563EB', bgColor: '#DBEAFE', iconClass: 'icon-info' },
+    { id: 'resolved', label: 'Resolved', color: '#16A34A', bgColor: '#DCFCE7', iconClass: 'icon-check' }
 ];
 
 const SEVERITY_LEVELS = [
@@ -464,37 +464,105 @@ const REPORT_TYPES = [
 // MAIN ON-SITE TAB COMPONENT
 // ============================================================================
 
-function OnSiteTab({ projects = [], employees = [], currentUser = null }) {
+function OnSiteTab({ projects = [], employees = [], currentUser = null, modules = [] }) {
     const [activeSubTab, setActiveSubTab] = useState('dashboard');
+    
+    // Use Supabase hooks if available, otherwise fall back to localStorage hooks
+    const useSupabase = typeof window.useSupabaseOnSite === 'function' && window.MODA_ONSITE;
+    
+    // localStorage-based hooks (fallback)
     const scheduleHook = useSetSchedule();
-    const issueHook = useSetIssues();
-    const reportHook = useDailySiteReports();
+    const localIssueHook = useSetIssues();
+    const localReportHook = useDailySiteReports();
+    
+    // Supabase-based hooks (primary when available)
+    const supabaseHook = useSupabase ? window.useSupabaseOnSite() : null;
+    
+    // Unified interface - prefer Supabase when available
+    const issueHook = useSupabase ? {
+        issues: supabaseHook.issues,
+        addIssue: supabaseHook.createIssue,
+        updateIssue: supabaseHook.updateIssue,
+        resolveIssue: supabaseHook.resolveIssue,
+        getIssuesBySet: (setId) => supabaseHook.issues.filter(i => i.set_id === setId),
+        getIssuesByModule: supabaseHook.getIssuesByModule,
+        getOpenIssues: supabaseHook.getOpenIssues
+    } : localIssueHook;
+    
+    const reportHook = useSupabase ? {
+        reports: supabaseHook.reports,
+        createOrGetReport: supabaseHook.createOrGetReport,
+        updateReport: supabaseHook.updateReport,
+        getReportByDate: supabaseHook.getReportByDate,
+        getReportsForProject: supabaseHook.getReportsForProject,
+        getRecentReports: () => supabaseHook.reports.slice(0, 10),
+        addGlobalItem: async (reportId, item) => {
+            return supabaseHook.createGlobalIssue({
+                report_id: reportId,
+                issue_type: 'other',
+                priority: item.priority || 'fyi',
+                description: item.text
+            });
+        },
+        addIssueToReport: async (reportId, issueData) => {
+            return supabaseHook.createIssue({
+                report_id: reportId,
+                ...issueData
+            });
+        }
+    } : localReportHook;
     
     // Modal states
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [showIssueModal, setShowIssueModal] = useState(false);
+    const [showNewIssueLogger, setShowNewIssueLogger] = useState(false);
     const [issueContext, setIssueContext] = useState(null);
     const [selectedSet, setSelectedSet] = useState(null);
     const [selectedModule, setSelectedModule] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
+    const [activeReportId, setActiveReportId] = useState(null);
+
+    // Set active report in Supabase hook when it changes
+    useEffect(() => {
+        if (supabaseHook && activeReportId) {
+            supabaseHook.setActiveReport(activeReportId);
+        }
+    }, [activeReportId, supabaseHook]);
 
     const subTabs = [
-        { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-        { id: 'daily-report', label: 'Daily Report', icon: '📝' },
-        { id: 'schedule', label: 'Set Schedule', icon: '📅' },
-        { id: 'reports', label: 'Report History', icon: '📄' }
+        { id: 'dashboard', label: 'Dashboard', iconClass: 'icon-dashboard' },
+        { id: 'daily-report', label: 'Daily Report', iconClass: 'icon-report' },
+        { id: 'schedule', label: 'Set Schedule', iconClass: 'icon-calendar' },
+        { id: 'reports', label: 'Report History', iconClass: 'icon-history' }
     ];
 
     const openIssueLogger = (setData, moduleData) => {
         setIssueContext({ set: setData, module: moduleData });
-        setShowIssueModal(true);
+        // Use new IssueLogger component if available and we have a report
+        if (window.IssueLogger && activeReportId) {
+            setShowNewIssueLogger(true);
+        } else {
+            setShowIssueModal(true);
+        }
     };
 
-    const handleIssueSubmit = (issueData) => {
-        issueHook.addIssue(issueData);
+    const handleIssueSubmit = async (issueData) => {
+        if (useSupabase) {
+            await supabaseHook.createIssue(issueData);
+        } else {
+            localIssueHook.addIssue(issueData);
+        }
         setShowIssueModal(false);
+        setShowNewIssueLogger(false);
         setIssueContext(null);
     };
+    
+    // Get all modules from projects for the IssueLogger
+    const allModules = useMemo(() => {
+        if (modules && modules.length > 0) return modules;
+        // Flatten modules from all projects
+        return projects.flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name })));
+    }, [projects, modules]);
 
     return (
         <div className="onsite-container">
@@ -506,7 +574,7 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null }) {
                         onClick={() => setActiveSubTab(tab.id)}
                         className={`onsite-subtab-btn ${activeSubTab === tab.id ? 'active' : ''}`}
                     >
-                        <span className="subtab-icon">{tab.icon}</span>
+                        <span className={`subtab-icon ${tab.iconClass}`} style={{ width: '18px', height: '18px', display: 'inline-block' }}></span>
                         <span className="subtab-label">{tab.label}</span>
                     </button>
                 ))}
@@ -579,7 +647,7 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null }) {
                 />
             )}
 
-            {/* Issue Logger Modal */}
+            {/* Issue Logger Modal (Legacy) */}
             {showIssueModal && issueContext && (
                 <IssueLoggerModal
                     setData={issueContext.set}
@@ -587,6 +655,20 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null }) {
                     onSubmit={handleIssueSubmit}
                     onClose={() => {
                         setShowIssueModal(false);
+                        setIssueContext(null);
+                    }}
+                />
+            )}
+
+            {/* New Issue Logger (3-step wizard with Supabase) */}
+            {showNewIssueLogger && activeReportId && window.IssueLogger && (
+                <window.IssueLogger
+                    reportId={activeReportId}
+                    modules={allModules}
+                    initialModule={issueContext?.module || null}
+                    onSubmit={handleIssueSubmit}
+                    onClose={() => {
+                        setShowNewIssueLogger(false);
                         setIssueContext(null);
                     }}
                 />
@@ -655,28 +737,28 @@ function OnSiteDashboard({
             {/* Quick Stats */}
             <div className="stats-grid">
                 <div className="stat-card">
-                    <div className="stat-icon">📅</div>
+                    <div className="stat-icon"><span className="icon-calendar" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
                     <div className="stat-content">
                         <div className="stat-value">{thisWeekSets.length}</div>
                         <div className="stat-label">Sets This Week</div>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon">📦</div>
+                    <div className="stat-icon"><span className="icon-box" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
                     <div className="stat-content">
                         <div className="stat-value">{modulesSetThisMonth}</div>
                         <div className="stat-label">Modules Set This Month</div>
                     </div>
                 </div>
                 <div className="stat-card warning">
-                    <div className="stat-icon">⚠️</div>
+                    <div className="stat-icon"><span className="icon-alert" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
                     <div className="stat-content">
                         <div className="stat-value">{openIssues.length}</div>
                         <div className="stat-label">Open Issues</div>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon">✅</div>
+                    <div className="stat-icon"><span className="icon-check" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
                     <div className="stat-content">
                         <div className="stat-value">{completedThisMonth.length}</div>
                         <div className="stat-label">Completed This Month</div>
@@ -693,7 +775,7 @@ function OnSiteDashboard({
                 
                 {todaysSets.length === 0 ? (
                     <div className="empty-state">
-                        <div className="empty-icon">📅</div>
+                        <div className="empty-icon"><span className="icon-calendar" style={{ width: '48px', height: '48px', display: 'block' }}></span></div>
                         <p>No sets scheduled for today</p>
                         <button onClick={onScheduleNew} className="btn-primary">
                             Schedule a Set
@@ -718,7 +800,7 @@ function OnSiteDashboard({
             {activeSets.length > 0 && (
                 <div className="dashboard-section active-section">
                     <div className="section-header">
-                        <h2>🔴 Active Sets</h2>
+                        <h2><span className="icon-attention" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px' }}></span>Active Sets</h2>
                         <span className="section-count live">{activeSets.length} In Progress</span>
                     </div>
                     <div className="set-cards-grid">
@@ -775,7 +857,7 @@ function OnSiteDashboard({
             {openIssues.length > 0 && (
                 <div className="dashboard-section issues-section">
                     <div className="section-header">
-                        <h2>⚠️ Open Issues</h2>
+                        <h2><span className="icon-alert" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px' }}></span>Open Issues</h2>
                         <span className="section-count warning">{openIssues.length}</span>
                     </div>
                     <div className="issues-list">
@@ -820,22 +902,22 @@ function SetCard({ set, issueCount, onStart, onView, isActive }) {
             
             <div className="set-card-body">
                 <div className="set-info-row">
-                    <span className="info-icon">📦</span>
+                    <span className="info-icon icon-box" style={{ width: '16px', height: '16px' }}></span>
                     <span>{totalModules} Modules</span>
                 </div>
                 <div className="set-info-row">
-                    <span className="info-icon">🕐</span>
+                    <span className="info-icon icon-timer" style={{ width: '16px', height: '16px' }}></span>
                     <span>{set.scheduledTime}</span>
                 </div>
                 {set.crew && set.crew.length > 0 && (
                     <div className="set-info-row">
-                        <span className="info-icon">👷</span>
+                        <span className="info-icon icon-people" style={{ width: '16px', height: '16px' }}></span>
                         <span>{set.crew.map(c => c.name).join(', ')}</span>
                     </div>
                 )}
                 {issueCount > 0 && (
                     <div className="set-info-row warning">
-                        <span className="info-icon">⚠️</span>
+                        <span className="info-icon icon-alert" style={{ width: '16px', height: '16px' }}></span>
                         <span>{issueCount} Open Issues</span>
                     </div>
                 )}
@@ -908,7 +990,7 @@ function ActiveSetPanel({ set, scheduleHook, issueHook, onLogIssue, onBack }) {
             {/* Header */}
             <div className="panel-header">
                 <button onClick={onBack} className="back-btn">
-                    ← Back
+                    <span className="icon-chevron-left" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '4px' }}></span>Back
                 </button>
                 <div className="panel-title">
                     <h2>{set.projectName}</h2>
@@ -969,7 +1051,7 @@ function ActiveSetPanel({ set, scheduleHook, issueHook, onLogIssue, onBack }) {
                         onClick={() => scheduleHook.completeSet(set.id)}
                         className="btn-complete"
                     >
-                        ✓ Complete Set
+                        <span className="icon-check" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '4px', filter: 'brightness(0) invert(1)' }}></span>Complete Set
                     </button>
                 </div>
             )}
@@ -1011,7 +1093,12 @@ function ModuleChecklistItem({ module, issues, onMarkAsSet, onLogIssue, onTakePh
         <div className={`module-item ${isSet ? 'set' : ''} ${openIssues.length > 0 ? 'has-issues' : ''}`}>
             <div className="module-item-header" onClick={onViewDetails}>
                 <div className="module-status-icon">
-                    {isSet ? '✅' : openIssues.length > 0 ? '⚠️' : '⬜'}
+                    {isSet 
+                        ? <span className="icon-check" style={{ width: '20px', height: '20px', display: 'block' }}></span>
+                        : openIssues.length > 0 
+                            ? <span className="icon-alert" style={{ width: '20px', height: '20px', display: 'block' }}></span>
+                            : <span className="icon-box" style={{ width: '20px', height: '20px', display: 'block', opacity: 0.3 }}></span>
+                    }
                 </div>
                 <div className="module-info">
                     <div className="module-serial">
@@ -1025,7 +1112,8 @@ function ModuleChecklistItem({ module, issues, onMarkAsSet, onLogIssue, onTakePh
                 </div>
                 {module.photos?.length > 0 && (
                     <div className="photo-count">
-                        📷 {module.photos.length}
+                        <span className="icon-camera" style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '4px' }}></span>
+                        {module.photos.length}
                     </div>
                 )}
             </div>
@@ -1033,7 +1121,7 @@ function ModuleChecklistItem({ module, issues, onMarkAsSet, onLogIssue, onTakePh
             {/* Production Notes */}
             {module.productionNotes && module.productionNotes.length > 0 && (
                 <div className="production-notes">
-                    <div className="notes-header">📋 Production Notes</div>
+                    <div className="notes-header"><span className="icon-other" style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '4px' }}></span>Production Notes</div>
                     {module.productionNotes.map((note, idx) => (
                         <div key={idx} className="note-item">
                             <span className="note-text">{note.note}</span>
@@ -1058,14 +1146,17 @@ function ModuleChecklistItem({ module, issues, onMarkAsSet, onLogIssue, onTakePh
             <div className="module-actions">
                 {!isSet && (
                     <button onClick={onMarkAsSet} className="action-btn set">
-                        ✓ Mark as Set
+                        <span className="icon-check" style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '4px' }}></span>
+                        Mark as Set
                     </button>
                 )}
                 <button onClick={onLogIssue} className="action-btn issue">
-                    ⚠ Log Issue
+                    <span className="icon-alert" style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '4px' }}></span>
+                    Log Issue
                 </button>
                 <button onClick={onTakePhoto} className="action-btn photo">
-                    📷 Photo
+                    <span className="icon-camera" style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '4px' }}></span>
+                    Photo
                 </button>
             </div>
         </div>
@@ -1376,7 +1467,7 @@ function IssueLoggerModal({ setData, moduleData, onSubmit, onClose }) {
             serialNumber: moduleData.serialNumber,
             projectId: setData.projectId,
             projectName: setData.projectName,
-            issueType: ISSUE_TYPES.find(t => t.id === issueType)?.label || issueType,
+            issueType: ISSUE_CATEGORIES.find(t => t.id === issueType)?.label || issueType,
             severity,
             trade,
             description,
@@ -1411,14 +1502,14 @@ function IssueLoggerModal({ setData, moduleData, onSubmit, onClose }) {
                     <div className="form-section">
                         <label className="form-label">Issue Type *</label>
                         <div className="issue-type-grid">
-                            {ISSUE_TYPES.map(type => (
+                            {ISSUE_CATEGORIES.map(type => (
                                 <button
                                     key={type.id}
                                     type="button"
                                     onClick={() => setIssueType(type.id)}
                                     className={`issue-type-btn ${issueType === type.id ? 'selected' : ''}`}
                                 >
-                                    <span className="type-icon">{type.icon}</span>
+                                    <span className={`type-icon ${type.iconClass}`} style={{ width: '20px', height: '20px', display: 'block', margin: '0 auto 4px' }}></span>
                                     <span className="type-label">{type.label}</span>
                                 </button>
                             ))}
@@ -1506,7 +1597,7 @@ function IssueLoggerModal({ setData, moduleData, onSubmit, onClose }) {
                                     }}
                                     style={{ display: 'none' }}
                                 />
-                                <span className="add-icon">📷</span>
+                                <span className="add-icon icon-camera" style={{ width: '24px', height: '24px', display: 'block', margin: '0 auto 4px' }}></span>
                                 <span>Add Photo</span>
                             </label>
                         </div>
@@ -1568,7 +1659,7 @@ function PhotoCaptureModal({ module, onCapture, onClose }) {
                         onClick={() => fileInputRef.current?.click()}
                         className="capture-btn"
                     >
-                        <span className="capture-icon">📷</span>
+                        <span className="capture-icon icon-camera" style={{ width: '32px', height: '32px', display: 'block' }}></span>
                         <span>Open Camera</span>
                     </button>
                 </div>
@@ -1851,9 +1942,9 @@ function DailyReportTab({
                 {activeReport && (
                     <div className="report-status">
                         <span className={`status-badge ${activeReport.status}`}>
-                            {activeReport.status === 'draft' ? '📝 Draft' : 
-                             activeReport.status === 'generated' ? '✅ Generated' : 
-                             '📤 Sent'}
+                            {activeReport.status === 'draft' ? 'Draft' : 
+                             activeReport.status === 'generated' ? 'Generated' : 
+                             'Sent'}
                         </span>
                     </div>
                 )}
@@ -1861,7 +1952,7 @@ function DailyReportTab({
 
             {!selectedProject ? (
                 <div className="empty-state">
-                    <div className="empty-icon">📋</div>
+                    <div className="empty-icon"><span className="icon-other" style={{ width: '48px', height: '48px', display: 'block' }}></span></div>
                     <h3>Select a Project</h3>
                     <p>Choose a project to create or edit a daily site report</p>
                 </div>
@@ -1870,7 +1961,7 @@ function DailyReportTab({
                     {/* Report Header Info */}
                     <div className="report-section header-section">
                         <div className="section-title">
-                            <h3>📄 Daily Site Report</h3>
+                            <h3><span className="icon-report" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Daily Site Report</h3>
                             <span className="report-date">{formatDate(reportDate)}</span>
                         </div>
                         
@@ -1913,7 +2004,7 @@ function DailyReportTab({
                     {/* Weather Section */}
                     <div className="report-section weather-section">
                         <div className="section-title">
-                            <h3>🌤️ Weather</h3>
+                            <h3><span className="icon-weather" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Weather</h3>
                             <label className="weather-day-toggle">
                                 <input 
                                     type="checkbox" 
@@ -1975,7 +2066,7 @@ function DailyReportTab({
                     {/* Progress Section */}
                     <div className="report-section progress-section">
                         <div className="section-title">
-                            <h3>📦 Progress</h3>
+                            <h3><span className="icon-box" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Progress</h3>
                         </div>
                         <div className="progress-grid">
                             <div className="progress-stat">
@@ -1996,7 +2087,7 @@ function DailyReportTab({
                     {/* Global Items Section */}
                     <div className="report-section global-items-section">
                         <div className="section-title">
-                            <h3>🔔 Global Items</h3>
+                            <h3><span className="icon-attention" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Global Items</h3>
                             <button 
                                 onClick={() => setShowAddGlobalItem(true)}
                                 className="btn-add-small"
@@ -2066,7 +2157,7 @@ function DailyReportTab({
                     {/* Issues Section */}
                     <div className="report-section issues-section">
                         <div className="section-title">
-                            <h3>⚠️ Issues ({(activeReport?.issues || []).length})</h3>
+                            <h3><span className="icon-alert" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Issues ({(activeReport?.issues || []).length})</h3>
                         </div>
                         <div className="issues-list">
                             {(activeReport?.issues || []).length === 0 ? (
@@ -2096,7 +2187,7 @@ function DailyReportTab({
                     {/* General Notes Section */}
                     <div className="report-section notes-section">
                         <div className="section-title">
-                            <h3>📝 General Notes</h3>
+                            <h3><span className="icon-other" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>General Notes</h3>
                         </div>
                         <textarea 
                             value={activeReport?.generalNotes || ''}
@@ -2110,10 +2201,10 @@ function DailyReportTab({
                     {/* Actions */}
                     <div className="report-actions">
                         <button onClick={handleGenerateReport} className="btn-primary btn-large">
-                            📄 Generate Report
+                            <span className="icon-report" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '6px', filter: 'brightness(0) invert(1)' }}></span>Generate Report
                         </button>
                         <button onClick={() => setShowPreview(true)} className="btn-secondary">
-                            👁️ Preview
+                            Preview
                         </button>
                     </div>
                 </div>
@@ -2192,7 +2283,7 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
                             <span>Temp: {report.weather?.tempAM || '--'}°F (AM) / {report.weather?.tempPM || '--'}°F (PM)</span>
                             <span>Precipitation: {report.weather?.precipitation || 'none'}</span>
                             <span>Wind: {report.weather?.wind || 'Light'}</span>
-                            {report.weather?.isWeatherDay && <span className="weather-day-badge">⛈️ Weather Day</span>}
+                            {report.weather?.isWeatherDay && <span className="weather-day-badge">Weather Day</span>}
                         </div>
                     </div>
 
@@ -2267,8 +2358,8 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
 
                 <div className="modal-actions">
                     <button onClick={onClose} className="btn-secondary">Close</button>
-                    <button onClick={onExportPDF} className="btn-primary">📄 Export PDF</button>
-                    <button onClick={onSend} className="btn-success">📤 Send Report</button>
+                    <button onClick={onExportPDF} className="btn-primary"><span className="icon-export" style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '6px', filter: 'brightness(0) invert(1)' }}></span>Export PDF</button>
+                    <button onClick={onSend} className="btn-success"><span className="icon-export" style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '6px', filter: 'brightness(0) invert(1)' }}></span>Send Report</button>
                 </div>
             </div>
         </div>
