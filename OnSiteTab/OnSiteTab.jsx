@@ -530,10 +530,10 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null, modules 
     }, [activeReportId, supabaseHook]);
 
     const subTabs = [
-        { id: 'dashboard', label: 'Dashboard', iconClass: 'icon-dashboard' },
+        { id: 'dashboard', label: 'Sets Dashboard', iconClass: 'icon-dashboard' },
         { id: 'daily-report', label: 'Daily Report', iconClass: 'icon-report' },
-        { id: 'schedule', label: 'Set Schedule', iconClass: 'icon-calendar' },
-        { id: 'reports', label: 'Report History', iconClass: 'icon-history' }
+        { id: 'schedule', label: 'Schedule Set', iconClass: 'icon-calendar' },
+        { id: 'site-reports', label: 'Site Reports', iconClass: 'icon-history' }
     ];
 
     const openIssueLogger = (setData, moduleData) => {
@@ -586,6 +586,7 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null, modules 
                     <OnSiteDashboard
                         scheduleHook={scheduleHook}
                         issueHook={issueHook}
+                        projects={projects}
                         onStartSet={(set) => {
                             scheduleHook.startSet(set.id);
                             setSelectedSet(set);
@@ -624,13 +625,8 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null, modules 
                     />
                 )}
 
-                {activeSubTab === 'reports' && (
-                    <ReportsTab
-                        scheduleHook={scheduleHook}
-                        issueHook={issueHook}
-                        reportHook={reportHook}
-                        projects={projects}
-                    />
+                {activeSubTab === 'site-reports' && (
+                    <SiteReportsPlaceholder />
                 )}
             </div>
 
@@ -689,35 +685,27 @@ function OnSiteDashboard({
     onLogIssue,
     selectedSet,
     setSelectedSet,
-    onScheduleNew 
+    onScheduleNew,
+    projects = []
 }) {
-    const todaysSets = scheduleHook.getTodaysSets();
-    const activeSets = scheduleHook.getActiveSets();
-    const upcomingSets = scheduleHook.getUpcomingSets(7);
+    // Categorize sets by status
+    const activeSets = scheduleHook.schedules.filter(s => s.status === 'In Progress');
+    const scheduledSets = scheduleHook.schedules.filter(s => s.status === 'Scheduled');
+    const completedSets = scheduleHook.schedules.filter(s => s.status === 'Complete');
     const openIssues = issueHook.getOpenIssues();
 
-    // Stats
-    const thisWeekSets = scheduleHook.schedules.filter(s => {
-        const setDate = new Date(s.scheduledDate);
-        const today = new Date();
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 7);
-        return setDate >= weekStart && setDate < weekEnd;
-    });
-
-    const completedThisMonth = scheduleHook.schedules.filter(s => {
-        const setDate = new Date(s.scheduledDate);
-        const today = new Date();
-        return setDate.getMonth() === today.getMonth() && 
-               setDate.getFullYear() === today.getFullYear() &&
-               s.status === 'Complete';
-    });
-
-    const modulesSetThisMonth = completedThisMonth.reduce((acc, s) => 
-        acc + s.modules.filter(m => m.setStatus === 'Set').length, 0
-    );
+    // Group sets by project for display
+    const groupByProject = (sets) => {
+        const grouped = {};
+        sets.forEach(set => {
+            const projectName = set.projectName || 'Unknown Project';
+            if (!grouped[projectName]) {
+                grouped[projectName] = [];
+            }
+            grouped[projectName].push(set);
+        });
+        return grouped;
+    };
 
     // If a set is selected, show the active set panel
     if (selectedSet) {
@@ -732,77 +720,57 @@ function OnSiteDashboard({
         );
     }
 
-    return (
-        <div className="dashboard-container">
-            {/* Quick Stats */}
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-icon"><span className="icon-calendar" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
-                    <div className="stat-content">
-                        <div className="stat-value">{thisWeekSets.length}</div>
-                        <div className="stat-label">Sets This Week</div>
-                    </div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-icon"><span className="icon-box" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
-                    <div className="stat-content">
-                        <div className="stat-value">{modulesSetThisMonth}</div>
-                        <div className="stat-label">Modules Set This Month</div>
-                    </div>
-                </div>
-                <div className="stat-card warning">
-                    <div className="stat-icon"><span className="icon-alert" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
-                    <div className="stat-content">
-                        <div className="stat-value">{openIssues.length}</div>
-                        <div className="stat-label">Open Issues</div>
-                    </div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-icon"><span className="icon-check" style={{ width: '24px', height: '24px', display: 'block' }}></span></div>
-                    <div className="stat-content">
-                        <div className="stat-value">{completedThisMonth.length}</div>
-                        <div className="stat-label">Completed This Month</div>
-                    </div>
-                </div>
-            </div>
+    // Format date for display
+    const formatSetDate = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr + 'T12:00:00');
+        return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
 
-            {/* Today's Sets */}
-            <div className="dashboard-section">
-                <div className="section-header">
-                    <h2>Today's Sets</h2>
-                    <span className="section-count">{todaysSets.length}</span>
+    return (
+        <div className="dashboard-container sets-dashboard">
+            {/* Summary Stats Bar */}
+            <div className="sets-summary-bar">
+                <div className="summary-stat active">
+                    <span className="summary-count">{activeSets.length}</span>
+                    <span className="summary-label">Active</span>
                 </div>
-                
-                {todaysSets.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon"><span className="icon-calendar" style={{ width: '48px', height: '48px', display: 'block' }}></span></div>
-                        <p>No sets scheduled for today</p>
-                        <button onClick={onScheduleNew} className="btn-primary">
-                            Schedule a Set
-                        </button>
-                    </div>
-                ) : (
-                    <div className="set-cards-grid">
-                        {todaysSets.map(set => (
-                            <SetCard
-                                key={set.id}
-                                set={set}
-                                issueCount={issueHook.getIssuesBySet(set.id).filter(i => i.status === 'Open').length}
-                                onStart={() => onStartSet(set)}
-                                onView={() => onViewSet(set)}
-                            />
-                        ))}
+                <div className="summary-stat scheduled">
+                    <span className="summary-count">{scheduledSets.length}</span>
+                    <span className="summary-label">Scheduled</span>
+                </div>
+                <div className="summary-stat completed">
+                    <span className="summary-count">{completedSets.length}</span>
+                    <span className="summary-label">Completed</span>
+                </div>
+                {openIssues.length > 0 && (
+                    <div className="summary-stat issues">
+                        <span className="summary-count">{openIssues.length}</span>
+                        <span className="summary-label">Open Issues</span>
                     </div>
                 )}
             </div>
 
-            {/* Active Sets */}
-            {activeSets.length > 0 && (
-                <div className="dashboard-section active-section">
-                    <div className="section-header">
-                        <h2><span className="icon-attention" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px' }}></span>Active Sets</h2>
-                        <span className="section-count live">{activeSets.length} In Progress</span>
+            {/* Active Sets Section */}
+            <div className="dashboard-section active-sets-section">
+                <div className="section-header">
+                    <h2>
+                        <span className="section-indicator active"></span>
+                        Active Sets
+                    </h2>
+                    <span className="section-count">{activeSets.length}</span>
+                </div>
+                
+                {activeSets.length === 0 ? (
+                    <div className="empty-state-inline">
+                        <span className="icon-box" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px', opacity: 0.5 }}></span>
+                        No sets currently in progress
                     </div>
+                ) : (
                     <div className="set-cards-grid">
                         {activeSets.map(set => (
                             <SetCard
@@ -814,41 +782,109 @@ function OnSiteDashboard({
                             />
                         ))}
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
-            {/* Upcoming Sets */}
-            <div className="dashboard-section">
+            {/* Scheduled Sets Section */}
+            <div className="dashboard-section scheduled-sets-section">
                 <div className="section-header">
-                    <h2>Upcoming Sets</h2>
-                    <span className="section-count">{upcomingSets.length} next 7 days</span>
+                    <h2>
+                        <span className="section-indicator scheduled"></span>
+                        Scheduled Sets
+                    </h2>
+                    <div className="section-actions">
+                        <span className="section-count">{scheduledSets.length}</span>
+                        <button onClick={onScheduleNew} className="btn-add-small">
+                            + Schedule Set
+                        </button>
+                    </div>
                 </div>
                 
-                {upcomingSets.length === 0 ? (
-                    <div className="empty-state small">
-                        <p>No upcoming sets scheduled</p>
+                {scheduledSets.length === 0 ? (
+                    <div className="empty-state">
+                        <div className="empty-icon"><span className="icon-calendar" style={{ width: '48px', height: '48px', display: 'block' }}></span></div>
+                        <p>No sets scheduled</p>
+                        <p className="empty-hint">Schedule sets from your Projects directory</p>
+                        <button onClick={onScheduleNew} className="btn-primary">
+                            Schedule a Set
+                        </button>
                     </div>
                 ) : (
-                    <div className="upcoming-list">
-                        {upcomingSets.slice(0, 5).map(set => (
-                            <div key={set.id} className="upcoming-item" onClick={() => onViewSet(set)}>
-                                <div className="upcoming-date">
-                                    <span className="day">{new Date(set.scheduledDate).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                    <span className="date">{new Date(set.scheduledDate).getDate()}</span>
+                    <div className="scheduled-sets-list">
+                        {Object.entries(groupByProject(scheduledSets)).map(([projectName, sets]) => (
+                            <div key={projectName} className="project-sets-group">
+                                <div className="project-group-header">
+                                    <span className="icon-project" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '6px' }}></span>
+                                    {projectName}
+                                    <span className="project-set-count">{sets.length} set{sets.length !== 1 ? 's' : ''}</span>
                                 </div>
-                                <div className="upcoming-info">
-                                    <div className="upcoming-project">{set.projectName}</div>
-                                    <div className="upcoming-details">
-                                        {set.modules.length} modules • {set.scheduledTime}
-                                    </div>
-                                </div>
-                                <div className="upcoming-status">
-                                    <span className={`status-badge ${set.status.toLowerCase().replace(' ', '-')}`}>
-                                        {set.status}
-                                    </span>
+                                <div className="set-cards-grid compact">
+                                    {sets.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)).map(set => (
+                                        <div key={set.id} className="scheduled-set-card" onClick={() => onViewSet(set)}>
+                                            <div className="set-date-badge">
+                                                <span className="date-day">{new Date(set.scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                                <span className="date-num">{new Date(set.scheduledDate + 'T12:00:00').getDate()}</span>
+                                            </div>
+                                            <div className="set-info">
+                                                <div className="set-modules">{set.modules.length} modules</div>
+                                                <div className="set-time">{set.scheduledTime}</div>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); onStartSet(set); }}
+                                                className="btn-start-small"
+                                            >
+                                                Start
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Completed Sets Section */}
+            <div className="dashboard-section completed-sets-section">
+                <div className="section-header">
+                    <h2>
+                        <span className="section-indicator completed"></span>
+                        Completed Sets
+                    </h2>
+                    <span className="section-count">{completedSets.length}</span>
+                </div>
+                
+                {completedSets.length === 0 ? (
+                    <div className="empty-state-inline">
+                        <span className="icon-check" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px', opacity: 0.5 }}></span>
+                        No completed sets yet
+                    </div>
+                ) : (
+                    <div className="completed-sets-list">
+                        {completedSets.slice(0, 10).map(set => {
+                            const modulesSet = set.modules.filter(m => m.setStatus === 'Set').length;
+                            return (
+                                <div key={set.id} className="completed-set-item" onClick={() => onViewSet(set)}>
+                                    <div className="completed-check">
+                                        <span className="icon-check" style={{ width: '16px', height: '16px', display: 'block' }}></span>
+                                    </div>
+                                    <div className="completed-info">
+                                        <div className="completed-project">{set.projectName}</div>
+                                        <div className="completed-details">
+                                            {modulesSet} modules set • {formatSetDate(set.scheduledDate)}
+                                        </div>
+                                    </div>
+                                    <div className="completed-time">
+                                        {set.actualEndTime ? new Date(set.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {completedSets.length > 10 && (
+                            <div className="show-more-link">
+                                View all {completedSets.length} completed sets
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -878,6 +914,40 @@ function OnSiteDashboard({
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// ============================================================================
+// SITE REPORTS PLACEHOLDER
+// ============================================================================
+
+function SiteReportsPlaceholder() {
+    return (
+        <div className="site-reports-placeholder">
+            <div className="placeholder-content">
+                <div className="placeholder-icon">
+                    <span className="icon-report" style={{ width: '64px', height: '64px', display: 'block', opacity: 0.4 }}></span>
+                </div>
+                <h2>Site Reports</h2>
+                <p className="placeholder-description">
+                    Site Reports are currently being developed offline and will be integrated once the MVP is complete.
+                </p>
+                <div className="placeholder-features">
+                    <h3>Coming Soon:</h3>
+                    <ul>
+                        <li>Daily Site Reports with weather tracking</li>
+                        <li>Module set documentation with photos</li>
+                        <li>Issue logging and resolution tracking</li>
+                        <li>PDF export and email distribution</li>
+                        <li>Historical report archive</li>
+                    </ul>
+                </div>
+                <div className="placeholder-note">
+                    <span className="icon-info" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '8px' }}></span>
+                    Use the Daily Report tab for current report creation functionality.
+                </div>
+            </div>
         </div>
     );
 }

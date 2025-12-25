@@ -139,3 +139,397 @@
 .btn-warning { background: var(--onsite-warning); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; }
 .btn-warning:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-complete { width: 100%; padding: 16px; background: linear-gradient(135deg, var(--onsite-success), #15803d); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+
+/* ============================================================================
+   SETS DASHBOARD - New Layout
+   ============================================================================ */
+
+/* Summary Stats Bar */
+.sets-summary-bar {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: var(--onsite-card-bg);
+    border-radius: var(--onsite-radius);
+    box-shadow: var(--onsite-shadow);
+    margin-bottom: 20px;
+}
+
+.summary-stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 8px;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.summary-stat.active { background: #fef2f2; }
+.summary-stat.active .summary-count { color: var(--onsite-accent); }
+
+.summary-stat.scheduled { background: #dbeafe; }
+.summary-stat.scheduled .summary-count { color: #1d4ed8; }
+
+.summary-stat.completed { background: #dcfce7; }
+.summary-stat.completed .summary-count { color: var(--onsite-success); }
+
+.summary-stat.issues { background: #fff7ed; }
+.summary-stat.issues .summary-count { color: var(--onsite-warning); }
+
+.summary-count {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.summary-label {
+    font-size: 11px;
+    color: var(--onsite-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+/* Section Indicators */
+.section-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.section-indicator.active {
+    background: var(--onsite-accent);
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.2);
+    animation: pulse-dot 2s infinite;
+}
+
+.section-indicator.scheduled {
+    background: #3b82f6;
+}
+
+.section-indicator.completed {
+    background: var(--onsite-success);
+}
+
+@keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.2); }
+    50% { box-shadow: 0 0 0 6px rgba(200, 16, 46, 0.1); }
+}
+
+/* Section Actions */
+.section-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-add-small {
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--onsite-accent);
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-add-small:hover {
+    background: var(--onsite-accent);
+    color: white;
+    border-color: var(--onsite-accent);
+}
+
+/* Empty State Inline */
+.empty-state-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--onsite-text-muted);
+    font-size: 14px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px dashed var(--onsite-border);
+}
+
+.empty-hint {
+    font-size: 13px;
+    color: var(--onsite-text-muted);
+    margin-top: 4px;
+}
+
+/* Scheduled Sets List */
+.scheduled-sets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.project-sets-group {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.project-group-header {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    color: var(--onsite-primary);
+    font-size: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--onsite-border);
+    margin-bottom: 10px;
+}
+
+.project-set-count {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--onsite-text-muted);
+    background: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.set-cards-grid.compact {
+    gap: 8px;
+}
+
+.scheduled-set-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--onsite-border);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.scheduled-set-card:hover {
+    border-color: var(--onsite-primary);
+    box-shadow: var(--onsite-shadow);
+}
+
+.set-date-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 44px;
+    padding: 6px 8px;
+    background: var(--onsite-primary);
+    color: white;
+    border-radius: 6px;
+}
+
+.set-date-badge .date-day {
+    font-size: 9px;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+.set-date-badge .date-num {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.scheduled-set-card .set-info {
+    flex: 1;
+}
+
+.scheduled-set-card .set-modules {
+    font-weight: 500;
+    color: var(--onsite-text);
+    font-size: 14px;
+}
+
+.scheduled-set-card .set-time {
+    font-size: 12px;
+    color: var(--onsite-text-muted);
+}
+
+.btn-start-small {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+    background: var(--onsite-accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-start-small:hover {
+    background: #a00d26;
+}
+
+/* Completed Sets List */
+.completed-sets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.completed-set-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.completed-set-item:hover {
+    background: #f1f5f9;
+}
+
+.completed-check {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--onsite-success);
+    border-radius: 50%;
+}
+
+.completed-check .icon-check {
+    filter: brightness(0) invert(1);
+}
+
+.completed-info {
+    flex: 1;
+}
+
+.completed-project {
+    font-weight: 500;
+    color: var(--onsite-text);
+    font-size: 14px;
+}
+
+.completed-details {
+    font-size: 12px;
+    color: var(--onsite-text-muted);
+}
+
+.completed-time {
+    font-size: 12px;
+    color: var(--onsite-text-muted);
+}
+
+.show-more-link {
+    text-align: center;
+    padding: 12px;
+    color: var(--onsite-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.show-more-link:hover {
+    text-decoration: underline;
+}
+
+/* ============================================================================
+   SITE REPORTS PLACEHOLDER
+   ============================================================================ */
+
+.site-reports-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    padding: 40px 20px;
+}
+
+.placeholder-content {
+    max-width: 480px;
+    text-align: center;
+}
+
+.placeholder-icon {
+    margin-bottom: 20px;
+}
+
+.placeholder-content h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--onsite-primary);
+    margin: 0 0 12px 0;
+}
+
+.placeholder-description {
+    font-size: 15px;
+    color: var(--onsite-text-muted);
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.placeholder-features {
+    background: #f8fafc;
+    border-radius: var(--onsite-radius);
+    padding: 20px;
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.placeholder-features h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--onsite-primary);
+    margin: 0 0 12px 0;
+}
+
+.placeholder-features ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.placeholder-features li {
+    font-size: 14px;
+    color: var(--onsite-text);
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.placeholder-features li:last-child {
+    margin-bottom: 0;
+}
+
+.placeholder-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    background: #dbeafe;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #1d4ed8;
+}
+
+/* Active Sets Section Styling */
+.active-sets-section {
+    border: 2px solid var(--onsite-accent);
+    background: linear-gradient(to bottom, #fef2f2, var(--onsite-card-bg));
+}
+
+/* Scheduled Sets Section Styling */
+.scheduled-sets-section {
+    border-left: 4px solid #3b82f6;
+}
+
+/* Completed Sets Section Styling */
+.completed-sets-section {
+    border-left: 4px solid var(--onsite-success);
+}
