@@ -377,8 +377,8 @@ const INITIAL_USERS = [
 
         
 function useAuth() {
-    // Initialize dashboard roles system
-    initializeDashboardRoles();
+    // Dashboard roles are now managed by useDashboardRoles hook with Supabase sync
+    // No initialization needed here - roles load from Supabase or localStorage fallback
     
     // Simple state - load from localStorage on init
     const [currentUser, setCurrentUser] = useState(() => {
