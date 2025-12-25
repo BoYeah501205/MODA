@@ -793,6 +793,99 @@ function OnSiteTab({ projects = [], employees = [], currentUser = null, modules 
 // DASHBOARD SUB-TAB
 // ============================================================================
 
+// Set Stages - similar to Transport stages
+const SET_STAGES = [
+    { id: 'scheduled', label: 'Scheduled', color: '#3B82F6', description: 'Upcoming sets' },
+    { id: 'in-progress', label: 'Active', color: '#C8102E', description: 'Currently setting' },
+    { id: 'complete', label: 'Completed', color: '#10B981', description: 'Finished sets' }
+];
+
+// Inline styles for Sets Dashboard (Transport Board style)
+const setsDashboardStyles = {
+    container: { padding: '20px', maxWidth: '1400px', margin: '0 auto' },
+    statsBar: { display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' },
+    statCard: (color) => ({
+        padding: '12px 20px',
+        background: '#fff',
+        borderRadius: '10px',
+        borderLeft: `4px solid ${color}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        minWidth: '120px'
+    }),
+    statValue: { fontSize: '24px', fontWeight: '700', color: '#1E3A5F' },
+    statLabel: { fontSize: '12px', color: '#64748b' },
+    boardContainer: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '16px',
+        alignItems: 'start'
+    },
+    stageColumn: {
+        background: '#fff',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        minHeight: '400px'
+    },
+    stageHeader: (color) => ({
+        padding: '14px 16px',
+        background: color,
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    }),
+    stageTitle: { fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' },
+    stageCount: {
+        background: 'rgba(255,255,255,0.25)',
+        padding: '3px 12px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: '700'
+    },
+    stageBody: { padding: '12px', maxHeight: '500px', overflowY: 'auto' },
+    setCard: (isHovered) => ({
+        background: isHovered ? '#e8eaed' : '#F5F6FA',
+        borderRadius: '8px',
+        padding: '14px',
+        marginBottom: '10px',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        borderLeft: isHovered ? '3px solid #1E3A5F' : '3px solid transparent',
+        transform: isHovered ? 'translateX(3px)' : 'none'
+    }),
+    setCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' },
+    setProject: { fontWeight: '700', fontSize: '14px', color: '#1E3A5F' },
+    setDate: { fontSize: '11px', color: '#C8102E', fontWeight: '600' },
+    setDetails: { fontSize: '12px', color: '#666', marginBottom: '4px' },
+    setModules: { fontSize: '12px', color: '#3B82F6', fontWeight: '600' },
+    emptyState: { textAlign: 'center', padding: '40px 20px', color: '#999', fontSize: '13px' },
+    actionBtn: {
+        padding: '6px 14px',
+        background: '#C8102E',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        marginTop: '8px'
+    },
+    scheduleBtn: {
+        padding: '10px 20px',
+        background: '#C8102E',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'pointer'
+    }
+};
+
 function OnSiteDashboard({ 
     scheduleHook, 
     issueHook, 
@@ -803,24 +896,13 @@ function OnSiteDashboard({
     setSelectedSet,
     onScheduleNew 
 }) {
+    const [hoveredCard, setHoveredCard] = useState(null);
+    
     // Categorize sets by status
-    const activeSets = scheduleHook.schedules.filter(s => s.status === 'In Progress');
     const scheduledSets = scheduleHook.schedules.filter(s => s.status === 'Scheduled');
+    const activeSets = scheduleHook.schedules.filter(s => s.status === 'In Progress');
     const completedSets = scheduleHook.schedules.filter(s => s.status === 'Complete');
     const openIssues = issueHook.getOpenIssues();
-
-    // Group sets by project for display
-    const groupByProject = (sets) => {
-        const grouped = {};
-        sets.forEach(set => {
-            const projectName = set.projectName || 'Unknown Project';
-            if (!grouped[projectName]) {
-                grouped[projectName] = [];
-            }
-            grouped[projectName].push(set);
-        });
-        return grouped;
-    };
 
     // If a set is selected, show the active set panel
     if (selectedSet) {
@@ -836,199 +918,133 @@ function OnSiteDashboard({
     }
 
     // Format date for display
-    const formatSetDate = (dateStr) => {
+    const formatDate = (dateStr) => {
         if (!dateStr) return '';
         const date = new Date(dateStr + 'T12:00:00');
-        return date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric',
-            year: 'numeric'
-        });
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
-    return (
-        <div className="dashboard-container sets-dashboard">
-            {/* Summary Stats Bar */}
-            <div className="sets-summary-bar">
-                <div className="summary-stat active">
-                    <span className="summary-count">{activeSets.length}</span>
-                    <span className="summary-label">Active</span>
+    // Set Card Component
+    const SetCardItem = ({ set, stageColor, showStartBtn = false }) => {
+        const isHovered = hoveredCard === set.id;
+        const moduleCount = set.modules?.length || 0;
+        
+        return (
+            <div
+                style={setsDashboardStyles.setCard(isHovered)}
+                onMouseEnter={() => setHoveredCard(set.id)}
+                onMouseLeave={() => setHoveredCard(null)}
+                onClick={() => onViewSet(set)}
+            >
+                <div style={setsDashboardStyles.setCardHeader}>
+                    <span style={setsDashboardStyles.setProject}>{set.projectName || 'Unknown Project'}</span>
+                    {set.scheduledDate && (
+                        <span style={setsDashboardStyles.setDate}>{formatDate(set.scheduledDate)}</span>
+                    )}
                 </div>
-                <div className="summary-stat scheduled">
-                    <span className="summary-count">{scheduledSets.length}</span>
-                    <span className="summary-label">Scheduled</span>
+                <div style={setsDashboardStyles.setDetails}>
+                    {set.scheduledTime && `${set.scheduledTime} • `}{moduleCount} module{moduleCount !== 1 ? 's' : ''}
                 </div>
-                <div className="summary-stat completed">
-                    <span className="summary-count">{completedSets.length}</span>
-                    <span className="summary-label">Completed</span>
-                </div>
-                {openIssues.length > 0 && (
-                    <div className="summary-stat issues">
-                        <span className="summary-count">{openIssues.length}</span>
-                        <span className="summary-label">Open Issues</span>
+                {set.siteAddress && (
+                    <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>
+                        {set.siteAddress}
                     </div>
                 )}
-            </div>
-
-            {/* Active Sets Section */}
-            <div className="dashboard-section active-sets-section">
-                <div className="section-header">
-                    <h2>
-                        <span className="section-indicator active"></span>
-                        Active Sets
-                    </h2>
-                    <span className="section-count">{activeSets.length}</span>
-                </div>
-                
-                {activeSets.length === 0 ? (
-                    <div className="empty-state-inline">
-                        <span className="icon-box" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px', opacity: 0.5 }}></span>
-                        No sets currently in progress
-                    </div>
-                ) : (
-                    <div className="set-cards-grid">
-                        {activeSets.map(set => (
-                            <SetCard
-                                key={set.id}
-                                set={set}
-                                issueCount={issueHook.getIssuesBySet(set.id).filter(i => i.status === 'Open').length}
-                                onView={() => onViewSet(set)}
-                                isActive
-                            />
-                        ))}
-                    </div>
+                {showStartBtn && (
+                    <button
+                        style={setsDashboardStyles.actionBtn}
+                        onClick={(e) => { e.stopPropagation(); onStartSet(set); }}
+                    >
+                        Start Set
+                    </button>
                 )}
             </div>
+        );
+    };
 
-            {/* Scheduled Sets Section */}
-            <div className="dashboard-section scheduled-sets-section">
-                <div className="section-header">
-                    <h2>
-                        <span className="section-indicator scheduled"></span>
-                        Scheduled Sets
-                    </h2>
-                    <div className="section-actions">
-                        <span className="section-count">{scheduledSets.length}</span>
-                        <button onClick={onScheduleNew} className="btn-add-small">
-                            + Schedule Set
-                        </button>
-                    </div>
-                </div>
-                
-                {scheduledSets.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon"><span className="icon-calendar" style={{ width: '48px', height: '48px', display: 'block' }}></span></div>
-                        <p>No sets scheduled</p>
-                        <p className="empty-hint">Schedule sets from your Projects directory</p>
-                        <button onClick={onScheduleNew} className="btn-primary">
-                            Schedule a Set
-                        </button>
-                    </div>
-                ) : (
-                    <div className="scheduled-sets-list">
-                        {Object.entries(groupByProject(scheduledSets)).map(([projectName, sets]) => (
-                            <div key={projectName} className="project-sets-group">
-                                <div className="project-group-header">
-                                    <span className="icon-project" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '6px' }}></span>
-                                    {projectName}
-                                    <span className="project-set-count">{sets.length} set{sets.length !== 1 ? 's' : ''}</span>
-                                </div>
-                                <div className="set-cards-grid compact">
-                                    {sets.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)).map(set => (
-                                        <div key={set.id} className="scheduled-set-card" onClick={() => onViewSet(set)}>
-                                            <div className="set-date-badge">
-                                                <span className="date-day">{new Date(set.scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                                <span className="date-num">{new Date(set.scheduledDate + 'T12:00:00').getDate()}</span>
-                                            </div>
-                                            <div className="set-info">
-                                                <div className="set-modules">{set.modules.length} modules</div>
-                                                <div className="set-time">{set.scheduledTime}</div>
-                                            </div>
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); onStartSet(set); }}
-                                                className="btn-start-small"
-                                            >
-                                                Start
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+    // Stage Column Component
+    const StageColumn = ({ stage, sets, showStartBtn = false }) => (
+        <div style={setsDashboardStyles.stageColumn}>
+            <div style={setsDashboardStyles.stageHeader(stage.color)}>
+                <span style={setsDashboardStyles.stageTitle}>
+                    {stage.label}
+                </span>
+                <span style={setsDashboardStyles.stageCount}>{sets.length}</span>
             </div>
-
-            {/* Completed Sets Section */}
-            <div className="dashboard-section completed-sets-section">
-                <div className="section-header">
-                    <h2>
-                        <span className="section-indicator completed"></span>
-                        Completed Sets
-                    </h2>
-                    <span className="section-count">{completedSets.length}</span>
-                </div>
-                
-                {completedSets.length === 0 ? (
-                    <div className="empty-state-inline">
-                        <span className="icon-check" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px', opacity: 0.5 }}></span>
-                        No completed sets yet
-                    </div>
-                ) : (
-                    <div className="completed-sets-list">
-                        {completedSets.slice(0, 10).map(set => {
-                            const modulesSet = set.modules.filter(m => m.setStatus === 'Set').length;
-                            return (
-                                <div key={set.id} className="completed-set-item" onClick={() => onViewSet(set)}>
-                                    <div className="completed-check">
-                                        <span className="icon-check" style={{ width: '16px', height: '16px', display: 'block' }}></span>
-                                    </div>
-                                    <div className="completed-info">
-                                        <div className="completed-project">{set.projectName}</div>
-                                        <div className="completed-details">
-                                            {modulesSet} modules set • {formatSetDate(set.scheduledDate)}
-                                        </div>
-                                    </div>
-                                    <div className="completed-time">
-                                        {set.actualEndTime ? new Date(set.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {completedSets.length > 10 && (
-                            <div className="show-more-link">
-                                View all {completedSets.length} completed sets
+            <div style={setsDashboardStyles.stageBody}>
+                {sets.length === 0 ? (
+                    <div style={setsDashboardStyles.emptyState}>
+                        No {stage.label.toLowerCase()} sets
+                        {stage.id === 'scheduled' && (
+                            <div style={{ marginTop: '12px' }}>
+                                <button style={setsDashboardStyles.scheduleBtn} onClick={onScheduleNew}>
+                                    + Schedule Set
+                                </button>
                             </div>
                         )}
                     </div>
+                ) : (
+                    sets.map(set => (
+                        <SetCardItem 
+                            key={set.id} 
+                            set={set} 
+                            stageColor={stage.color}
+                            showStartBtn={showStartBtn}
+                        />
+                    ))
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <div style={setsDashboardStyles.container}>
+            {/* Stats Bar */}
+            <div style={setsDashboardStyles.statsBar}>
+                <div style={setsDashboardStyles.statCard('#3B82F6')}>
+                    <div>
+                        <div style={setsDashboardStyles.statValue}>{scheduledSets.length}</div>
+                        <div style={setsDashboardStyles.statLabel}>Scheduled</div>
+                    </div>
+                </div>
+                <div style={setsDashboardStyles.statCard('#C8102E')}>
+                    <div>
+                        <div style={setsDashboardStyles.statValue}>{activeSets.length}</div>
+                        <div style={setsDashboardStyles.statLabel}>Active</div>
+                    </div>
+                </div>
+                <div style={setsDashboardStyles.statCard('#10B981')}>
+                    <div>
+                        <div style={setsDashboardStyles.statValue}>{completedSets.length}</div>
+                        <div style={setsDashboardStyles.statLabel}>Completed</div>
+                    </div>
+                </div>
+                {openIssues.length > 0 && (
+                    <div style={setsDashboardStyles.statCard('#F59E0B')}>
+                        <div>
+                            <div style={setsDashboardStyles.statValue}>{openIssues.length}</div>
+                            <div style={setsDashboardStyles.statLabel}>Open Issues</div>
+                        </div>
+                    </div>
                 )}
             </div>
 
-            {/* Open Issues Summary */}
-            {openIssues.length > 0 && (
-                <div className="dashboard-section issues-section">
-                    <div className="section-header">
-                        <h2><span className="icon-alert" style={{ width: '20px', height: '20px', display: 'inline-block', marginRight: '8px' }}></span>Open Issues</h2>
-                        <span className="section-count warning">{openIssues.length}</span>
-                    </div>
-                    <div className="issues-list">
-                        {openIssues.slice(0, 5).map(issue => (
-                            <div key={issue.id} className="issue-item">
-                                <div className={`issue-severity ${issue.severity}`}></div>
-                                <div className="issue-info">
-                                    <div className="issue-title">{issue.issueType}</div>
-                                    <div className="issue-details">
-                                        Module {issue.serialNumber} • {issue.trade}
-                                    </div>
-                                </div>
-                                <div className="issue-time">
-                                    {new Date(issue.reportedAt).toLocaleDateString()}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            {/* Kanban Board */}
+            <div style={setsDashboardStyles.boardContainer}>
+                <StageColumn 
+                    stage={{ id: 'scheduled', label: 'Scheduled', color: '#3B82F6' }} 
+                    sets={scheduledSets.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))}
+                    showStartBtn={true}
+                />
+                <StageColumn 
+                    stage={{ id: 'in-progress', label: 'Active', color: '#C8102E' }} 
+                    sets={activeSets}
+                />
+                <StageColumn 
+                    stage={{ id: 'complete', label: 'Completed', color: '#10B981' }} 
+                    sets={completedSets.slice(0, 20)}
+                />
+            </div>
         </div>
     );
 }
@@ -1038,19 +1054,82 @@ function OnSiteDashboard({
 // ============================================================================
 
 function SiteReportsPlaceholder() {
+    const styles = {
+        container: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '400px',
+            padding: '40px 20px'
+        },
+        content: {
+            maxWidth: '480px',
+            textAlign: 'center',
+            background: '#fff',
+            padding: '40px',
+            borderRadius: '12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+        },
+        icon: {
+            fontSize: '48px',
+            marginBottom: '20px',
+            opacity: 0.4
+        },
+        title: {
+            fontSize: '24px',
+            fontWeight: '600',
+            color: '#1E3A5F',
+            margin: '0 0 12px 0'
+        },
+        description: {
+            fontSize: '15px',
+            color: '#64748b',
+            lineHeight: 1.6,
+            marginBottom: '24px'
+        },
+        features: {
+            background: '#f8fafc',
+            borderRadius: '10px',
+            padding: '20px',
+            textAlign: 'left',
+            marginBottom: '20px'
+        },
+        featureTitle: {
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#1E3A5F',
+            margin: '0 0 12px 0'
+        },
+        featureList: {
+            margin: 0,
+            paddingLeft: '20px',
+            fontSize: '14px',
+            color: '#374151',
+            lineHeight: 1.8
+        },
+        note: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '12px 16px',
+            background: '#dbeafe',
+            borderRadius: '8px',
+            fontSize: '13px',
+            color: '#1d4ed8'
+        }
+    };
+
     return (
-        <div className="site-reports-placeholder">
-            <div className="placeholder-content">
-                <div className="placeholder-icon">
-                    <span className="icon-report" style={{ width: '64px', height: '64px', display: 'block', opacity: 0.4 }}></span>
-                </div>
-                <h2>Site Reports</h2>
-                <p className="placeholder-description">
+        <div style={styles.container}>
+            <div style={styles.content}>
+                <div style={styles.icon}>📋</div>
+                <h2 style={styles.title}>Site Reports</h2>
+                <p style={styles.description}>
                     Site Reports are currently being developed offline and will be integrated once the MVP is complete.
                 </p>
-                <div className="placeholder-features">
-                    <h3>Coming Soon:</h3>
-                    <ul>
+                <div style={styles.features}>
+                    <h3 style={styles.featureTitle}>Coming Soon:</h3>
+                    <ul style={styles.featureList}>
                         <li>Daily Site Reports with weather tracking</li>
                         <li>Module set documentation with photos</li>
                         <li>Issue logging and resolution tracking</li>
@@ -1058,8 +1137,7 @@ function SiteReportsPlaceholder() {
                         <li>Historical report archive</li>
                     </ul>
                 </div>
-                <div className="placeholder-note">
-                    <span className="icon-info" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '8px' }}></span>
+                <div style={styles.note}>
                     Use the Daily Report tab for current report creation functionality.
                 </div>
             </div>
