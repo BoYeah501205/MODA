@@ -3,84 +3,191 @@
 // Extracted from App.jsx for better maintainability
 // ============================================================================
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
-// Initialize roles in localStorage
-function initializeDashboardRoles() {
-    const existing = localStorage.getItem('autovol_dashboard_roles');
-    const ROLES_VERSION = 5; // Increment this if you change DEFAULT_DASHBOARD_ROLES (v5: migrated to full tabPermissions with canView/canEdit/canCreate/canDelete)
-    
-    if (!existing) {
-        // No roles exist, initialize
-        localStorage.setItem('autovol_dashboard_roles', JSON.stringify(window.DEFAULT_DASHBOARD_ROLES));
-        localStorage.setItem('autovol_dashboard_roles_version', ROLES_VERSION);
-        console.log('✅ Dashboard roles initialized');
-    } else {
-        // Check if we need to upgrade
-        const currentVersion = parseInt(localStorage.getItem('autovol_dashboard_roles_version') || '0');
-        if (currentVersion < ROLES_VERSION) {
-            // Version mismatch - reinitialize
-            localStorage.setItem('autovol_dashboard_roles', JSON.stringify(window.DEFAULT_DASHBOARD_ROLES));
-            localStorage.setItem('autovol_dashboard_roles_version', ROLES_VERSION);
-            console.log('✅ Dashboard roles upgraded to version ' + ROLES_VERSION);
-        }
-    }
+// Check if Supabase roles API is available
+function isSupabaseRolesAvailable() {
+    return window.MODA_SUPABASE_DATA?.isAvailable?.() && window.MODA_SUPABASE_DATA?.dashboardRoles;
 }
 
-// Hook for managing dashboard roles
-function useDashboardRoles() {
-    const [roles, setRoles] = useState(() => {
-        initializeDashboardRoles();
-        const saved = localStorage.getItem('autovol_dashboard_roles');
-        if (saved && saved !== 'undefined' && saved !== 'null') {
-            try {
-                return JSON.parse(saved);
-            } catch (e) {
-                console.error('[Auth] Error parsing dashboard roles:', e);
-            }
+// Get localStorage fallback roles (for offline/initial load)
+function getLocalStorageRoles() {
+    const saved = localStorage.getItem('autovol_dashboard_roles');
+    if (saved && saved !== 'undefined' && saved !== 'null') {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            console.error('[Auth] Error parsing dashboard roles from localStorage:', e);
         }
-        return window.DEFAULT_DASHBOARD_ROLES;
-    });
+    }
+    return window.DEFAULT_DASHBOARD_ROLES || [];
+}
 
+// Hook for managing dashboard roles - syncs with Supabase
+function useDashboardRoles() {
+    const [roles, setRoles] = useState(() => getLocalStorageRoles());
+    const [isLoading, setIsLoading] = useState(true);
+    const [supabaseAvailable, setSupabaseAvailable] = useState(false);
+    const unsubscribeRef = useRef(null);
+
+    // Load roles from Supabase on mount
     useEffect(() => {
-        localStorage.setItem('autovol_dashboard_roles', JSON.stringify(roles));
-    }, [roles]);
+        let mounted = true;
+        
+        const loadRoles = async () => {
+            // Check if Supabase is available
+            if (isSupabaseRolesAvailable()) {
+                try {
+                    console.log('[DashboardRoles] Loading from Supabase...');
+                    const supabaseRoles = await window.MODA_SUPABASE_DATA.dashboardRoles.getAll();
+                    
+                    if (mounted && supabaseRoles && supabaseRoles.length > 0) {
+                        console.log('[DashboardRoles] Loaded', supabaseRoles.length, 'roles from Supabase');
+                        setRoles(supabaseRoles);
+                        setSupabaseAvailable(true);
+                        // Also cache to localStorage for offline fallback
+                        localStorage.setItem('autovol_dashboard_roles', JSON.stringify(supabaseRoles));
+                    } else if (mounted) {
+                        // Supabase returned empty - use localStorage/defaults
+                        console.log('[DashboardRoles] Supabase returned empty, using localStorage');
+                        setSupabaseAvailable(true);
+                    }
+                } catch (err) {
+                    console.warn('[DashboardRoles] Failed to load from Supabase, using localStorage:', err.message);
+                    setSupabaseAvailable(false);
+                }
+            } else {
+                console.log('[DashboardRoles] Supabase not available, using localStorage');
+                setSupabaseAvailable(false);
+            }
+            
+            if (mounted) {
+                setIsLoading(false);
+            }
+        };
 
-    const addRole = (roleData) => {
+        // Small delay to ensure Supabase client is initialized
+        const timer = setTimeout(loadRoles, 100);
+        
+        return () => {
+            mounted = false;
+            clearTimeout(timer);
+            if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+            }
+        };
+    }, []);
+
+    // Subscribe to real-time updates when Supabase is available
+    useEffect(() => {
+        if (supabaseAvailable && isSupabaseRolesAvailable()) {
+            console.log('[DashboardRoles] Setting up real-time subscription');
+            unsubscribeRef.current = window.MODA_SUPABASE_DATA.dashboardRoles.onSnapshot((updatedRoles) => {
+                if (updatedRoles && updatedRoles.length > 0) {
+                    setRoles(updatedRoles);
+                    localStorage.setItem('autovol_dashboard_roles', JSON.stringify(updatedRoles));
+                }
+            });
+        }
+        
+        return () => {
+            if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+            }
+        };
+    }, [supabaseAvailable]);
+
+    // Sync to localStorage whenever roles change (fallback cache)
+    useEffect(() => {
+        if (!isLoading) {
+            localStorage.setItem('autovol_dashboard_roles', JSON.stringify(roles));
+        }
+    }, [roles, isLoading]);
+
+    const addRole = useCallback(async (roleData) => {
         const newRole = {
             id: `role-${Date.now()}`,
             ...roleData,
             tabs: roleData.tabs || [],
             capabilities: roleData.capabilities || {},
+            tabPermissions: roleData.tabPermissions || {},
             isProtected: false
         };
-        setRoles([...roles, newRole]);
+        
+        // Optimistic update
+        setRoles(prev => [...prev, newRole]);
+        
+        // Sync to Supabase if available
+        if (supabaseAvailable && isSupabaseRolesAvailable()) {
+            try {
+                const created = await window.MODA_SUPABASE_DATA.dashboardRoles.create(newRole);
+                console.log('[DashboardRoles] Created in Supabase:', created?.id);
+            } catch (err) {
+                console.error('[DashboardRoles] Failed to create in Supabase:', err.message);
+            }
+        }
+        
         return newRole;
-    };
+    }, [supabaseAvailable]);
 
-    const updateRole = (roleId, updates) => {
-        setRoles(roles.map(role => 
+    const updateRole = useCallback(async (roleId, updates) => {
+        // Optimistic update
+        setRoles(prev => prev.map(role => 
             role.id === roleId ? { ...role, ...updates } : role
         ));
-    };
+        
+        // Sync to Supabase if available
+        if (supabaseAvailable && isSupabaseRolesAvailable()) {
+            try {
+                await window.MODA_SUPABASE_DATA.dashboardRoles.update(roleId, updates);
+                console.log('[DashboardRoles] Updated in Supabase:', roleId);
+            } catch (err) {
+                console.error('[DashboardRoles] Failed to update in Supabase:', err.message);
+            }
+        }
+    }, [supabaseAvailable]);
 
-    const deleteRole = (roleId) => {
+    const deleteRole = useCallback(async (roleId) => {
         const role = roles.find(r => r.id === roleId);
         if (role?.isProtected) {
             return { success: false, error: 'Cannot delete protected role' };
         }
-        setRoles(roles.filter(role => role.id !== roleId));
+        
+        // Optimistic update
+        setRoles(prev => prev.filter(role => role.id !== roleId));
+        
+        // Sync to Supabase if available
+        if (supabaseAvailable && isSupabaseRolesAvailable()) {
+            try {
+                await window.MODA_SUPABASE_DATA.dashboardRoles.delete(roleId);
+                console.log('[DashboardRoles] Deleted from Supabase:', roleId);
+            } catch (err) {
+                console.error('[DashboardRoles] Failed to delete from Supabase:', err.message);
+            }
+        }
+        
         return { success: true };
-    };
+    }, [roles, supabaseAvailable]);
 
-    const setDefaultRole = (roleId) => {
-        setRoles(roles.map(role => ({
+    const setDefaultRole = useCallback(async (roleId) => {
+        // Optimistic update
+        setRoles(prev => prev.map(role => ({
             ...role,
             isDefault: role.id === roleId
         })));
-    };
+        
+        // Sync to Supabase if available
+        if (supabaseAvailable && isSupabaseRolesAvailable()) {
+            try {
+                await window.MODA_SUPABASE_DATA.dashboardRoles.setDefault(roleId);
+                console.log('[DashboardRoles] Set default in Supabase:', roleId);
+            } catch (err) {
+                console.error('[DashboardRoles] Failed to set default in Supabase:', err.message);
+            }
+        }
+    }, [supabaseAvailable]);
 
-    const moveTab = (roleId, tabId, direction) => {
+    const moveTab = useCallback((roleId, tabId, direction) => {
         const role = roles.find(r => r.id === roleId);
         if (!role) return;
 
@@ -94,9 +201,9 @@ function useDashboardRoles() {
         }
 
         updateRole(roleId, { tabs });
-    };
+    }, [roles, updateRole]);
 
-    const toggleTab = (roleId, tabId) => {
+    const toggleTab = useCallback((roleId, tabId) => {
         const role = roles.find(r => r.id === roleId);
         if (!role) return;
 
@@ -105,9 +212,9 @@ function useDashboardRoles() {
             : [...role.tabs, tabId];
 
         updateRole(roleId, { tabs });
-    };
+    }, [roles, updateRole]);
 
-    const toggleCapability = (roleId, capability) => {
+    const toggleCapability = useCallback((roleId, capability) => {
         const role = roles.find(r => r.id === roleId);
         if (!role) return;
 
@@ -117,25 +224,25 @@ function useDashboardRoles() {
         };
 
         updateRole(roleId, { capabilities });
-    };
+    }, [roles, updateRole]);
 
-    const getRoleById = (roleId) => {
+    const getRoleById = useCallback((roleId) => {
         return roles.find(r => r.id === roleId);
-    };
+    }, [roles]);
 
-    const getVisibleTabs = (roleId) => {
+    const getVisibleTabs = useCallback((roleId) => {
         const role = getRoleById(roleId);
         return role ? role.tabs : [];
-    };
+    }, [getRoleById]);
 
-    const hasCapability = (roleId, capability) => {
+    const hasCapability = useCallback((roleId, capability) => {
         const role = getRoleById(roleId);
         return role?.capabilities?.[capability] || false;
-    };
+    }, [getRoleById]);
 
     // Get full tab permissions for a specific tab
     // Returns { canView, canEdit, canCreate, canDelete }
-    const getTabPermission = (roleId, tabId) => {
+    const getTabPermission = useCallback((roleId, tabId) => {
         const role = getRoleById(roleId);
         const defaultPerms = { canView: false, canEdit: false, canCreate: false, canDelete: false };
         if (!role) return defaultPerms;
@@ -150,22 +257,22 @@ function useDashboardRoles() {
         }
         
         return defaultPerms;
-    };
+    }, [getRoleById]);
 
     // Check if a role can perform a specific action on a tab
-    const hasTabPermission = (roleId, tabId, permission) => {
+    const hasTabPermission = useCallback((roleId, tabId, permission) => {
         const perms = getTabPermission(roleId, tabId);
         return perms[permission] || false;
-    };
+    }, [getTabPermission]);
 
     // Convenience methods for common permission checks
-    const canViewTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canView');
-    const canEditTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canEdit');
-    const canCreateInTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canCreate');
-    const canDeleteInTab = (roleId, tabId) => hasTabPermission(roleId, tabId, 'canDelete');
+    const canViewTab = useCallback((roleId, tabId) => hasTabPermission(roleId, tabId, 'canView'), [hasTabPermission]);
+    const canEditTab = useCallback((roleId, tabId) => hasTabPermission(roleId, tabId, 'canEdit'), [hasTabPermission]);
+    const canCreateInTab = useCallback((roleId, tabId) => hasTabPermission(roleId, tabId, 'canCreate'), [hasTabPermission]);
+    const canDeleteInTab = useCallback((roleId, tabId) => hasTabPermission(roleId, tabId, 'canDelete'), [hasTabPermission]);
 
     // Toggle a specific permission for a tab
-    const toggleTabPermission = (roleId, tabId, permission = 'canEdit') => {
+    const toggleTabPermission = useCallback((roleId, tabId, permission = 'canEdit') => {
         const role = roles.find(r => r.id === roleId);
         if (!role) return;
 
@@ -183,10 +290,10 @@ function useDashboardRoles() {
         };
 
         updateRole(roleId, { tabPermissions });
-    };
+    }, [roles, updateRole]);
 
     // Set all permissions for a tab at once
-    const setTabPermissions = (roleId, tabId, permissions) => {
+    const setTabPermissions = useCallback((roleId, tabId, permissions) => {
         const role = roles.find(r => r.id === roleId);
         if (!role) return;
 
@@ -197,10 +304,12 @@ function useDashboardRoles() {
         };
 
         updateRole(roleId, { tabPermissions });
-    };
+    }, [roles, updateRole]);
 
     return { 
         roles, 
+        isLoading,
+        supabaseAvailable,
         addRole, 
         updateRole, 
         deleteRole, 

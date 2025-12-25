@@ -1880,6 +1880,205 @@
     };
 
     // ============================================================================
+    // DASHBOARD ROLES API
+    // ============================================================================
+
+    const DashboardRolesAPI = {
+        // Convert DB row to frontend format
+        _toFrontend(row) {
+            if (!row) return null;
+            return {
+                id: row.id,
+                name: row.name,
+                description: row.description || '',
+                tabs: row.tabs || [],
+                editableTabs: row.editable_tabs || [],
+                capabilities: row.capabilities || {},
+                tabPermissions: row.tab_permissions || {},
+                isDefault: row.is_default || false,
+                isProtected: row.is_protected || false,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        },
+
+        // Convert frontend format to DB format
+        _toDatabase(data) {
+            const dbData = {};
+            if (data.id !== undefined) dbData.id = data.id;
+            if (data.name !== undefined) dbData.name = data.name;
+            if (data.description !== undefined) dbData.description = data.description || null;
+            if (data.tabs !== undefined) dbData.tabs = data.tabs || [];
+            if (data.editableTabs !== undefined) dbData.editable_tabs = data.editableTabs || [];
+            if (data.capabilities !== undefined) dbData.capabilities = data.capabilities || {};
+            if (data.tabPermissions !== undefined) dbData.tab_permissions = data.tabPermissions || {};
+            if (data.isDefault !== undefined) dbData.is_default = data.isDefault || false;
+            if (data.isProtected !== undefined) dbData.is_protected = data.isProtected || false;
+            return dbData;
+        },
+
+        // Get all roles
+        async getAll() {
+            console.log('[DashboardRolesAPI.getAll] Starting, isAvailable:', isAvailable());
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            try {
+                const data = await supabaseFetch('dashboard_roles?select=*&order=name.asc');
+                console.log('[DashboardRoles] Fetched', data?.length || 0, 'roles via direct API');
+                return (data || []).map(row => this._toFrontend(row));
+            } catch (fetchError) {
+                console.warn('[DashboardRoles] Direct fetch failed, trying SDK:', fetchError.message);
+                const { data, error } = await getClient()
+                    .from('dashboard_roles')
+                    .select('*')
+                    .order('name', { ascending: true });
+                
+                if (error) throw error;
+                return (data || []).map(row => this._toFrontend(row));
+            }
+        },
+
+        // Get single role by ID
+        async getById(roleId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            try {
+                const data = await supabaseFetch(`dashboard_roles?id=eq.${roleId}&select=*`);
+                return data && data.length > 0 ? this._toFrontend(data[0]) : null;
+            } catch (fetchError) {
+                const { data, error } = await getClient()
+                    .from('dashboard_roles')
+                    .select('*')
+                    .eq('id', roleId)
+                    .maybeSingle();
+                
+                if (error) throw error;
+                return this._toFrontend(data);
+            }
+        },
+
+        // Create new role
+        async create(roleData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const dbData = this._toDatabase(roleData);
+            // Generate ID if not provided
+            if (!dbData.id) {
+                dbData.id = `role-${Date.now()}`;
+            }
+            console.log('[DashboardRoles] Creating role via direct API:', dbData);
+            
+            try {
+                const data = await supabaseFetch('dashboard_roles?select=*', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                
+                const created = Array.isArray(data) ? data[0] : data;
+                console.log('[DashboardRoles] Created:', created?.id);
+                return this._toFrontend(created);
+            } catch (fetchError) {
+                console.error('[DashboardRoles] Direct create failed:', fetchError.message);
+                throw fetchError;
+            }
+        },
+
+        // Update role
+        async update(roleId, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const dbData = this._toDatabase(updates);
+            console.log('[DashboardRoles] Updating role via direct API:', roleId, dbData);
+            
+            try {
+                const data = await supabaseFetch(`dashboard_roles?id=eq.${roleId}&select=*`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                
+                const updated = Array.isArray(data) ? data[0] : data;
+                console.log('[DashboardRoles] Updated:', roleId);
+                return this._toFrontend(updated);
+            } catch (fetchError) {
+                console.error('[DashboardRoles] Direct update failed:', fetchError.message);
+                throw fetchError;
+            }
+        },
+
+        // Delete role (only non-protected)
+        async delete(roleId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            console.log('[DashboardRoles] Deleting via direct API:', roleId);
+            try {
+                await supabaseFetch(`dashboard_roles?id=eq.${roleId}&is_protected=eq.false`, {
+                    method: 'DELETE'
+                });
+                console.log('[DashboardRoles] Deleted:', roleId);
+                return true;
+            } catch (fetchError) {
+                console.error('[DashboardRoles] Direct delete failed:', fetchError.message);
+                throw fetchError;
+            }
+        },
+
+        // Set a role as default (unsets others)
+        async setDefault(roleId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            try {
+                // First, unset all defaults
+                await supabaseFetch('dashboard_roles?is_default=eq.true', {
+                    method: 'PATCH',
+                    body: JSON.stringify({ is_default: false })
+                });
+                
+                // Then set the new default
+                await supabaseFetch(`dashboard_roles?id=eq.${roleId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ is_default: true })
+                });
+                
+                console.log('[DashboardRoles] Set default:', roleId);
+                return true;
+            } catch (fetchError) {
+                console.error('[DashboardRoles] setDefault failed:', fetchError.message);
+                throw fetchError;
+            }
+        },
+
+        // Subscribe to real-time changes
+        onSnapshot(callback) {
+            if (!isAvailable()) {
+                console.warn('[DashboardRoles] Supabase not available for real-time');
+                return () => {};
+            }
+
+            // Initial load
+            this.getAll().then(roles => callback(roles)).catch(console.error);
+
+            // Subscribe to changes
+            const subscription = getClient()
+                .channel('dashboard-roles-changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'dashboard_roles' },
+                    async (payload) => {
+                        console.log('[DashboardRoles] Real-time update:', payload.eventType);
+                        const roles = await this.getAll();
+                        callback(roles);
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                subscription.unsubscribe();
+            };
+        }
+    };
+
+    // ============================================================================
     // EXPOSE GLOBAL API
     // ============================================================================
 
@@ -1900,7 +2099,8 @@
         transport: TransportAPI,
         equipment: EquipmentAPI,
         training: TrainingAPI,
-        migration: MigrationAPI
+        migration: MigrationAPI,
+        dashboardRoles: DashboardRolesAPI
     };
 
     console.log('[Supabase Data] Module loaded');
