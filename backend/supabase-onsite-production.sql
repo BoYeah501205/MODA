@@ -3,11 +3,17 @@
 -- Run this in the Supabase SQL Editor
 -- ============================================================================
 
+-- Drop existing tables if they exist (for clean re-run)
+DROP TABLE IF EXISTS set_issues CASCADE;
+DROP TABLE IF EXISTS daily_site_reports CASCADE;
+DROP TABLE IF EXISTS set_schedules CASCADE;
+DROP TABLE IF EXISTS production_weeks CASCADE;
+
 -- ============================================================================
 -- SET_SCHEDULES TABLE
 -- Stores set day schedules for field operations
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS set_schedules (
+CREATE TABLE set_schedules (
     id TEXT PRIMARY KEY,
     -- Schedule info
     project_id TEXT,
@@ -80,7 +86,7 @@ CREATE INDEX IF NOT EXISTS idx_set_schedules_project ON set_schedules(project_id
 -- SET_ISSUES TABLE
 -- Stores issues reported during set operations
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS set_issues (
+CREATE TABLE set_issues (
     id TEXT PRIMARY KEY,
     -- References
     set_id TEXT REFERENCES set_schedules(id) ON DELETE SET NULL,
@@ -150,7 +156,7 @@ CREATE INDEX IF NOT EXISTS idx_set_issues_module ON set_issues(module_id);
 -- DAILY_SITE_REPORTS TABLE
 -- Stores daily site reports for field operations
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS daily_site_reports (
+CREATE TABLE daily_site_reports (
     id TEXT PRIMARY KEY,
     -- Report identification
     date DATE NOT NULL,
@@ -228,7 +234,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_site_reports_status ON daily_site_reports(s
 -- PRODUCTION_WEEKS TABLE
 -- Stores production week tracking data
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS production_weeks (
+CREATE TABLE production_weeks (
     id TEXT PRIMARY KEY,
     -- Week identification
     week_number INTEGER NOT NULL,
