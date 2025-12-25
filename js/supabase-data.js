@@ -2079,6 +2079,488 @@
     };
 
     // ============================================================================
+    // SET SCHEDULES API (On-Site Module)
+    // ============================================================================
+
+    const SetSchedulesAPI = {
+        _toFrontend(row) {
+            if (!row) return null;
+            return {
+                id: row.id,
+                projectId: row.project_id,
+                projectName: row.project_name,
+                siteName: row.site_name,
+                scheduledDate: row.scheduled_date,
+                scheduledStartTime: row.scheduled_start_time,
+                scheduledEndTime: row.scheduled_end_time,
+                status: row.status || 'Scheduled',
+                actualStartTime: row.actual_start_time,
+                actualEndTime: row.actual_end_time,
+                modules: row.modules || [],
+                weather: row.weather || {},
+                craneCompany: row.crane_company,
+                craneOperator: row.crane_operator,
+                crewLead: row.crew_lead,
+                crewMembers: row.crew_members || [],
+                notes: row.notes,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        },
+
+        _toDatabase(data) {
+            const dbData = {};
+            if (data.id !== undefined) dbData.id = data.id;
+            if (data.projectId !== undefined) dbData.project_id = data.projectId;
+            if (data.projectName !== undefined) dbData.project_name = data.projectName;
+            if (data.siteName !== undefined) dbData.site_name = data.siteName;
+            if (data.scheduledDate !== undefined) dbData.scheduled_date = data.scheduledDate;
+            if (data.scheduledStartTime !== undefined) dbData.scheduled_start_time = data.scheduledStartTime;
+            if (data.scheduledEndTime !== undefined) dbData.scheduled_end_time = data.scheduledEndTime;
+            if (data.status !== undefined) dbData.status = data.status;
+            if (data.actualStartTime !== undefined) dbData.actual_start_time = data.actualStartTime;
+            if (data.actualEndTime !== undefined) dbData.actual_end_time = data.actualEndTime;
+            if (data.modules !== undefined) dbData.modules = data.modules;
+            if (data.weather !== undefined) dbData.weather = data.weather;
+            if (data.craneCompany !== undefined) dbData.crane_company = data.craneCompany;
+            if (data.craneOperator !== undefined) dbData.crane_operator = data.craneOperator;
+            if (data.crewLead !== undefined) dbData.crew_lead = data.crewLead;
+            if (data.crewMembers !== undefined) dbData.crew_members = data.crewMembers;
+            if (data.notes !== undefined) dbData.notes = data.notes;
+            return dbData;
+        },
+
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                const data = await supabaseFetch('set_schedules?select=*&order=scheduled_date.desc');
+                return (data || []).map(row => this._toFrontend(row));
+            } catch (err) {
+                console.error('[SetSchedules] getAll failed:', err.message);
+                throw err;
+            }
+        },
+
+        async create(scheduleData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(scheduleData);
+            if (!dbData.id) dbData.id = `SET-${Date.now()}`;
+            try {
+                const data = await supabaseFetch('set_schedules?select=*', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const created = Array.isArray(data) ? data[0] : data;
+                console.log('[SetSchedules] Created:', created?.id);
+                return this._toFrontend(created);
+            } catch (err) {
+                console.error('[SetSchedules] create failed:', err.message);
+                throw err;
+            }
+        },
+
+        async update(id, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(updates);
+            try {
+                const data = await supabaseFetch(`set_schedules?id=eq.${id}&select=*`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const updated = Array.isArray(data) ? data[0] : data;
+                console.log('[SetSchedules] Updated:', id);
+                return this._toFrontend(updated);
+            } catch (err) {
+                console.error('[SetSchedules] update failed:', err.message);
+                throw err;
+            }
+        },
+
+        async delete(id) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                await supabaseFetch(`set_schedules?id=eq.${id}`, { method: 'DELETE' });
+                console.log('[SetSchedules] Deleted:', id);
+                return true;
+            } catch (err) {
+                console.error('[SetSchedules] delete failed:', err.message);
+                throw err;
+            }
+        },
+
+        onSnapshot(callback) {
+            if (!isAvailable()) return () => {};
+            this.getAll().then(callback).catch(console.error);
+            const subscription = getClient()
+                .channel('set-schedules-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'set_schedules' },
+                    async () => { callback(await this.getAll()); })
+                .subscribe();
+            return () => subscription.unsubscribe();
+        }
+    };
+
+    // ============================================================================
+    // SET ISSUES API (On-Site Module)
+    // ============================================================================
+
+    const SetIssuesAPI = {
+        _toFrontend(row) {
+            if (!row) return null;
+            return {
+                id: row.id,
+                setId: row.set_id,
+                moduleId: row.module_id,
+                projectId: row.project_id,
+                title: row.title,
+                description: row.description,
+                category: row.category,
+                severity: row.severity || 'Medium',
+                status: row.status || 'Open',
+                resolution: row.resolution,
+                resolvedBy: row.resolved_by,
+                resolvedAt: row.resolved_at,
+                photos: row.photos || [],
+                reportedBy: row.reported_by,
+                reportedAt: row.reported_at,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        },
+
+        _toDatabase(data) {
+            const dbData = {};
+            if (data.id !== undefined) dbData.id = data.id;
+            if (data.setId !== undefined) dbData.set_id = data.setId;
+            if (data.moduleId !== undefined) dbData.module_id = data.moduleId;
+            if (data.projectId !== undefined) dbData.project_id = data.projectId;
+            if (data.title !== undefined) dbData.title = data.title;
+            if (data.description !== undefined) dbData.description = data.description;
+            if (data.category !== undefined) dbData.category = data.category;
+            if (data.severity !== undefined) dbData.severity = data.severity;
+            if (data.status !== undefined) dbData.status = data.status;
+            if (data.resolution !== undefined) dbData.resolution = data.resolution;
+            if (data.resolvedBy !== undefined) dbData.resolved_by = data.resolvedBy;
+            if (data.resolvedAt !== undefined) dbData.resolved_at = data.resolvedAt;
+            if (data.photos !== undefined) dbData.photos = data.photos;
+            if (data.reportedBy !== undefined) dbData.reported_by = data.reportedBy;
+            if (data.reportedAt !== undefined) dbData.reported_at = data.reportedAt;
+            return dbData;
+        },
+
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                const data = await supabaseFetch('set_issues?select=*&order=reported_at.desc');
+                return (data || []).map(row => this._toFrontend(row));
+            } catch (err) {
+                console.error('[SetIssues] getAll failed:', err.message);
+                throw err;
+            }
+        },
+
+        async create(issueData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(issueData);
+            if (!dbData.id) dbData.id = `ISS-${Date.now()}`;
+            try {
+                const data = await supabaseFetch('set_issues?select=*', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const created = Array.isArray(data) ? data[0] : data;
+                console.log('[SetIssues] Created:', created?.id);
+                return this._toFrontend(created);
+            } catch (err) {
+                console.error('[SetIssues] create failed:', err.message);
+                throw err;
+            }
+        },
+
+        async update(id, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(updates);
+            try {
+                const data = await supabaseFetch(`set_issues?id=eq.${id}&select=*`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const updated = Array.isArray(data) ? data[0] : data;
+                console.log('[SetIssues] Updated:', id);
+                return this._toFrontend(updated);
+            } catch (err) {
+                console.error('[SetIssues] update failed:', err.message);
+                throw err;
+            }
+        },
+
+        async delete(id) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                await supabaseFetch(`set_issues?id=eq.${id}`, { method: 'DELETE' });
+                console.log('[SetIssues] Deleted:', id);
+                return true;
+            } catch (err) {
+                console.error('[SetIssues] delete failed:', err.message);
+                throw err;
+            }
+        },
+
+        onSnapshot(callback) {
+            if (!isAvailable()) return () => {};
+            this.getAll().then(callback).catch(console.error);
+            const subscription = getClient()
+                .channel('set-issues-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'set_issues' },
+                    async () => { callback(await this.getAll()); })
+                .subscribe();
+            return () => subscription.unsubscribe();
+        }
+    };
+
+    // ============================================================================
+    // DAILY SITE REPORTS API (On-Site Module)
+    // ============================================================================
+
+    const DailySiteReportsAPI = {
+        _toFrontend(row) {
+            if (!row) return null;
+            return {
+                id: row.id,
+                date: row.date,
+                projectId: row.project_id,
+                reportType: row.report_type || 'set-day',
+                autovolRep: row.autovol_rep,
+                generalContractor: row.general_contractor,
+                weather: row.weather || {},
+                progress: row.progress || {},
+                timeline: row.timeline || {},
+                globalItems: row.global_items || [],
+                modulesSetToday: row.modules_set_today || [],
+                issues: row.issues || [],
+                generalNotes: row.general_notes,
+                crew: row.crew || [],
+                photos: row.photos || [],
+                status: row.status || 'draft',
+                generatedAt: row.generated_at,
+                sentAt: row.sent_at,
+                sentTo: row.sent_to || [],
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        },
+
+        _toDatabase(data) {
+            const dbData = {};
+            if (data.id !== undefined) dbData.id = data.id;
+            if (data.date !== undefined) dbData.date = data.date;
+            if (data.projectId !== undefined) dbData.project_id = data.projectId;
+            if (data.reportType !== undefined) dbData.report_type = data.reportType;
+            if (data.autovolRep !== undefined) dbData.autovol_rep = data.autovolRep;
+            if (data.generalContractor !== undefined) dbData.general_contractor = data.generalContractor;
+            if (data.weather !== undefined) dbData.weather = data.weather;
+            if (data.progress !== undefined) dbData.progress = data.progress;
+            if (data.timeline !== undefined) dbData.timeline = data.timeline;
+            if (data.globalItems !== undefined) dbData.global_items = data.globalItems;
+            if (data.modulesSetToday !== undefined) dbData.modules_set_today = data.modulesSetToday;
+            if (data.issues !== undefined) dbData.issues = data.issues;
+            if (data.generalNotes !== undefined) dbData.general_notes = data.generalNotes;
+            if (data.crew !== undefined) dbData.crew = data.crew;
+            if (data.photos !== undefined) dbData.photos = data.photos;
+            if (data.status !== undefined) dbData.status = data.status;
+            if (data.generatedAt !== undefined) dbData.generated_at = data.generatedAt;
+            if (data.sentAt !== undefined) dbData.sent_at = data.sentAt;
+            if (data.sentTo !== undefined) dbData.sent_to = data.sentTo;
+            return dbData;
+        },
+
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                const data = await supabaseFetch('daily_site_reports?select=*&order=date.desc');
+                return (data || []).map(row => this._toFrontend(row));
+            } catch (err) {
+                console.error('[DailySiteReports] getAll failed:', err.message);
+                throw err;
+            }
+        },
+
+        async create(reportData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(reportData);
+            if (!dbData.id) dbData.id = `RPT-${Date.now()}`;
+            try {
+                const data = await supabaseFetch('daily_site_reports?select=*', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const created = Array.isArray(data) ? data[0] : data;
+                console.log('[DailySiteReports] Created:', created?.id);
+                return this._toFrontend(created);
+            } catch (err) {
+                console.error('[DailySiteReports] create failed:', err.message);
+                throw err;
+            }
+        },
+
+        async update(id, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(updates);
+            try {
+                const data = await supabaseFetch(`daily_site_reports?id=eq.${id}&select=*`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const updated = Array.isArray(data) ? data[0] : data;
+                console.log('[DailySiteReports] Updated:', id);
+                return this._toFrontend(updated);
+            } catch (err) {
+                console.error('[DailySiteReports] update failed:', err.message);
+                throw err;
+            }
+        },
+
+        async delete(id) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                await supabaseFetch(`daily_site_reports?id=eq.${id}`, { method: 'DELETE' });
+                console.log('[DailySiteReports] Deleted:', id);
+                return true;
+            } catch (err) {
+                console.error('[DailySiteReports] delete failed:', err.message);
+                throw err;
+            }
+        },
+
+        onSnapshot(callback) {
+            if (!isAvailable()) return () => {};
+            this.getAll().then(callback).catch(console.error);
+            const subscription = getClient()
+                .channel('daily-site-reports-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_site_reports' },
+                    async () => { callback(await this.getAll()); })
+                .subscribe();
+            return () => subscription.unsubscribe();
+        }
+    };
+
+    // ============================================================================
+    // PRODUCTION WEEKS API
+    // ============================================================================
+
+    const ProductionWeeksAPI = {
+        _toFrontend(row) {
+            if (!row) return null;
+            return {
+                id: row.id,
+                weekNumber: row.week_number,
+                year: row.year,
+                weekId: row.week_id,
+                startDate: row.start_date,
+                endDate: row.end_date,
+                plannedModules: row.planned_modules || 0,
+                actualModules: row.actual_modules || 0,
+                status: row.status || 'Planned',
+                notes: row.notes,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        },
+
+        _toDatabase(data) {
+            const dbData = {};
+            if (data.id !== undefined) dbData.id = data.id;
+            if (data.weekNumber !== undefined) dbData.week_number = data.weekNumber;
+            if (data.year !== undefined) dbData.year = data.year;
+            if (data.weekId !== undefined) dbData.week_id = data.weekId;
+            if (data.startDate !== undefined) dbData.start_date = data.startDate;
+            if (data.endDate !== undefined) dbData.end_date = data.endDate;
+            if (data.plannedModules !== undefined) dbData.planned_modules = data.plannedModules;
+            if (data.actualModules !== undefined) dbData.actual_modules = data.actualModules;
+            if (data.status !== undefined) dbData.status = data.status;
+            if (data.notes !== undefined) dbData.notes = data.notes;
+            return dbData;
+        },
+
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                const data = await supabaseFetch('production_weeks?select=*&order=year.desc,week_number.desc');
+                return (data || []).map(row => this._toFrontend(row));
+            } catch (err) {
+                console.error('[ProductionWeeks] getAll failed:', err.message);
+                throw err;
+            }
+        },
+
+        async create(weekData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(weekData);
+            if (!dbData.id) dbData.id = `WEEK-${Date.now()}`;
+            try {
+                const data = await supabaseFetch('production_weeks?select=*', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const created = Array.isArray(data) ? data[0] : data;
+                console.log('[ProductionWeeks] Created:', created?.id);
+                return this._toFrontend(created);
+            } catch (err) {
+                console.error('[ProductionWeeks] create failed:', err.message);
+                throw err;
+            }
+        },
+
+        async update(id, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const dbData = this._toDatabase(updates);
+            try {
+                const data = await supabaseFetch(`production_weeks?id=eq.${id}&select=*`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify(dbData)
+                });
+                const updated = Array.isArray(data) ? data[0] : data;
+                console.log('[ProductionWeeks] Updated:', id);
+                return this._toFrontend(updated);
+            } catch (err) {
+                console.error('[ProductionWeeks] update failed:', err.message);
+                throw err;
+            }
+        },
+
+        async delete(id) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            try {
+                await supabaseFetch(`production_weeks?id=eq.${id}`, { method: 'DELETE' });
+                console.log('[ProductionWeeks] Deleted:', id);
+                return true;
+            } catch (err) {
+                console.error('[ProductionWeeks] delete failed:', err.message);
+                throw err;
+            }
+        },
+
+        onSnapshot(callback) {
+            if (!isAvailable()) return () => {};
+            this.getAll().then(callback).catch(console.error);
+            const subscription = getClient()
+                .channel('production-weeks-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'production_weeks' },
+                    async () => { callback(await this.getAll()); })
+                .subscribe();
+            return () => subscription.unsubscribe();
+        }
+    };
+
+    // ============================================================================
     // EXPOSE GLOBAL API
     // ============================================================================
 
@@ -2100,7 +2582,11 @@
         equipment: EquipmentAPI,
         training: TrainingAPI,
         migration: MigrationAPI,
-        dashboardRoles: DashboardRolesAPI
+        dashboardRoles: DashboardRolesAPI,
+        setSchedules: SetSchedulesAPI,
+        setIssues: SetIssuesAPI,
+        dailySiteReports: DailySiteReportsAPI,
+        productionWeeks: ProductionWeeksAPI
     };
 
     console.log('[Supabase Data] Module loaded');

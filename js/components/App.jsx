@@ -182,6 +182,8 @@ const useProductionWeeks = () => {
         }
         return [];
     });
+    const [weeksLoaded, setWeeksLoaded] = useState(false);
+    const [weeksSupabaseAvailable, setWeeksSupabaseAvailable] = useState(false);
     
     const [staggerConfig, setStaggerConfig] = useState({ ...stationStaggers });
     const [staggersLoaded, setStaggersLoaded] = useState(false);
@@ -194,11 +196,29 @@ const useProductionWeeks = () => {
     const [hasUnsavedStaggerChanges, setHasUnsavedStaggerChanges] = useState(false);
     const [pendingStaggerChanges, setPendingStaggerChanges] = useState({});
     
-    // Load staggers and change log from Supabase on mount
+    // Load production weeks, staggers and change log from Supabase on mount
     useEffect(() => {
         const loadFromSupabase = async () => {
             try {
                 if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+                    // Load production weeks
+                    try {
+                        if (window.MODA_SUPABASE_DATA.productionWeeks) {
+                            const supabaseWeeks = await window.MODA_SUPABASE_DATA.productionWeeks.getAll();
+                            if (supabaseWeeks && supabaseWeeks.length > 0) {
+                                setWeeks(supabaseWeeks);
+                                setWeeksSupabaseAvailable(true);
+                                localStorage.setItem('autovol_production_weeks', JSON.stringify(supabaseWeeks));
+                                console.log('[App] Loaded', supabaseWeeks.length, 'production weeks from Supabase');
+                            } else {
+                                setWeeksSupabaseAvailable(true);
+                            }
+                        }
+                    } catch (err) {
+                        console.log('[App] Production weeks table may not exist, using localStorage');
+                    }
+                    setWeeksLoaded(true);
+                    
                     // Load staggers
                     try {
                         const supabaseStaggers = await window.MODA_SUPABASE_DATA.stationStaggers.get();
@@ -243,6 +263,8 @@ const useProductionWeeks = () => {
                     setChangeLogLoaded(true);
                 } else {
                     // Fallback to localStorage
+                    setWeeksLoaded(true);
+                    
                     const savedStaggers = localStorage.getItem('autovol_station_staggers');
                     if (savedStaggers && savedStaggers !== 'undefined' && savedStaggers !== 'null') {
                         try { setStaggerConfig(JSON.parse(savedStaggers)); } catch (e) { /* use defaults */ }
@@ -257,6 +279,7 @@ const useProductionWeeks = () => {
                 }
             } catch (error) {
                 console.error('[App] Error loading staggers:', error);
+                setWeeksLoaded(true);
                 setStaggersLoaded(true);
                 setChangeLogLoaded(true);
             }
@@ -266,9 +289,12 @@ const useProductionWeeks = () => {
         return () => clearTimeout(timer);
     }, []);
     
+    // Save weeks to localStorage as backup
     useEffect(() => {
-        localStorage.setItem('autovol_production_weeks', JSON.stringify(weeks));
-    }, [weeks]);
+        if (weeksLoaded) {
+            localStorage.setItem('autovol_production_weeks', JSON.stringify(weeks));
+        }
+    }, [weeks, weeksLoaded]);
     
     // Save staggers to localStorage as backup
     useEffect(() => {
@@ -284,18 +310,48 @@ const useProductionWeeks = () => {
         }
     }, [staggerChangeLog, changeLogLoaded]);
     
-    const addWeek = (weekData) => {
+    const addWeek = async (weekData) => {
         const newWeek = { ...weekData, id: `week-${Date.now()}`, createdAt: new Date().toISOString() };
         setWeeks(prev => [...prev, newWeek]);
+        
+        // Sync to Supabase
+        if (weeksSupabaseAvailable && window.MODA_SUPABASE_DATA?.productionWeeks) {
+            try {
+                await window.MODA_SUPABASE_DATA.productionWeeks.create(newWeek);
+                console.log('[ProductionWeeks] Created in Supabase:', newWeek.id);
+            } catch (err) {
+                console.error('[ProductionWeeks] Supabase create failed:', err.message);
+            }
+        }
         return newWeek;
     };
     
-    const updateWeek = (weekId, updates) => {
+    const updateWeek = async (weekId, updates) => {
         setWeeks(prev => prev.map(w => w.id === weekId ? { ...w, ...updates } : w));
+        
+        // Sync to Supabase
+        if (weeksSupabaseAvailable && window.MODA_SUPABASE_DATA?.productionWeeks) {
+            try {
+                await window.MODA_SUPABASE_DATA.productionWeeks.update(weekId, updates);
+                console.log('[ProductionWeeks] Updated in Supabase:', weekId);
+            } catch (err) {
+                console.error('[ProductionWeeks] Supabase update failed:', err.message);
+            }
+        }
     };
     
-    const deleteWeek = (weekId) => {
+    const deleteWeek = async (weekId) => {
         setWeeks(prev => prev.filter(w => w.id !== weekId));
+        
+        // Sync to Supabase
+        if (weeksSupabaseAvailable && window.MODA_SUPABASE_DATA?.productionWeeks) {
+            try {
+                await window.MODA_SUPABASE_DATA.productionWeeks.delete(weekId);
+                console.log('[ProductionWeeks] Deleted from Supabase:', weekId);
+            } catch (err) {
+                console.error('[ProductionWeeks] Supabase delete failed:', err.message);
+            }
+        }
     };
     
     // Update stagger value (marks as pending until saved)

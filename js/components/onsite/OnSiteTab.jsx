@@ -1,29 +1,69 @@
 // On-Site Tab - Main Container
 // Standalone prototype for field operations management
 
-const { useState, useEffect, useMemo, useRef } = React;
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+// Helper to check if Supabase On-Site APIs are available
+function isSupabaseOnSiteAvailable() {
+    return window.MODA_SUPABASE_DATA?.isAvailable?.() && 
+           window.MODA_SUPABASE_DATA?.setSchedules;
+}
+
+// Helper for safe JSON parsing
+function safeParseJSON(str, fallback = []) {
+    if (!str || str === 'undefined' || str === 'null') return fallback;
+    try { return JSON.parse(str); } catch (e) { return fallback; }
+}
 
 // ============================================================================
-// DATA HOOKS
+// DATA HOOKS - With Supabase Sync
 // ============================================================================
 
 // Hook for managing set schedules
 function useSetSchedule() {
     const [schedules, setSchedules] = useState(() => {
-        const saved = localStorage.getItem('autovol_set_schedules');
-        return saved ? JSON.parse(saved) : [];
+        return safeParseJSON(localStorage.getItem('autovol_set_schedules'), []);
     });
+    const [isLoading, setIsLoading] = useState(true);
+    const [supabaseAvailable, setSupabaseAvailable] = useState(false);
 
+    // Load from Supabase on mount
     useEffect(() => {
-        localStorage.setItem('autovol_set_schedules', JSON.stringify(schedules));
-    }, [schedules]);
+        let mounted = true;
+        const loadData = async () => {
+            if (isSupabaseOnSiteAvailable()) {
+                try {
+                    const data = await window.MODA_SUPABASE_DATA.setSchedules.getAll();
+                    if (mounted && data && data.length > 0) {
+                        setSchedules(data);
+                        setSupabaseAvailable(true);
+                        localStorage.setItem('autovol_set_schedules', JSON.stringify(data));
+                    } else if (mounted) {
+                        setSupabaseAvailable(true);
+                    }
+                } catch (err) {
+                    console.warn('[SetSchedule] Supabase load failed:', err.message);
+                }
+            }
+            if (mounted) setIsLoading(false);
+        };
+        setTimeout(loadData, 100);
+        return () => { mounted = false; };
+    }, []);
 
-    const addSchedule = (scheduleData) => {
+    // Save to localStorage as backup
+    useEffect(() => {
+        if (!isLoading) {
+            localStorage.setItem('autovol_set_schedules', JSON.stringify(schedules));
+        }
+    }, [schedules, isLoading]);
+
+    const addSchedule = useCallback(async (scheduleData) => {
         const newSchedule = {
             id: `SET-${Date.now()}`,
             ...scheduleData,
             status: 'Scheduled',
-            modules: scheduleData.modules.map(m => ({
+            modules: (scheduleData.modules || []).map(m => ({
                 ...m,
                 setStatus: 'Pending',
                 setTime: null,
@@ -39,54 +79,88 @@ function useSetSchedule() {
             updatedAt: null
         };
         setSchedules(prev => [...prev, newSchedule]);
+        
+        if (supabaseAvailable && isSupabaseOnSiteAvailable()) {
+            try {
+                await window.MODA_SUPABASE_DATA.setSchedules.create(newSchedule);
+            } catch (err) {
+                console.error('[SetSchedule] Supabase create failed:', err.message);
+            }
+        }
         return newSchedule;
-    };
+    }, [supabaseAvailable]);
 
-    const updateSchedule = (id, updates) => {
+    const updateSchedule = useCallback(async (id, updates) => {
+        const updatedData = { ...updates, updatedAt: new Date().toISOString() };
         setSchedules(prev => prev.map(s => 
-            s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+            s.id === id ? { ...s, ...updatedData } : s
         ));
-    };
+        
+        if (supabaseAvailable && isSupabaseOnSiteAvailable()) {
+            try {
+                await window.MODA_SUPABASE_DATA.setSchedules.update(id, updatedData);
+            } catch (err) {
+                console.error('[SetSchedule] Supabase update failed:', err.message);
+            }
+        }
+    }, [supabaseAvailable]);
 
-    const deleteSchedule = (id) => {
+    const deleteSchedule = useCallback(async (id) => {
         setSchedules(prev => prev.filter(s => s.id !== id));
-    };
+        
+        if (supabaseAvailable && isSupabaseOnSiteAvailable()) {
+            try {
+                await window.MODA_SUPABASE_DATA.setSchedules.delete(id);
+            } catch (err) {
+                console.error('[SetSchedule] Supabase delete failed:', err.message);
+            }
+        }
+    }, [supabaseAvailable]);
 
-    const startSet = (id) => {
+    const startSet = useCallback((id) => {
         updateSchedule(id, { 
             status: 'In Progress', 
             actualStartTime: new Date().toISOString() 
         });
-    };
+    }, [updateSchedule]);
 
-    const completeSet = (id) => {
+    const completeSet = useCallback((id) => {
         updateSchedule(id, { 
             status: 'Complete', 
             actualEndTime: new Date().toISOString() 
         });
-    };
+    }, [updateSchedule]);
 
-    const updateModuleStatus = (scheduleId, moduleId, status, userData) => {
-        setSchedules(prev => prev.map(s => {
-            if (s.id !== scheduleId) return s;
-            return {
-                ...s,
-                modules: s.modules.map(m => 
-                    m.moduleId === moduleId 
-                        ? { 
-                            ...m, 
-                            setStatus: status, 
-                            setTime: new Date().toISOString(),
-                            setBy: userData?.name || 'Field Crew'
-                        } 
-                        : m
-                ),
-                updatedAt: new Date().toISOString()
-            };
-        }));
-    };
+    const updateModuleStatus = useCallback((scheduleId, moduleId, status, userData) => {
+        setSchedules(prev => {
+            const updated = prev.map(s => {
+                if (s.id !== scheduleId) return s;
+                const updatedSchedule = {
+                    ...s,
+                    modules: s.modules.map(m => 
+                        m.moduleId === moduleId 
+                            ? { 
+                                ...m, 
+                                setStatus: status, 
+                                setTime: new Date().toISOString(),
+                                setBy: userData?.name || 'Field Crew'
+                            } 
+                            : m
+                    ),
+                    updatedAt: new Date().toISOString()
+                };
+                // Sync to Supabase
+                if (supabaseAvailable && isSupabaseOnSiteAvailable()) {
+                    window.MODA_SUPABASE_DATA.setSchedules.update(scheduleId, { modules: updatedSchedule.modules })
+                        .catch(err => console.error('[SetSchedule] Module status sync failed:', err.message));
+                }
+                return updatedSchedule;
+            });
+            return updated;
+        });
+    }, [supabaseAvailable]);
 
-    const addModulePhoto = (scheduleId, moduleId, photoData) => {
+    const addModulePhoto = useCallback((scheduleId, moduleId, photoData) => {
         setSchedules(prev => prev.map(s => {
             if (s.id !== scheduleId) return s;
             return {
@@ -99,16 +173,16 @@ function useSetSchedule() {
                 updatedAt: new Date().toISOString()
             };
         }));
-    };
+    }, []);
 
-    const getScheduleById = (id) => schedules.find(s => s.id === id);
+    const getScheduleById = useCallback((id) => schedules.find(s => s.id === id), [schedules]);
     
-    const getTodaysSets = () => {
+    const getTodaysSets = useCallback(() => {
         const today = new Date().toISOString().split('T')[0];
         return schedules.filter(s => s.scheduledDate === today);
-    };
+    }, [schedules]);
 
-    const getUpcomingSets = (days = 7) => {
+    const getUpcomingSets = useCallback((days = 7) => {
         const today = new Date();
         const futureDate = new Date(today);
         futureDate.setDate(futureDate.getDate() + days);
@@ -117,12 +191,13 @@ function useSetSchedule() {
             const setDate = new Date(s.scheduledDate);
             return setDate >= today && setDate <= futureDate && s.status !== 'Complete';
         }).sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
-    };
+    }, [schedules]);
 
-    const getActiveSets = () => schedules.filter(s => s.status === 'In Progress');
+    const getActiveSets = useCallback(() => schedules.filter(s => s.status === 'In Progress'), [schedules]);
 
     return {
         schedules,
+        isLoading,
         addSchedule,
         updateSchedule,
         deleteSchedule,
@@ -140,15 +215,43 @@ function useSetSchedule() {
 // Hook for managing set issues
 function useSetIssues() {
     const [issues, setIssues] = useState(() => {
-        const saved = localStorage.getItem('autovol_set_issues');
-        return saved ? JSON.parse(saved) : [];
+        return safeParseJSON(localStorage.getItem('autovol_set_issues'), []);
     });
+    const [isLoading, setIsLoading] = useState(true);
+    const [supabaseAvailable, setSupabaseAvailable] = useState(false);
 
+    // Load from Supabase on mount
     useEffect(() => {
-        localStorage.setItem('autovol_set_issues', JSON.stringify(issues));
-    }, [issues]);
+        let mounted = true;
+        const loadData = async () => {
+            if (isSupabaseOnSiteAvailable() && window.MODA_SUPABASE_DATA?.setIssues) {
+                try {
+                    const data = await window.MODA_SUPABASE_DATA.setIssues.getAll();
+                    if (mounted && data && data.length > 0) {
+                        setIssues(data);
+                        setSupabaseAvailable(true);
+                        localStorage.setItem('autovol_set_issues', JSON.stringify(data));
+                    } else if (mounted) {
+                        setSupabaseAvailable(true);
+                    }
+                } catch (err) {
+                    console.warn('[SetIssues] Supabase load failed:', err.message);
+                }
+            }
+            if (mounted) setIsLoading(false);
+        };
+        setTimeout(loadData, 100);
+        return () => { mounted = false; };
+    }, []);
 
-    const addIssue = (issueData) => {
+    // Save to localStorage as backup
+    useEffect(() => {
+        if (!isLoading) {
+            localStorage.setItem('autovol_set_issues', JSON.stringify(issues));
+        }
+    }, [issues, isLoading]);
+
+    const addIssue = useCallback(async (issueData) => {
         const newIssue = {
             id: `ISS-${Date.now()}`,
             ...issueData,
@@ -159,30 +262,47 @@ function useSetIssues() {
             reportedAt: new Date().toISOString()
         };
         setIssues(prev => [newIssue, ...prev]);
+        
+        if (supabaseAvailable && window.MODA_SUPABASE_DATA?.setIssues) {
+            try {
+                await window.MODA_SUPABASE_DATA.setIssues.create(newIssue);
+            } catch (err) {
+                console.error('[SetIssues] Supabase create failed:', err.message);
+            }
+        }
         return newIssue;
-    };
+    }, [supabaseAvailable]);
 
-    const updateIssue = (id, updates) => {
+    const updateIssue = useCallback(async (id, updates) => {
         setIssues(prev => prev.map(i => 
             i.id === id ? { ...i, ...updates } : i
         ));
-    };
+        
+        if (supabaseAvailable && window.MODA_SUPABASE_DATA?.setIssues) {
+            try {
+                await window.MODA_SUPABASE_DATA.setIssues.update(id, updates);
+            } catch (err) {
+                console.error('[SetIssues] Supabase update failed:', err.message);
+            }
+        }
+    }, [supabaseAvailable]);
 
-    const resolveIssue = (id, resolution, resolvedBy) => {
+    const resolveIssue = useCallback((id, resolution, resolvedBy) => {
         updateIssue(id, {
             status: 'Resolved',
             resolution,
             resolvedBy,
             resolvedAt: new Date().toISOString()
         });
-    };
+    }, [updateIssue]);
 
-    const getIssuesBySet = (setId) => issues.filter(i => i.setId === setId);
-    const getIssuesByModule = (moduleId) => issues.filter(i => i.moduleId === moduleId);
-    const getOpenIssues = () => issues.filter(i => i.status === 'Open');
+    const getIssuesBySet = useCallback((setId) => issues.filter(i => i.setId === setId), [issues]);
+    const getIssuesByModule = useCallback((moduleId) => issues.filter(i => i.moduleId === moduleId), [issues]);
+    const getOpenIssues = useCallback(() => issues.filter(i => i.status === 'Open'), [issues]);
 
     return {
         issues,
+        isLoading,
         addIssue,
         updateIssue,
         resolveIssue,
@@ -195,16 +315,44 @@ function useSetIssues() {
 // Hook for managing Daily Site Reports
 function useDailySiteReports() {
     const [reports, setReports] = useState(() => {
-        const saved = localStorage.getItem('autovol_daily_site_reports');
-        return saved ? JSON.parse(saved) : [];
+        return safeParseJSON(localStorage.getItem('autovol_daily_site_reports'), []);
     });
+    const [isLoading, setIsLoading] = useState(true);
+    const [supabaseAvailable, setSupabaseAvailable] = useState(false);
 
+    // Load from Supabase on mount
     useEffect(() => {
-        localStorage.setItem('autovol_daily_site_reports', JSON.stringify(reports));
-    }, [reports]);
+        let mounted = true;
+        const loadData = async () => {
+            if (isSupabaseOnSiteAvailable() && window.MODA_SUPABASE_DATA?.dailySiteReports) {
+                try {
+                    const data = await window.MODA_SUPABASE_DATA.dailySiteReports.getAll();
+                    if (mounted && data && data.length > 0) {
+                        setReports(data);
+                        setSupabaseAvailable(true);
+                        localStorage.setItem('autovol_daily_site_reports', JSON.stringify(data));
+                    } else if (mounted) {
+                        setSupabaseAvailable(true);
+                    }
+                } catch (err) {
+                    console.warn('[DailySiteReports] Supabase load failed:', err.message);
+                }
+            }
+            if (mounted) setIsLoading(false);
+        };
+        setTimeout(loadData, 100);
+        return () => { mounted = false; };
+    }, []);
+
+    // Save to localStorage as backup
+    useEffect(() => {
+        if (!isLoading) {
+            localStorage.setItem('autovol_daily_site_reports', JSON.stringify(reports));
+        }
+    }, [reports, isLoading]);
 
     // Create a new daily report (or get existing for date)
-    const createOrGetReport = (projectId, date) => {
+    const createOrGetReport = useCallback(async (projectId, date) => {
         const dateStr = date || new Date().toISOString().split('T')[0];
         const existing = reports.find(r => r.projectId === projectId && r.date === dateStr);
         if (existing) return existing;
@@ -265,14 +413,33 @@ function useDailySiteReports() {
         };
         
         setReports(prev => [...prev, newReport]);
+        
+        // Sync to Supabase
+        if (supabaseAvailable && window.MODA_SUPABASE_DATA?.dailySiteReports) {
+            try {
+                await window.MODA_SUPABASE_DATA.dailySiteReports.create(newReport);
+            } catch (err) {
+                console.error('[DailySiteReports] Supabase create failed:', err.message);
+            }
+        }
         return newReport;
-    };
+    }, [reports, supabaseAvailable]);
 
-    const updateReport = (id, updates) => {
+    const updateReport = useCallback(async (id, updates) => {
+        const updatedData = { ...updates, updatedAt: new Date().toISOString() };
         setReports(prev => prev.map(r => 
-            r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r
+            r.id === id ? { ...r, ...updatedData } : r
         ));
-    };
+        
+        // Sync to Supabase
+        if (supabaseAvailable && window.MODA_SUPABASE_DATA?.dailySiteReports) {
+            try {
+                await window.MODA_SUPABASE_DATA.dailySiteReports.update(id, updatedData);
+            } catch (err) {
+                console.error('[DailySiteReports] Supabase update failed:', err.message);
+            }
+        }
+    }, [supabaseAvailable]);
 
     const addGlobalItem = (reportId, item) => {
         setReports(prev => prev.map(r => {
