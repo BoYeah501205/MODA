@@ -1791,7 +1791,8 @@ function WeeklyBoardTab({
         
         let moduleNum = 1;
         shift1Days.forEach(day => {
-            const count = scheduleSetup?.shift1?.[day] || 0;
+            // Use displayWeek's shift config when viewing a specific week, fallback to scheduleSetup
+            const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
             if (count > 0) {
                 const weekStart = displayWeek?.weekStart ? new Date(displayWeek.weekStart) : new Date();
                 const dayOffset = shift1Days.indexOf(day);
@@ -2682,7 +2683,8 @@ function WeeklyBoardTab({
         
         let moduleNum = 1;
         shift1Days.forEach(day => {
-            const count = scheduleSetup?.shift1?.[day] || 0;
+            // Use displayWeek's shift config when viewing a specific week, fallback to scheduleSetup
+            const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
             if (count > 0) {
                 // Calculate date for this day
                 const weekStart = displayWeek?.weekStart ? new Date(displayWeek.weekStart) : new Date();
