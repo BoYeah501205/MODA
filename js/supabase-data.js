@@ -1318,6 +1318,68 @@
                 if (error) throw error;
                 return data && data.length > 0 ? data[0] : null;
             }
+        },
+
+        // Delete methods
+        async deleteModule(moduleId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const { error } = await getClient()
+                .from('transport_modules')
+                .delete()
+                .eq('id', moduleId);
+            if (error) throw error;
+            return true;
+        },
+
+        async deleteYard(yardId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const { error } = await getClient()
+                .from('transport_yards')
+                .delete()
+                .eq('id', yardId);
+            if (error) throw error;
+            return true;
+        },
+
+        async deleteCompany(companyId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            const { error } = await getClient()
+                .from('transport_companies')
+                .delete()
+                .eq('id', companyId);
+            if (error) throw error;
+            return true;
+        },
+
+        // Clear all transport data (for removing sample data)
+        async clearAllData() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            console.log('[Transport] Clearing all transport data...');
+            
+            // Delete all modules first (they may reference yards/companies)
+            const { error: modulesError } = await getClient()
+                .from('transport_modules')
+                .delete()
+                .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+            if (modulesError) console.error('[Transport] Error clearing modules:', modulesError);
+            
+            // Delete all companies
+            const { error: companiesError } = await getClient()
+                .from('transport_companies')
+                .delete()
+                .neq('id', '00000000-0000-0000-0000-000000000000');
+            if (companiesError) console.error('[Transport] Error clearing companies:', companiesError);
+            
+            // Delete all yards
+            const { error: yardsError } = await getClient()
+                .from('transport_yards')
+                .delete()
+                .neq('id', '00000000-0000-0000-0000-000000000000');
+            if (yardsError) console.error('[Transport] Error clearing yards:', yardsError);
+            
+            console.log('[Transport] All transport data cleared');
+            return true;
         }
     };
 

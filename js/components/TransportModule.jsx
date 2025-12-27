@@ -1237,7 +1237,8 @@
               { id: 'board', label: '🚛 Transport Board' },
               { id: 'yards', label: '🏗️ Staging Yards' },
               { id: 'companies', label: '🚚 Transport Companies' },
-              { id: 'history', label: '📋‹ Shipment History' },
+              { id: 'history', label: '📋 Shipment History' },
+              { id: 'yardmap', label: '🗺️ Yard Map' },
             ].map(tab => (
               <button 
                 key={tab.id} 
@@ -1257,11 +1258,12 @@
           </div>
 
           {/* Content Area */}
-          <div>
+          <div style={{ minHeight: activeView === 'yardmap' ? '700px' : 'auto' }}>
             {activeView === 'board' && <BoardView />}
             {activeView === 'yards' && <YardsView />}
             {activeView === 'companies' && <CompaniesView />}
             {activeView === 'history' && <HistoryView />}
+            {activeView === 'yardmap' && window.YardMapComponent && <window.YardMapComponent projects={[]} />}
           </div>
 
           {/* Modals */}
