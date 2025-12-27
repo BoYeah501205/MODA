@@ -158,10 +158,11 @@
         const [loading, setLoading] = useState(true);
         const [successMessage, setSuccessMessage] = useState(null);
 
-        // Check if user can edit
-        const canEdit = auth?.dashboardRole === 'admin' || 
-                       auth?.dashboardRole === 'production_management' ||
-                       auth?.dashboardRole === 'production';
+        // Check if user can edit (Admin or Production Management)
+        const canEdit = auth?.isAdmin || 
+                       auth?.currentUser?.dashboardRole === 'admin' ||
+                       auth?.currentUser?.dashboardRole === 'production_management' ||
+                       auth?.currentUser?.dashboardRole === 'production';
 
         useEffect(() => {
             loadReports();
