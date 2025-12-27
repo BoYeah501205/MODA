@@ -2348,7 +2348,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 ← Back to Projects
                             </button>
                             <h2 className="text-2xl font-bold text-autovol-navy">{project.name}</h2>
-                            <p className="text-gray-500">{project.location}</p>
+                            <p className="text-gray-500">{project.address ? `${project.address}, ${project.city}, ${project.state}` : project.location || ''}</p>
                             {project.description && <p className="text-sm text-gray-600">{project.description}</p>}
                             <div className="flex items-center gap-2 mt-2">
                                 <span className={`px-2 py-0.5 text-xs rounded ${
@@ -3178,7 +3178,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 doc.setFontSize(14 * scale).setFont('helvetica', 'bold');
                 doc.text(`PROJECT: ${project.name.toUpperCase()}`, centerX, y, { align: 'center' });
                 y += 18 * scale;
-                doc.text(`LOCATION: ${(project.location || '').toUpperCase()}`, centerX, y, { align: 'center' });
+                doc.text(`LOCATION: ${(project.address ? `${project.city}, ${project.state}` : project.location || '').toUpperCase()}`, centerX, y, { align: 'center' });
                 y += 35 * scale;
                 doc.setFontSize(36 * scale).text(`#${buildSeq}`, centerX, y, { align: 'center' });
                 y += 45 * scale;
@@ -3253,7 +3253,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 return (
                     <div className="bg-white border-2 border-gray-400 rounded p-4 w-64 text-center mx-auto shadow-lg" style={{ fontFamily: 'Arial, sans-serif' }}>
                         <div className="text-xs font-bold text-gray-700">PROJECT: {project.name.toUpperCase()}</div>
-                        <div className="text-xs font-bold text-gray-700 mb-2">LOCATION: {(project.location || '').toUpperCase()}</div>
+                        <div className="text-xs font-bold text-gray-700 mb-2">LOCATION: {(project.address ? `${project.city}, ${project.state}` : project.location || '').toUpperCase()}</div>
                         <div className="text-3xl font-bold text-gray-900">#{buildSeq}</div>
                         <div className="text-2xl font-bold text-gray-800 my-1">{serial}</div>
                         <div className="text-4xl font-bold my-2" style={{ color: 'var(--autovol-navy)' }}>({side}) - {blm}</div>
@@ -3942,45 +3942,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         // New Project Modal
         function NewProjectModal({ onClose, onSave }) {
             const [name, setName] = useState('');
-            const [location, setLocation] = useState('');
+            const [address, setAddress] = useState('');
+            const [city, setCity] = useState('');
+            const [state, setState] = useState('');
             const [description, setDescription] = useState('');
             const [status, setStatus] = useState('Planning');
-            const [sharepointSite, setSharepointSite] = useState('ProductDevelopmentAutovolPrefab');
-            const [sharepointChannel, setSharepointChannel] = useState('');
-            const [shopDrawingLinksText, setShopDrawingLinksText] = useState('');
-            const [shopDrawingLinksError, setShopDrawingLinksError] = useState('');
-            const [parsedLinksCount, setParsedLinksCount] = useState(0);
-            
-            // Parse shop drawing links from text input
-            const parseShopDrawingLinks = (text) => {
-                const links = {};
-                const lines = text.split('\n').filter(line => line.trim());
-                let errorMsg = '';
-                
-                for (const line of lines) {
-                    // Support formats: "BLM, URL" or "BLM URL" or "BLM\tURL"
-                    const parts = line.split(/[,\t]/).map(p => p.trim());
-                    if (parts.length >= 2) {
-                        const blm = parts[0];
-                        const url = parts[1];
-                        if (blm && url && url.startsWith('http')) {
-                            links[blm] = url;
-                        } else if (blm && !url.startsWith('http')) {
-                            errorMsg = `Invalid URL for BLM "${blm}"`;
-                        }
-                    }
-                }
-                
-                setShopDrawingLinksError(errorMsg);
-                setParsedLinksCount(Object.keys(links).length);
-                return links;
-            };
-            
-            // Handle text change and parse
-            const handleLinksTextChange = (text) => {
-                setShopDrawingLinksText(text);
-                parseShopDrawingLinks(text);
-            };
 
             return (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -3998,19 +3964,42 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         type="text"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
-                                        placeholder="e.g., Building A - Phoenix"
+                                        placeholder="e.g., Alvarado Creek"
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
                                     <input
                                         type="text"
-                                        value={location}
-                                        onChange={(e) => setLocation(e.target.value)}
-                                        placeholder="e.g., Phoenix, AZ"
+                                        value={address}
+                                        onChange={(e) => setAddress(e.target.value)}
+                                        placeholder="e.g., 123 Main Street"
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                                        <input
+                                            type="text"
+                                            value={city}
+                                            onChange={(e) => setCity(e.target.value)}
+                                            placeholder="e.g., San Diego"
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                                        <input
+                                            type="text"
+                                            value={state}
+                                            onChange={(e) => setState(e.target.value)}
+                                            placeholder="e.g., CA"
+                                            maxLength={2}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                                        />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -4036,65 +4025,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         <option value="Archived">Archived</option>
                                     </select>
                                 </div>
-                                
-                                {/* SharePoint Integration */}
-                                <div className="border-t pt-4 mt-4">
-                                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                        <span>📋</span> SharePoint Integration
-                                        <span className="text-xs font-normal text-gray-500">(for Shop Drawings)</span>
-                                    </h3>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">SharePoint Site</label>
-                                            <input
-                                                type="text"
-                                                value={sharepointSite}
-                                                onChange={(e) => setSharepointSite(e.target.value)}
-                                                placeholder="e.g., ProductDevelopmentAutovolPrefab"
-                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Site name from SharePoint URL</p>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Teams Channel Folder</label>
-                                            <input
-                                                type="text"
-                                                value={sharepointChannel}
-                                                onChange={(e) => setSharepointChannel(e.target.value)}
-                                                placeholder="e.g., Alvarado Creek - San Diego, CA (TPC)"
-                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Exact channel name from Teams</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {/* Shop Drawing Links */}
-                                <div className="border-t pt-4 mt-4">
-                                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                        <span>📐</span> Shop Drawing Links
-                                        <span className="text-xs font-normal text-gray-500">(optional)</span>
-                                    </h3>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">BLM / URL Mapping</label>
-                                        <textarea
-                                            value={shopDrawingLinksText}
-                                            onChange={(e) => handleLinksTextChange(e.target.value)}
-                                            placeholder="B1L2M39, https://sharepoint.com/..."
-                                            rows={4}
-                                            className="w-full px-3 py-2 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
-                                        <div className="flex justify-between mt-1">
-                                            <p className="text-xs text-gray-500">Format: BLM, URL (comma or tab separated)</p>
-                                            {parsedLinksCount > 0 && (
-                                                <p className="text-xs text-green-600 font-medium">{parsedLinksCount} links parsed</p>
-                                            )}
-                                        </div>
-                                        {shopDrawingLinksError && (
-                                            <p className="text-xs text-red-600 mt-1">{shopDrawingLinksError}</p>
-                                        )}
-                                    </div>
-                                </div>
                             </div>
                             
                             <div className="flex gap-2 justify-end mt-6">
@@ -4102,14 +4032,13 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 <button 
                                     onClick={() => onSave({ 
                                         name, 
-                                        location, 
+                                        address,
+                                        city,
+                                        state,
                                         description, 
-                                        status, 
-                                        sharepointSite, 
-                                        sharepointChannel,
-                                        shopDrawingLinks: parseShopDrawingLinks(shopDrawingLinksText)
+                                        status
                                     })}
-                                    disabled={!name || !location}
+                                    disabled={!name || !address || !city || !state}
                                     className="px-4 py-2 btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Create Project
