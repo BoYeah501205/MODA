@@ -190,9 +190,13 @@
             const [name, setName] = useState(project.name || '');
             const [address, setAddress] = useState(project.address || '');
             const [city, setCity] = useState(project.city || '');
+            const [country, setCountry] = useState(project.country || 'US');
             const [state, setState] = useState(project.state || '');
+            const [zipCode, setZipCode] = useState(project.zipCode || '');
             const [description, setDescription] = useState(project.description || '');
             const [status, setStatus] = useState(project.status || 'Planning');
+
+            const isUS = country === 'US';
 
             const handleSubmit = (e) => {
                 e.preventDefault();
@@ -202,7 +206,9 @@
                     name: name.trim(), 
                     address: address.trim(),
                     city: city.trim(),
+                    country,
                     state,
+                    zipCode: zipCode.trim(),
                     description: description.trim(), 
                     status
                 });
@@ -230,6 +236,19 @@
                                     />
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                                    <select
+                                        value={country}
+                                        onChange={(e) => { setCountry(e.target.value); setState(''); }}
+                                        className="w-full px-3 py-2 border rounded-lg"
+                                    >
+                                        <option value="US">United States</option>
+                                        <option value="CA">Canada</option>
+                                        <option value="MX">Mexico</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
                                     <input
                                         type="text"
@@ -251,30 +270,66 @@
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">{isUS ? 'State' : 'State/Province'} *</label>
+                                        {isUS ? (
+                                            <select
+                                                value={state}
+                                                onChange={(e) => setState(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-lg"
+                                            >
+                                                <option value="">Select...</option>
+                                                <option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option>
+                                                <option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option>
+                                                <option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="FL">Florida</option>
+                                                <option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option>
+                                                <option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option>
+                                                <option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option>
+                                                <option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option>
+                                                <option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option>
+                                                <option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option>
+                                                <option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option>
+                                                <option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option>
+                                                <option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option>
+                                                <option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option>
+                                                <option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option>
+                                                <option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option>
+                                                <option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option>
+                                                <option value="WI">Wisconsin</option><option value="WY">Wyoming</option><option value="DC">Washington DC</option>
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={state}
+                                                onChange={(e) => setState(e.target.value)}
+                                                placeholder="e.g., Ontario"
+                                                className="w-full px-3 py-2 border rounded-lg"
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">{isUS ? 'Zip Code' : 'Postal Code'}</label>
+                                        <input
+                                            type="text"
+                                            value={zipCode}
+                                            onChange={(e) => setZipCode(e.target.value)}
+                                            placeholder={isUS ? 'e.g., 92101' : 'e.g., A1A 1A1'}
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                                         <select
-                                            value={state}
-                                            onChange={(e) => setState(e.target.value)}
+                                            value={status}
+                                            onChange={(e) => setStatus(e.target.value)}
                                             className="w-full px-3 py-2 border rounded-lg"
                                         >
-                                            <option value="">Select...</option>
-                                            <option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option>
-                                            <option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option>
-                                            <option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="FL">Florida</option>
-                                            <option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option>
-                                            <option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option>
-                                            <option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option>
-                                            <option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option>
-                                            <option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option>
-                                            <option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option>
-                                            <option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option>
-                                            <option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option>
-                                            <option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option>
-                                            <option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option>
-                                            <option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option>
-                                            <option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option>
-                                            <option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option>
-                                            <option value="WI">Wisconsin</option><option value="WY">Wyoming</option><option value="DC">Washington DC</option>
+                                            <option value="Planning">Planning</option>
+                                            <option value="Active">Active</option>
+                                            <option value="On Hold">On Hold</option>
+                                            <option value="Complete">Complete</option>
+                                            <option value="Archived">Archived</option>
                                         </select>
                                     </div>
                                 </div>
@@ -287,20 +342,6 @@
                                         className="w-full px-3 py-2 border rounded-lg"
                                         rows={2}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                    <select
-                                        value={status}
-                                        onChange={(e) => setStatus(e.target.value)}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    >
-                                        <option value="Planning">Planning</option>
-                                        <option value="Active">Active</option>
-                                        <option value="On Hold">On Hold</option>
-                                        <option value="Complete">Complete</option>
-                                        <option value="Archived">Archived</option>
-                                    </select>
                                 </div>
                                 
                                 <div className="flex gap-2 justify-end pt-4">

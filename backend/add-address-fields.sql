@@ -8,6 +8,7 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS state TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'US';
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS zip_code TEXT;
 
 -- Optional: Add description column if it doesn't exist
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS description TEXT;
