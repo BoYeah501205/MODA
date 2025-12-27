@@ -84,23 +84,54 @@
       const [searchTerm, setSearchTerm] = useState('');
       const [sortBy, setSortBy] = useState('blm');
       const [sortDir, setSortDir] = useState('asc');
+      const [projectsList, setProjectsList] = useState([]); // For YardMap dropdown
 
-      // Load data from Supabase on mount
+      // Load data from Supabase on mount - pull modules from projects table
       useEffect(() => {
         const loadData = async () => {
           try {
             if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
               console.log('[Transport] Loading data from Supabase...');
-              const [modulesData, yardsData, companiesData] = await Promise.all([
-                window.MODA_SUPABASE_DATA.transport.getModules(),
+              
+              // Load yards, companies, and projects
+              const [yardsData, companiesData, projectsData] = await Promise.all([
                 window.MODA_SUPABASE_DATA.transport.getYards(),
-                window.MODA_SUPABASE_DATA.transport.getCompanies()
+                window.MODA_SUPABASE_DATA.transport.getCompanies(),
+                window.MODA_SUPABASE_DATA.projects.getAll()
               ]);
               
-              setModules(modulesData.length > 0 ? modulesData : safeParseJSON(localStorage.getItem(STORAGE_KEYS.modules), SAMPLE_MODULES));
               setYards(yardsData.length > 0 ? yardsData : safeParseJSON(localStorage.getItem(STORAGE_KEYS.yards), DEFAULT_YARDS));
               setCompanies(companiesData.length > 0 ? companiesData : safeParseJSON(localStorage.getItem(STORAGE_KEYS.companies), SAMPLE_COMPANIES));
-              console.log('[Transport] Loaded from Supabase:', modulesData.length, 'modules,', yardsData.length, 'yards,', companiesData.length, 'companies');
+              
+              // Store projects for YardMap
+              setProjectsList(projectsData || []);
+              
+              // Extract modules from projects and transform for transport board
+              // All modules from projects are potential transport candidates
+              const allModules = [];
+              (projectsData || []).forEach(project => {
+                const projectModules = project.modules || [];
+                projectModules.forEach(mod => {
+                  // Default stage is 'readyForYard' for all modules
+                  allModules.push({
+                    id: mod.id || `${project.id}-${mod.serial_number}`,
+                    blm: mod.blm_id || mod.serial_number,
+                    serialNumber: mod.serial_number,
+                    project: project.name,
+                    projectId: project.id,
+                    unitType: mod.unit_type,
+                    stage: mod.transport_stage || 'readyForYard',
+                    yardId: mod.yard_id || null,
+                    transportCompanyId: mod.transport_company_id || null,
+                    scheduledDate: mod.scheduled_transport_date || null,
+                    // Preserve any existing transport data
+                    ...mod
+                  });
+                });
+              });
+              
+              setModules(allModules);
+              console.log('[Transport] Loaded from projects:', allModules.length, 'modules,', yardsData.length, 'yards,', companiesData.length, 'companies');
             } else {
               console.log('[Transport] Supabase not available, using localStorage');
               setModules(safeParseJSON(localStorage.getItem(STORAGE_KEYS.modules), SAMPLE_MODULES));
@@ -1485,7 +1516,7 @@
             {activeView === 'yards' && <YardsView />}
             {activeView === 'companies' && <CompaniesView />}
             {activeView === 'history' && <HistoryView />}
-            {activeView === 'yardmap' && window.YardMapComponent && <window.YardMapComponent projects={[]} />}
+            {activeView === 'yardmap' && window.YardMapComponent && <window.YardMapComponent projects={projectsList} />}
           </div>
 
           {/* Modals */}

@@ -221,6 +221,22 @@ const YardMapComponent = ({ projects = [] }) => {
     renderCanvas();
   }, [pdfImage, modules, selectedModule, zoom, pan, drawStart, drawEnd, isDrawing]);
 
+  // Add non-passive wheel event listener to prevent scroll while zooming
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const handleWheelEvent = (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newZoom = Math.max(0.1, Math.min(5, zoom * delta));
+      setZoom(newZoom);
+    };
+    
+    canvas.addEventListener('wheel', handleWheelEvent, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheelEvent);
+  }, [zoom]);
+
   const renderCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -470,13 +486,6 @@ const YardMapComponent = ({ projects = [] }) => {
     setIsDragging(false);
     setIsRotating(false);
     setIsResizing(false);
-  };
-
-  const handleWheel = (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(5, zoom * delta));
-    setZoom(newZoom);
   };
 
   // ============================================================================
@@ -864,7 +873,6 @@ const YardMapComponent = ({ projects = [] }) => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            onWheel={handleWheel}
           />
           
           {!selectedYardMap && (
