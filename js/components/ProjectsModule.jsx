@@ -10,8 +10,8 @@
             const [editingProject, setEditingProject] = useState(null);
             const [deleteConfirm, setDeleteConfirm] = useState(null);
             const [searchQuery, setSearchQuery] = useState('');
-            const [sortField, setSortField] = useState('name');
-            const [sortDirection, setSortDirection] = useState('asc');
+            const [sortField, setSortField] = useState('newest');
+            const [sortDirection, setSortDirection] = useState('desc');
 
             // Multi-field search filter
             const searchFilteredProjects = projects.filter(p => {
@@ -32,10 +32,30 @@
                 statusFilter === 'all' || p.status === statusFilter
             );
 
+            // Helper: Get max serial number from project modules (for "newest" sorting)
+            const getMaxSerial = (project) => {
+                if (!project.modules || project.modules.length === 0) return -1;
+                return Math.max(...project.modules.map(m => {
+                    const serial = m.serialNumber || '';
+                    const numPart = serial.replace(/\D/g, '');
+                    return parseInt(numPart, 10) || 0;
+                }));
+            };
+
             // Sorting
             const sortedProjects = [...statusFilteredProjects].sort((a, b) => {
                 let aVal, bVal;
-                if (sortField === 'modules') {
+                
+                if (sortField === 'newest') {
+                    // Projects with 0 modules go first (to remind user to add data)
+                    const aHasModules = (a.modules?.length || 0) > 0;
+                    const bHasModules = (b.modules?.length || 0) > 0;
+                    if (!aHasModules && bHasModules) return -1;
+                    if (aHasModules && !bHasModules) return 1;
+                    // Then sort by max serial number (higher = newer)
+                    aVal = getMaxSerial(a);
+                    bVal = getMaxSerial(b);
+                } else if (sortField === 'modules') {
                     aVal = a.modules?.length || 0;
                     bVal = b.modules?.length || 0;
                 } else if (sortField === 'location') {
@@ -249,10 +269,11 @@
                                                     {project.customer || <span className="text-gray-300">-</span>}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-600">
-                                                    {project.city || project.state ? (
+                                                    {project.city || project.state || project.country ? (
                                                         <span>
                                                             {project.city}{project.city && project.state ? ', ' : ''}{project.state}
                                                             {project.country && project.country !== 'US' && ` (${project.country})`}
+                                                            {!project.city && !project.state && project.country && project.country}
                                                         </span>
                                                     ) : (
                                                         <span className="text-gray-300">-</span>

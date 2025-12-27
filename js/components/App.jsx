@@ -2213,6 +2213,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 sawbox: false
             });
             
+            // Module list sorting state
+            const [moduleSortField, setModuleSortField] = useState('serialNumber');
+            const [moduleSortDirection, setModuleSortDirection] = useState('asc');
+            
             // Get fresh project data from projects array to ensure we have latest modules
             const currentProject = projects.find(p => p.id === project.id) || project;
             const modules = currentProject.modules || [];
@@ -2247,6 +2251,73 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 );
                 
                 return matchesSearch && matchesStage && matchesDifficulty;
+            });
+
+            // Module sorting handler
+            const handleModuleSort = (field) => {
+                if (moduleSortField === field) {
+                    setModuleSortDirection(moduleSortDirection === 'asc' ? 'desc' : 'asc');
+                } else {
+                    setModuleSortField(field);
+                    setModuleSortDirection('asc');
+                }
+            };
+
+            // Sort indicator for module table
+            const ModuleSortArrow = ({ field }) => {
+                if (moduleSortField !== field) return <span className="text-gray-300 ml-1">↕</span>;
+                return <span className="ml-1">{moduleSortDirection === 'asc' ? '↑' : '↓'}</span>;
+            };
+
+            // Sort filtered modules
+            const sortedModules = [...filteredModules].sort((a, b) => {
+                let aVal, bVal;
+                const { stage: aStage, progress: aProgress } = getCurrentStage(a);
+                const { stage: bStage, progress: bProgress } = getCurrentStage(b);
+                
+                switch (moduleSortField) {
+                    case 'serialNumber':
+                        aVal = (a.serialNumber || '').replace(/\D/g, '');
+                        bVal = (b.serialNumber || '').replace(/\D/g, '');
+                        aVal = parseInt(aVal, 10) || 0;
+                        bVal = parseInt(bVal, 10) || 0;
+                        break;
+                    case 'buildSequence':
+                        aVal = parseInt(a.buildSequence, 10) || 0;
+                        bVal = parseInt(b.buildSequence, 10) || 0;
+                        break;
+                    case 'hitchUnit':
+                        aVal = (a.hitchUnit || '').toLowerCase();
+                        bVal = (b.hitchUnit || '').toLowerCase();
+                        break;
+                    case 'dimensions':
+                        aVal = (parseFloat(a.moduleWidth) || 0) * (parseFloat(a.moduleLength) || 0);
+                        bVal = (parseFloat(b.moduleWidth) || 0) * (parseFloat(b.moduleLength) || 0);
+                        break;
+                    case 'hitchBLM':
+                        aVal = (a.hitchBLM || '').toLowerCase();
+                        bVal = (b.hitchBLM || '').toLowerCase();
+                        break;
+                    case 'rearBLM':
+                        aVal = (a.rearBLM || '').toLowerCase();
+                        bVal = (b.rearBLM || '').toLowerCase();
+                        break;
+                    case 'stage':
+                        aVal = aStage?.name || '';
+                        bVal = bStage?.name || '';
+                        break;
+                    case 'progress':
+                        aVal = aProgress || 0;
+                        bVal = bProgress || 0;
+                        break;
+                    default:
+                        aVal = (a[moduleSortField] || '').toString().toLowerCase();
+                        bVal = (b[moduleSortField] || '').toString().toLowerCase();
+                }
+                
+                if (aVal < bVal) return moduleSortDirection === 'asc' ? -1 : 1;
+                if (aVal > bVal) return moduleSortDirection === 'asc' ? 1 : -1;
+                return 0;
             });
 
             // Save engineering issues to localStorage
@@ -2668,19 +2739,35 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 <table className="w-full">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serial #</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Build Seq</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dimensions</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hitch BLM</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rear BLM</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stage</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('serialNumber')}>
+                                                <span className="flex items-center">Serial # <ModuleSortArrow field="serialNumber" /></span>
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('buildSequence')}>
+                                                <span className="flex items-center">Build Seq <ModuleSortArrow field="buildSequence" /></span>
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('hitchUnit')}>
+                                                <span className="flex items-center">Unit <ModuleSortArrow field="hitchUnit" /></span>
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('dimensions')}>
+                                                <span className="flex items-center">Dimensions <ModuleSortArrow field="dimensions" /></span>
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('hitchBLM')}>
+                                                <span className="flex items-center">Hitch BLM <ModuleSortArrow field="hitchBLM" /></span>
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('rearBLM')}>
+                                                <span className="flex items-center">Rear BLM <ModuleSortArrow field="rearBLM" /></span>
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('stage')}>
+                                                <span className="flex items-center">Stage <ModuleSortArrow field="stage" /></span>
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none" onClick={() => handleModuleSort('progress')}>
+                                                <span className="flex items-center">Progress <ModuleSortArrow field="progress" /></span>
+                                            </th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulties</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {filteredModules.map(module => {
+                                        {sortedModules.map(module => {
                                             const { stage: currentStage, progress } = getCurrentStage(module);
                                             return (
                                                 <tr 
