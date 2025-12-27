@@ -457,6 +457,7 @@
           borderBottom: '1px solid #eee', 
           fontSize: '13px',
           fontFamily: "'Inter', sans-serif",
+          color: COLORS.charcoal,
         },
         modal: {
           position: 'fixed',
