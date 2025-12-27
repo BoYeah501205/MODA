@@ -2253,6 +2253,18 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 return matchesSearch && matchesStage && matchesDifficulty;
             });
 
+            // Get current stage for display (defined before sortedModules which uses it)
+            const getCurrentStage = (module) => {
+                const stageProgress = module.stageProgress || {};
+                for (let i = productionStages.length - 1; i >= 0; i--) {
+                    const stage = productionStages[i];
+                    if (stageProgress[stage.id] > 0) {
+                        return { stage, progress: stageProgress[stage.id] };
+                    }
+                }
+                return { stage: null, progress: 0 };
+            };
+
             // Module sorting handler
             const handleModuleSort = (field) => {
                 if (moduleSortField === field) {
@@ -2393,18 +2405,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 if (progress >= 50) return 'stage-bg-50';
                 if (progress >= 25) return 'stage-bg-25';
                 return 'stage-bg-0';
-            };
-
-            // Get current stage for display
-            const getCurrentStage = (module) => {
-                const stageProgress = module.stageProgress || {};
-                for (let i = productionStages.length - 1; i >= 0; i--) {
-                    const stage = productionStages[i];
-                    if (stageProgress[stage.id] > 0) {
-                        return { stage, progress: stageProgress[stage.id] };
-                    }
-                }
-                return { stage: null, progress: 0 };
             };
 
             return (
