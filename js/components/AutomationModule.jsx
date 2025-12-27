@@ -128,13 +128,7 @@
                 try {
                     const { data, error } = await window.MODA_SUPABASE.client
                         .from('automation_daily_reports')
-                        .select(`
-                            *,
-                            automation_line_data (
-                                *,
-                                automation_downtime_issues (*)
-                            )
-                        `)
+                        .select('*, automation_line_data (*, automation_downtime_issues (*))')
                         .order('report_date', { ascending: false });
 
                     if (error) throw error;
