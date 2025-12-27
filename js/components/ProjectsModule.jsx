@@ -193,6 +193,7 @@
             const [country, setCountry] = useState(project.country || 'US');
             const [state, setState] = useState(project.state || '');
             const [zipCode, setZipCode] = useState(project.zipCode || '');
+            const [customer, setCustomer] = useState(project.customer || '');
             const [description, setDescription] = useState(project.description || '');
             const [status, setStatus] = useState(project.status || 'Planning');
 
@@ -209,6 +210,7 @@
                     country,
                     state,
                     zipCode: zipCode.trim(),
+                    customer: customer.trim(),
                     description: description.trim(), 
                     status
                 });
@@ -332,6 +334,16 @@
                                             <option value="Archived">Archived</option>
                                         </select>
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+                                    <input
+                                        type="text"
+                                        value={customer}
+                                        onChange={(e) => setCustomer(e.target.value)}
+                                        placeholder="e.g., ABC Development Corp"
+                                        className="w-full px-3 py-2 border rounded-lg"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>

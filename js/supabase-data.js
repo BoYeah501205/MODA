@@ -135,9 +135,14 @@
                 .insert({
                     name: projectData.name,
                     status: projectData.status || 'Planning',
-                    location: projectData.location || '',
+                    address: projectData.address || '',
+                    city: projectData.city || '',
+                    state: projectData.state || '',
+                    country: projectData.country || 'US',
+                    zip_code: projectData.zipCode || '',
+                    customer: projectData.customer || '',
+                    description: projectData.description || '',
                     modules: projectData.modules || [],
-                    client: projectData.client || '',
                     start_date: projectData.startDate || null,
                     end_date: projectData.endDate || null
                 })
@@ -158,9 +163,14 @@
             const updatePayload = {
                 name: updates.name,
                 status: updates.status,
-                location: updates.location,
+                address: updates.address,
+                city: updates.city,
+                state: updates.state,
+                country: updates.country,
+                zip_code: updates.zipCode,
+                customer: updates.customer,
+                description: updates.description,
                 modules: updates.modules || [],
-                client: updates.client,
                 start_date: updates.startDate || updates.start_date,
                 end_date: updates.endDate || updates.end_date,
                 updated_at: new Date().toISOString()
