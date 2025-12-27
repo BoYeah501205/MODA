@@ -85,6 +85,8 @@
       const [sortBy, setSortBy] = useState('serialNumber');
       const [sortDir, setSortDir] = useState('asc');
       const [projectsList, setProjectsList] = useState([]); // For YardMap dropdown
+      const [selectedModuleIds, setSelectedModuleIds] = useState(new Set()); // For bulk selection
+      const [showBulkModal, setShowBulkModal] = useState(false); // Bulk update modal
 
       // Load data from Supabase on mount - pull modules from projects table
       useEffect(() => {
@@ -114,16 +116,19 @@
                 projectModules.forEach(mod => {
                   // Default stage is 'readyForYard' for all modules
                   allModules.push({
-                    id: mod.id || `${project.id}-${mod.serial_number}`,
-                    blm: mod.blm_id || mod.serial_number,
-                    serialNumber: mod.serial_number,
+                    id: mod.id || `${project.id}-${mod.serial_number || mod.serialNumber}`,
+                    blm: mod.blm_id || mod.hitchBLM || mod.serial_number || mod.serialNumber,
+                    serialNumber: mod.serial_number || mod.serialNumber,
                     project: project.name,
                     projectId: project.id,
-                    unitType: mod.unit_type,
+                    unitType: mod.unit_type || mod.hitchUnit,
                     stage: mod.transport_stage || 'readyForYard',
                     yardId: mod.yard_id || null,
                     transportCompanyId: mod.transport_company_id || null,
                     scheduledDate: mod.scheduled_transport_date || null,
+                    // Map BLM fields - support both snake_case and camelCase
+                    hitchBLM: mod.hitchBLM || mod.hitch_blm || mod.hitch_blm_id || '',
+                    rearBLM: mod.rearBLM || mod.rear_blm || mod.rear_blm_id || '',
                     // Preserve any existing transport data
                     ...mod
                   });
@@ -257,6 +262,75 @@
 
       const getCompanyName = (id) => companies.find(c => c.id === id)?.name || 'Unassigned';
       const getYardName = (id) => yards.find(y => y.id === id)?.name || 'Not Staged';
+
+      // Bulk selection helpers
+      const toggleModuleSelection = (moduleId) => {
+        setSelectedModuleIds(prev => {
+          const next = new Set(prev);
+          if (next.has(moduleId)) next.delete(moduleId);
+          else next.add(moduleId);
+          return next;
+        });
+      };
+
+      const selectAllFiltered = () => {
+        setSelectedModuleIds(new Set(filteredModules.map(m => m.id)));
+      };
+
+      const clearSelection = () => {
+        setSelectedModuleIds(new Set());
+      };
+
+      // Bulk update - update stage and yard for selected modules
+      const bulkUpdateModules = async (newStage, yardId) => {
+        const selectedIds = Array.from(selectedModuleIds);
+        if (selectedIds.length === 0) return;
+
+        // Update local state
+        setModules(prev => prev.map(m => {
+          if (selectedIds.includes(m.id)) {
+            return { ...m, stage: newStage, yardId: yardId || m.yardId };
+          }
+          return m;
+        }));
+
+        // Sync to Supabase - update modules in projects table
+        if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
+          try {
+            // Group modules by project
+            const modulesByProject = {};
+            modules.filter(m => selectedIds.includes(m.id)).forEach(m => {
+              if (!modulesByProject[m.projectId]) modulesByProject[m.projectId] = [];
+              modulesByProject[m.projectId].push(m);
+            });
+
+            // Update each project's modules array
+            for (const [projectId, projectModules] of Object.entries(modulesByProject)) {
+              const project = projectsList.find(p => p.id === projectId);
+              if (!project) continue;
+
+              const updatedModules = (project.modules || []).map(mod => {
+                const serial = mod.serial_number || mod.serialNumber;
+                const matchingMod = projectModules.find(pm => 
+                  (pm.serialNumber === serial) || (pm.serial_number === serial)
+                );
+                if (matchingMod) {
+                  return { ...mod, transport_stage: newStage, yard_id: yardId };
+                }
+                return mod;
+              });
+
+              await window.MODA_SUPABASE_DATA.projects.update(projectId, { modules: updatedModules });
+            }
+            console.log('[Transport] Bulk updated', selectedIds.length, 'modules to', newStage);
+          } catch (err) {
+            console.error('[Transport] Bulk update to Supabase failed:', err);
+          }
+        }
+
+        clearSelection();
+        setShowBulkModal(false);
+      };
 
       // ============================================================================
       // STYLES - AV BRANDED
@@ -862,12 +936,52 @@
               </div>
             </div>
             
+            {/* Bulk Action Bar */}
+            {selectedModuleIds.size > 0 && (
+              <div style={{ 
+                background: COLORS.navy, 
+                color: COLORS.white, 
+                padding: '12px 20px', 
+                borderRadius: '8px', 
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ fontWeight: '600' }}>{selectedModuleIds.size} module{selectedModuleIds.size !== 1 ? 's' : ''} selected</span>
+                  <button 
+                    onClick={clearSelection}
+                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: COLORS.white, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={() => setShowBulkModal(true)}
+                    style={{ background: COLORS.teal, color: COLORS.white, border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+                  >
+                    Stage in Yard
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Table View */}
             {viewMode === 'table' && (
               <div style={{ background: COLORS.white, borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <table style={{ ...styles.table, marginBottom: 0 }}>
                   <thead>
                     <tr>
+                      <th style={{ ...styles.th, width: '40px' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={filteredModules.length > 0 && filteredModules.every(m => selectedModuleIds.has(m.id))}
+                          onChange={(e) => e.target.checked ? selectAllFiltered() : clearSelection()}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </th>
                       <th 
                         style={{ ...styles.th, cursor: 'pointer' }} 
                         onClick={() => handleSort('serialNumber')}
@@ -901,7 +1015,7 @@
                   <tbody>
                     {filteredModules.length === 0 ? (
                       <tr>
-                        <td colSpan="8" style={{ ...styles.td, textAlign: 'center', padding: '40px', color: '#999' }}>
+                        <td colSpan="9" style={{ ...styles.td, textAlign: 'center', padding: '40px', color: '#999' }}>
                           No modules found matching your filters
                         </td>
                       </tr>
@@ -910,13 +1024,21 @@
                         const yard = yards.find(y => y.id === module.yardId);
                         const company = companies.find(c => c.id === module.transportCompanyId);
                         return (
-                          <tr key={module.id} style={{ background: idx % 2 === 0 ? COLORS.white : '#fafafa' }}>
+                          <tr key={module.id} style={{ background: selectedModuleIds.has(module.id) ? '#e0f2fe' : (idx % 2 === 0 ? COLORS.white : '#fafafa') }}>
+                            <td style={styles.td}>
+                              <input 
+                                type="checkbox" 
+                                checked={selectedModuleIds.has(module.id)}
+                                onChange={() => toggleModuleSelection(module.id)}
+                                style={{ cursor: 'pointer' }}
+                              />
+                            </td>
                             <td style={{ ...styles.td, fontWeight: '600', color: COLORS.charcoal }}>
                               {module.serialNumber || module.serial_number}
                             </td>
                             <td style={styles.td}>{module.project}</td>
-                            <td style={styles.td}>{module.hitch_blm_id || module.hitchBlmId || '–'}</td>
-                            <td style={styles.td}>{module.rear_blm_id || module.rearBlmId || '–'}</td>
+                            <td style={styles.td}>{module.hitchBLM || '–'}</td>
+                            <td style={styles.td}>{module.rearBLM || '–'}</td>
                             <td style={styles.td}>
                               <span style={{
                                 background: getStageColor(module.stage) + '20',
@@ -1527,6 +1649,58 @@
           {editingYard && <EditYardModal />}
           {showAddCompany && <AddCompanyModal />}
           {editingCompany && <EditCompanyModal />}
+          
+          {/* Bulk Update Modal */}
+          {showBulkModal && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ background: COLORS.white, borderRadius: '12px', padding: '24px', width: '400px', maxWidth: '90vw' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: COLORS.navy, marginBottom: '16px' }}>
+                  Stage {selectedModuleIds.size} Module{selectedModuleIds.size !== 1 ? 's' : ''} in Yard
+                </h3>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Select Yard</label>
+                  <select 
+                    id="bulk-yard-select"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  >
+                    {yards.map(yard => (
+                      <option key={yard.id} value={yard.id}>{yard.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>New Stage</label>
+                  <select 
+                    id="bulk-stage-select"
+                    defaultValue="stagedInYard"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  >
+                    {TRANSPORT_STAGES.map(stage => (
+                      <option key={stage.id} value={stage.id}>{stage.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    onClick={() => setShowBulkModal(false)} 
+                    style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', background: COLORS.white, cursor: 'pointer', fontWeight: '500' }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const yardId = document.getElementById('bulk-yard-select').value;
+                      const stage = document.getElementById('bulk-stage-select').value;
+                      bulkUpdateModules(stage, yardId);
+                    }}
+                    style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '6px', background: COLORS.teal, color: COLORS.white, cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Update Modules
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
