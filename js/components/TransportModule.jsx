@@ -32,8 +32,8 @@
     };
 
     const TRANSPORT_STAGES = [
-      { id: 'ready', label: 'Ready for Yard', color: '#6366F1', iconType: 'ready' },
-      { id: 'staged', label: 'Staged in Yard', color: '#8B5CF6', iconType: 'staged' },
+      { id: 'readyForYard', label: 'Ready for Yard', color: '#6366F1', iconType: 'ready' },
+      { id: 'stagedInYard', label: 'Staged in Yard', color: '#8B5CF6', iconType: 'staged' },
       { id: 'scheduledTransit', label: 'Scheduled for Transit', color: '#EC4899', iconType: 'scheduledTransit' },
       { id: 'scheduledShuttle', label: 'Scheduled for Shuttle', color: '#F97316', iconType: 'scheduledShuttle' },
       { id: 'inTransit', label: 'In-Transit', color: '#0EA5E9', iconType: 'inTransit' },
@@ -82,7 +82,7 @@
       const [viewMode, setViewMode] = useState('table'); // 'table' or 'kanban'
       const [filterStage, setFilterStage] = useState('all');
       const [searchTerm, setSearchTerm] = useState('');
-      const [sortBy, setSortBy] = useState('blm');
+      const [sortBy, setSortBy] = useState('serialNumber');
       const [sortDir, setSortDir] = useState('asc');
       const [projectsList, setProjectsList] = useState([]); // For YardMap dropdown
 
@@ -870,9 +870,9 @@
                     <tr>
                       <th 
                         style={{ ...styles.th, cursor: 'pointer' }} 
-                        onClick={() => handleSort('blm')}
+                        onClick={() => handleSort('serialNumber')}
                       >
-                        Module ID {sortBy === 'blm' && (sortDir === 'asc' ? '↑' : '↓')}
+                        Serial No. {sortBy === 'serialNumber' && (sortDir === 'asc' ? '↑' : '↓')}
                       </th>
                       <th 
                         style={{ ...styles.th, cursor: 'pointer' }} 
@@ -880,6 +880,8 @@
                       >
                         Project {sortBy === 'project' && (sortDir === 'asc' ? '↑' : '↓')}
                       </th>
+                      <th style={styles.th}>Hitch BLM</th>
+                      <th style={styles.th}>Rear BLM</th>
                       <th 
                         style={{ ...styles.th, cursor: 'pointer' }} 
                         onClick={() => handleSort('stage')}
@@ -887,20 +889,19 @@
                         Stage {sortBy === 'stage' && (sortDir === 'asc' ? '↑' : '↓')}
                       </th>
                       <th style={styles.th}>Yard</th>
-                      <th style={styles.th}>Transport Co.</th>
                       <th 
                         style={{ ...styles.th, cursor: 'pointer' }} 
                         onClick={() => handleSort('scheduledDate')}
                       >
                         Scheduled {sortBy === 'scheduledDate' && (sortDir === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ ...styles.th, width: '100px' }}>Actions</th>
+                      <th style={{ ...styles.th, width: '80px' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredModules.length === 0 ? (
                       <tr>
-                        <td colSpan="7" style={{ ...styles.td, textAlign: 'center', padding: '40px', color: '#999' }}>
+                        <td colSpan="8" style={{ ...styles.td, textAlign: 'center', padding: '40px', color: '#999' }}>
                           No modules found matching your filters
                         </td>
                       </tr>
@@ -911,9 +912,11 @@
                         return (
                           <tr key={module.id} style={{ background: idx % 2 === 0 ? COLORS.white : '#fafafa' }}>
                             <td style={{ ...styles.td, fontWeight: '600', color: COLORS.charcoal }}>
-                              {module.blm || module.serialNumber}
+                              {module.serialNumber || module.serial_number}
                             </td>
                             <td style={styles.td}>{module.project}</td>
+                            <td style={styles.td}>{module.hitch_blm_id || module.hitchBlmId || '–'}</td>
+                            <td style={styles.td}>{module.rear_blm_id || module.rearBlmId || '–'}</td>
                             <td style={styles.td}>
                               <span style={{
                                 background: getStageColor(module.stage) + '20',
@@ -928,9 +931,8 @@
                               </span>
                             </td>
                             <td style={styles.td}>{yard?.name || '–'}</td>
-                            <td style={styles.td}>{company?.name || '–'}</td>
                             <td style={styles.td}>
-                              {module.scheduledDate ? new Date(module.scheduledDate).toLocaleDateString() : '–'}
+                              {module.scheduledDate || module.scheduled_transport_date ? new Date(module.scheduledDate || module.scheduled_transport_date).toLocaleDateString() : '–'}
                             </td>
                             <td style={styles.td}>
                               <button 

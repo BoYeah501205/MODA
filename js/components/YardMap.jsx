@@ -221,6 +221,10 @@ const YardMapComponent = ({ projects = [] }) => {
     renderCanvas();
   }, [pdfImage, modules, selectedModule, zoom, pan, drawStart, drawEnd, isDrawing]);
 
+  // Use ref to track zoom for wheel handler (avoids re-registering listener)
+  const zoomRef = useRef(zoom);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
   // Add non-passive wheel event listener to prevent scroll while zooming
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -229,13 +233,13 @@ const YardMapComponent = ({ projects = [] }) => {
     const handleWheelEvent = (e) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const newZoom = Math.max(0.1, Math.min(5, zoom * delta));
+      const newZoom = Math.max(0.1, Math.min(5, zoomRef.current * delta));
       setZoom(newZoom);
     };
     
     canvas.addEventListener('wheel', handleWheelEvent, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheelEvent);
-  }, [zoom]);
+  }, []); // Empty dependency - register once on mount
 
   const renderCanvas = () => {
     const canvas = canvasRef.current;
