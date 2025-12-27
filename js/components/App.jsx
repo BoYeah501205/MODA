@@ -1411,6 +1411,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 setSearchTerm={setSearchTerm}
                                 stageFilter={stageFilter}
                                 setStageFilter={setStageFilter}
+                                auth={auth}
                             />
                         )}
                     </main>
@@ -2179,7 +2180,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         // ============================================================================
 
         // Project Detail View        // Project Detail View
-        function ProjectDetail({ project, projects, setProjects, onBack, viewMode, setViewMode, searchTerm, setSearchTerm, stageFilter, setStageFilter }) {
+        function ProjectDetail({ project, projects, setProjects, onBack, viewMode, setViewMode, searchTerm, setSearchTerm, stageFilter, setStageFilter, auth }) {
+            // Check if user can manage imports (Admin or Production Management)
+            const canManageImports = auth?.isAdmin || auth?.currentUser?.dashboardRole === 'production_management';
+            
             const [showImportModal, setShowImportModal] = useState(false);
             const [selectedModule, setSelectedModule] = useState(null);
             const [editMode, setEditMode] = useState(false);
@@ -2378,12 +2382,55 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             >
                                 🏷️ License Plates
                             </button>
-                            <button
-                                onClick={() => setShowImportModal(true)}
-                                className="px-4 py-2 btn-primary rounded-lg transition"
-                            >
-                                Import Modules
-                            </button>
+                            {canManageImports && (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            const headers = [
+                                                'Serial Number',
+                                                'Build Sequence',
+                                                'Module Width',
+                                                'Module Length',
+                                                'Square Footage',
+                                                'HITCH BLM ID',
+                                                'HITCH Unit',
+                                                'HITCH Room',
+                                                'HITCH Room Type',
+                                                'REAR BLM ID',
+                                                'REAR Unit',
+                                                'REAR Room',
+                                                'REAR Room Type',
+                                                'Sidewall (X)',
+                                                'Stair (X)',
+                                                '3HR-Wall (X)',
+                                                'Short (X)',
+                                                'Double Studio (X)',
+                                                'Sawbox (X)',
+                                                'Proto (X)'
+                                            ];
+                                            const csvContent = headers.join(',') + '\n';
+                                            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                                            const link = document.createElement('a');
+                                            const url = URL.createObjectURL(blob);
+                                            link.setAttribute('href', url);
+                                            link.setAttribute('download', `Module_Import_Template_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+                                            link.style.visibility = 'hidden';
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                        }}
+                                        className="px-4 py-2 btn-secondary rounded-lg transition"
+                                    >
+                                        Export Template
+                                    </button>
+                                    <button
+                                        onClick={() => setShowImportModal(true)}
+                                        className="px-4 py-2 btn-primary rounded-lg transition"
+                                    >
+                                        Import Modules
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
 

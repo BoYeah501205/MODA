@@ -50,23 +50,9 @@
       { id: 'transit', name: 'Transit', address: 'Temporary Hold', isAutovol: false },
     ];
 
-    const SAMPLE_COMPANIES = [
-      { id: 'tc1', name: 'Mountain West Transport', address: '1234 Industrial Blvd, Nampa, ID 83687', phone: '(208) 555-0101', contact: 'Mike Johnson', contactPhone: '(208) 555-0102', email: 'dispatch@mwt.com' },
-      { id: 'tc2', name: 'Pacific Modular Hauling', address: '5678 Highway 20, Caldwell, ID 83605', phone: '(208) 555-0201', contact: 'Sarah Williams', contactPhone: '(208) 555-0202', email: 'sarah@pmhauling.com' },
-    ];
+    const SAMPLE_COMPANIES = [];
 
-    const SAMPLE_MODULES = [
-      { id: 'm1', moduleId: '24-505-A1-01', blm: 'BLM-1001', project: 'Riverside Apartments', stage: 'ready', yardId: null, transportCompanyId: null, scheduledDate: null, notes: '' },
-      { id: 'm2', moduleId: '24-505-A1-02', blm: 'BLM-1002', project: 'Riverside Apartments', stage: 'ready', yardId: null, transportCompanyId: null, scheduledDate: null, notes: '' },
-      { id: 'm3', moduleId: '24-505-B2-01', blm: 'BLM-1003', project: 'Riverside Apartments', stage: 'staged', yardId: 'front', transportCompanyId: null, scheduledDate: null, notes: '' },
-      { id: 'm4', moduleId: '24-612-A1-01', blm: 'BLM-2001', project: 'Downtown Lofts', stage: 'staged', yardId: 'northside', transportCompanyId: null, scheduledDate: null, notes: '' },
-      { id: 'm5', moduleId: '24-612-A1-02', blm: 'BLM-2002', project: 'Downtown Lofts', stage: 'scheduledTransit', yardId: 'back', transportCompanyId: 'tc1', scheduledDate: '2025-01-20', notes: 'Morning delivery preferred' },
-      { id: 'm6', moduleId: '24-612-B1-01', blm: 'BLM-2003', project: 'Downtown Lofts', stage: 'inTransit', yardId: null, transportCompanyId: 'tc2', scheduledDate: '2025-01-18', departureTime: '2025-01-18T07:30:00', notes: '' },
-      { id: 'm7', moduleId: '24-505-C1-01', blm: 'BLM-1004', project: 'Riverside Apartments', stage: 'arrived', yardId: null, transportCompanyId: 'tc1', scheduledDate: '2025-01-15', arrivalTime: '2025-01-15T14:22:00', notes: 'Signed off by foreman' },
-      { id: 'm8', moduleId: '24-505-C1-02', blm: 'BLM-1005', project: 'Riverside Apartments', stage: 'ready', yardId: null, transportCompanyId: null, scheduledDate: null, notes: '' },
-      { id: 'm9', moduleId: '24-612-C2-01', blm: 'BLM-2004', project: 'Downtown Lofts', stage: 'staged', yardId: 'cherry', transportCompanyId: null, scheduledDate: null, notes: '' },
-      { id: 'm10', moduleId: '24-718-A1-01', blm: 'BLM-3001', project: 'Harbor View', stage: 'scheduledShuttle', yardId: 'barger', transportCompanyId: 'tc1', scheduledDate: '2025-01-22', notes: 'Moving to Front Yard' },
-    ];
+    const SAMPLE_MODULES = [];
 
     // LocalStorage Keys
     const STORAGE_KEYS = {

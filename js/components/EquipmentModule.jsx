@@ -7,17 +7,8 @@
         // EQUIPMENT MODULE - Integrated
         // ============================================================================
 
-        // Sample People/Departments Data (would come from People module)
-        const equipmentSamplePeople = [
-            { id: 'EMP-001', name: 'John Martinez', department: 'Framing' },
-            { id: 'EMP-002', name: 'Sarah Johnson', department: 'Electrical' },
-            { id: 'EMP-003', name: 'Mike Chen', department: 'Plumbing' },
-            { id: 'EMP-004', name: 'Lisa Anderson', department: 'Framing' },
-            { id: 'EMP-005', name: 'Robert Williams', department: 'Finishing' },
-            { id: 'EMP-006', name: 'Emily Davis', department: 'HVAC' },
-            { id: 'EMP-007', name: 'James Wilson', department: 'Welding' },
-            { id: 'EMP-008', name: 'Maria Garcia', department: 'Assembly' },
-        ];
+        // People/Departments Data (would come from People module)
+        const equipmentSamplePeople = [];
 
         const equipmentDepartments = [
             'Framing', 'Electrical', 'Plumbing', 'HVAC', 'Finishing', 
@@ -26,133 +17,9 @@
         ];
 
         // Initial Equipment Data
-        const equipmentInitialData = [
-            {
-                id: 'TOOL-0001',
-                name: 'DeWalt 20V Impact Driver',
-                type: 'Tool',
-                category: 'Power Tools',
-                partNumber: 'DCF887B',
-                serialId: 'DW-2024-0001',
-                location: 'Station 5',
-                status: 'Active',
-                toolStatus: 'Present',
-                assignmentType: 'Individual',
-                assignedTo: 'John Martinez',
-                department: 'Framing',
-                purchaseDate: '2024-03-15',
-                cost: 179.99,
-                vendor: 'Home Depot',
-                warranty: '2027-03-15',
-                isSparePart: false,
-                quantity: 1,
-                notes: 'Primary impact driver for framing crew',
-                assignmentHistory: [
-                    { date: '2024-03-15', type: 'Individual', assignedTo: 'John Martinez', department: 'Framing', action: 'Initial Assignment' }
-                ],
-                loanInfo: null
-            },
-            {
-                id: 'TOOL-0002',
-                name: 'Milwaukee M18 Circular Saw',
-                type: 'Tool',
-                category: 'Power Tools',
-                partNumber: '2631-20',
-                serialId: 'MW-2024-0015',
-                location: 'Tool Crib',
-                status: 'Active',
-                toolStatus: 'Loaned',
-                assignmentType: 'Department',
-                assignedTo: null,
-                department: 'Tool Crib',
-                purchaseDate: '2024-01-20',
-                cost: 249.00,
-                vendor: 'Grainger',
-                warranty: '2027-01-20',
-                isSparePart: false,
-                quantity: 1,
-                notes: 'Loaned to Electrical for special project',
-                assignmentHistory: [
-                    { date: '2024-01-20', type: 'Department', assignedTo: null, department: 'Tool Crib', action: 'Initial Assignment' }
-                ],
-                loanInfo: {
-                    loanedTo: 'Sarah Johnson',
-                    loanedToDept: 'Electrical',
-                    loanDate: '2024-11-15',
-                    expectedReturn: '2024-12-01',
-                    reason: 'Panel installation project'
-                }
-            },
-            {
-                id: 'TOOL-0003',
-                name: 'Makita Reciprocating Saw',
-                type: 'Tool',
-                category: 'Power Tools',
-                partNumber: 'XRJ05Z',
-                serialId: 'MK-2023-0042',
-                location: 'Unknown',
-                status: 'Active',
-                toolStatus: 'Missing',
-                assignmentType: 'Individual',
-                assignedTo: 'Mike Chen',
-                department: 'Plumbing',
-                purchaseDate: '2023-08-10',
-                cost: 199.00,
-                vendor: 'Home Depot',
-                warranty: '2026-08-10',
-                isSparePart: false,
-                quantity: 1,
-                notes: 'Last seen at Station 12',
-                assignmentHistory: [
-                    { date: '2023-08-10', type: 'Individual', assignedTo: 'Mike Chen', department: 'Plumbing', action: 'Initial Assignment' }
-                ],
-                loanInfo: null,
-                missingInfo: {
-                    reportedDate: '2024-11-01',
-                    reportedBy: 'Mike Chen',
-                    lastKnownLocation: 'Station 12',
-                    notes: 'Was using during pipe fitting, cannot locate after lunch break'
-                }
-            },
-            {
-                id: 'TOOL-0004',
-                name: 'Bosch Rotary Hammer',
-                type: 'Tool',
-                category: 'Power Tools',
-                partNumber: 'GBH18V-26DK15',
-                serialId: 'BO-2024-0008',
-                location: 'Maintenance Shop',
-                status: 'Active',
-                toolStatus: 'Warranty/Repair',
-                assignmentType: 'Department',
-                assignedTo: null,
-                department: 'Maintenance',
-                purchaseDate: '2024-02-28',
-                cost: 449.00,
-                vendor: 'Fastenal',
-                warranty: '2027-02-28',
-                isSparePart: false,
-                quantity: 1,
-                notes: 'Sent for repair - chuck issue',
-                assignmentHistory: [
-                    { date: '2024-02-28', type: 'Department', assignedTo: null, department: 'Maintenance', action: 'Initial Assignment' }
-                ],
-                loanInfo: null,
-                repairInfo: {
-                    sentDate: '2024-11-10',
-                    vendor: 'Bosch Service Center',
-                    issue: 'Chuck not holding bits properly',
-                    expectedReturn: '2024-11-25',
-                    ticketNumber: 'BSC-2024-1142'
-                }
-            }
-        ];
+        const equipmentInitialData = [];
 
-        const equipmentInitialVendors = [
-            { id: 'VEND-0001', name: 'Home Depot', contactPerson: 'Commercial Desk', phone: '(208) 555-0100', email: 'commercial@homedepot.com', website: 'www.homedepot.com', categories: ['Power Tools', 'Hand Tools'], paymentTerms: 'Net 30', preferred: true, notes: 'Local store' },
-            { id: 'VEND-0002', name: 'Grainger', contactPerson: 'John Smith', phone: '(800) 555-0200', email: 'jsmith@grainger.com', website: 'www.grainger.com', categories: ['Industrial Supplies', 'Power Tools'], paymentTerms: 'Net 30', preferred: true, notes: 'Fast shipping' },
-            { id: 'VEND-0003', name: 'Fastenal', contactPerson: 'Branch Manager', phone: '(208) 555-0400', email: 'nampa@fastenal.com', website: 'www.fastenal.com', categories: ['Fasteners', 'Power Tools'], paymentTerms: 'Net 30', preferred: false, notes: 'Vending on-site' },
-        ];
+        const equipmentInitialVendors = [];
 
         // Main App
         function EquipmentApp() {
