@@ -188,48 +188,11 @@
         // Edit Project Modal
         function EditProjectModal({ project, onClose, onSave }) {
             const [name, setName] = useState(project.name || '');
-            const [location, setLocation] = useState(project.location || '');
+            const [address, setAddress] = useState(project.address || '');
+            const [city, setCity] = useState(project.city || '');
+            const [state, setState] = useState(project.state || '');
             const [description, setDescription] = useState(project.description || '');
-            const [status, setStatus] = useState(project.status || 'Pre-Construction');
-            const [sharepointSite, setSharepointSite] = useState(project.sharepointSite || 'ProductDevelopmentAutovolPrefab');
-            const [sharepointChannel, setSharepointChannel] = useState(project.sharepointChannel || '');
-            
-            // Shop Drawing Links state - convert existing links object to text format
-            const existingLinksText = Object.entries(project.shopDrawingLinks || {})
-                .map(([blm, url]) => `${blm}, ${url}`)
-                .join('\n');
-            const [shopDrawingLinksText, setShopDrawingLinksText] = useState(existingLinksText);
-            const [shopDrawingLinksError, setShopDrawingLinksError] = useState('');
-            const [parsedLinksCount, setParsedLinksCount] = useState(Object.keys(project.shopDrawingLinks || {}).length);
-            
-            // Parse shop drawing links from text input
-            const parseShopDrawingLinks = (text) => {
-                const links = {};
-                const lines = text.split('\n').filter(line => line.trim());
-                let errorMsg = '';
-                
-                for (const line of lines) {
-                    const parts = line.split(/[,\t]/).map(p => p.trim());
-                    if (parts.length >= 2) {
-                        const blm = parts[0];
-                        const url = parts[1];
-                        if (blm && url && url.startsWith('http')) {
-                            links[blm] = url;
-                        } else if (blm && url && !url.startsWith('http')) {
-                            errorMsg = `Invalid URL for BLM "${blm}"`;
-                        }
-                    }
-                }
-                
-                setShopDrawingLinksError(errorMsg);
-                setParsedLinksCount(Object.keys(links).length);
-                return links;
-            };
-            
-            const handleLinksTextChange = (text) => {
-                setShopDrawingLinksText(text);
-                parseShopDrawingLinks(text);
-            };
+            const [status, setStatus] = useState(project.status || 'Planning');
 
             const handleSubmit = (e) => {
                 e.preventDefault();
@@ -237,12 +200,11 @@
                 onSave({ 
                     ...project, 
                     name: name.trim(), 
-                    location: location.trim(), 
+                    address: address.trim(),
+                    city: city.trim(),
+                    state,
                     description: description.trim(), 
-                    status, 
-                    sharepointSite: sharepointSite.trim(), 
-                    sharepointChannel: sharepointChannel.trim(),
-                    shopDrawingLinks: parseShopDrawingLinks(shopDrawingLinksText)
+                    status
                 });
             };
 
@@ -262,29 +224,68 @@
                                         type="text"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
-                                        placeholder="e.g., Building A - Phoenix"
+                                        placeholder="e.g., Alvarado Creek"
                                         className="w-full px-3 py-2 border rounded-lg"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
                                     <input
                                         type="text"
-                                        value={location}
-                                        onChange={(e) => setLocation(e.target.value)}
-                                        placeholder="e.g., Phoenix, AZ"
+                                        value={address}
+                                        onChange={(e) => setAddress(e.target.value)}
+                                        placeholder="e.g., 123 Main Street"
                                         className="w-full px-3 py-2 border rounded-lg"
                                     />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                                        <input
+                                            type="text"
+                                            value={city}
+                                            onChange={(e) => setCity(e.target.value)}
+                                            placeholder="e.g., San Diego"
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                                        <select
+                                            value={state}
+                                            onChange={(e) => setState(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                        >
+                                            <option value="">Select...</option>
+                                            <option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option>
+                                            <option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option>
+                                            <option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="FL">Florida</option>
+                                            <option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option>
+                                            <option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option>
+                                            <option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option>
+                                            <option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option>
+                                            <option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option>
+                                            <option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option>
+                                            <option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option>
+                                            <option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option>
+                                            <option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option>
+                                            <option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option>
+                                            <option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option>
+                                            <option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option>
+                                            <option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option>
+                                            <option value="WI">Wisconsin</option><option value="WY">Wyoming</option><option value="DC">Washington DC</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                     <textarea
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="Brief project description..."
+                                        placeholder="Phase 1 residential units..."
                                         className="w-full px-3 py-2 border rounded-lg"
-                                        rows={3}
+                                        rows={2}
                                     />
                                 </div>
                                 <div>
@@ -294,69 +295,12 @@
                                         onChange={(e) => setStatus(e.target.value)}
                                         className="w-full px-3 py-2 border rounded-lg"
                                     >
-                                        <option value="Pre-Construction">Pre-Construction</option>
-                                        <option value="Planned">Planned</option>
+                                        <option value="Planning">Planning</option>
                                         <option value="Active">Active</option>
+                                        <option value="On Hold">On Hold</option>
                                         <option value="Complete">Complete</option>
+                                        <option value="Archived">Archived</option>
                                     </select>
-                                </div>
-                                
-                                {/* SharePoint Integration */}
-                                <div className="border-t pt-4 mt-4">
-                                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                        <span>📋</span> SharePoint Integration
-                                        <span className="text-xs font-normal text-gray-500">(for Shop Drawings)</span>
-                                    </h3>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">SharePoint Site</label>
-                                            <input
-                                                type="text"
-                                                value={sharepointSite}
-                                                onChange={(e) => setSharepointSite(e.target.value)}
-                                                placeholder="e.g., ProductDevelopmentAutovolPrefab"
-                                                className="w-full px-3 py-2 border rounded-lg text-sm"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Site name from SharePoint URL</p>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Teams Channel Folder</label>
-                                            <input
-                                                type="text"
-                                                value={sharepointChannel}
-                                                onChange={(e) => setSharepointChannel(e.target.value)}
-                                                placeholder="e.g., Alvarado Creek - San Diego, CA (TPC)"
-                                                className="w-full px-3 py-2 border rounded-lg text-sm"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Exact channel name from Teams</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {/* Shop Drawing Links */}
-                                <div className="border-t pt-4 mt-4">
-                                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                        <span>📐</span> Shop Drawing Links
-                                    </h3>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">BLM / URL Mapping</label>
-                                        <textarea
-                                            value={shopDrawingLinksText}
-                                            onChange={(e) => handleLinksTextChange(e.target.value)}
-                                            placeholder="B1L2M39, https://sharepoint.com/..."
-                                            rows={5}
-                                            className="w-full px-3 py-2 border rounded-lg text-sm font-mono"
-                                        />
-                                        <div className="flex justify-between mt-1">
-                                            <p className="text-xs text-gray-500">Format: BLM, URL (one per line)</p>
-                                            {parsedLinksCount > 0 && (
-                                                <p className="text-xs text-green-600 font-medium">{parsedLinksCount} links</p>
-                                            )}
-                                        </div>
-                                        {shopDrawingLinksError && (
-                                            <p className="text-xs text-red-600 mt-1">{shopDrawingLinksError}</p>
-                                        )}
-                                    </div>
                                 </div>
                                 
                                 <div className="flex gap-2 justify-end pt-4">
@@ -653,7 +597,8 @@
                     </div>
                 </div>
             );
-        }
+        }
+
 
 // Export for use in App.jsx
 window.ProjectsDirectory = ProjectsDirectory;
