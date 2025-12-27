@@ -3947,6 +3947,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [country, setCountry] = useState('US');
             const [state, setState] = useState('');
             const [zipCode, setZipCode] = useState('');
+            const [customer, setCustomer] = useState('');
             const [description, setDescription] = useState('');
             const isUS = country === 'US';
             const [status, setStatus] = useState('Planning');
@@ -4070,6 +4071,16 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     </div>
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+                                    <input
+                                        type="text"
+                                        value={customer}
+                                        onChange={(e) => setCustomer(e.target.value)}
+                                        placeholder="e.g., ABC Development Corp"
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                     <textarea
                                         value={description}
@@ -4091,6 +4102,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         country,
                                         state,
                                         zipCode,
+                                        customer,
                                         description, 
                                         status
                                     })}
