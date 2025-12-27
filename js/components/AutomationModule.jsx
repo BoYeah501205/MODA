@@ -14,6 +14,8 @@
 
 (function() {
     'use strict';
+    
+    console.log('[AutomationModule] Script starting...');
 
     const { useState, useEffect, useCallback } = React;
 
@@ -970,5 +972,6 @@
 
     // Export to window
     window.AutomationModule = AutomationModule;
+    console.log('[AutomationModule] Exported to window.AutomationModule');
 
 })();
