@@ -79,6 +79,11 @@
       const [filterProject, setFilterProject] = useState('all');
       const [editingYard, setEditingYard] = useState(null);
       const [editingCompany, setEditingCompany] = useState(null);
+      const [viewMode, setViewMode] = useState('table'); // 'table' or 'kanban'
+      const [filterStage, setFilterStage] = useState('all');
+      const [searchTerm, setSearchTerm] = useState('');
+      const [sortBy, setSortBy] = useState('blm');
+      const [sortDir, setSortDir] = useState('asc');
 
       // Load data from Supabase on mount
       useEffect(() => {
@@ -646,6 +651,65 @@
         // Mobile detection
         const isMobile = window.useIsMobile ? window.useIsMobile(768) : (window.innerWidth < 768);
         
+        // Filter and sort modules for table view
+        const getFilteredModules = () => {
+          let filtered = [...modules];
+          
+          // Project filter
+          if (filterProject !== 'all') {
+            filtered = filtered.filter(m => m.project === filterProject);
+          }
+          
+          // Stage filter
+          if (filterStage !== 'all') {
+            filtered = filtered.filter(m => m.stage === filterStage);
+          }
+          
+          // Search filter
+          if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            filtered = filtered.filter(m => 
+              m.blm?.toLowerCase().includes(term) ||
+              m.project?.toLowerCase().includes(term) ||
+              m.serialNumber?.toLowerCase().includes(term)
+            );
+          }
+          
+          // Sort
+          filtered.sort((a, b) => {
+            let aVal = a[sortBy] || '';
+            let bVal = b[sortBy] || '';
+            if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+            if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+            if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+            return 0;
+          });
+          
+          return filtered;
+        };
+        
+        const handleSort = (field) => {
+          if (sortBy === field) {
+            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortBy(field);
+            setSortDir('asc');
+          }
+        };
+        
+        const getStageName = (stageId) => {
+          const stage = TRANSPORT_STAGES.find(s => s.id === stageId);
+          return stage ? stage.label : stageId;
+        };
+        
+        const getStageColor = (stageId) => {
+          const stage = TRANSPORT_STAGES.find(s => s.id === stageId);
+          return stage ? stage.color : '#999';
+        };
+        
+        const filteredModules = getFilteredModules();
+        
         if (isMobile) {
           return (
             <div>
@@ -669,46 +733,204 @@
         
         return (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <label style={{ fontWeight: '600', color: COLORS.charcoal, fontSize: '13px' }}>Project Filter:</label>
+            {/* Header with filters and view toggle */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                {/* View Mode Toggle */}
+                <div style={{ display: 'flex', background: '#e5e7eb', borderRadius: '6px', padding: '2px' }}>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    style={{
+                      padding: '6px 14px',
+                      border: 'none',
+                      borderRadius: '4px',
+                      background: viewMode === 'table' ? COLORS.blue : 'transparent',
+                      color: viewMode === 'table' ? COLORS.white : '#666',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Table
+                  </button>
+                  <button
+                    onClick={() => setViewMode('kanban')}
+                    style={{
+                      padding: '6px 14px',
+                      border: 'none',
+                      borderRadius: '4px',
+                      background: viewMode === 'kanban' ? COLORS.blue : 'transparent',
+                      color: viewMode === 'kanban' ? COLORS.white : '#666',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Board
+                  </button>
+                </div>
+                
+                {/* Project Filter */}
                 <select
                   value={filterProject}
                   onChange={e => setFilterProject(e.target.value)}
-                  style={{ ...styles.input, width: '240px' }}
+                  style={{ ...styles.input, width: '200px' }}
                 >
-                  <option value="all">All Projects ({modules.length} modules)</option>
+                  <option value="all">All Projects ({modules.length})</option>
                   {projects.map(p => (
                     <option key={p} value={p}>{p} ({modules.filter(m => m.project === p).length})</option>
                   ))}
                 </select>
+                
+                {/* Stage Filter (Table view only) */}
+                {viewMode === 'table' && (
+                  <select
+                    value={filterStage}
+                    onChange={e => setFilterStage(e.target.value)}
+                    style={{ ...styles.input, width: '180px' }}
+                  >
+                    <option value="all">All Stages</option>
+                    {TRANSPORT_STAGES.map(s => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                )}
+                
+                {/* Search (Table view only) */}
+                {viewMode === 'table' && (
+                  <input
+                    type="text"
+                    placeholder="Search modules..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    style={{ ...styles.input, width: '180px' }}
+                  />
+                )}
               </div>
+              
+              {/* Stats */}
               <div style={styles.statsBar}>
                 <div style={styles.statCard(COLORS.info)}>
-                  <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.info }}>
+                  <span style={{ fontSize: '24px', fontWeight: '700', color: COLORS.info }}>
                     {modules.filter(m => m.stage === 'inTransit').length}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>In Transit</span>
+                  <span style={{ fontSize: '11px', color: '#666', fontWeight: '500' }}>In Transit</span>
                 </div>
                 <div style={styles.statCard(COLORS.warning)}>
-                  <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.warning }}>
+                  <span style={{ fontSize: '24px', fontWeight: '700', color: COLORS.warning }}>
                     {modules.filter(m => m.stage === 'scheduledTransit' || m.stage === 'scheduledShuttle').length}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Scheduled</span>
+                  <span style={{ fontSize: '11px', color: '#666', fontWeight: '500' }}>Scheduled</span>
                 </div>
                 <div style={styles.statCard(COLORS.success)}>
-                  <span style={{ fontSize: '28px', fontWeight: '700', color: COLORS.success }}>
+                  <span style={{ fontSize: '24px', fontWeight: '700', color: COLORS.success }}>
                     {modules.filter(m => m.stage === 'arrived').length}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Delivered</span>
+                  <span style={{ fontSize: '11px', color: '#666', fontWeight: '500' }}>Delivered</span>
                 </div>
               </div>
             </div>
-            <div style={styles.boardContainer}>
-              {TRANSPORT_STAGES.map(stage => (
-                <StageColumn key={stage.id} stage={stage} modules={modulesByStage[stage.id]} />
-              ))}
-            </div>
+            
+            {/* Table View */}
+            {viewMode === 'table' && (
+              <div style={{ background: COLORS.white, borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <table style={{ ...styles.table, marginBottom: 0 }}>
+                  <thead>
+                    <tr>
+                      <th 
+                        style={{ ...styles.th, cursor: 'pointer' }} 
+                        onClick={() => handleSort('blm')}
+                      >
+                        Module ID {sortBy === 'blm' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th 
+                        style={{ ...styles.th, cursor: 'pointer' }} 
+                        onClick={() => handleSort('project')}
+                      >
+                        Project {sortBy === 'project' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th 
+                        style={{ ...styles.th, cursor: 'pointer' }} 
+                        onClick={() => handleSort('stage')}
+                      >
+                        Stage {sortBy === 'stage' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th style={styles.th}>Yard</th>
+                      <th style={styles.th}>Transport Co.</th>
+                      <th 
+                        style={{ ...styles.th, cursor: 'pointer' }} 
+                        onClick={() => handleSort('scheduledDate')}
+                      >
+                        Scheduled {sortBy === 'scheduledDate' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th style={{ ...styles.th, width: '100px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredModules.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" style={{ ...styles.td, textAlign: 'center', padding: '40px', color: '#999' }}>
+                          No modules found matching your filters
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredModules.map((module, idx) => {
+                        const yard = yards.find(y => y.id === module.yardId);
+                        const company = companies.find(c => c.id === module.transportCompanyId);
+                        return (
+                          <tr key={module.id} style={{ background: idx % 2 === 0 ? COLORS.white : '#fafafa' }}>
+                            <td style={{ ...styles.td, fontWeight: '600', color: COLORS.charcoal }}>
+                              {module.blm || module.serialNumber}
+                            </td>
+                            <td style={styles.td}>{module.project}</td>
+                            <td style={styles.td}>
+                              <span style={{
+                                background: getStageColor(module.stage) + '20',
+                                color: getStageColor(module.stage),
+                                padding: '4px 10px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {getStageName(module.stage)}
+                              </span>
+                            </td>
+                            <td style={styles.td}>{yard?.name || '–'}</td>
+                            <td style={styles.td}>{company?.name || '–'}</td>
+                            <td style={styles.td}>
+                              {module.scheduledDate ? new Date(module.scheduledDate).toLocaleDateString() : '–'}
+                            </td>
+                            <td style={styles.td}>
+                              <button 
+                                onClick={() => setSelectedModule(module)} 
+                                style={{ ...styles.btn('secondary'), padding: '4px 10px', fontSize: '11px' }}
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+                {filteredModules.length > 0 && (
+                  <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', background: '#fafafa', fontSize: '12px', color: '#666' }}>
+                    Showing {filteredModules.length} of {modules.length} modules
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Kanban View */}
+            {viewMode === 'kanban' && (
+              <div style={styles.boardContainer}>
+                {TRANSPORT_STAGES.map(stage => (
+                  <StageColumn key={stage.id} stage={stage} modules={modulesByStage[stage.id]} />
+                ))}
+              </div>
+            )}
           </div>
         );
       };

@@ -44,6 +44,9 @@ const YardMapComponent = ({ projects = [] }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadForm, setUploadForm] = useState({ name: '', yardType: 'front' });
   const fileInputRef = useRef(null);
+  
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Colors
   const COLORS = {
@@ -1177,33 +1180,62 @@ const YardMapComponent = ({ projects = [] }) => {
     );
   }
 
+  // Fullscreen container styles
+  const fullscreenStyles = isFullscreen ? {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    background: COLORS.white
+  } : {};
+
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, ...fullscreenStyles }}>
       {/* Internal Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
-        {[
-          { id: 'map', label: 'Yard Map' },
-          { id: 'library', label: 'Project Library' },
-          { id: 'settings', label: 'Settings' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '12px 24px',
-              border: 'none',
-              background: activeTab === tab.id ? COLORS.white : 'transparent',
-              color: activeTab === tab.id ? COLORS.blue : '#666',
-              fontWeight: '600',
-              fontSize: '14px',
-              cursor: 'pointer',
-              borderBottom: activeTab === tab.id ? `3px solid ${COLORS.blue}` : '3px solid transparent',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#fafafa', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex' }}>
+          {[
+            { id: 'map', label: 'Yard Map' },
+            { id: 'library', label: 'Project Library' },
+            { id: 'settings', label: 'Settings' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '12px 24px',
+                border: 'none',
+                background: activeTab === tab.id ? COLORS.white : 'transparent',
+                color: activeTab === tab.id ? COLORS.blue : '#666',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                borderBottom: activeTab === tab.id ? `3px solid ${COLORS.blue}` : '3px solid transparent',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          style={{
+            padding: '8px 16px',
+            margin: '8px 16px',
+            background: isFullscreen ? COLORS.red : COLORS.blue,
+            color: COLORS.white,
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            fontSize: '13px'
+          }}
+        >
+          {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+        </button>
       </div>
       
       {/* Tab Content */}
