@@ -55,21 +55,23 @@ function HeatMapMatrix({
         setError(null);
         
         try {
-            // Import the data functions dynamically
-            const { getDifficultyIndicators, getProjectHeatMap, initializeProjectHeatMap } = 
-                await import('../supabase-heat-map.js');
+            // Get API from window global
+            const api = window.HeatMapAPI;
+            if (!api) {
+                throw new Error('HeatMapAPI not loaded');
+            }
             
             // Load indicators
-            const indicatorsData = await getDifficultyIndicators();
+            const indicatorsData = await api.getDifficultyIndicators();
             setIndicators(indicatorsData);
             
             // Load heat map for this project
-            let heatMap = await getProjectHeatMap(project.id);
+            let heatMap = await api.getProjectHeatMap(project.id);
             
             // If no heat map exists, initialize with defaults
             if (!heatMap || heatMap.length === 0) {
-                await initializeProjectHeatMap(project.id);
-                heatMap = await getProjectHeatMap(project.id);
+                await api.initializeProjectHeatMap(project.id);
+                heatMap = await api.getProjectHeatMap(project.id);
             }
             
             setHeatMapData(heatMap);
@@ -133,7 +135,10 @@ function HeatMapMatrix({
         setError(null);
         
         try {
-            const { bulkUpdateHeatMap } = await import('../supabase-heat-map.js');
+            const api = window.HeatMapAPI;
+            if (!api) {
+                throw new Error('HeatMapAPI not loaded');
+            }
             
             const entries = Object.entries(pendingChanges).map(([key, category]) => {
                 const [indicatorId, stationId] = key.split('|');
@@ -144,7 +149,7 @@ function HeatMapMatrix({
                 };
             });
             
-            const success = await bulkUpdateHeatMap(project.id, entries);
+            const success = await api.bulkUpdateHeatMap(project.id, entries);
             
             if (success) {
                 // Reload data to get fresh state
