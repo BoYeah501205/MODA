@@ -7,7 +7,7 @@
     'use strict';
     
     // Get supabase client from window global
-    const getSupabase = () => window.supabaseClient;
+    const getSupabase = () => window.MODA_SUPABASE?.client;
 
     // ============================================
     // DIFFICULTY INDICATORS
