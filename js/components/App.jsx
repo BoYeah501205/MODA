@@ -2190,7 +2190,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [showGoOnlineModal, setShowGoOnlineModal] = useState(false);
             const [goOnlineNotification, setGoOnlineNotification] = useState(null);
             const [importNotification, setImportNotification] = useState(null);
-            
+            const [showHeatMapMatrix, setShowHeatMapMatrix] = useState(false);
+
             // Report Issue State
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
             const [reportIssueContext, setReportIssueContext] = useState(null);
@@ -2451,6 +2452,15 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             >
                                 🏷️ License Plates
                             </button>
+                            {window.MODA_FEATURE_FLAGS?.flags?.enableHeatMapMatrix && canManageImports && (
+                                <button
+                                    onClick={() => setShowHeatMapMatrix(true)}
+                                    className="px-4 py-2 btn-secondary rounded-lg transition flex items-center gap-2"
+                                    title="Configure difficulty settings for labor forecasting"
+                                >
+                                    Heat Map
+                                </button>
+                            )}
                             {canManageImports && (
                                 <>
                                     <button
@@ -2857,6 +2867,16 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             project={currentProject}
                             modules={modules}
                             onClose={() => setShowLicensePlates(false)}
+                        />
+                    )}
+                    
+                    {/* Heat Map Matrix */}
+                    {showHeatMapMatrix && window.HeatMapMatrix && (
+                        <window.HeatMapMatrix
+                            project={currentProject}
+                            productionStages={productionStages}
+                            onClose={() => setShowHeatMapMatrix(false)}
+                            canEdit={canManageImports}
                         />
                     )}
                     

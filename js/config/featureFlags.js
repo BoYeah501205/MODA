@@ -30,6 +30,9 @@ const featureFlags = {
     enableLogisticsGroup: false,     // Transport + Materials
     enableFieldGroup: false,         // On-Site
     
+    // ===== ANALYTICS FEATURES =====
+    enableHeatMapMatrix: true,       // Heat Map Matrix for labor forecasting
+    
     // ===== TESTING =====
     // Users in this list see new features regardless of flags above
     testUsers: [
