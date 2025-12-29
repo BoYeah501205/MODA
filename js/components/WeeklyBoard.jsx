@@ -535,6 +535,178 @@ function ScheduledProjectsSection({ projects, setProjects, canEdit }) {
     );
 }
 
+// ===== CALENDAR WEEK PICKER COMPONENT =====
+// A calendar-style week picker that shows weeks in a monthly grid
+function CalendarWeekPicker({ weeks, currentWeek, selectedWeekId, onSelectWeek, onClose }) {
+    const { useState, useMemo } = React;
+    
+    // Initialize to the month of the current/selected week
+    const initialDate = useMemo(() => {
+        if (selectedWeekId) {
+            const selected = weeks.find(w => w.id === selectedWeekId);
+            if (selected?.weekStart) return new Date(selected.weekStart);
+        }
+        if (currentWeek?.weekStart) return new Date(currentWeek.weekStart);
+        return new Date();
+    }, [selectedWeekId, currentWeek, weeks]);
+    
+    const [viewDate, setViewDate] = useState(initialDate);
+    
+    // Get month/year for display
+    const monthYear = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    
+    // Navigate months
+    const prevMonth = () => setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    const nextMonth = () => setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    const prevYear = () => setViewDate(d => new Date(d.getFullYear() - 1, d.getMonth(), 1));
+    const nextYear = () => setViewDate(d => new Date(d.getFullYear() + 1, d.getMonth(), 1));
+    const goToToday = () => setViewDate(new Date());
+    
+    // Get weeks that fall within the current view month
+    const weeksInMonth = useMemo(() => {
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        return weeks.filter(w => {
+            if (!w.weekStart) return false;
+            const weekStart = new Date(w.weekStart);
+            const weekEnd = new Date(w.weekEnd || w.weekStart);
+            // Include week if it overlaps with this month
+            return (weekStart <= lastDay && weekEnd >= firstDay);
+        }).sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+    }, [weeks, viewDate]);
+    
+    // Get week status
+    const getWeekStatus = (week) => {
+        const now = new Date();
+        const weekEnd = new Date(week.weekEnd || week.weekStart);
+        const weekStart = new Date(week.weekStart);
+        
+        if (currentWeek?.id === week.id) return 'current';
+        if (weekEnd < now) return 'past';
+        if (weekStart > now) return 'future';
+        return 'active';
+    };
+    
+    const getWeekStyles = (week) => {
+        const status = getWeekStatus(week);
+        const isSelected = selectedWeekId === week.id;
+        
+        let base = 'p-2 rounded-lg border-2 cursor-pointer transition-all text-left ';
+        
+        if (isSelected) {
+            base += 'border-blue-500 bg-blue-50 ring-2 ring-blue-300 ';
+        } else if (status === 'current') {
+            base += 'border-green-500 bg-green-50 hover:bg-green-100 ';
+        } else if (status === 'past') {
+            base += 'border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-500 ';
+        } else {
+            base += 'border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 ';
+        }
+        
+        return base;
+    };
+    
+    return (
+        <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 w-80" onClick={e => e.stopPropagation()}>
+            {/* Header with navigation */}
+            <div className="p-3 border-b bg-gray-50 rounded-t-xl">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex gap-1">
+                        <button onClick={prevYear} className="p-1 hover:bg-gray-200 rounded text-gray-500" title="Previous Year">
+                            &#171;
+                        </button>
+                        <button onClick={prevMonth} className="p-1 hover:bg-gray-200 rounded text-gray-500" title="Previous Month">
+                            &#8249;
+                        </button>
+                    </div>
+                    <span className="font-semibold text-gray-800">{monthYear}</span>
+                    <div className="flex gap-1">
+                        <button onClick={nextMonth} className="p-1 hover:bg-gray-200 rounded text-gray-500" title="Next Month">
+                            &#8250;
+                        </button>
+                        <button onClick={nextYear} className="p-1 hover:bg-gray-200 rounded text-gray-500" title="Next Year">
+                            &#187;
+                        </button>
+                    </div>
+                </div>
+                <div className="flex justify-center gap-2">
+                    <button onClick={goToToday} className="text-xs text-blue-600 hover:underline">Today</button>
+                    {currentWeek && (
+                        <button 
+                            onClick={() => { onSelectWeek(null); onClose(); }} 
+                            className="text-xs text-green-600 hover:underline"
+                        >
+                            Current Week
+                        </button>
+                    )}
+                </div>
+            </div>
+            
+            {/* Weeks grid */}
+            <div className="p-3 max-h-64 overflow-y-auto">
+                {weeksInMonth.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                        No weeks configured for this month
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {weeksInMonth.map(week => {
+                            const status = getWeekStatus(week);
+                            const startDate = new Date(week.weekStart);
+                            const endDate = new Date(week.weekEnd || week.weekStart);
+                            const weekNum = week.weekNumber || Math.ceil((startDate - new Date(startDate.getFullYear(), 0, 1)) / (7 * 24 * 60 * 60 * 1000));
+                            
+                            return (
+                                <button
+                                    key={week.id}
+                                    onClick={() => { onSelectWeek(week.id); onClose(); }}
+                                    className={getWeekStyles(week) + ' w-full'}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-xs text-gray-500">Week {weekNum}</div>
+                                            <div className="font-medium text-sm">
+                                                {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {status === 'current' && (
+                                                <span className="px-1.5 py-0.5 bg-green-500 text-white text-xs rounded">Current</span>
+                                            )}
+                                            {status === 'past' && (
+                                                <span className="px-1.5 py-0.5 bg-gray-400 text-white text-xs rounded">Past</span>
+                                            )}
+                                            {status === 'future' && (
+                                                <span className="px-1.5 py-0.5 bg-blue-500 text-white text-xs rounded">Future</span>
+                                            )}
+                                            {week.plannedModules > 0 && (
+                                                <span className="text-xs text-gray-500">{week.plannedModules} mod</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-2 border-t bg-gray-50 rounded-b-xl">
+                <button 
+                    onClick={onClose}
+                    className="w-full py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // ===== PROTOTYPE SCHEDULING SECTION COMPONENT =====
 function PrototypeSchedulingSection({ allModules, sortedModules, projects, setProjects }) {
     const { useState, useMemo } = React;
@@ -1404,6 +1576,7 @@ function WeeklyBoardTab({
     // ===== WEEK SELECTOR =====
     // selectedWeekId: null means "use currentWeek (auto)", otherwise use specific week
     const [selectedWeekId, setSelectedWeekId] = useState(null);
+    const [showWeekPicker, setShowWeekPicker] = useState(false);
     
     // Determine which week to display
     const displayWeek = useMemo(() => {
@@ -3346,30 +3519,38 @@ function WeeklyBoardTab({
                         </p>
                     </div>
                     
-                    {/* Week Selector Dropdown */}
-                    <div className="flex items-center gap-2">
-                        <select
-                            value={selectedWeekId || ''}
-                            onChange={(e) => setSelectedWeekId(e.target.value || null)}
-                            className="border rounded-lg px-3 py-2 text-sm font-medium bg-white"
+                    {/* Week Selector - Calendar Style */}
+                    <div className="relative flex items-center gap-2">
+                        <button
+                            onClick={() => setShowWeekPicker(!showWeekPicker)}
+                            className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm font-medium bg-white hover:bg-gray-50 transition"
                         >
-                            <option value="">
-                                {currentWeek ? `Current: ${currentWeek.weekStart}` : 'Select Week'}
-                            </option>
-                            {weeks
-                                .sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart))
-                                .map(week => {
-                                    const isCurrent = currentWeek?.id === week.id;
-                                    const isPast = new Date(week.weekEnd) < new Date();
-                                    return (
-                                        <option key={week.id} value={week.id}>
-                                            {week.weekStart} → {week.weekEnd}
-                                            {isCurrent ? ' (Current)' : isPast ? ' (Past)' : ' (Future)'}
-                                        </option>
-                                    );
-                                })
-                            }
-                        </select>
+                            <span className="text-gray-400">&#128197;</span>
+                            {displayWeek ? (
+                                <span>
+                                    {new Date(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {' - '}
+                                    {new Date(displayWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                            ) : (
+                                <span>Select Week</span>
+                            )}
+                            {currentWeek?.id === displayWeek?.id && (
+                                <span className="px-1.5 py-0.5 bg-green-500 text-white text-xs rounded">Current</span>
+                            )}
+                            <span className="text-gray-400">&#9662;</span>
+                        </button>
+                        
+                        {showWeekPicker && (
+                            <CalendarWeekPicker
+                                weeks={weeks}
+                                currentWeek={currentWeek}
+                                selectedWeekId={selectedWeekId}
+                                onSelectWeek={setSelectedWeekId}
+                                onClose={() => setShowWeekPicker(false)}
+                            />
+                        )}
+                        
                         {selectedWeekId && selectedWeekId !== currentWeek?.id && (
                             <button
                                 onClick={() => setSelectedWeekId(null)}
