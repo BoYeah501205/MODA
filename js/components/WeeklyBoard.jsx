@@ -144,9 +144,9 @@ const useWeeklySchedule = () => {
     
     // Re-check edit permissions when user profile changes
     useEffect(() => {
-        const checkPermissions = () => {
+        const checkPermissions = async () => {
             if (isSupabaseAvailable() && window.MODA_SUPABASE_DATA?.weeklySchedules) {
-                const newCanEdit = window.MODA_SUPABASE_DATA.weeklySchedules.canEdit();
+                const newCanEdit = await window.MODA_SUPABASE_DATA.weeklySchedules.canEdit();
                 setCanEdit(newCanEdit);
             }
         };

@@ -962,18 +962,26 @@
 
         // Check if current user can edit schedule setup
         // Uses role-based permissions from dashboardRoles.js
-        canEdit() {
+        async canEdit() {
             // Get user info from multiple sources
-            const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
-                             localStorage.getItem('autovol_user_role') || '';
-            // Email can be in profile, currentUser, or auth session
-            const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
-                              window.MODA_SUPABASE?.currentUser?.email ||
-                              window.MODA_SUPABASE?.supabase?.auth?.getUser?.()?.data?.user?.email || '';
+            let userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
+                           localStorage.getItem('autovol_user_role') || '';
+            let userEmail = window.MODA_SUPABASE?.userProfile?.email || 
+                            window.MODA_SUPABASE?.currentUser?.email || '';
             
-            console.log('[WeeklySchedules] canEdit check - role:', userRole, 'email:', userEmail, 
-                        'profile:', window.MODA_SUPABASE?.userProfile,
-                        'currentUser:', window.MODA_SUPABASE?.currentUser);
+            // If still no email, try to get from Supabase client directly
+            if (!userEmail && window.MODA_SUPABASE?.client) {
+                try {
+                    const { data } = await window.MODA_SUPABASE.client.auth.getUser();
+                    if (data?.user?.email) {
+                        userEmail = data.user.email;
+                    }
+                } catch (e) {
+                    // Ignore errors
+                }
+            }
+            
+            console.log('[WeeklySchedules] canEdit check - role:', userRole, 'email:', userEmail);
             
             // Admin role check
             if (userRole === 'admin') return true;
