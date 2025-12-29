@@ -1866,7 +1866,13 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 updateWeek={updateWeek}
                                                 deleteWeek={deleteWeek}
                                                 validateWeek={validateWeek}
-                                                allModules={activeProjects.flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name })))}
+                                                allModules={activeProjects
+                                                    .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
+                                                    .flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name, projectProductionOrder: p.productionOrder || 999 })))
+                                                    .sort((a, b) => {
+                                                        if (a.projectProductionOrder !== b.projectProductionOrder) return a.projectProductionOrder - b.projectProductionOrder;
+                                                        return (a.buildSequence || 0) - (b.buildSequence || 0);
+                                                    })}
                                                 projects={projects}
                                                 setProjects={setProjects}
                                                 canEdit={weeklySchedule.canEdit}
@@ -2937,7 +2943,13 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             modules={modules}
                             onClose={() => setShowGoOnlineModal(false)}
                             onConfirm={(selectedModuleIds, insertAfterSerial) => {
-                                // Update project status to Active
+                                // Calculate next productionOrder (max existing + 1)
+                                const maxProductionOrder = Math.max(0, ...projects
+                                    .filter(p => p.productionOrder != null)
+                                    .map(p => p.productionOrder));
+                                const nextProductionOrder = maxProductionOrder + 1;
+                                
+                                // Update project status to Active and assign productionOrder
                                 const updatedProjects = projects.map(p => {
                                     if (p.id !== project.id) return p;
                                     
@@ -2949,7 +2961,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         return m;
                                     });
                                     
-                                    return { ...p, status: 'Active', modules: updatedModules };
+                                    return { 
+                                        ...p, 
+                                        status: 'Active', 
+                                        modules: updatedModules,
+                                        productionOrder: p.productionOrder ?? nextProductionOrder
+                                    };
                                 });
                                 setProjects(updatedProjects);
                                 setShowGoOnlineModal(false);

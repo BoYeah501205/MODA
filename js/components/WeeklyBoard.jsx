@@ -1334,13 +1334,23 @@ function WeeklyBoardTab({
     const hasWeekConfig = displayWeek && displayWeek.startingModule;
     const lineBalance = getLineBalance();
     
-    // Get all modules from all active projects, sorted by build sequence
+    // Get all modules from all active projects, sorted by productionOrder then buildSequence
     // Filter out modules with excludeFromSchedule flag
-    const allModules = activeProjects.flatMap(p => 
-        (p.modules || [])
-            .filter(m => !m.excludeFromSchedule)
-            .map(m => ({ ...m, projectId: p.id, projectName: p.name }))
-    ).sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+    const allModules = activeProjects
+        .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
+        .flatMap(p => 
+            (p.modules || [])
+                .filter(m => !m.excludeFromSchedule)
+                .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectProductionOrder: p.productionOrder || 999 }))
+        )
+        .sort((a, b) => {
+            // First sort by project production order
+            if (a.projectProductionOrder !== b.projectProductionOrder) {
+                return a.projectProductionOrder - b.projectProductionOrder;
+            }
+            // Then by build sequence within project
+            return (a.buildSequence || 0) - (b.buildSequence || 0);
+        });
     
     // Get starting module for a station based on stagger
     // Stagger is subtracted because downstream stations work on earlier modules
