@@ -963,6 +963,11 @@
         // Check if current user can edit schedule setup
         // Uses role-based permissions from dashboardRoles.js
         canEdit() {
+            // Check user role directly first - admin always has access
+            const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
+                             localStorage.getItem('autovol_user_role') || '';
+            if (userRole === 'admin') return true;
+            
             // Use the global canUserEditTab function if available
             if (typeof window.canUserEditTab === 'function') {
                 return window.canUserEditTab('schedule_setup');
