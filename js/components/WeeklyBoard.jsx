@@ -1753,6 +1753,14 @@ function WeeklyBoardTab({
     // Get all active projects
     const activeProjects = projects.filter(p => p.status === 'Active');
     
+    // Debug: Log active projects
+    console.log('[WeeklyBoard] Active projects:', activeProjects.map(p => ({ 
+        name: p.name, 
+        status: p.status, 
+        productionOrder: p.productionOrder, 
+        moduleCount: p.modules?.length 
+    })));
+    
     // Get line balance for current display
     const lineBalance = getLineBalance();
     
@@ -1773,6 +1781,11 @@ function WeeklyBoardTab({
             // Then by build sequence within project
             return (a.buildSequence || 0) - (b.buildSequence || 0);
         });
+    
+    // Debug: Log module count and first/last modules
+    console.log('[WeeklyBoard] allModules count:', allModules.length, 
+                'first:', allModules[0]?.serialNumber, 
+                'last:', allModules[allModules.length-1]?.serialNumber);
     
     // Auto-calculate starting module index for the current week
     // Based on cumulative line balance from all previous weeks
