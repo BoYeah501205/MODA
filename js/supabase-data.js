@@ -963,20 +963,24 @@
         // Check if current user can edit schedule setup
         // Uses role-based permissions from dashboardRoles.js
         canEdit() {
-            // Check user role directly first - admin always has access
+            // Get user info from multiple sources
             const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
                              localStorage.getItem('autovol_user_role') || '';
+            // Email can be in profile, currentUser, or auth session
             const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
-                              window.MODA_SUPABASE?.currentUser?.email || '';
+                              window.MODA_SUPABASE?.currentUser?.email ||
+                              window.MODA_SUPABASE?.supabase?.auth?.getUser?.()?.data?.user?.email || '';
             
-            console.log('[WeeklySchedules] canEdit check - role:', userRole, 'email:', userEmail);
+            console.log('[WeeklySchedules] canEdit check - role:', userRole, 'email:', userEmail, 
+                        'profile:', window.MODA_SUPABASE?.userProfile,
+                        'currentUser:', window.MODA_SUPABASE?.currentUser);
             
             // Admin role check
             if (userRole === 'admin') return true;
             
             // Check by email for trevor/stephanie (they should always have access)
             const allowedEditors = ['trevor@autovol.com', 'stephanie@autovol.com'];
-            if (allowedEditors.includes(userEmail.toLowerCase())) return true;
+            if (userEmail && allowedEditors.includes(userEmail.toLowerCase())) return true;
             
             // Use the global canUserEditTab function if available
             if (typeof window.canUserEditTab === 'function') {
