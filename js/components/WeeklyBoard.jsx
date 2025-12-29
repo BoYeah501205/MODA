@@ -1766,6 +1766,7 @@ function WeeklyBoardTab({
     
     // Get all modules from all active projects, sorted by productionOrder then buildSequence
     // Filter out modules with excludeFromSchedule flag
+    // IMPORTANT: Projects are kept grouped together - buildSequence is project-specific, not global
     const allModules = activeProjects
         .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
         .flatMap(p => 
@@ -1777,6 +1778,10 @@ function WeeklyBoardTab({
             // First sort by project production order
             if (a.projectProductionOrder !== b.projectProductionOrder) {
                 return a.projectProductionOrder - b.projectProductionOrder;
+            }
+            // If same production order, keep projects grouped by projectId
+            if (a.projectId !== b.projectId) {
+                return a.projectId.localeCompare(b.projectId);
             }
             // Then by build sequence within project
             return (a.buildSequence || 0) - (b.buildSequence || 0);
