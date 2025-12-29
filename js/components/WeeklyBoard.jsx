@@ -148,22 +148,28 @@ const useWeeklySchedule = () => {
             if (isSupabaseAvailable() && window.MODA_SUPABASE_DATA?.weeklySchedules) {
                 const newCanEdit = window.MODA_SUPABASE_DATA.weeklySchedules.canEdit();
                 setCanEdit(newCanEdit);
-                console.log('[WeeklySchedule] Permission re-check, canEdit:', newCanEdit);
             }
         };
         
         // Check immediately
         checkPermissions();
         
-        // Also check after a short delay to catch late profile loads
-        const timer = setTimeout(checkPermissions, 1000);
+        // Also check after delays to catch late profile loads
+        const timer1 = setTimeout(checkPermissions, 500);
+        const timer2 = setTimeout(checkPermissions, 1500);
+        const timer3 = setTimeout(checkPermissions, 3000);
         
         // Listen for profile changes
-        const handleProfileChange = () => checkPermissions();
+        const handleProfileChange = () => {
+            console.log('[WeeklySchedule] Profile loaded event received');
+            checkPermissions();
+        };
         window.addEventListener('moda-profile-loaded', handleProfileChange);
         
         return () => {
-            clearTimeout(timer);
+            clearTimeout(timer1);
+            clearTimeout(timer2);
+            clearTimeout(timer3);
             window.removeEventListener('moda-profile-loaded', handleProfileChange);
         };
     }, [isSupabaseAvailable]);

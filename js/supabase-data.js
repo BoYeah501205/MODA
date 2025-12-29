@@ -966,17 +966,24 @@
             // Check user role directly first - admin always has access
             const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
                              localStorage.getItem('autovol_user_role') || '';
+            const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
+                              window.MODA_SUPABASE?.currentUser?.email || '';
+            
+            console.log('[WeeklySchedules] canEdit check - role:', userRole, 'email:', userEmail);
+            
+            // Admin role check
             if (userRole === 'admin') return true;
+            
+            // Check by email for trevor/stephanie (they should always have access)
+            const allowedEditors = ['trevor@autovol.com', 'stephanie@autovol.com'];
+            if (allowedEditors.includes(userEmail.toLowerCase())) return true;
             
             // Use the global canUserEditTab function if available
             if (typeof window.canUserEditTab === 'function') {
                 return window.canUserEditTab('schedule_setup');
             }
-            // Fallback to hardcoded emails for backward compatibility
-            const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
-                              window.MODA_SUPABASE?.currentUser?.email || '';
-            const allowedEditors = ['trevor@autovol.com', 'stephanie@autovol.com'];
-            return allowedEditors.includes(userEmail.toLowerCase());
+            
+            return false;
         },
 
         // Subscribe to real-time changes
@@ -2541,6 +2548,9 @@
                 weekId: row.week_id,
                 startDate: row.start_date,
                 endDate: row.end_date,
+                // Also provide weekStart/weekEnd for compatibility with WeeklyBoard
+                weekStart: row.start_date,
+                weekEnd: row.end_date,
                 plannedModules: row.planned_modules || 0,
                 actualModules: row.actual_modules || 0,
                 status: row.status || 'Planned',
