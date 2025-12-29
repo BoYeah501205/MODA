@@ -2444,7 +2444,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     onClick={() => setShowGoOnlineModal(true)}
                                     className="px-4 py-2 btn-secondary rounded-lg transition"
                                 >
-                                    Go Online
+                                    Schedule Online
                                 </button>
                             )}
                             <button
@@ -2936,7 +2936,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         />
                     )}
                     
-                    {/* Go Online Modal */}
+                    {/* Schedule Online Modal */}
                     {showGoOnlineModal && (
                         <GoOnlineModal
                             project={currentProject}
@@ -2982,7 +2982,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         />
                     )}
                     
-                    {/* Go Online Success Notification */}
+                    {/* Schedule Online Success Notification */}
                     {goOnlineNotification && (
                         <div className="fixed top-4 right-4 z-[200] bg-green-50 border-l-4 border-green-500 text-green-800 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in">
                             <span className="text-xl">✅</span>
@@ -3003,7 +3003,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             );
         }
 
-        // ===== GO ONLINE MODAL =====
+        // ===== SCHEDULE ONLINE MODAL =====
         function GoOnlineModal({ project, modules, onClose, onConfirm }) {
             const [mode, setMode] = useState('all'); // 'all' or 'select'
             const [selectedModules, setSelectedModules] = useState(new Set());
@@ -3046,7 +3046,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         <div className="p-4 border-b bg-green-50">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-xl font-bold text-green-800">Go Online</h2>
+                                    <h2 className="text-xl font-bold text-green-800">Schedule Online</h2>
                                     <p className="text-sm text-green-600">Activate project: {project.name}</p>
                                 </div>
                                 <button onClick={onClose} className="p-2 hover:bg-green-100 rounded-lg text-2xl text-green-600">×</button>
@@ -3225,7 +3225,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                             disabled={!isConfirmationValid}
                                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Go Online
+                                            Schedule Online
                                         </button>
                                     </div>
                                 </div>

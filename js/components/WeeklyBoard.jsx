@@ -1548,8 +1548,7 @@ function WeeklyBoardTab({
     // Get all active projects
     const activeProjects = projects.filter(p => p.status === 'Active');
     
-    // Check if we have the required configuration (use displayWeek for board rendering)
-    const hasWeekConfig = displayWeek && displayWeek.startingModule;
+    // Get line balance for current display
     const lineBalance = getLineBalance();
     
     // Get all modules from all active projects, sorted by productionOrder then buildSequence
@@ -1570,17 +1569,55 @@ function WeeklyBoardTab({
             return (a.buildSequence || 0) - (b.buildSequence || 0);
         });
     
+    // Auto-calculate starting module index for the current week
+    // Based on cumulative line balance from all previous weeks
+    const getAutoCalculatedStartingIndex = useMemo(() => {
+        if (!displayWeek || !weeks || weeks.length === 0) return 0;
+        
+        // Sort weeks by date
+        const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+        
+        // Find index of current display week
+        const currentWeekIdx = sortedWeeks.findIndex(w => w.id === displayWeek.id);
+        if (currentWeekIdx === -1) return 0;
+        
+        // Sum up line balance from all previous weeks
+        let cumulativeModules = 0;
+        for (let i = 0; i < currentWeekIdx; i++) {
+            const week = sortedWeeks[i];
+            const weekBalance = (week.shift1?.monday || 0) + (week.shift1?.tuesday || 0) + 
+                               (week.shift1?.wednesday || 0) + (week.shift1?.thursday || 0) +
+                               (week.shift2?.friday || 0) + (week.shift2?.saturday || 0) + (week.shift2?.sunday || 0);
+            cumulativeModules += weekBalance || week.line_balance || 0;
+        }
+        
+        return cumulativeModules;
+    }, [displayWeek, weeks]);
+    
+    // Get the auto-calculated starting module for the current week
+    const autoStartingModule = allModules[getAutoCalculatedStartingIndex] || null;
+    
+    // Check if we have modules to display
+    const hasWeekConfig = displayWeek && allModules.length > 0;
+    
     // Get starting module for a station based on stagger
     // Stagger is subtracted because downstream stations work on earlier modules
     // (modules that have already passed through upstream stations)
     const getStationStartingModule = (stationId) => {
-        if (!displayWeek?.startingModule) return null;
-        const stagger = staggerConfig[stationId] || 0;
-        const startingModule = allModules.find(m => m.serialNumber === displayWeek.startingModule);
-        if (!startingModule) return null;
+        // Use auto-calculated starting module if no manual override
+        const weekStartingModule = displayWeek?.startingModule 
+            ? allModules.find(m => m.serialNumber === displayWeek.startingModule)
+            : autoStartingModule;
+            
+        if (!weekStartingModule) return null;
         
-        const startBuildSeq = (startingModule.buildSequence || 0) - stagger;
-        return allModules.find(m => (m.buildSequence || 0) >= startBuildSeq);
+        const stagger = staggerConfig[stationId] || 0;
+        const startIdx = allModules.findIndex(m => m.id === weekStartingModule.id);
+        if (startIdx === -1) return null;
+        
+        // Apply stagger - downstream stations work on earlier modules
+        const staggeredIdx = Math.max(0, startIdx - stagger);
+        return allModules[staggeredIdx] || null;
     };
     
     // Get modules for a station column based on stagger and line balance
@@ -3488,6 +3525,32 @@ function WeeklyBoardTab({
                     })()}
                 </div>
             </div>
+            
+            {/* Running Low on Modules Warning */}
+            {(() => {
+                const twoWeeksBalance = lineBalance * 2;
+                const currentStartIdx = getAutoCalculatedStartingIndex;
+                const remainingModules = allModules.length - currentStartIdx;
+                
+                if (remainingModules >= twoWeeksBalance || allModules.length === 0) return null;
+                
+                return (
+                    <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="text-2xl">⚠️</div>
+                            <div className="flex-1">
+                                <div className="font-bold text-orange-800">Running Low on Scheduled Modules</div>
+                                <div className="text-sm text-orange-700 mt-1">
+                                    Only <strong>{remainingModules}</strong> modules remaining (less than 2 weeks at current line balance of {lineBalance}/week).
+                                </div>
+                                <div className="text-sm text-orange-600 mt-2">
+                                    Consider scheduling the next project online to ensure continuous production.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
             
             {/* Schedule Conflict Warning Banner */}
             {(() => {
