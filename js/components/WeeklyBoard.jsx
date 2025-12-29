@@ -1335,8 +1335,11 @@ function WeeklyBoardTab({
     const lineBalance = getLineBalance();
     
     // Get all modules from all active projects, sorted by build sequence
+    // Filter out modules with excludeFromSchedule flag
     const allModules = activeProjects.flatMap(p => 
-        (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name }))
+        (p.modules || [])
+            .filter(m => !m.excludeFromSchedule)
+            .map(m => ({ ...m, projectId: p.id, projectName: p.name }))
     ).sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
     
     // Get starting module for a station based on stagger
@@ -2418,6 +2421,7 @@ function WeeklyBoardTab({
                 >
                     <div className="font-mono text-xs font-bold text-gray-500 truncate">
                         {module.serialNumber}
+                        {module.isPrototype && <span className="text-yellow-500 ml-1" title="Prototype">★</span>}
                     </div>
                     
                     {/* Detailed View for On-Deck modules */}
@@ -2496,6 +2500,7 @@ function WeeklyBoardTab({
                     >
                         {moduleIsSelected && <span className="text-blue-500 mr-1">✓</span>}
                         {module.serialNumber}
+                        {module.isPrototype && <span className="text-yellow-500 ml-1" title="Prototype">★</span>}
                     </div>
                     <button
                         onClick={(e) => handleMenuClick(e, module, station)}

@@ -2639,6 +2639,15 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                                 ★
                                                             </span>
                                                         )}
+                                                        {module.excludeFromSchedule && (
+                                                            <span 
+                                                                className="text-orange-500 cursor-help" 
+                                                                title="Excluded from Weekly Board schedule"
+                                                                style={{ fontSize: '12px' }}
+                                                            >
+                                                                🚫
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <p className="text-sm text-gray-500">Build Seq: {module.buildSequence}</p>
                                                 </div>
@@ -2677,6 +2686,35 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                             >
                                                                 ⚠️ Report Issue
                                                             </button>
+                                                            {project.status === 'Active' && (
+                                                                <>
+                                                                    <div className="border-t"></div>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const updatedProjects = projects.map(p => {
+                                                                                if (p.id !== project.id) return p;
+                                                                                return {
+                                                                                    ...p,
+                                                                                    modules: p.modules.map(m => 
+                                                                                        m.id === module.id 
+                                                                                            ? { ...m, excludeFromSchedule: !m.excludeFromSchedule }
+                                                                                            : m
+                                                                                    )
+                                                                                };
+                                                                            });
+                                                                            setProjects(updatedProjects);
+                                                                        }}
+                                                                        className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 ${
+                                                                            module.excludeFromSchedule 
+                                                                                ? 'hover:bg-green-50 text-green-600' 
+                                                                                : 'hover:bg-orange-50 text-orange-600'
+                                                                        }`}
+                                                                    >
+                                                                        {module.excludeFromSchedule ? '📅 Include in Schedule' : '🚫 Exclude from Schedule'}
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2953,6 +2991,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [mode, setMode] = useState('all'); // 'all' or 'select'
             const [selectedModules, setSelectedModules] = useState(new Set());
             const [insertAfter, setInsertAfter] = useState('');
+            const [confirmationText, setConfirmationText] = useState('');
+            const [showConfirmStep, setShowConfirmStep] = useState(false);
+            
+            // Check if confirmation text matches project name (case-insensitive)
+            const isConfirmationValid = confirmationText.toLowerCase().trim() === project.name.toLowerCase().trim();
             
             // Get modules already online (for insert after dropdown)
             const onlineModules = modules.filter(m => m.isOnline);
@@ -2993,109 +3036,184 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                         </div>
                         
-                        <div className="p-6 space-y-4">
-                            {/* Mode Selection */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-semibold text-gray-700">Which modules to put online?</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        onClick={() => setMode('all')}
-                                        className={`p-3 rounded-lg border-2 text-left transition ${
-                                            mode === 'all' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <div className="font-semibold text-gray-800">All Modules</div>
-                                        <div className="text-sm text-gray-500">{modules.length} modules</div>
-                                    </button>
-                                    <button
-                                        onClick={() => setMode('select')}
-                                        className={`p-3 rounded-lg border-2 text-left transition ${
-                                            mode === 'select' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <div className="font-semibold text-gray-800">Select Modules</div>
-                                        <div className="text-sm text-gray-500">e.g., prototypes only</div>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            {/* Module Selection (if select mode) */}
-                            {mode === 'select' && (
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <label className="block text-sm font-semibold text-gray-700">
-                                            Select Modules ({selectedModules.size} selected)
-                                        </label>
-                                        <div className="flex gap-2">
-                                            <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">Select All</button>
-                                            <button onClick={selectNone} className="text-xs text-gray-500 hover:underline">Clear</button>
+                        {!showConfirmStep ? (
+                            <>
+                                <div className="p-6 space-y-4">
+                                    {/* Mode Selection */}
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-semibold text-gray-700">Which modules to put online?</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => setMode('all')}
+                                                className={`p-3 rounded-lg border-2 text-left transition ${
+                                                    mode === 'all' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                                                }`}
+                                            >
+                                                <div className="font-semibold text-gray-800">All Modules</div>
+                                                <div className="text-sm text-gray-500">{modules.length} modules</div>
+                                            </button>
+                                            <button
+                                                onClick={() => setMode('select')}
+                                                className={`p-3 rounded-lg border-2 text-left transition ${
+                                                    mode === 'select' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                                                }`}
+                                            >
+                                                <div className="font-semibold text-gray-800">Select Modules</div>
+                                                <div className="text-sm text-gray-500">e.g., prototypes only</div>
+                                            </button>
                                         </div>
-                                    </div>
-                                    <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
-                                        {modules.map(m => (
-                                            <label key={m.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedModules.has(m.id)}
-                                                    onChange={() => toggleModule(m.id)}
-                                                    className="w-4 h-4 text-green-600 rounded"
-                                                />
-                                                <span className="font-mono text-sm">{m.serialNumber}</span>
-                                                {m.isPrototype && <span className="text-yellow-500 text-xs">★ Prototype</span>}
-                                                <span className="text-xs text-gray-400 ml-auto">#{m.buildSequence}</span>
-                                            </label>
-                                        ))}
                                     </div>
                                     
-                                    {/* Insert After (for prototypes) */}
-                                    {onlineModules.length > 0 && (
-                                        <div className="mt-3">
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Insert after existing module (optional)
-                                            </label>
-                                            <select
-                                                value={insertAfter}
-                                                onChange={(e) => setInsertAfter(e.target.value)}
-                                                className="w-full border rounded-lg px-3 py-2 text-sm"
-                                            >
-                                                <option value="">At end of schedule</option>
-                                                {onlineModules.map(m => (
-                                                    <option key={m.id} value={m.serialNumber}>
-                                                        After {m.serialNumber} (#{m.buildSequence})
-                                                    </option>
+                                    {/* Module Selection (if select mode) */}
+                                    {mode === 'select' && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-sm font-semibold text-gray-700">
+                                                    Select Modules ({selectedModules.size} selected)
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">Select All</button>
+                                                    <button onClick={selectNone} className="text-xs text-gray-500 hover:underline">Clear</button>
+                                                </div>
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
+                                                {modules.map(m => (
+                                                    <label key={m.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedModules.has(m.id)}
+                                                            onChange={() => toggleModule(m.id)}
+                                                            className="w-4 h-4 text-green-600 rounded"
+                                                        />
+                                                        <span className="font-mono text-sm">{m.serialNumber}</span>
+                                                        {m.isPrototype && <span className="text-yellow-500 text-xs">★ Prototype</span>}
+                                                        <span className="text-xs text-gray-400 ml-auto">#{m.buildSequence}</span>
+                                                    </label>
                                                 ))}
-                                            </select>
+                                            </div>
+                                            
+                                            {/* Insert After (for prototypes) */}
+                                            {onlineModules.length > 0 && (
+                                                <div className="mt-3">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        Insert after existing module (optional)
+                                                    </label>
+                                                    <select
+                                                        value={insertAfter}
+                                                        onChange={(e) => setInsertAfter(e.target.value)}
+                                                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                                                    >
+                                                        <option value="">At end of schedule</option>
+                                                        {onlineModules.map(m => (
+                                                            <option key={m.id} value={m.serialNumber}>
+                                                                After {m.serialNumber} (#{m.buildSequence})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
+                                    
+                                    {/* Summary */}
+                                    <div className="bg-gray-50 rounded-lg p-4">
+                                        <div className="text-sm text-gray-600">
+                                            <strong>Summary:</strong> Project will be set to <span className="text-green-600 font-semibold">Active</span> status with{' '}
+                                            {mode === 'all' ? (
+                                                <span className="font-semibold">{modules.length} modules</span>
+                                            ) : (
+                                                <span className="font-semibold">{selectedModules.size} selected modules</span>
+                                            )}{' '}
+                                            ready for production scheduling.
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                            
-                            {/* Summary */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="text-sm text-gray-600">
-                                    <strong>Summary:</strong> Project will be set to <span className="text-green-600 font-semibold">Active</span> status with{' '}
-                                    {mode === 'all' ? (
-                                        <span className="font-semibold">{modules.length} modules</span>
-                                    ) : (
-                                        <span className="font-semibold">{selectedModules.size} selected modules</span>
-                                    )}{' '}
-                                    ready for production scheduling.
+                                
+                                <div className="p-4 border-t flex justify-end gap-2">
+                                    <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => setShowConfirmStep(true)}
+                                        disabled={mode === 'select' && selectedModules.size === 0}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Continue
+                                    </button>
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-t flex justify-end gap-2">
-                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleConfirm}
-                                disabled={mode === 'select' && selectedModules.size === 0}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Go Online
-                            </button>
-                        </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="p-6 space-y-4">
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <span className="text-yellow-600 text-xl flex-shrink-0">⚠</span>
+                                            <div>
+                                                <h3 className="font-semibold text-yellow-800">Confirm Project Activation</h3>
+                                                <p className="text-sm text-yellow-700 mt-1">
+                                                    This action will set the project to <strong>Active</strong> status and add modules to the production schedule.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Type the project name to confirm: <span className="text-green-600">{project.name}</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={confirmationText}
+                                            onChange={(e) => setConfirmationText(e.target.value)}
+                                            placeholder={project.name}
+                                            className={`w-full px-4 py-2 border-2 rounded-lg transition ${
+                                                confirmationText && !isConfirmationValid 
+                                                    ? 'border-red-300 bg-red-50' 
+                                                    : isConfirmationValid 
+                                                        ? 'border-green-500 bg-green-50' 
+                                                        : 'border-gray-300'
+                                            }`}
+                                            autoFocus
+                                        />
+                                        {confirmationText && !isConfirmationValid && (
+                                            <p className="text-sm text-red-600 mt-1">Project name doesn't match</p>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="bg-gray-50 rounded-lg p-4">
+                                        <div className="text-sm text-gray-600">
+                                            <strong>You are about to:</strong>
+                                            <ul className="mt-2 space-y-1 list-disc list-inside">
+                                                <li>Set <strong>{project.name}</strong> to Active status</li>
+                                                <li>Put {mode === 'all' ? modules.length : selectedModules.size} module(s) online</li>
+                                                <li>Add these modules to the Weekly Board schedule</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-4 border-t flex justify-between">
+                                    <button 
+                                        onClick={() => { setShowConfirmStep(false); setConfirmationText(''); }}
+                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                                    >
+                                        Back
+                                    </button>
+                                    <div className="flex gap-2">
+                                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleConfirm}
+                                            disabled={!isConfirmationValid}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Go Online
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             );
