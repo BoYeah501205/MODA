@@ -933,7 +933,19 @@ function ScheduleSetupTab({
         shift2: { friday: 0, saturday: 0, sunday: 0 }
     });
     
-    const sortedModules = [...(allModules || [])].sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+    // Sort modules: first by project (productionOrder, then projectId), then by buildSequence within project
+    const sortedModules = [...(allModules || [])].sort((a, b) => {
+        // First by production order
+        if ((a.projectProductionOrder || 999) !== (b.projectProductionOrder || 999)) {
+            return (a.projectProductionOrder || 999) - (b.projectProductionOrder || 999);
+        }
+        // Then keep projects grouped by projectId
+        if (a.projectId !== b.projectId) {
+            return (a.projectId || '').localeCompare(b.projectId || '');
+        }
+        // Then by build sequence within project
+        return (a.buildSequence || 0) - (b.buildSequence || 0);
+    });
     
     const getWeekSunday = (mondayStr) => { 
         const monday = new Date(mondayStr); 
