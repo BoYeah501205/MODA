@@ -66,7 +66,9 @@
                         
                         if (profile) {
                             userProfile = profile;
-                            console.log('[Supabase] Loaded user profile');
+                            console.log('[Supabase] Loaded user profile, role:', profile.dashboard_role);
+                            // Dispatch event to notify components that profile is loaded
+                            window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: profile }));
                         } else {
                             // Profile doesn't exist - use default values
                             // The database trigger should create it, but if not, use defaults
@@ -199,6 +201,10 @@
             }
             
             console.log('[Supabase] Login complete, user:', result.user.email, 'role:', profileData?.dashboard_role);
+            
+            // Dispatch event to notify components that profile is loaded
+            window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: profileData }));
+            
             return { success: true, user: result.user, profile: profileData };
             
         } catch (error) {

@@ -142,6 +142,32 @@ const useWeeklySchedule = () => {
         }
     }, [isSupabaseAvailable]);
     
+    // Re-check edit permissions when user profile changes
+    useEffect(() => {
+        const checkPermissions = () => {
+            if (isSupabaseAvailable() && window.MODA_SUPABASE_DATA?.weeklySchedules) {
+                const newCanEdit = window.MODA_SUPABASE_DATA.weeklySchedules.canEdit();
+                setCanEdit(newCanEdit);
+                console.log('[WeeklySchedule] Permission re-check, canEdit:', newCanEdit);
+            }
+        };
+        
+        // Check immediately
+        checkPermissions();
+        
+        // Also check after a short delay to catch late profile loads
+        const timer = setTimeout(checkPermissions, 1000);
+        
+        // Listen for profile changes
+        const handleProfileChange = () => checkPermissions();
+        window.addEventListener('moda-profile-loaded', handleProfileChange);
+        
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('moda-profile-loaded', handleProfileChange);
+        };
+    }, [isSupabaseAvailable]);
+    
     // Save to Supabase when schedule changes (debounced)
     useEffect(() => {
         if (loading) return; // Don't save during initial load
