@@ -292,6 +292,217 @@ const useWeeklySchedule = () => {
     };
 };
 
+// ===== SCHEDULED PROJECTS SECTION COMPONENT =====
+// Shows Active/Scheduled/Planned projects with ability to reorder and remove from schedule
+function ScheduledProjectsSection({ projects, setProjects, canEdit }) {
+    const { useMemo } = React;
+    
+    // Categorize projects
+    const categorizedProjects = useMemo(() => {
+        const active = []; // Has progression - locked
+        const scheduled = []; // On weekly board (status=Active) but no progression yet
+        const planned = []; // Not on weekly board yet (status=Planning/Planned)
+        
+        (projects || []).forEach(p => {
+            if (p.status === 'Complete') return; // Skip completed projects
+            
+            // Check if any module has progression (stageProgress > 0 at any station)
+            const hasProgression = (p.modules || []).some(m => {
+                const progress = m.stageProgress || {};
+                return Object.values(progress).some(v => v > 0);
+            });
+            
+            if (p.status === 'Active') {
+                if (hasProgression) {
+                    active.push(p);
+                } else {
+                    scheduled.push(p);
+                }
+            } else {
+                planned.push(p);
+            }
+        });
+        
+        // Sort by productionOrder
+        active.sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999));
+        scheduled.sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999));
+        planned.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        
+        return { active, scheduled, planned };
+    }, [projects]);
+    
+    // Move project up in order (swap with previous)
+    const handleMoveUp = (project, category) => {
+        if (!canEdit || !setProjects) return;
+        
+        const list = category === 'scheduled' ? categorizedProjects.scheduled : categorizedProjects.planned;
+        const idx = list.findIndex(p => p.id === project.id);
+        if (idx <= 0) return;
+        
+        const prevProject = list[idx - 1];
+        const currentOrder = project.productionOrder || 999;
+        const prevOrder = prevProject.productionOrder || 999;
+        
+        // Swap production orders
+        setProjects(prev => prev.map(p => {
+            if (p.id === project.id) return { ...p, productionOrder: prevOrder };
+            if (p.id === prevProject.id) return { ...p, productionOrder: currentOrder };
+            return p;
+        }));
+    };
+    
+    // Move project down in order (swap with next)
+    const handleMoveDown = (project, category) => {
+        if (!canEdit || !setProjects) return;
+        
+        const list = category === 'scheduled' ? categorizedProjects.scheduled : categorizedProjects.planned;
+        const idx = list.findIndex(p => p.id === project.id);
+        if (idx < 0 || idx >= list.length - 1) return;
+        
+        const nextProject = list[idx + 1];
+        const currentOrder = project.productionOrder || 999;
+        const nextOrder = nextProject.productionOrder || 999;
+        
+        // Swap production orders
+        setProjects(prev => prev.map(p => {
+            if (p.id === project.id) return { ...p, productionOrder: nextOrder };
+            if (p.id === nextProject.id) return { ...p, productionOrder: currentOrder };
+            return p;
+        }));
+    };
+    
+    // Remove project from schedule (set back to Planning, clear productionOrder)
+    const handleRemoveFromSchedule = (project) => {
+        if (!canEdit || !setProjects) return;
+        if (!confirm(`Remove "${project.name}" from the production schedule?\n\nThis will set the project back to Planning status. You can re-schedule it from the Projects tab.`)) return;
+        
+        setProjects(prev => prev.map(p => {
+            if (p.id !== project.id) return p;
+            // Clear productionOrder and set status back to Planning
+            const { productionOrder, ...rest } = p;
+            return { 
+                ...rest, 
+                status: 'Planning',
+                modules: (p.modules || []).map(m => ({ ...m, isOnline: false }))
+            };
+        }));
+    };
+    
+    const totalScheduled = categorizedProjects.active.length + categorizedProjects.scheduled.length;
+    
+    return (
+        <div className="bg-white border-2 border-purple-400 rounded-lg overflow-hidden">
+            <div className="bg-purple-500 text-white px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">📋</span>
+                    <span className="font-semibold">Scheduled Projects</span>
+                    <span className="text-sm opacity-75">Production order for Weekly Board</span>
+                </div>
+                <span className="bg-purple-700 text-white px-2 py-0.5 rounded text-sm font-medium">
+                    {totalScheduled} project{totalScheduled !== 1 ? 's' : ''} scheduled
+                </span>
+            </div>
+            
+            <div className="p-4 space-y-4">
+                {/* Active Projects - Locked */}
+                {categorizedProjects.active.length > 0 && (
+                    <div>
+                        <div className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Active Projects (Locked - has progression)
+                        </div>
+                        <div className="space-y-1">
+                            {categorizedProjects.active.map((p, idx) => (
+                                <div key={p.id} className="flex items-center gap-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                    <span className="text-gray-400 font-mono text-sm w-6">#{p.productionOrder || idx + 1}</span>
+                                    <span className="font-medium text-gray-800 flex-1">{p.name}</span>
+                                    <span className="text-xs text-gray-500">{(p.modules || []).length} modules</span>
+                                    <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">Active</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Scheduled Projects - Can reorder or remove */}
+                {categorizedProjects.scheduled.length > 0 && (
+                    <div>
+                        <div className="text-sm font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            Scheduled Projects (No progression yet)
+                        </div>
+                        <div className="space-y-1">
+                            {categorizedProjects.scheduled.map((p, idx) => (
+                                <div key={p.id} className="flex items-center gap-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <span className="text-gray-400 font-mono text-sm w-6">#{p.productionOrder || idx + 1}</span>
+                                    <span className="font-medium text-gray-800 flex-1">{p.name}</span>
+                                    <span className="text-xs text-gray-500">{(p.modules || []).length} modules</span>
+                                    {canEdit && (
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={() => handleMoveUp(p, 'scheduled')}
+                                                disabled={idx === 0}
+                                                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Move up"
+                                            >
+                                                ↑
+                                            </button>
+                                            <button
+                                                onClick={() => handleMoveDown(p, 'scheduled')}
+                                                disabled={idx === categorizedProjects.scheduled.length - 1}
+                                                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Move down"
+                                            >
+                                                ↓
+                                            </button>
+                                            <button
+                                                onClick={() => handleRemoveFromSchedule(p)}
+                                                className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-600 rounded"
+                                                title="Remove from schedule"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Planned Projects - Not yet scheduled */}
+                {categorizedProjects.planned.length > 0 && (
+                    <div>
+                        <div className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                            Planned Projects (Not scheduled)
+                        </div>
+                        <div className="space-y-1">
+                            {categorizedProjects.planned.map(p => (
+                                <div key={p.id} className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <span className="text-gray-300 font-mono text-sm w-6">—</span>
+                                    <span className="font-medium text-gray-600 flex-1">{p.name}</span>
+                                    <span className="text-xs text-gray-500">{(p.modules || []).length} modules</span>
+                                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">{p.status || 'Planning'}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                            To schedule a project, go to Projects → select project → click "Schedule Online"
+                        </p>
+                    </div>
+                )}
+                
+                {totalScheduled === 0 && categorizedProjects.planned.length === 0 && (
+                    <div className="text-center py-4 text-gray-500">
+                        No projects found. Create projects in the Projects tab.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ===== PROTOTYPE SCHEDULING SECTION COMPONENT =====
 function PrototypeSchedulingSection({ allModules, sortedModules, projects, setProjects }) {
     const { useState, useMemo } = React;
@@ -910,6 +1121,13 @@ function ScheduleSetupTab({
                     </div>
                 </div>
             )}
+            
+            {/* ===== SCHEDULED PROJECTS SECTION ===== */}
+            <ScheduledProjectsSection 
+                projects={projects}
+                setProjects={setProjects}
+                canEdit={canEdit}
+            />
             
             {/* ===== PROTOTYPE SCHEDULING SECTION ===== */}
             <PrototypeSchedulingSection 
