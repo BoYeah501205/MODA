@@ -4561,12 +4561,21 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
     // Calculate current starting module index
     const currentStartIdx = useMemo(() => {
         if (!currentWeek?.startingModule) return -1;
-        return allModules.findIndex(m => m.serialNumber === currentWeek.startingModule);
+        const idx = allModules.findIndex(m => m.serialNumber === currentWeek.startingModule);
+        // If starting module not found, log warning
+        if (idx === -1 && currentWeek?.startingModule) {
+            console.warn('[WeekCompleteModal] Starting module not found in allModules:', currentWeek.startingModule);
+        }
+        return idx;
     }, [currentWeek, allModules]);
     
     // Calculate suggested next starting module based on ACTUAL modules produced
     const suggestedNextModule = useMemo(() => {
-        if (currentStartIdx === -1) return null;
+        // If current starting module not found, suggest the first available module
+        if (currentStartIdx === -1) {
+            console.log('[WeekCompleteModal] Falling back to first available module');
+            return allModules[0] || null;
+        }
         const nextIdx = currentStartIdx + modulesProduced;
         return allModules[nextIdx] || null;
     }, [currentStartIdx, modulesProduced, allModules]);
