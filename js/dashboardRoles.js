@@ -441,6 +441,9 @@ function canUserEditTab(tabId) {
     const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
                      localStorage.getItem('autovol_user_role') || 'employee';
     
+    // Admin always has full edit access - check before loading roles
+    if (userRole === 'admin') return true;
+    
     // Get roles from localStorage
     const rolesJson = localStorage.getItem('autovol_dashboard_roles');
     if (!rolesJson) return false;
@@ -450,7 +453,7 @@ function canUserEditTab(tabId) {
         const role = roles.find(r => r.id === userRole);
         if (!role) return false;
         
-        // Admin always has full edit access
+        // Admin always has full edit access (redundant but kept for safety)
         if (role.id === 'admin') return true;
         
         // Check tabPermissions object (new structure)
@@ -476,6 +479,9 @@ function canUserPerformAction(tabId, action) {
     const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
                      localStorage.getItem('autovol_user_role') || 'employee';
     
+    // Admin always has full access - check before loading roles
+    if (userRole === 'admin') return true;
+    
     const rolesJson = localStorage.getItem('autovol_dashboard_roles');
     if (!rolesJson) return false;
     
@@ -484,7 +490,7 @@ function canUserPerformAction(tabId, action) {
         const role = roles.find(r => r.id === userRole);
         if (!role) return false;
         
-        // Admin always has full access
+        // Admin always has full access (redundant but kept for safety)
         if (role.id === 'admin') return true;
         
         // Check tabPermissions object
