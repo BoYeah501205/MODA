@@ -2873,6 +2873,18 @@ function WeeklyBoardTab({
     // Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
     const CARD_HEIGHT = boardViewMode === 'detailed' ? 120 : 58;
     
+    // Generate a short project acronym (max 3 characters) from project name
+    const getProjectAcronym = (projectName) => {
+        if (!projectName) return '';
+        const words = projectName.trim().split(/\s+/);
+        if (words.length === 1) {
+            // Single word: take first 2-3 letters
+            return words[0].substring(0, 3).toUpperCase();
+        }
+        // Multiple words: take first letter of each word (max 3)
+        return words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
+    };
+    
     // Render a module card with progress buttons and menu (Station Board style)
     const renderModuleCard = (module, station, weekSection = 'current') => {
         const currentProgress = module.stageProgress?.[station.id] || 0;
@@ -2919,8 +2931,13 @@ function WeeklyBoardTab({
                     onClick={() => updateModuleProgress(module.id, module.projectId, station.id, 25)}
                     title="Click to start"
                 >
-                    <div className="font-mono text-xs font-bold text-gray-500 truncate">
+                    <div className="font-mono text-xs font-bold text-gray-500 truncate flex items-center gap-1">
                         {module.serialNumber}
+                        {module.projectName && (
+                            <span className="text-[9px] px-1 py-0.5 bg-gray-200 text-gray-600 rounded" title={module.projectName}>
+                                {getProjectAcronym(module.projectName)}
+                            </span>
+                        )}
                         {module.isPrototype && <span className="text-yellow-500 ml-1" title="Prototype">★</span>}
                     </div>
                     
@@ -3000,6 +3017,11 @@ function WeeklyBoardTab({
                     >
                         {moduleIsSelected && <span className="text-blue-500 mr-1">✓</span>}
                         {module.serialNumber}
+                        {module.projectName && (
+                            <span className="text-[9px] px-1 py-0.5 bg-blue-100 text-blue-700 rounded ml-1" title={module.projectName}>
+                                {getProjectAcronym(module.projectName)}
+                            </span>
+                        )}
                         {module.isPrototype && <span className="text-yellow-500 ml-1" title="Prototype">★</span>}
                     </div>
                     <button
