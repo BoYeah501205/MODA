@@ -186,6 +186,7 @@
                 moduleId: unified.serialNumber,
                 blm: unified.specs?.blmHitch || '',
                 project: unified.projectName || 'Unknown',
+                projectAbbreviation: unified.projectAbbreviation || null,
                 stage: 'ready',
                 yardId: null,
                 transportCompanyId: null,
@@ -535,7 +536,14 @@
               )}
             </div>
             <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontFamily: "'JetBrains Mono', monospace" }}>{module.blm}</div>
-            <div style={{ fontSize: '12px', color: COLORS.blue, fontWeight: '600' }}>{module.project}</div>
+            <div style={{ fontSize: '12px', color: COLORS.blue, fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {module.projectAbbreviation && (
+                <span style={{ fontSize: '10px', padding: '1px 5px', background: '#e0f2fe', color: '#0369a1', borderRadius: '3px', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {module.projectAbbreviation}
+                </span>
+              )}
+              {module.project}
+            </div>
             {module.yardId && (
               <div style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>📋 {getYardName(module.yardId)}</div>
             )}
@@ -698,7 +706,14 @@
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '12px', color: COLORS.blue, fontWeight: '600' }}>{module.project}</div>
+                      <div style={{ fontSize: '12px', color: COLORS.blue, fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {module.projectAbbreviation && (
+                          <span style={{ fontSize: '10px', padding: '1px 5px', background: '#e0f2fe', color: '#0369a1', borderRadius: '3px', fontFamily: "'JetBrains Mono', monospace" }}>
+                            {module.projectAbbreviation}
+                          </span>
+                        )}
+                        {module.project}
+                      </div>
                       {module.transportCompanyId && (
                         <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>Carrier: {getCompanyName(module.transportCompanyId)}</div>
                       )}

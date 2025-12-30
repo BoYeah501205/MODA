@@ -1868,7 +1868,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 validateWeek={validateWeek}
                                                 allModules={activeProjects
                                                     .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
-                                                    .flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name, projectProductionOrder: p.productionOrder || 999 })))
+                                                    .flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 })))
                                                     .sort((a, b) => {
                                                         if (a.projectProductionOrder !== b.projectProductionOrder) return a.projectProductionOrder - b.projectProductionOrder;
                                                         return (a.buildSequence || 0) - (b.buildSequence || 0);
@@ -2197,6 +2197,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [goOnlineNotification, setGoOnlineNotification] = useState(null);
             const [importNotification, setImportNotification] = useState(null);
             const [showHeatMapMatrix, setShowHeatMapMatrix] = useState(false);
+            const [editingAbbreviation, setEditingAbbreviation] = useState(false);
+            const [abbreviationValue, setAbbreviationValue] = useState(project.abbreviation || '');
 
             // Report Issue State
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
@@ -2402,6 +2404,17 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 );
                 setProjects(updatedProjects);
             };
+            
+            // Update project abbreviation
+            const saveAbbreviation = () => {
+                const cleanValue = abbreviationValue.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+                const updatedProjects = projects.map(p => 
+                    p.id === project.id ? { ...p, abbreviation: cleanValue || null } : p
+                );
+                setProjects(updatedProjects);
+                setAbbreviationValue(cleanValue);
+                setEditingAbbreviation(false);
+            };
 
             // Get progress color class
             const getProgressClass = (progress) => {
@@ -2423,7 +2436,36 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             >
                                 ← Back to Projects
                             </button>
-                            <h2 className="text-2xl font-bold text-autovol-navy">{project.name}</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-2xl font-bold text-autovol-navy">{project.name}</h2>
+                                {editingAbbreviation ? (
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="text"
+                                            value={abbreviationValue}
+                                            onChange={(e) => setAbbreviationValue(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3))}
+                                            placeholder="ABC"
+                                            maxLength={3}
+                                            className="w-14 px-2 py-1 border rounded text-center font-mono text-sm uppercase"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') saveAbbreviation();
+                                                if (e.key === 'Escape') { setEditingAbbreviation(false); setAbbreviationValue(project.abbreviation || ''); }
+                                            }}
+                                        />
+                                        <button onClick={saveAbbreviation} className="text-green-600 hover:text-green-700 text-sm px-1">Save</button>
+                                        <button onClick={() => { setEditingAbbreviation(false); setAbbreviationValue(project.abbreviation || ''); }} className="text-gray-400 hover:text-gray-600 text-sm px-1">Cancel</button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setEditingAbbreviation(true)}
+                                        className="px-2 py-0.5 text-sm font-mono bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                                        title="Click to edit abbreviation (used on Weekly Board)"
+                                    >
+                                        {currentProject.abbreviation || '---'}
+                                    </button>
+                                )}
+                            </div>
                             <p className="text-gray-500">{project.address ? `${project.address}, ${project.city}, ${project.state}` : project.location || ''}</p>
                             {project.description && <p className="text-sm text-gray-600">{project.description}</p>}
                             <div className="flex items-center gap-2 mt-2">
@@ -4182,7 +4224,14 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         // New Project Modal
         function NewProjectModal({ onClose, onSave }) {
             const [name, setName] = useState('');
+            const [abbreviation, setAbbreviation] = useState('');
             const [address, setAddress] = useState('');
+            
+            // Handle abbreviation input - limit to 3 uppercase letters
+            const handleAbbreviationChange = (e) => {
+                const value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+                setAbbreviation(value);
+            };
             const [city, setCity] = useState('');
             const [country, setCountry] = useState('US');
             const [state, setState] = useState('');
@@ -4202,15 +4251,28 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                             
                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
-                                    <input
-                                        type="text"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        placeholder="e.g., Alvarado Creek"
-                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
+                                        <input
+                                            type="text"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            placeholder="e.g., Alvarado Creek"
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Abbrev.</label>
+                                        <input
+                                            type="text"
+                                            value={abbreviation}
+                                            onChange={handleAbbreviationChange}
+                                            placeholder="AC"
+                                            maxLength={3}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase text-center font-mono"
+                                        />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
@@ -4336,7 +4398,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
                                 <button 
                                     onClick={() => onSave({ 
-                                        name, 
+                                        name,
+                                        abbreviation: abbreviation || undefined,
                                         address,
                                         city,
                                         country,

@@ -134,6 +134,7 @@
                 .from('projects')
                 .insert({
                     name: projectData.name,
+                    abbreviation: projectData.abbreviation || null,
                     status: projectData.status || 'Planning',
                     address: projectData.address || '',
                     city: projectData.city || '',
@@ -162,6 +163,7 @@
             // Extract only the fields we want to update (avoid sending React internal fields)
             const updatePayload = {
                 name: updates.name,
+                abbreviation: updates.abbreviation,
                 status: updates.status,
                 address: updates.address,
                 city: updates.city,

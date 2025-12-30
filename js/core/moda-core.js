@@ -144,7 +144,7 @@
                     (project.modules || []).forEach(mod => {
                         // Only migrate if not already in unified storage
                         if (!unifiedModules[mod.id]) {
-                            unifiedModules[mod.id] = this.createUnifiedModule(mod, project.id, project.name);
+                            unifiedModules[mod.id] = this.createUnifiedModule(mod, project.id, project.name, project.abbreviation);
                             migratedCount++;
                         } else {
                             // Sync production data from project to unified

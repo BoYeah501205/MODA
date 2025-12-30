@@ -1784,7 +1784,7 @@ function WeeklyBoardTab({
         .flatMap(p => 
             (p.modules || [])
                 .filter(m => !m.excludeFromSchedule)
-                .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectProductionOrder: p.productionOrder || 999 }))
+                .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 }))
         )
         .sort((a, b) => {
             // First sort by project production order
@@ -2873,8 +2873,13 @@ function WeeklyBoardTab({
     // Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
     const CARD_HEIGHT = boardViewMode === 'detailed' ? 120 : 58;
     
-    // Generate a short project acronym (max 3 characters) from project name
-    const getProjectAcronym = (projectName) => {
+    // Get project abbreviation - use stored abbreviation if available, otherwise auto-generate
+    const getProjectAcronym = (module) => {
+        // First check if module has projectAbbreviation from the project
+        if (module.projectAbbreviation) return module.projectAbbreviation;
+        
+        // Fallback: auto-generate from project name
+        const projectName = module.projectName;
         if (!projectName) return '';
         const words = projectName.trim().split(/\s+/);
         if (words.length === 1) {
@@ -2935,7 +2940,7 @@ function WeeklyBoardTab({
                         {module.serialNumber}
                         {module.projectName && (
                             <span className="text-[9px] px-1 py-0.5 bg-gray-200 text-gray-600 rounded" title={module.projectName}>
-                                {getProjectAcronym(module.projectName)}
+                                {getProjectAcronym(module)}
                             </span>
                         )}
                         {module.isPrototype && <span className="text-yellow-500 ml-1" title="Prototype">★</span>}
@@ -3019,7 +3024,7 @@ function WeeklyBoardTab({
                         {module.serialNumber}
                         {module.projectName && (
                             <span className="text-[9px] px-1 py-0.5 bg-blue-100 text-blue-700 rounded ml-1" title={module.projectName}>
-                                {getProjectAcronym(module.projectName)}
+                                {getProjectAcronym(module)}
                             </span>
                         )}
                         {module.isPrototype && <span className="text-yellow-500 ml-1" title="Prototype">★</span>}

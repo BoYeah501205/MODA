@@ -11,7 +11,7 @@ window.MODA_UNIFIED = (function() {
     return {
         
         // Create a unified module record from project module
-        createUnifiedModule: function(projectModule, projectId, projectName) {
+        createUnifiedModule: function(projectModule, projectId, projectName, projectAbbreviation) {
             const now = new Date().toISOString();
             
             // Determine current phase based on stageProgress
@@ -29,6 +29,7 @@ window.MODA_UNIFIED = (function() {
                 serialNumber: projectModule.serialNumber,
                 projectId: projectId,
                 projectName: projectName,
+                projectAbbreviation: projectAbbreviation || null,
                 
                 // Module Specifications
                 specs: {
@@ -108,7 +109,7 @@ window.MODA_UNIFIED = (function() {
                 (project.modules || []).forEach(mod => {
                     if (!unifiedModules[mod.id]) {
                         // New module - create unified record
-                        unifiedModules[mod.id] = this.createUnifiedModule(mod, project.id, project.name);
+                        unifiedModules[mod.id] = this.createUnifiedModule(mod, project.id, project.name, project.abbreviation);
                         syncedCount++;
                     } else {
                         // Existing module - sync production data only
