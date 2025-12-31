@@ -253,7 +253,7 @@ function HeatMapMatrix({
                 </div>
 
                 {/* Matrix Grid */}
-                <div className="flex-1 overflow-auto p-4">
+                <div className="flex-1 overflow-auto p-4 pt-8">
                     <table className="min-w-full border-collapse">
                         <thead>
                             <tr>
@@ -272,7 +272,7 @@ function HeatMapMatrix({
                             </tr>
                         </thead>
                         <tbody>
-                            {indicators.map(indicator => (
+                            {indicators.map((indicator, rowIndex) => (
                                 <tr key={indicator.id}>
                                     <td className="sticky left-0 z-10 bg-white border p-2 text-sm font-medium text-gray-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                         <div className="flex items-center gap-2">
@@ -287,6 +287,7 @@ function HeatMapMatrix({
                                         const isEditing = editingCell?.indicatorId === indicator.id && 
                                                          editingCell?.stationId === stage.id;
                                         const isPending = pendingChanges[`${indicator.id}|${stage.id}`];
+                                        const isFirstRow = rowIndex === 0;
                                         
                                         return (
                                             <td 
@@ -300,9 +301,9 @@ function HeatMapMatrix({
                                                     {getDifficultyLabel(category)}
                                                 </span>
                                                 
-                                                {/* Dropdown for editing - appears above cell to avoid cutoff */}
+                                                {/* Dropdown for editing - appears below for first row, above for others */}
                                                 {isEditing && (
-                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[100px]">
+                                                    <div className={`absolute left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[100px] ${isFirstRow ? 'top-full mt-1' : 'bottom-full mb-1'}`}>
                                                         {DIFFICULTY_CATEGORIES.map(cat => (
                                                             <button
                                                                 key={cat.id}
