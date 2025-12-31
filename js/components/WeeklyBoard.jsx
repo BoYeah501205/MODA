@@ -25,6 +25,9 @@ const useWeeklySchedule = () => {
     const [loading, setLoading] = useState(true);
     const [synced, setSynced] = useState(false);
     
+    // Debug info for mobile testing (visible in UI)
+    const [debugInfo, setDebugInfo] = useState({ source: 'initializing', retries: 0, error: null });
+    
     // Track if we can edit (only trevor@autovol.com)
     const [canEdit, setCanEdit] = useState(false);
     
@@ -49,6 +52,7 @@ const useWeeklySchedule = () => {
         const loadFromSupabase = async () => {
             const available = isSupabaseAvailable();
             console.log('[WeeklySchedule] Load attempt', retryCount + 1, '- Supabase available:', available);
+            setDebugInfo(prev => ({ ...prev, retries: retryCount }));
             
             if (!available) {
                 // Retry a few times before falling back to localStorage
@@ -60,6 +64,7 @@ const useWeeklySchedule = () => {
                 }
                 
                 console.log('[WeeklySchedule] Supabase not available after retries, using localStorage fallback');
+                setDebugInfo({ source: 'localStorage', retries: retryCount, error: 'Supabase not available' });
                 // Fallback to localStorage with safe parsing
                 try {
                     const savedSetup = localStorage.getItem('autovol_schedule_setup');
@@ -108,6 +113,7 @@ const useWeeklySchedule = () => {
                 })));
                 
                 setSynced(true);
+                setDebugInfo({ source: 'supabase', retries: retryCount, error: null });
                 console.log('[WeeklySchedule] Loaded from Supabase successfully');
                 
                 // Subscribe to real-time updates after successful load
@@ -137,6 +143,7 @@ const useWeeklySchedule = () => {
                 });
             } catch (err) {
                 console.error('[WeeklySchedule] Load error:', err);
+                setDebugInfo({ source: 'localStorage', retries: retryCount, error: err.message });
                 // Fallback to localStorage with safe parsing
                 try {
                     const savedSetup = localStorage.getItem('autovol_schedule_setup');
@@ -341,7 +348,8 @@ const useWeeklySchedule = () => {
         deleteCompletedWeek,
         loading,
         synced,
-        canEdit
+        canEdit,
+        debugInfo
     };
 };
 
@@ -1092,6 +1100,17 @@ function ScheduleSetupTab({
                     </div>
                 </div>
             )}
+            
+            {/* Debug Banner - Shows data source for mobile testing */}
+            <div className={`rounded-lg p-2 text-xs font-mono ${
+                window.MODA_SUPABASE_DATA?.isAvailable?.() 
+                    ? 'bg-green-100 border border-green-300 text-green-800' 
+                    : 'bg-red-100 border border-red-300 text-red-800'
+            }`}>
+                <strong>Sync Status:</strong> {window.MODA_SUPABASE_DATA?.isAvailable?.() ? 'Supabase Connected' : 'localStorage Only'} | 
+                <strong> Shift1 Mon:</strong> {scheduleSetup?.shift1?.monday ?? 'N/A'} | 
+                <strong> User:</strong> {window.MODA_SUPABASE?.currentUser?.email || 'Not logged in'}
+            </div>
             
             {/* Header */}
             <div className="flex items-center justify-between">
