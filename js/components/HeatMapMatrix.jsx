@@ -191,7 +191,7 @@ function HeatMapMatrix({
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-[95vw] max-h-[90vh] flex flex-col">
+            <div className="bg-white rounded-lg shadow-xl max-w-[95vw] min-h-[70vh] max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b">
                     <div>
