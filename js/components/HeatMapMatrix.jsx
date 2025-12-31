@@ -300,9 +300,9 @@ function HeatMapMatrix({
                                                     {getDifficultyLabel(category)}
                                                 </span>
                                                 
-                                                {/* Dropdown for editing */}
+                                                {/* Dropdown for editing - appears above cell to avoid cutoff */}
                                                 {isEditing && (
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[100px]">
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[100px]">
                                                         {DIFFICULTY_CATEGORIES.map(cat => (
                                                             <button
                                                                 key={cat.id}
