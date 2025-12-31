@@ -34,6 +34,11 @@ function HeatMapMatrix({
     onClose,
     canEdit = false 
 }) {
+    // Filter out Sign-Off station - it's just a completion indicator, not a labor station
+    const laborStations = productionStages.filter(s => 
+        s.name?.toLowerCase() !== 'sign-off' && s.id !== 'sign-off'
+    );
+    
     const [indicators, setIndicators] = useState([]);
     const [heatMapData, setHeatMapData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -93,7 +98,7 @@ function HeatMapMatrix({
         for (const indicator of indicators) {
             matrix[indicator.id] = {};
             
-            for (const stage of productionStages) {
+            for (const stage of laborStations) {
                 // Check pending changes first
                 const pendingKey = `${indicator.id}|${stage.id}`;
                 if (pendingChanges[pendingKey]) {
@@ -109,7 +114,7 @@ function HeatMapMatrix({
         }
         
         return matrix;
-    }, [indicators, heatMapData, productionStages, pendingChanges]);
+    }, [indicators, heatMapData, laborStations, pendingChanges]);
 
     // Handle cell click to edit
     const handleCellClick = (indicatorId, stationId, event) => {
@@ -268,7 +273,7 @@ function HeatMapMatrix({
                                 <th className="sticky left-0 top-0 z-30 bg-gray-100 border-y border-l border-r-0 p-2 text-left text-sm font-semibold text-gray-700 min-w-[120px] shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
                                     Indicator
                                 </th>
-                                {productionStages.map(stage => (
+                                {laborStations.map(stage => (
                                     <th 
                                         key={stage.id}
                                         className="sticky top-0 z-20 bg-gray-100 border p-3 text-center text-xs font-medium text-gray-700 min-w-[90px]"
@@ -290,7 +295,7 @@ function HeatMapMatrix({
                                             )}
                                         </div>
                                     </td>
-                                    {productionStages.map(stage => {
+                                    {laborStations.map(stage => {
                                         const category = matrixData[indicator.id]?.[stage.id] || 'average';
                                         const isEditing = editingCell?.indicatorId === indicator.id && 
                                                          editingCell?.stationId === stage.id;
