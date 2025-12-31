@@ -263,7 +263,7 @@ function HeatMapMatrix({
                                 {productionStages.map(stage => (
                                     <th 
                                         key={stage.id}
-                                        className="sticky top-0 z-20 bg-gray-100 border p-2 text-center text-xs font-medium text-gray-700 min-w-[80px] max-w-[100px]"
+                                        className="sticky top-0 z-20 bg-gray-100 border p-3 text-center text-xs font-medium text-gray-700 min-w-[90px]"
                                         title={stage.name}
                                     >
                                         <div className="truncate">{stage.dept || stage.name}</div>
@@ -274,7 +274,7 @@ function HeatMapMatrix({
                         <tbody>
                             {indicators.map((indicator, rowIndex) => (
                                 <tr key={indicator.id}>
-                                    <td className="sticky left-0 z-10 bg-white border p-2 text-sm font-medium text-gray-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                    <td className="sticky left-0 z-10 bg-white border p-3 text-sm font-medium text-gray-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                         <div className="flex items-center gap-2">
                                             <span>{indicator.name}</span>
                                             {indicator.is_easier && (
@@ -292,7 +292,7 @@ function HeatMapMatrix({
                                         return (
                                             <td 
                                                 key={stage.id}
-                                                className={`border p-1 text-center relative ${canEdit ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                                                className={`border p-3 text-center relative ${canEdit ? 'cursor-pointer hover:bg-gray-50' : ''}`}
                                                 onClick={() => handleCellClick(indicator.id, stage.id)}
                                             >
                                                 <span 
