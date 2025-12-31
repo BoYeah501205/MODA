@@ -1718,7 +1718,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         { id: 'weekly-board', label: 'Weekly Board' },
                                         { id: 'module-status', label: 'Module Status' },
                                         { id: 'staggers', label: 'Station Stagger' },
-                                        { id: 'schedule-setup', label: 'Schedule Setup' }
+                                        { id: 'schedule-setup', label: 'Schedule Setup' },
+                                        { id: 'reports', label: 'Reports' }
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
@@ -1883,6 +1884,84 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 <p className="text-sm mt-2">If this persists, check that WeeklyBoard.jsx is loaded.</p>
                                             </div>
                                         )
+                                    )}
+                                    
+                                    {productionTab === 'reports' && (
+                                        <div className="space-y-6">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h3 className="text-lg font-semibold text-autovol-navy">Production Reports</h3>
+                                                    <p className="text-sm text-gray-500">Analytics and labor planning reports</p>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Report Cards */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {/* Weekly Heat Map Report */}
+                                                <div className="border-2 border-dashed border-autovol-teal rounded-lg p-6 bg-teal-50/30">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-10 h-10 bg-autovol-teal rounded-lg flex items-center justify-center text-white">
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="font-semibold text-autovol-navy">Weekly Heat Map Report</h4>
+                                                            <p className="text-sm text-gray-600 mt-1">
+                                                                View module difficulty by station per day. Plan labor adjustments based on workload intensity.
+                                                            </p>
+                                                            <div className="mt-3 flex items-center gap-2">
+                                                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">Coming Soon</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Placeholder for future reports */}
+                                                <div className="border border-gray-200 rounded-lg p-6 bg-gray-50/50">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center text-white">
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="font-medium text-gray-500">Production Summary</h4>
+                                                            <p className="text-sm text-gray-400 mt-1">
+                                                                Weekly/monthly production metrics and trends.
+                                                            </p>
+                                                            <div className="mt-3">
+                                                                <span className="px-2 py-0.5 bg-gray-200 text-gray-500 text-xs rounded-full">Planned</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="border border-gray-200 rounded-lg p-6 bg-gray-50/50">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center text-white">
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="font-medium text-gray-500">Labor Allocation</h4>
+                                                            <p className="text-sm text-gray-400 mt-1">
+                                                                AI-powered staffing recommendations by department.
+                                                            </p>
+                                                            <div className="mt-3">
+                                                                <span className="px-2 py-0.5 bg-gray-200 text-gray-500 text-xs rounded-full">Planned</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Info Note */}
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
+                                                <strong>Note:</strong> The Weekly Heat Map Report will use difficulty indicators configured in the Heat Map Matrix (accessible from Project Detail view) to calculate workload intensity per station.
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
