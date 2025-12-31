@@ -228,7 +228,12 @@ function WeeklyHeatMapReport({
     const reportData = useMemo(() => {
         if (loading || indicators.length === 0) return [];
         
-        return productionStages.map(station => {
+        // Filter out Sign-Off station - it's just a completion indicator, not a labor station
+        const laborStations = productionStages.filter(s => 
+            s.name?.toLowerCase() !== 'sign-off' && s.id !== 'sign-off'
+        );
+        
+        return laborStations.map(station => {
             const dayScores = displayDates.map((_, dayIndex) => 
                 calculateStationDayScore(station.id, dayIndex)
             );
