@@ -303,7 +303,7 @@ function HeatMapMatrix({
                                                 
                                                 {/* Dropdown for editing - appears below for first row, above for others */}
                                                 {isEditing && (
-                                                    <div className={`absolute left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[100px] ${isFirstRow ? 'top-full mt-1' : 'bottom-full mb-1'}`}>
+                                                    <div className={`absolute left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[120px] ${isFirstRow ? 'top-full mt-1' : 'bottom-full mb-1'}`}>
                                                         {DIFFICULTY_CATEGORIES.map(cat => (
                                                             <button
                                                                 key={cat.id}
