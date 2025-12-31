@@ -1887,7 +1887,15 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     )}
                                     
                                     {productionTab === 'reports' && (
-                                        <div className="space-y-6">
+                                        window.WeeklyHeatMapReport ? (
+                                            <window.WeeklyHeatMapReport
+                                                projects={projects}
+                                                productionStages={productionStages}
+                                                weeks={weeks}
+                                                currentWeek={currentWeek}
+                                            />
+                                        ) : (
+                                            <div className="space-y-6">
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <h3 className="text-lg font-semibold text-autovol-navy">Production Reports</h3>
@@ -1962,6 +1970,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 <strong>Note:</strong> The Weekly Heat Map Report will use difficulty indicators configured in the Heat Map Matrix (accessible from Project Detail view) to calculate workload intensity per station.
                                             </div>
                                         </div>
+                                    )
                                     )}
                                 </div>
                             </div>
