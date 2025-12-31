@@ -257,7 +257,7 @@ function HeatMapMatrix({
                     <table className="min-w-full border-collapse">
                         <thead>
                             <tr>
-                                <th className="sticky left-0 top-0 z-30 bg-gray-100 border p-2 text-left text-sm font-semibold text-gray-700 min-w-[120px]">
+                                <th className="sticky left-0 top-0 z-30 bg-gray-100 border-y border-l border-r-0 p-2 text-left text-sm font-semibold text-gray-700 min-w-[120px] shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
                                     Indicator
                                 </th>
                                 {productionStages.map(stage => (
@@ -274,7 +274,7 @@ function HeatMapMatrix({
                         <tbody>
                             {indicators.map((indicator, rowIndex) => (
                                 <tr key={indicator.id}>
-                                    <td className="sticky left-0 z-10 bg-white border p-3 text-sm font-medium text-gray-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                    <td className="sticky left-0 z-10 bg-white border-y border-l border-r-0 p-3 text-sm font-medium text-gray-800 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
                                         <div className="flex items-center gap-2">
                                             <span>{indicator.name}</span>
                                             {indicator.is_easier && (

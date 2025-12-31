@@ -108,8 +108,9 @@
 
     async function bulkUpdateHeatMap(projectId, entries) {
         const supabase = getSupabase();
+        console.log('[HeatMapAPI] bulkUpdateHeatMap called:', { projectId, entries });
         if (!supabase) {
-            console.error('Supabase client not available');
+            console.error('[HeatMapAPI] Supabase client not available');
             return false;
         }
         const upsertData = entries.map(entry => ({
@@ -121,14 +122,17 @@
             updated_at: new Date().toISOString()
         }));
         
-        const { error } = await supabase
+        console.log('[HeatMapAPI] Upserting data:', upsertData);
+        const { data, error } = await supabase
             .from('project_heat_maps')
             .upsert(upsertData, {
                 onConflict: 'project_id,difficulty_indicator_id,station_id'
-            });
+            })
+            .select();
         
+        console.log('[HeatMapAPI] bulkUpdateHeatMap result:', { data, error });
         if (error) {
-            console.error('Error bulk updating heat map:', error);
+            console.error('[HeatMapAPI] Error bulk updating heat map:', error);
             return false;
         }
         return true;
