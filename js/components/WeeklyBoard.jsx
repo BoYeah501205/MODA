@@ -39,11 +39,27 @@ const useWeeklySchedule = () => {
                window.MODA_SUPABASE_DATA?.weeklySchedules;
     }, []);
     
-    // Load from Supabase on mount
+    // Load from Supabase on mount with retry for late initialization
     useEffect(() => {
+        let retryCount = 0;
+        const MAX_RETRIES = 5;
+        let retryTimer = null;
+        let unsubscribe = null;
+        
         const loadFromSupabase = async () => {
-            if (!isSupabaseAvailable()) {
-                console.log('[WeeklySchedule] Supabase not available, using localStorage fallback');
+            const available = isSupabaseAvailable();
+            console.log('[WeeklySchedule] Load attempt', retryCount + 1, '- Supabase available:', available);
+            
+            if (!available) {
+                // Retry a few times before falling back to localStorage
+                if (retryCount < MAX_RETRIES) {
+                    retryCount++;
+                    console.log('[WeeklySchedule] Supabase not ready, retry in 500ms (attempt', retryCount, 'of', MAX_RETRIES, ')');
+                    retryTimer = setTimeout(loadFromSupabase, 500);
+                    return;
+                }
+                
+                console.log('[WeeklySchedule] Supabase not available after retries, using localStorage fallback');
                 // Fallback to localStorage with safe parsing
                 try {
                     const savedSetup = localStorage.getItem('autovol_schedule_setup');
@@ -69,11 +85,14 @@ const useWeeklySchedule = () => {
                 
                 // Load current schedule
                 const current = await api.getCurrent();
+                console.log('[WeeklySchedule] Loaded current schedule from Supabase:', current);
                 if (current) {
                     setScheduleSetup({
                         shift1: current.shift1 || DEFAULT_SCHEDULE.shift1,
                         shift2: current.shift2 || DEFAULT_SCHEDULE.shift2
                     });
+                } else {
+                    console.log('[WeeklySchedule] No current schedule in Supabase, using defaults');
                 }
                 
                 // Load completed weeks
@@ -89,7 +108,33 @@ const useWeeklySchedule = () => {
                 })));
                 
                 setSynced(true);
-                console.log('[WeeklySchedule] Loaded from Supabase');
+                console.log('[WeeklySchedule] Loaded from Supabase successfully');
+                
+                // Subscribe to real-time updates after successful load
+                unsubscribe = window.MODA_SUPABASE_DATA.weeklySchedules.onSnapshot(({ current, completed }) => {
+                    if (isSaving.current) return; // Skip if we're the one saving
+                    
+                    console.log('[WeeklySchedule] Real-time update received');
+                    if (current) {
+                        isFromRealtime.current = true; // Mark as real-time update to skip save
+                        setScheduleSetup({
+                            shift1: current.shift1 || DEFAULT_SCHEDULE.shift1,
+                            shift2: current.shift2 || DEFAULT_SCHEDULE.shift2
+                        });
+                    }
+                    
+                    if (completed) {
+                        setCompletedWeeks(completed.map(w => ({
+                            id: w.id,
+                            weekId: w.week_id,
+                            shift1: w.shift1,
+                            shift2: w.shift2,
+                            lineBalance: w.line_balance,
+                            completedAt: w.completed_at,
+                            scheduleSnapshot: w.schedule_snapshot
+                        })));
+                    }
+                });
             } catch (err) {
                 console.error('[WeeklySchedule] Load error:', err);
                 // Fallback to localStorage with safe parsing
@@ -112,34 +157,10 @@ const useWeeklySchedule = () => {
         
         loadFromSupabase();
         
-        // Subscribe to real-time updates
-        if (isSupabaseAvailable()) {
-            const unsubscribe = window.MODA_SUPABASE_DATA.weeklySchedules.onSnapshot(({ current, completed }) => {
-                if (isSaving.current) return; // Skip if we're the one saving
-                
-                if (current) {
-                    isFromRealtime.current = true; // Mark as real-time update to skip save
-                    setScheduleSetup({
-                        shift1: current.shift1 || DEFAULT_SCHEDULE.shift1,
-                        shift2: current.shift2 || DEFAULT_SCHEDULE.shift2
-                    });
-                }
-                
-                if (completed) {
-                    setCompletedWeeks(completed.map(w => ({
-                        id: w.id,
-                        weekId: w.week_id,
-                        shift1: w.shift1,
-                        shift2: w.shift2,
-                        lineBalance: w.line_balance,
-                        completedAt: w.completed_at,
-                        scheduleSnapshot: w.schedule_snapshot
-                    })));
-                }
-            });
-            
-            return () => unsubscribe?.();
-        }
+        return () => {
+            if (retryTimer) clearTimeout(retryTimer);
+            if (unsubscribe) unsubscribe();
+        };
     }, [isSupabaseAvailable]);
     
     // Re-check edit permissions when user profile changes
