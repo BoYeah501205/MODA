@@ -302,7 +302,7 @@ function HeatMapMatrix({
                                                 
                                                 {/* Dropdown for editing */}
                                                 {isEditing && (
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border rounded-lg shadow-lg z-30 py-1 min-w-[100px]">
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[100px]">
                                                         {DIFFICULTY_CATEGORIES.map(cat => (
                                                             <button
                                                                 key={cat.id}
