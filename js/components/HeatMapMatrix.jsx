@@ -57,12 +57,14 @@ function HeatMapMatrix({
         try {
             // Get API from window global
             const api = window.HeatMapAPI;
+            console.log('[HeatMapMatrix] Loading data, api:', !!api);
             if (!api) {
                 throw new Error('HeatMapAPI not loaded');
             }
             
             // Load indicators
             const indicatorsData = await api.getDifficultyIndicators();
+            console.log('[HeatMapMatrix] Indicators loaded:', indicatorsData);
             setIndicators(indicatorsData);
             
             // Load heat map for this project

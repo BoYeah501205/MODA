@@ -15,8 +15,9 @@
 
     async function getDifficultyIndicators() {
         const supabase = getSupabase();
+        console.log('[HeatMapAPI] getDifficultyIndicators called, supabase:', !!supabase);
         if (!supabase) {
-            console.error('Supabase client not available');
+            console.error('[HeatMapAPI] Supabase client not available');
             return [];
         }
         const { data, error } = await supabase
@@ -24,8 +25,9 @@
             .select('*')
             .order('display_order', { ascending: true });
         
+        console.log('[HeatMapAPI] getDifficultyIndicators result:', { data, error });
         if (error) {
-            console.error('Error fetching difficulty indicators:', error);
+            console.error('[HeatMapAPI] Error fetching difficulty indicators:', error);
             return [];
         }
         return data || [];
