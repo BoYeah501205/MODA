@@ -113,29 +113,51 @@
             console.error('[HeatMapAPI] Supabase client not available');
             return false;
         }
-        const upsertData = entries.map(entry => ({
-            project_id: projectId,
-            difficulty_indicator_id: entry.indicatorId,
-            station_id: entry.stationId,
-            difficulty_category: entry.difficultyCategory,
-            notes: entry.notes || null,
-            updated_at: new Date().toISOString()
-        }));
         
-        console.log('[HeatMapAPI] Upserting data:', upsertData);
-        const { data, error } = await supabase
-            .from('project_heat_maps')
-            .upsert(upsertData, {
-                onConflict: 'project_id,difficulty_indicator_id,station_id'
-            })
-            .select();
-        
-        console.log('[HeatMapAPI] bulkUpdateHeatMap result:', { data, error });
-        if (error) {
-            console.error('[HeatMapAPI] Error bulk updating heat map:', error);
-            return false;
+        // Process each entry individually to handle both insert and update cases
+        let allSuccess = true;
+        for (const entry of entries) {
+            // First try to update existing row
+            const { data: updateData, error: updateError } = await supabase
+                .from('project_heat_maps')
+                .update({
+                    difficulty_category: entry.difficultyCategory,
+                    notes: entry.notes || null,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('project_id', projectId)
+                .eq('difficulty_indicator_id', entry.indicatorId)
+                .eq('station_id', entry.stationId)
+                .select();
+            
+            console.log('[HeatMapAPI] Update result:', { updateData, updateError });
+            
+            // If no rows updated (doesn't exist), insert new row
+            if (!updateError && (!updateData || updateData.length === 0)) {
+                const { data: insertData, error: insertError } = await supabase
+                    .from('project_heat_maps')
+                    .insert({
+                        project_id: projectId,
+                        difficulty_indicator_id: entry.indicatorId,
+                        station_id: entry.stationId,
+                        difficulty_category: entry.difficultyCategory,
+                        notes: entry.notes || null,
+                        updated_at: new Date().toISOString()
+                    })
+                    .select();
+                
+                console.log('[HeatMapAPI] Insert result:', { insertData, insertError });
+                if (insertError) {
+                    console.error('[HeatMapAPI] Insert error:', insertError);
+                    allSuccess = false;
+                }
+            } else if (updateError) {
+                console.error('[HeatMapAPI] Update error:', updateError);
+                allSuccess = false;
+            }
         }
-        return true;
+        
+        return allSuccess;
     }
 
     // ============================================

@@ -5,7 +5,7 @@
  * Each cell shows the difficulty category (Easy/Average/Medium/Hard/Very Hard)
  */
 
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
 // Difficulty categories with colors
 const DIFFICULTY_CATEGORIES = [
@@ -40,6 +40,7 @@ function HeatMapMatrix({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [editingCell, setEditingCell] = useState(null);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
     const [hasChanges, setHasChanges] = useState(false);
     const [pendingChanges, setPendingChanges] = useState({});
 
@@ -111,8 +112,15 @@ function HeatMapMatrix({
     }, [indicators, heatMapData, productionStages, pendingChanges]);
 
     // Handle cell click to edit
-    const handleCellClick = (indicatorId, stationId) => {
+    const handleCellClick = (indicatorId, stationId, event) => {
         if (!canEdit) return;
+        
+        // Get the cell's position for dropdown placement
+        const rect = event.currentTarget.getBoundingClientRect();
+        setDropdownPosition({
+            top: rect.bottom + 4,
+            left: rect.left + rect.width / 2
+        });
         setEditingCell({ indicatorId, stationId });
     };
 
@@ -293,7 +301,7 @@ function HeatMapMatrix({
                                             <td 
                                                 key={stage.id}
                                                 className={`border p-3 text-center relative ${canEdit ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                                                onClick={() => handleCellClick(indicator.id, stage.id)}
+                                                onClick={(e) => handleCellClick(indicator.id, stage.id, e)}
                                             >
                                                 <span 
                                                     className={`inline-block px-2 py-1 text-xs rounded border ${getDifficultyColor(category)} ${isPending ? 'ring-2 ring-blue-400' : ''}`}
@@ -301,24 +309,7 @@ function HeatMapMatrix({
                                                     {getDifficultyLabel(category)}
                                                 </span>
                                                 
-                                                {/* Dropdown for editing - appears below for first row, above for others */}
-                                                {isEditing && (
-                                                    <div className={`absolute left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg z-[60] py-1 min-w-[120px] ${isFirstRow ? 'top-full mt-1' : 'bottom-full mb-1'}`}>
-                                                        {DIFFICULTY_CATEGORIES.map(cat => (
-                                                            <button
-                                                                key={cat.id}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleCategorySelect(cat.id);
-                                                                }}
-                                                                className={`w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${category === cat.id ? 'font-semibold' : ''}`}
-                                                            >
-                                                                <span className={`inline-block w-3 h-3 rounded mr-2 ${cat.color.split(' ')[0]}`}></span>
-                                                                {cat.label}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                {/* Dropdown rendered via portal below */}
                                             </td>
                                         );
                                     })}
@@ -338,12 +329,40 @@ function HeatMapMatrix({
                 </div>
             </div>
 
-            {/* Click outside to close dropdown */}
+            {/* Dropdown Portal - rendered outside overflow container */}
             {editingCell && (
-                <div 
-                    className="fixed inset-0 z-40"
-                    onClick={() => setEditingCell(null)}
-                />
+                <>
+                    {/* Backdrop to close dropdown */}
+                    <div 
+                        className="fixed inset-0 z-[9998]"
+                        onClick={() => setEditingCell(null)}
+                    />
+                    {/* Dropdown menu */}
+                    <div 
+                        className="fixed bg-white border-2 border-gray-300 rounded-lg shadow-2xl z-[9999] py-2 min-w-[150px]"
+                        style={{ 
+                            top: dropdownPosition.top,
+                            left: dropdownPosition.left,
+                            transform: 'translateX(-50%)'
+                        }}
+                    >
+                        {DIFFICULTY_CATEGORIES.map(cat => (
+                            <button
+                                key={cat.id}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCategorySelect(cat.id);
+                                }}
+                                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 ${
+                                    matrixData[editingCell.indicatorId]?.[editingCell.stationId] === cat.id ? 'font-semibold bg-gray-50' : ''
+                                }`}
+                            >
+                                <span className={`inline-block w-3 h-3 rounded ${cat.color.split(' ')[0]}`}></span>
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+                </>
             )}
         </div>
     );
