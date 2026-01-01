@@ -954,6 +954,7 @@
                 hireDate: employee?.hireDate || '',
                 email: employee?.email || '',
                 phone: employee?.phone || '',
+                company: employee?.company || 'Autovol',
                 permissions: employee?.permissions || 'No Access',
                 dashboardRole: employee?.dashboardRole || 'employee',
                 accessStatus: employee?.accessStatus || 'none'
@@ -1143,6 +1144,19 @@
                                             className="w-full px-3 py-2 border rounded-lg"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Row 5: Company */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                                    <input
+                                        type="text"
+                                        value={formData.company}
+                                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                                        placeholder="Autovol"
+                                        className="w-full px-3 py-2 border rounded-lg"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Defaults to Autovol for internal employees</p>
                                 </div>
 
                                 {/* Permissions */}

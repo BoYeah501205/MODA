@@ -67,7 +67,7 @@ serve(async (req) => {
 
     // Send invite email
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: redirectTo || 'https://moda-9ee0f.web.app',
+      redirectTo: redirectTo || 'https://modulardashboard.com',
       data: {
         name: metadata?.name || email.split('@')[0],
         invited_by: metadata?.invitedBy || 'MODA Admin',

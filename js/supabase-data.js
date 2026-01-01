@@ -391,6 +391,7 @@
                 inactiveReason: row.inactive_reason || null,
                 inactiveNotes: row.inactive_notes || null,
                 inactiveDate: row.inactive_date || null,
+                company: row.company || 'Autovol',
                 createdAt: row.created_at,
                 updatedAt: row.updated_at
             };
@@ -418,6 +419,7 @@
             if (data.inactiveReason !== undefined) dbData.inactive_reason = data.inactiveReason || null;
             if (data.inactiveNotes !== undefined) dbData.inactive_notes = data.inactiveNotes || null;
             if (data.inactiveDate !== undefined) dbData.inactive_date = data.inactiveDate || null;
+            if (data.company !== undefined) dbData.company = data.company || 'Autovol';
             return dbData;
         },
 

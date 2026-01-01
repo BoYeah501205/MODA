@@ -43,7 +43,7 @@ This guide walks you through setting up Supabase as the backend for MODA, replac
    - **Enable email confirmations**: Optional (disable for testing)
    - **Secure email change**: Recommended ON
 4. Go to **Authentication** → **URL Configuration**
-5. Add your site URL to **Site URL**: `https://moda-9ee0f.web.app` (or localhost for dev)
+5. Add your site URL to **Site URL**: `https://modulardashboard.com` (or localhost for dev)
 6. Add redirect URLs if needed
 
 ## Step 5: Create Admin User
