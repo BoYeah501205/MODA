@@ -175,13 +175,8 @@ const DEFAULT_DASHBOARD_ROLES = window.DEFAULT_DASHBOARD_ROLES || [];
 
 // ===== PRODUCTION WEEK MANAGEMENT HOOK =====
 const useProductionWeeks = () => {
-    const [weeks, setWeeks] = useState(() => {
-        const saved = localStorage.getItem('autovol_production_weeks');
-        if (saved && saved !== 'undefined' && saved !== 'null') {
-            try { return JSON.parse(saved); } catch (e) { return []; }
-        }
-        return [];
-    });
+    // Weeks are loaded from Supabase only - no localStorage
+    const [weeks, setWeeks] = useState([]);
     const [weeksLoaded, setWeeksLoaded] = useState(false);
     const [weeksSupabaseAvailable, setWeeksSupabaseAvailable] = useState(false);
     
@@ -208,14 +203,14 @@ const useProductionWeeks = () => {
                             if (supabaseWeeks && supabaseWeeks.length > 0) {
                                 setWeeks(supabaseWeeks);
                                 setWeeksSupabaseAvailable(true);
-                                localStorage.setItem('autovol_production_weeks', JSON.stringify(supabaseWeeks));
                                 console.log('[App] Loaded', supabaseWeeks.length, 'production weeks from Supabase');
                             } else {
                                 setWeeksSupabaseAvailable(true);
+                                console.log('[App] No production weeks in Supabase');
                             }
                         }
                     } catch (err) {
-                        console.log('[App] Production weeks table may not exist, using localStorage');
+                        console.log('[App] Production weeks table may not exist');
                     }
                     setWeeksLoaded(true);
                     
@@ -226,18 +221,12 @@ const useProductionWeeks = () => {
                             setStaggerConfig(supabaseStaggers);
                             console.log('[App] Loaded staggers from Supabase');
                         } else {
-                            // Fallback to localStorage
-                            const saved = localStorage.getItem('autovol_station_staggers');
-                            if (saved && saved !== 'undefined' && saved !== 'null') {
-                                try { setStaggerConfig(JSON.parse(saved)); } catch (e) { /* use defaults */ }
-                            }
+                            // Fallback to defaults
+                            setStaggerConfig({ ...stationStaggers });
                         }
                     } catch (err) {
-                        console.log('[App] Staggers table may not exist, using localStorage');
-                        const saved = localStorage.getItem('autovol_station_staggers');
-                        if (saved && saved !== 'undefined' && saved !== 'null') {
-                            try { setStaggerConfig(JSON.parse(saved)); } catch (e) { /* use defaults */ }
-                        }
+                        console.log('[App] Staggers table may not exist, using defaults');
+                        setStaggerConfig({ ...stationStaggers });
                     }
                     setStaggersLoaded(true);
                     
@@ -248,33 +237,17 @@ const useProductionWeeks = () => {
                             setStaggerChangeLog(supabaseLog);
                             console.log('[App] Loaded', supabaseLog.length, 'stagger change log entries from Supabase');
                         } else {
-                            const saved = localStorage.getItem('autovol_stagger_change_log');
-                            if (saved && saved !== 'undefined' && saved !== 'null') {
-                                try { setStaggerChangeLog(JSON.parse(saved)); } catch (e) { /* empty */ }
-                            }
+                            setStaggerChangeLog([]);
                         }
                     } catch (err) {
-                        console.log('[App] Stagger change log table may not exist, using localStorage');
-                        const saved = localStorage.getItem('autovol_stagger_change_log');
-                        if (saved && saved !== 'undefined' && saved !== 'null') {
-                            try { setStaggerChangeLog(JSON.parse(saved)); } catch (e) { /* empty */ }
-                        }
+                        console.log('[App] Stagger change log table may not exist');
+                        setStaggerChangeLog([]);
                     }
                     setChangeLogLoaded(true);
                 } else {
-                    // Fallback to localStorage
+                    // Fallback to defaults
                     setWeeksLoaded(true);
-                    
-                    const savedStaggers = localStorage.getItem('autovol_station_staggers');
-                    if (savedStaggers && savedStaggers !== 'undefined' && savedStaggers !== 'null') {
-                        try { setStaggerConfig(JSON.parse(savedStaggers)); } catch (e) { /* use defaults */ }
-                    }
                     setStaggersLoaded(true);
-                    
-                    const savedLog = localStorage.getItem('autovol_stagger_change_log');
-                    if (savedLog && savedLog !== 'undefined' && savedLog !== 'null') {
-                        try { setStaggerChangeLog(JSON.parse(savedLog)); } catch (e) { /* empty */ }
-                    }
                     setChangeLogLoaded(true);
                 }
             } catch (error) {
@@ -288,12 +261,7 @@ const useProductionWeeks = () => {
         loadFromSupabase();
     }, []);
     
-    // Save weeks to localStorage as backup
-    useEffect(() => {
-        if (weeksLoaded) {
-            localStorage.setItem('autovol_production_weeks', JSON.stringify(weeks));
-        }
-    }, [weeks, weeksLoaded]);
+    // Weeks are saved to Supabase only - no localStorage backup needed
     
     // Save staggers to localStorage as backup
     useEffect(() => {
