@@ -2026,10 +2026,25 @@ function WeeklyBoardTab({
             ? allModules.find(m => m.serialNumber === displayWeek.startingModule)
             : autoStartingModule;
             
-        if (!weekStartingModule) return null;
+        if (!weekStartingModule) {
+            console.log('[WeeklyBoard] No weekStartingModule for station:', stationId);
+            return null;
+        }
         
-        const stagger = staggerConfig[stationId] || 0;
+        const stagger = staggerConfig?.[stationId] || 0;
         const startIdx = allModules.findIndex(m => m.id === weekStartingModule.id);
+        
+        // Debug: Log stagger application
+        if (stationId === 'auto-fc' || stationId === 'wall-set') {
+            console.log('[WeeklyBoard] Stagger debug:', {
+                stationId,
+                stagger,
+                staggerConfig: staggerConfig,
+                startIdx,
+                weekStartingModule: weekStartingModule?.serialNumber
+            });
+        }
+        
         if (startIdx === -1) return null;
         
         // Apply stagger - downstream stations work on earlier modules
