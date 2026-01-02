@@ -654,3 +654,32 @@ input:focus, select:focus, textarea:focus {
     -webkit-text-stroke: 0;
     filter: none !important;
 }
+
+/* ===== Z-INDEX HIERARCHY ===== */
+/* Ensure modals always appear above navigation and header */
+/* Navigation and header: z-index 30-40 */
+/* Modals and overlays: z-index 50+ */
+header.mobile-header,
+.nav-groups,
+nav.hide-mobile-tablet {
+    position: relative;
+    z-index: 30;
+}
+
+/* Navigation dropdowns need to be above nav but below modals */
+.nav-dropdown,
+.nav-group .absolute {
+    z-index: 40 !important;
+}
+
+/* All modal overlays should be above everything */
+.fixed.inset-0.bg-black,
+.fixed.inset-0.bg-black\/50,
+[class*="fixed inset-0 bg-black"] {
+    z-index: 100 !important;
+}
+
+/* Ensure modal content is above the overlay */
+.fixed.inset-0 > div:not(.bg-black):not(.bg-black\/50) {
+    z-index: 101;
+}

@@ -2805,7 +2805,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                                 👁️ View Details
                                                             </button>
                                                             <button
-                                                                onClick={(e) => { e.stopPropagation(); setEditingModule(module); }}
+                                                                onClick={(e) => { e.stopPropagation(); setSelectedModule(module); setEditMode(true); }}
                                                                 className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                                                             >
                                                                 ✏️ Edit Module
