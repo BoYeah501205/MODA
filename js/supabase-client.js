@@ -52,26 +52,28 @@
                 if (session?.user) {
                     currentUser = session.user;
                     
-                    // Fetch user profile from profiles table
+                    // Fetch user profile using direct fetch API (SDK has hanging issues)
                     try {
-                        const { data: profile, error } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .eq('id', session.user.id)
-                            .single();
+                        console.log('[Supabase] Fetching profile for user:', session.user.id);
+                        const profileResponse = await fetch(
+                            `${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=*`,
+                            {
+                                headers: {
+                                    'apikey': SUPABASE_ANON_KEY,
+                                    'Authorization': `Bearer ${session.access_token}`
+                                }
+                            }
+                        );
+                        const profiles = await profileResponse.json();
+                        console.log('[Supabase] Profile response:', profiles);
                         
-                        if (error && error.code !== 'PGRST116') {
-                            console.error('[Supabase] Error fetching profile:', error);
-                        }
-                        
-                        if (profile) {
-                            userProfile = profile;
-                            console.log('[Supabase] Loaded user profile, role:', profile.dashboard_role);
+                        if (profiles && profiles.length > 0) {
+                            userProfile = profiles[0];
+                            console.log('[Supabase] Loaded user profile, role:', userProfile.dashboard_role);
                             // Dispatch event to notify components that profile is loaded
-                            window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: profile }));
+                            window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: userProfile }));
                         } else {
                             // Profile doesn't exist - use default values
-                            // The database trigger should create it, but if not, use defaults
                             console.log('[Supabase] No profile found, using defaults');
                             userProfile = {
                                 id: session.user.id,
@@ -80,9 +82,19 @@
                                 dashboard_role: 'employee',
                                 is_protected: false
                             };
+                            // Still dispatch event with defaults so UI updates
+                            window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: userProfile }));
                         }
                     } catch (err) {
-                        console.error('[Supabase] Profile error:', err);
+                        console.error('[Supabase] Profile fetch error:', err);
+                        // Use defaults on error
+                        userProfile = {
+                            id: session.user.id,
+                            email: session.user.email,
+                            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
+                            dashboard_role: 'employee',
+                            is_protected: false
+                        };
                     }
                 } else {
                     currentUser = null;

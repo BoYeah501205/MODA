@@ -477,6 +477,31 @@ function useAuth() {
         localStorage.setItem('autovol_users', JSON.stringify(users)); 
     }, [users]);
 
+    // Listen for Supabase profile loaded event (fires on page refresh when session is restored)
+    useEffect(() => {
+        const handleProfileLoaded = (event) => {
+            const profile = event.detail;
+            if (profile && profile.id) {
+                console.log('[Auth] Profile loaded from Supabase, updating session with role:', profile.dashboard_role);
+                const updatedSession = {
+                    id: profile.id,
+                    email: profile.email,
+                    name: profile.name || profile.email?.split('@')[0],
+                    dashboardRole: profile.dashboard_role || 'employee',
+                    department: profile.department || '',
+                    isProtected: (profile.email || '').toLowerCase() === 'trevor@autovol.com'
+                };
+                setCurrentUser(updatedSession);
+                // Update storage to keep in sync
+                const storage = localStorage.getItem('autovol_session') ? localStorage : sessionStorage;
+                storage.setItem('autovol_session', JSON.stringify(updatedSession));
+            }
+        };
+
+        window.addEventListener('moda-profile-loaded', handleProfileLoaded);
+        return () => window.removeEventListener('moda-profile-loaded', handleProfileLoaded);
+    }, []);
+
     const login = async (email, password, rememberMe) => {
         // Try Supabase (primary backend)
         if (window.MODA_SUPABASE) {
