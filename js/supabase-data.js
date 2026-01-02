@@ -850,19 +850,25 @@
             
             try {
                 // Table uses 'config' column for staggers data
+                // Get the most recent config entry
                 const { data, error } = await client
                     .from('station_staggers')
                     .select('*')
                     .order('created_at', { ascending: false })
-                    .limit(1)
-                    .single();
+                    .limit(1);
                 
                 if (error) {
-                    if (error.code === 'PGRST116') return null; // No rows
+                    console.error('[StationStaggers] Query error:', error);
                     throw error;
                 }
                 
-                return data?.config || null;
+                console.log('[StationStaggers] Raw data from Supabase:', data);
+                
+                // Return the config from the first (most recent) row
+                if (data && data.length > 0 && data[0].config) {
+                    return data[0].config;
+                }
+                return null;
             } catch (error) {
                 console.error('[StationStaggers] Error fetching:', error.message);
                 return null;
