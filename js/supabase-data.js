@@ -732,10 +732,12 @@
             if (!client) return null;
             
             try {
+                // Table uses 'config' column for staggers data
                 const { data, error } = await client
                     .from('station_staggers')
                     .select('*')
-                    .eq('is_current', true)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
                     .single();
                 
                 if (error) {
@@ -743,25 +745,24 @@
                     throw error;
                 }
                 
-                return data?.staggers || null;
+                return data?.config || null;
             } catch (error) {
                 console.error('[StationStaggers] Error fetching:', error.message);
                 return null;
             }
         },
 
-        async save(staggers) {
+        async save(staggers, description = 'Updated staggers', changedBy = null) {
             const client = getClient();
             if (!client) throw new Error('Supabase not available');
             
-            // Upsert the current staggers
+            // Insert new config row (table uses 'config' column)
             const { data, error } = await client
                 .from('station_staggers')
-                .upsert({ 
-                    id: 'current',
-                    is_current: true,
-                    staggers: staggers,
-                    updated_at: new Date().toISOString()
+                .insert({ 
+                    config: staggers,
+                    description: description,
+                    changed_by: changedBy
                 })
                 .select()
                 .single();

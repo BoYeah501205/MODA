@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS station_staggers (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add is_current column if it doesn't exist (for existing tables)
+ALTER TABLE station_staggers ADD COLUMN IF NOT EXISTS is_current BOOLEAN DEFAULT true;
+
 -- Insert default staggers if table is empty
 INSERT INTO station_staggers (id, is_current, staggers)
 SELECT 'current', true, '{
