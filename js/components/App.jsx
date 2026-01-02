@@ -217,15 +217,17 @@ const useProductionWeeks = () => {
                     // Load staggers
                     try {
                         const supabaseStaggers = await window.MODA_SUPABASE_DATA.stationStaggers.get();
-                        if (supabaseStaggers) {
+                        console.log('[App] Supabase staggers result:', supabaseStaggers);
+                        if (supabaseStaggers && Object.keys(supabaseStaggers).length > 0) {
                             setStaggerConfig(supabaseStaggers);
-                            console.log('[App] Loaded staggers from Supabase');
+                            console.log('[App] Loaded staggers from Supabase:', supabaseStaggers);
                         } else {
                             // Fallback to defaults
+                            console.log('[App] No staggers in Supabase, using defaults');
                             setStaggerConfig({ ...stationStaggers });
                         }
                     } catch (err) {
-                        console.log('[App] Staggers table may not exist, using defaults');
+                        console.log('[App] Staggers table may not exist, using defaults:', err.message);
                         setStaggerConfig({ ...stationStaggers });
                     }
                     setStaggersLoaded(true);
