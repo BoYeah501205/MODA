@@ -285,8 +285,7 @@ const useProductionWeeks = () => {
             }
         };
         
-        const timer = setTimeout(loadFromSupabase, 600);
-        return () => clearTimeout(timer);
+        loadFromSupabase();
     }, []);
     
     // Save weeks to localStorage as backup
@@ -679,9 +678,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     }
                 };
                 
-                // Wait for Supabase to initialize
-                const timer = setTimeout(loadProjects, 500);
-                return () => clearTimeout(timer);
+                loadProjects();
             }, []);
             
             const [trashedProjects, setTrashedProjects] = useState(() => {
@@ -902,9 +899,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     }
                 };
                 
-                // Wait a bit for Supabase to initialize
-                const timer = setTimeout(loadPeopleData, 500);
-                return () => clearTimeout(timer);
+                loadPeopleData();
             }, []);
 
             // Save to localStorage and sync to Supabase when projects change
