@@ -620,6 +620,200 @@
     };
 
     // ============================================================================
+    // PRODUCTION WEEKS API
+    // ============================================================================
+
+    const ProductionWeeksAPI = {
+        async getAll() {
+            const client = getClient();
+            if (!client) return [];
+            
+            try {
+                const { data, error } = await client
+                    .from('production_weeks')
+                    .select('*')
+                    .order('start_date', { ascending: true });
+                
+                if (error) throw error;
+                
+                // Map database fields to UI fields
+                return (data || []).map(week => ({
+                    id: week.id,
+                    weekId: week.week_id,
+                    weekNumber: week.week_number,
+                    year: week.year,
+                    quarter: week.quarter,
+                    weekStart: week.start_date,
+                    weekEnd: week.end_date,
+                    plannedModules: week.planned_modules,
+                    status: week.status,
+                    createdAt: week.created_at
+                }));
+            } catch (error) {
+                console.error('[ProductionWeeks] Error fetching weeks:', error.message);
+                return [];
+            }
+        },
+
+        async create(weekData) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            const dbData = {
+                id: weekData.id || weekData.weekId,
+                week_id: weekData.weekId || weekData.id,
+                week_number: weekData.weekNumber,
+                year: weekData.year,
+                quarter: weekData.quarter,
+                start_date: weekData.weekStart,
+                end_date: weekData.weekEnd,
+                planned_modules: weekData.plannedModules || 20,
+                status: weekData.status || 'Planned'
+            };
+            
+            const { data, error } = await client
+                .from('production_weeks')
+                .insert(dbData)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        },
+
+        async update(weekId, updates) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            const dbUpdates = {};
+            if (updates.weekStart !== undefined) dbUpdates.start_date = updates.weekStart;
+            if (updates.weekEnd !== undefined) dbUpdates.end_date = updates.weekEnd;
+            if (updates.plannedModules !== undefined) dbUpdates.planned_modules = updates.plannedModules;
+            if (updates.status !== undefined) dbUpdates.status = updates.status;
+            if (updates.weekNumber !== undefined) dbUpdates.week_number = updates.weekNumber;
+            if (updates.year !== undefined) dbUpdates.year = updates.year;
+            if (updates.quarter !== undefined) dbUpdates.quarter = updates.quarter;
+            
+            const { data, error } = await client
+                .from('production_weeks')
+                .update(dbUpdates)
+                .eq('id', weekId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        },
+
+        async delete(weekId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            const { error } = await client
+                .from('production_weeks')
+                .delete()
+                .eq('id', weekId);
+            
+            if (error) throw error;
+            return true;
+        }
+    };
+
+    // ============================================================================
+    // STATION STAGGERS API
+    // ============================================================================
+
+    const StationStaggersAPI = {
+        async get() {
+            const client = getClient();
+            if (!client) return null;
+            
+            try {
+                const { data, error } = await client
+                    .from('station_staggers')
+                    .select('*')
+                    .eq('is_current', true)
+                    .single();
+                
+                if (error) {
+                    if (error.code === 'PGRST116') return null; // No rows
+                    throw error;
+                }
+                
+                return data?.staggers || null;
+            } catch (error) {
+                console.error('[StationStaggers] Error fetching:', error.message);
+                return null;
+            }
+        },
+
+        async save(staggers) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            // Upsert the current staggers
+            const { data, error } = await client
+                .from('station_staggers')
+                .upsert({ 
+                    id: 'current',
+                    is_current: true,
+                    staggers: staggers,
+                    updated_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        }
+    };
+
+    // ============================================================================
+    // STAGGER CHANGE LOG API
+    // ============================================================================
+
+    const StaggerChangeLogAPI = {
+        async getAll() {
+            const client = getClient();
+            if (!client) return [];
+            
+            try {
+                const { data, error } = await client
+                    .from('stagger_change_log')
+                    .select('*')
+                    .order('timestamp', { ascending: false });
+                
+                if (error) throw error;
+                return data || [];
+            } catch (error) {
+                console.error('[StaggerChangeLog] Error fetching:', error.message);
+                return [];
+            }
+        },
+
+        async add(logEntry) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            const { data, error } = await client
+                .from('stagger_change_log')
+                .insert({
+                    id: logEntry.id,
+                    timestamp: logEntry.timestamp,
+                    description: logEntry.description,
+                    changed_by: logEntry.changedBy,
+                    changes: logEntry.changes,
+                    staggers_snapshot: logEntry.staggersSnapshot
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        }
+    };
+
+    // ============================================================================
     // EXPOSE GLOBAL API
     // ============================================================================
 
@@ -629,7 +823,10 @@
         modules: ModulesAPI,
         employees: EmployeesAPI,
         migration: MigrationAPI,
-        weeklySchedules: WeeklySchedulesAPI
+        weeklySchedules: WeeklySchedulesAPI,
+        productionWeeks: ProductionWeeksAPI,
+        stationStaggers: StationStaggersAPI,
+        staggerChangeLog: StaggerChangeLogAPI
     };
 
     console.log('[Supabase Data] Module loaded');
