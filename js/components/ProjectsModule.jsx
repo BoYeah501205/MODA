@@ -368,6 +368,7 @@
         // Edit Project Modal
         function EditProjectModal({ project, onClose, onSave }) {
             const [name, setName] = useState(project.name || '');
+            const [abbreviation, setAbbreviation] = useState(project.abbreviation || '');
             const [address, setAddress] = useState(project.address || '');
             const [city, setCity] = useState(project.city || '');
             const [country, setCountry] = useState(project.country || 'US');
@@ -384,7 +385,8 @@
                 if (!name.trim()) return;
                 onSave({ 
                     ...project, 
-                    name: name.trim(), 
+                    name: name.trim(),
+                    abbreviation: abbreviation.trim(),
                     address: address.trim(),
                     city: city.trim(),
                     country,
@@ -406,16 +408,29 @@
                             </div>
                             
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
-                                    <input
-                                        type="text"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        placeholder="e.g., Alvarado Creek"
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                        required
-                                    />
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
+                                        <input
+                                            type="text"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            placeholder="e.g., Alvarado Creek"
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Abbreviation</label>
+                                        <input
+                                            type="text"
+                                            value={abbreviation}
+                                            onChange={(e) => setAbbreviation(e.target.value.toUpperCase())}
+                                            placeholder="e.g., AC"
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                            maxLength={6}
+                                        />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>

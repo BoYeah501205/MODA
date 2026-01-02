@@ -3905,11 +3905,36 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
                     <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="p-6">
-                            {/* Header */}
-                            <div className="flex justify-between items-start mb-6">
+                            {/* Header - Sticky */}
+                            <div className="flex justify-between items-start mb-6 sticky top-0 bg-white pt-2 pb-4 -mt-2 border-b">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-autovol-navy">{displayModule.serialNumber}</h2>
-                                    <p className="text-gray-500">Build Sequence: {displayModule.buildSequence}</p>
+                                    {editMode ? (
+                                        <div className="flex gap-3 items-center">
+                                            <div>
+                                                <label className="text-xs text-gray-500">Serial Number</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={displayModule.serialNumber || ''} 
+                                                    onChange={(e) => updateField('serialNumber', e.target.value)} 
+                                                    className="block text-xl font-bold px-2 py-1 border rounded w-32"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500">Build Seq</label>
+                                                <input 
+                                                    type="number" 
+                                                    value={displayModule.buildSequence || ''} 
+                                                    onChange={(e) => updateField('buildSequence', parseInt(e.target.value) || 0)} 
+                                                    className="block text-lg px-2 py-1 border rounded w-20"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <h2 className="text-2xl font-bold text-autovol-navy">{displayModule.serialNumber}</h2>
+                                            <p className="text-gray-500">Build Sequence: {displayModule.buildSequence}</p>
+                                        </>
+                                    )}
                                 </div>
                                 <div className="flex gap-2">
                                     {editMode ? (

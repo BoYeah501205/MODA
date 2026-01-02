@@ -658,12 +658,15 @@ input:focus, select:focus, textarea:focus {
 /* ===== Z-INDEX HIERARCHY ===== */
 /* Ensure modals always appear above navigation and header */
 /* Navigation and header: z-index 30-40 */
-/* Modals and overlays: z-index 50+ */
+/* Modals and overlays: z-index 1000+ */
+header,
 header.mobile-header,
 .nav-groups,
+.nav-groups-container,
+nav,
 nav.hide-mobile-tablet {
     position: relative;
-    z-index: 30;
+    z-index: 30 !important;
 }
 
 /* Navigation dropdowns need to be above nav but below modals */
@@ -672,14 +675,13 @@ nav.hide-mobile-tablet {
     z-index: 40 !important;
 }
 
-/* All modal overlays should be above everything */
-.fixed.inset-0.bg-black,
-.fixed.inset-0.bg-black\/50,
-[class*="fixed inset-0 bg-black"] {
-    z-index: 100 !important;
+/* All modal overlays - use very high z-index to ensure they're above everything */
+.fixed.inset-0 {
+    z-index: 1000 !important;
 }
 
-/* Ensure modal content is above the overlay */
-.fixed.inset-0 > div:not(.bg-black):not(.bg-black\/50) {
-    z-index: 101;
+/* Module action menus in grid view - lower than modals */
+.group .absolute.z-20,
+.relative.group .absolute {
+    z-index: 35 !important;
 }
