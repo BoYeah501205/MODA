@@ -477,8 +477,12 @@ function useAuth() {
         localStorage.setItem('autovol_users', JSON.stringify(users)); 
     }, [users]);
 
-    // Listen for Supabase profile loaded event AND check if already loaded
+    // Listen for Supabase profile loaded event AND poll for it if not immediately available
     useEffect(() => {
+        let pollInterval = null;
+        let pollCount = 0;
+        const MAX_POLLS = 20; // Poll for up to 2 seconds (20 * 100ms)
+        
         const updateFromProfile = (profile) => {
             if (profile && profile.id) {
                 console.log('[Auth] Updating session with Supabase profile, role:', profile.dashboard_role);
@@ -494,6 +498,11 @@ function useAuth() {
                 // Update storage to keep in sync
                 const storage = localStorage.getItem('autovol_session') ? localStorage : sessionStorage;
                 storage.setItem('autovol_session', JSON.stringify(updatedSession));
+                // Stop polling once we have the profile
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
                 return true;
             }
             return false;
@@ -505,13 +514,30 @@ function useAuth() {
 
         window.addEventListener('moda-profile-loaded', handleProfileLoaded);
 
-        // Check if profile is already loaded (event may have fired before component mounted)
+        // Check if profile is already loaded
         if (window.MODA_SUPABASE?.userProfile) {
             console.log('[Auth] Found existing Supabase profile on mount');
             updateFromProfile(window.MODA_SUPABASE.userProfile);
+        } else {
+            // Poll for profile if not immediately available (handles async loading race condition)
+            console.log('[Auth] Profile not available yet, starting poll...');
+            pollInterval = setInterval(() => {
+                pollCount++;
+                if (window.MODA_SUPABASE?.userProfile) {
+                    console.log('[Auth] Profile found after polling');
+                    updateFromProfile(window.MODA_SUPABASE.userProfile);
+                } else if (pollCount >= MAX_POLLS) {
+                    console.log('[Auth] Profile poll timeout, using localStorage session');
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            }, 100);
         }
 
-        return () => window.removeEventListener('moda-profile-loaded', handleProfileLoaded);
+        return () => {
+            window.removeEventListener('moda-profile-loaded', handleProfileLoaded);
+            if (pollInterval) clearInterval(pollInterval);
+        };
     }, []);
 
     const login = async (email, password, rememberMe) => {
