@@ -964,7 +964,8 @@ function ScheduleSetupTab({
     projects,
     setProjects,
     // Permission props
-    canEdit = true // Tab-specific edit permission (false = view-only mode)
+    canEdit = true, // Tab-specific edit permission (false = view-only mode)
+    userEmail = '' // User email passed from Dashboard auth
 }) {
     const { useState } = React;
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
@@ -1172,7 +1173,7 @@ function ScheduleSetupTab({
             }`}>
                 <strong>Sync Status:</strong> {window.MODA_SUPABASE_DATA?.isAvailable?.() ? 'Supabase Connected' : 'localStorage Only'} | 
                 <strong> Shift1 Mon:</strong> {scheduleSetup?.shift1?.monday ?? 'N/A'} | 
-                <strong> User:</strong> {window.MODA_SUPABASE?.currentUser?.email || 'Not logged in'}
+                <strong> User:</strong> {userEmail || 'Not logged in'}
             </div>
             
             {/* Header */}
