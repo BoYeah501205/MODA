@@ -2561,6 +2561,7 @@
                 id: row.id,
                 weekNumber: row.week_number,
                 year: row.year,
+                quarter: row.quarter || Math.ceil(row.week_number / 13),
                 weekId: row.week_id,
                 startDate: row.start_date,
                 endDate: row.end_date,
@@ -2581,6 +2582,7 @@
             if (data.id !== undefined) dbData.id = data.id;
             if (data.weekNumber !== undefined) dbData.week_number = data.weekNumber;
             if (data.year !== undefined) dbData.year = data.year;
+            if (data.quarter !== undefined) dbData.quarter = data.quarter;
             if (data.weekId !== undefined) dbData.week_id = data.weekId;
             if (data.startDate !== undefined) dbData.start_date = data.startDate;
             if (data.endDate !== undefined) dbData.end_date = data.endDate;

@@ -950,6 +950,41 @@ function ScheduleSetupTab({
     const [showAddWeek, setShowAddWeek] = useState(false);
     const [editingWeek, setEditingWeek] = useState(null);
     const [error, setError] = useState('');
+    
+    // Collapsible state for Year > Quarter grouping
+    // Default: current year expanded, current quarter expanded
+    const currentYear = new Date().getFullYear();
+    const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+    const [expandedYears, setExpandedYears] = useState({ [currentYear]: true });
+    const [expandedQuarters, setExpandedQuarters] = useState({ [`${currentYear}-Q${currentQuarter}`]: true });
+    
+    const toggleYear = (year) => {
+        setExpandedYears(prev => ({ ...prev, [year]: !prev[year] }));
+    };
+    
+    const toggleQuarter = (yearQuarterKey) => {
+        setExpandedQuarters(prev => ({ ...prev, [yearQuarterKey]: !prev[yearQuarterKey] }));
+    };
+    
+    // Group weeks by year and quarter
+    const groupWeeksByYearQuarter = (weeksList) => {
+        const grouped = {};
+        (weeksList || []).forEach(week => {
+            const year = week.year || new Date(week.weekStart).getFullYear();
+            const quarter = week.quarter || Math.ceil((new Date(week.weekStart).getMonth() + 1) / 3);
+            if (!grouped[year]) grouped[year] = {};
+            if (!grouped[year][quarter]) grouped[year][quarter] = [];
+            grouped[year][quarter].push(week);
+        });
+        // Sort weeks within each quarter by week number (ascending)
+        Object.keys(grouped).forEach(year => {
+            Object.keys(grouped[year]).forEach(quarter => {
+                grouped[year][quarter].sort((a, b) => (a.weekNumber || 0) - (b.weekNumber || 0));
+            });
+        });
+        return grouped;
+    };
+    
     const [formData, setFormData] = useState({ 
         weekStart: '', 
         weekEnd: '', 
@@ -1163,76 +1198,154 @@ function ScheduleSetupTab({
                         </div>
                     )}
                     
-                    {/* Week List */}
+                    {/* Week List - Collapsible by Year > Quarter */}
                     {(!weeks || weeks.length === 0) ? (
                         <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg">
                             No production weeks configured. Click "+ Add Week" to create one.
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {weeks.sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart)).map(week => {
-                                const isCurrentWeek = currentWeek?.id === week.id;
-                                const isPast = new Date(week.weekEnd) < new Date();
-                                // Calculate per-week line balance for both shifts
-                                const weekShift1 = week.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 };
-                                const weekShift2 = week.shift2 || { friday: 0, saturday: 0, sunday: 0 };
-                                const shift1Total = (weekShift1.monday || 0) + (weekShift1.tuesday || 0) + 
-                                                   (weekShift1.wednesday || 0) + (weekShift1.thursday || 0);
-                                const shift2Total = (weekShift2.friday || 0) + (weekShift2.saturday || 0) + (weekShift2.sunday || 0);
-                                const weekLineBalance = shift1Total + shift2Total;
-                                return (
-                                    <div 
-                                        key={week.id} 
-                                        className={`border rounded-lg p-3 flex items-center justify-between ${
-                                            isCurrentWeek ? 'border-green-400 bg-green-50' : 
-                                            isPast ? 'border-gray-200 bg-gray-50 opacity-60' : 
-                                            'border-gray-200 bg-white'
-                                        }`}
-                                    >
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-gray-800">
-                                                    {week.weekStart} → {week.weekEnd}
-                                                </span>
-                                                {isCurrentWeek && (
-                                                    <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">Current</span>
-                                                )}
-                                                {isPast && !isCurrentWeek && (
-                                                    <span className="px-2 py-0.5 bg-gray-400 text-white text-xs rounded-full">Past</span>
-                                                )}
-                                                <span className="px-2 py-0.5 bg-autovol-teal text-white text-xs rounded-full">
-                                                    {weekLineBalance} modules
-                                                </span>
-                                            </div>
-                                            <div className="text-sm text-gray-600 mt-1">
-                                                Starting: <span className="font-mono">{week.startingModule || 'Not set'}</span>
-                                                <span className="ml-3 text-gray-400">
-                                                    S1: M:{weekShift1.monday} T:{weekShift1.tuesday} W:{weekShift1.wednesday} Th:{weekShift1.thursday}
-                                                    {shift2Total > 0 && (
-                                                        <span className="ml-2">S2: F:{weekShift2.friday} Sa:{weekShift2.saturday} Su:{weekShift2.sunday}</span>
+                            {(() => {
+                                const grouped = groupWeeksByYearQuarter(weeks);
+                                const years = Object.keys(grouped).sort((a, b) => b - a); // Descending by year
+                                
+                                return years.map(year => {
+                                    const yearNum = parseInt(year);
+                                    const isYearExpanded = expandedYears[yearNum];
+                                    const quarters = Object.keys(grouped[year]).sort((a, b) => b - a); // Descending by quarter
+                                    const totalWeeksInYear = quarters.reduce((sum, q) => sum + grouped[year][q].length, 0);
+                                    const totalModulesInYear = quarters.reduce((sum, q) => 
+                                        sum + grouped[year][q].reduce((wSum, w) => wSum + (w.plannedModules || 0), 0), 0);
+                                    
+                                    return (
+                                        <div key={year} className="border rounded-lg overflow-hidden">
+                                            {/* Year Header */}
+                                            <button
+                                                onClick={() => toggleYear(yearNum)}
+                                                className={`w-full px-4 py-3 flex items-center justify-between text-left ${
+                                                    yearNum === currentYear ? 'bg-autovol-navy text-white' : 'bg-gray-100 text-gray-800'
+                                                } hover:opacity-90 transition-opacity`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`transform transition-transform ${isYearExpanded ? 'rotate-90' : ''}`}>
+                                                        &#9654;
+                                                    </span>
+                                                    <span className="font-bold text-lg">{year}</span>
+                                                    {yearNum === currentYear && (
+                                                        <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">Current Year</span>
                                                     )}
-                                                </span>
-                                            </div>
+                                                </div>
+                                                <div className="flex items-center gap-4 text-sm">
+                                                    <span>{totalWeeksInYear} weeks</span>
+                                                    <span className="font-semibold">{totalModulesInYear.toLocaleString()} modules planned</span>
+                                                </div>
+                                            </button>
+                                            
+                                            {/* Quarters within Year */}
+                                            {isYearExpanded && (
+                                                <div className="border-t">
+                                                    {quarters.map(quarter => {
+                                                        const quarterNum = parseInt(quarter);
+                                                        const quarterKey = `${year}-Q${quarter}`;
+                                                        const isQuarterExpanded = expandedQuarters[quarterKey];
+                                                        const quarterWeeks = grouped[year][quarter];
+                                                        const totalModulesInQuarter = quarterWeeks.reduce((sum, w) => sum + (w.plannedModules || 0), 0);
+                                                        const quarterLabels = { 1: 'Q1 (Jan-Mar)', 2: 'Q2 (Apr-Jun)', 3: 'Q3 (Jul-Sep)', 4: 'Q4 (Oct-Dec)' };
+                                                        const isCurrentQuarterInYear = yearNum === currentYear && quarterNum === currentQuarter;
+                                                        
+                                                        return (
+                                                            <div key={quarterKey}>
+                                                                {/* Quarter Header */}
+                                                                <button
+                                                                    onClick={() => toggleQuarter(quarterKey)}
+                                                                    className={`w-full px-6 py-2 flex items-center justify-between text-left border-b ${
+                                                                        isCurrentQuarterInYear ? 'bg-green-50' : 'bg-gray-50'
+                                                                    } hover:bg-gray-100 transition-colors`}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`transform transition-transform text-xs ${isQuarterExpanded ? 'rotate-90' : ''}`}>
+                                                                            &#9654;
+                                                                        </span>
+                                                                        <span className="font-semibold text-gray-700">{quarterLabels[quarterNum] || `Q${quarter}`}</span>
+                                                                        {isCurrentQuarterInYear && (
+                                                                            <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">Current</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                                                                        <span>{quarterWeeks.length} weeks</span>
+                                                                        <span>{totalModulesInQuarter.toLocaleString()} modules</span>
+                                                                    </div>
+                                                                </button>
+                                                                
+                                                                {/* Weeks within Quarter */}
+                                                                {isQuarterExpanded && (
+                                                                    <div className="divide-y">
+                                                                        {quarterWeeks.map(week => {
+                                                                            const isCurrentWeekItem = currentWeek?.id === week.id;
+                                                                            const isPast = new Date(week.weekEnd) < new Date();
+                                                                            const weekShift1 = week.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 };
+                                                                            const weekShift2 = week.shift2 || { friday: 0, saturday: 0, sunday: 0 };
+                                                                            const shift1Total = (weekShift1.monday || 0) + (weekShift1.tuesday || 0) + 
+                                                                                               (weekShift1.wednesday || 0) + (weekShift1.thursday || 0);
+                                                                            const shift2Total = (weekShift2.friday || 0) + (weekShift2.saturday || 0) + (weekShift2.sunday || 0);
+                                                                            const weekLineBalance = week.plannedModules || (shift1Total + shift2Total);
+                                                                            
+                                                                            return (
+                                                                                <div 
+                                                                                    key={week.id} 
+                                                                                    className={`px-8 py-2 flex items-center justify-between ${
+                                                                                        isCurrentWeekItem ? 'bg-green-100' : 
+                                                                                        isPast ? 'bg-gray-50 opacity-70' : 
+                                                                                        'bg-white'
+                                                                                    }`}
+                                                                                >
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <span className="font-mono text-sm text-gray-500 w-12">W{week.weekNumber || '?'}</span>
+                                                                                        <span className="text-sm text-gray-800">
+                                                                                            {week.weekStart} - {week.weekEnd}
+                                                                                        </span>
+                                                                                        {isCurrentWeekItem && (
+                                                                                            <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">Current</span>
+                                                                                        )}
+                                                                                        <span className="px-2 py-0.5 bg-autovol-teal text-white text-xs rounded">
+                                                                                            {weekLineBalance} modules
+                                                                                        </span>
+                                                                                        {week.startingModule && (
+                                                                                            <span className="text-xs text-gray-500">
+                                                                                                Start: <span className="font-mono">{week.startingModule}</span>
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    {canEdit && (
+                                                                                        <div className="flex gap-1">
+                                                                                            <button 
+                                                                                                onClick={() => handleOpenEdit(week)} 
+                                                                                                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                                                                                            >
+                                                                                                Edit
+                                                                                            </button>
+                                                                                            <button 
+                                                                                                onClick={() => handleDelete(week.id)} 
+                                                                                                className="px-2 py-1 text-xs bg-red-100 text-red-600 hover:bg-red-200 rounded"
+                                                                                            >
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
-                                        {canEdit && (
-                                            <div className="flex gap-2">
-                                                <button 
-                                                    onClick={() => handleOpenEdit(week)} 
-                                                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDelete(week.id)} 
-                                                    className="px-3 py-1 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                    );
+                                });
+                            })()}
                         </div>
                     )}
                 </div>
