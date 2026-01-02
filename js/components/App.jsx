@@ -1878,7 +1878,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                     })}
                                                 projects={projects}
                                                 setProjects={setProjects}
-                                                canEdit={weeklySchedule.canEdit}
+                                                canEdit={auth.isAdmin || (auth.currentUser?.email && ['trevor@autovol.com', 'stephanie@autovol.com'].includes(auth.currentUser.email.toLowerCase()))}
                                             />
                                         ) : (
                                             <div className="text-center py-8 text-gray-500">
