@@ -454,15 +454,24 @@
         
         // Check if current user can edit schedules
         canEdit() {
-            const userEmail = window.MODA_SUPABASE?.userProfile?.email || 
-                              window.MODA_SUPABASE?.currentUser?.email || '';
-            const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || '';
+            const userProfile = window.MODA_SUPABASE?.userProfile;
+            const currentUser = window.MODA_SUPABASE?.currentUser;
+            
+            const userEmail = userProfile?.email || currentUser?.email || '';
+            const userRole = userProfile?.dashboard_role || '';
+            
+            console.log('[WeeklySchedules] canEdit check - email:', userEmail, 'role:', userRole);
             
             // Admin role can always edit
-            if (userRole === 'admin') return true;
+            if (userRole === 'admin') {
+                console.log('[WeeklySchedules] Admin role detected - edit allowed');
+                return true;
+            }
             
             // Check authorized editors list
-            return this.AUTHORIZED_EDITORS.includes(userEmail.toLowerCase());
+            const isAuthorized = this.AUTHORIZED_EDITORS.includes(userEmail.toLowerCase());
+            console.log('[WeeklySchedules] Authorized editor check:', isAuthorized);
+            return isAuthorized;
         },
         
         // Get current week's schedule setup

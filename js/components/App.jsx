@@ -647,9 +647,16 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
                             console.log('[App] Loading projects from Supabase...');
                             const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
-                            setProjectsState(supabaseProjects || []);
+                            // Map Supabase field names to UI field names
+                            const mappedProjects = (supabaseProjects || []).map(p => ({
+                                ...p,
+                                customer: p.client || p.customer || '', // Supabase uses 'client', UI uses 'customer'
+                                startDate: p.start_date || p.startDate,
+                                endDate: p.end_date || p.endDate
+                            }));
+                            setProjectsState(mappedProjects);
                             setProjectsSynced(true);
-                            console.log('[App] Loaded', supabaseProjects?.length || 0, 'projects from Supabase');
+                            console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
                         } else {
                             // Fallback to localStorage
                             console.log('[App] Supabase not available, using localStorage for projects');
