@@ -965,39 +965,32 @@
         },
 
         // Check if current user can edit schedule setup
-        // Uses role-based permissions from dashboardRoles.js
+        // Uses Supabase as single source of truth for user role
         async canEdit() {
-            // Get user info from multiple sources
-            let userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
-                           localStorage.getItem('autovol_user_role') || '';
+            // Primary source: Supabase profile (authoritative)
+            let userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || '';
             let userEmail = window.MODA_SUPABASE?.userProfile?.email || 
                             window.MODA_SUPABASE?.currentUser?.email || '';
             
-            // Also check localStorage session for role (React auth state)
-            if (!userRole || userRole === 'employee') {
+            // If profile not loaded yet, try to fetch it directly from Supabase
+            if (!userRole && window.MODA_SUPABASE?.client) {
                 try {
-                    const session = localStorage.getItem('autovol_session') || sessionStorage.getItem('autovol_session');
-                    if (session) {
-                        const parsed = JSON.parse(session);
-                        if (parsed.dashboardRole) {
-                            userRole = parsed.dashboardRole;
-                            if (!userEmail) userEmail = parsed.email;
+                    const { data: { user } } = await window.MODA_SUPABASE.client.auth.getUser();
+                    if (user) {
+                        userEmail = user.email;
+                        // Fetch profile from database
+                        const { data: profile } = await window.MODA_SUPABASE.client
+                            .from('profiles')
+                            .select('dashboard_role, email')
+                            .eq('id', user.id)
+                            .single();
+                        if (profile) {
+                            userRole = profile.dashboard_role;
+                            userEmail = profile.email || userEmail;
                         }
                     }
                 } catch (e) {
-                    // Ignore parse errors
-                }
-            }
-            
-            // If still no email, try to get from Supabase client directly
-            if (!userEmail && window.MODA_SUPABASE?.client) {
-                try {
-                    const { data } = await window.MODA_SUPABASE.client.auth.getUser();
-                    if (data?.user?.email) {
-                        userEmail = data.user.email;
-                    }
-                } catch (e) {
-                    // Ignore errors
+                    console.log('[WeeklySchedules] Could not fetch profile directly:', e.message);
                 }
             }
             

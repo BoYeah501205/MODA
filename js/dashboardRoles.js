@@ -437,9 +437,10 @@ function useDashboardRoles() {
 
 // Standalone helper function to check if current user can edit a tab
 // This can be called without the hook for quick permission checks
+// Uses Supabase as single source of truth
 function canUserEditTab(tabId) {
-    const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
-                     localStorage.getItem('autovol_user_role') || 'employee';
+    // Primary source: Supabase profile (authoritative)
+    const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 'employee';
     
     // Admin always has full edit access - check before loading roles
     if (userRole === 'admin') return true;
@@ -475,9 +476,10 @@ function canUserEditTab(tabId) {
 
 // Check if current user can perform a specific action on a tab
 // Actions: 'canView', 'canEdit', 'canCreate', 'canDelete'
+// Uses Supabase as single source of truth
 function canUserPerformAction(tabId, action) {
-    const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 
-                     localStorage.getItem('autovol_user_role') || 'employee';
+    // Primary source: Supabase profile (authoritative)
+    const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 'employee';
     
     // Admin always has full access - check before loading roles
     if (userRole === 'admin') return true;
