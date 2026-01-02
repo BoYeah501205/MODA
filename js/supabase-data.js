@@ -646,6 +646,7 @@
                     weekStart: week.start_date,
                     weekEnd: week.end_date,
                     plannedModules: week.planned_modules,
+                    startingModule: week.starting_module,
                     status: week.status,
                     createdAt: week.created_at
                 }));
@@ -668,6 +669,7 @@
                 start_date: weekData.weekStart,
                 end_date: weekData.weekEnd,
                 planned_modules: weekData.plannedModules || 20,
+                starting_module: weekData.startingModule || null,
                 status: weekData.status || 'Planned'
             };
             
@@ -689,6 +691,7 @@
             if (updates.weekStart !== undefined) dbUpdates.start_date = updates.weekStart;
             if (updates.weekEnd !== undefined) dbUpdates.end_date = updates.weekEnd;
             if (updates.plannedModules !== undefined) dbUpdates.planned_modules = updates.plannedModules;
+            if (updates.startingModule !== undefined) dbUpdates.starting_module = updates.startingModule;
             if (updates.status !== undefined) dbUpdates.status = updates.status;
             if (updates.weekNumber !== undefined) dbUpdates.week_number = updates.weekNumber;
             if (updates.year !== undefined) dbUpdates.year = updates.year;
