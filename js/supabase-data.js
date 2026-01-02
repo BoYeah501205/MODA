@@ -973,6 +973,22 @@
             let userEmail = window.MODA_SUPABASE?.userProfile?.email || 
                             window.MODA_SUPABASE?.currentUser?.email || '';
             
+            // Also check localStorage session for role (React auth state)
+            if (!userRole || userRole === 'employee') {
+                try {
+                    const session = localStorage.getItem('autovol_session') || sessionStorage.getItem('autovol_session');
+                    if (session) {
+                        const parsed = JSON.parse(session);
+                        if (parsed.dashboardRole) {
+                            userRole = parsed.dashboardRole;
+                            if (!userEmail) userEmail = parsed.email;
+                        }
+                    }
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            }
+            
             // If still no email, try to get from Supabase client directly
             if (!userEmail && window.MODA_SUPABASE?.client) {
                 try {

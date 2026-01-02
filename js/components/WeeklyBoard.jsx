@@ -172,20 +172,37 @@ const useWeeklySchedule = () => {
     
     // Re-check edit permissions when user profile changes
     useEffect(() => {
+        let pollInterval = null;
+        let pollCount = 0;
+        const MAX_POLLS = 30; // Poll for up to 3 seconds
+        
         const checkPermissions = async () => {
             if (isSupabaseAvailable() && window.MODA_SUPABASE_DATA?.weeklySchedules) {
                 const newCanEdit = await window.MODA_SUPABASE_DATA.weeklySchedules.canEdit();
+                console.log('[WeeklySchedule] Permission check result:', newCanEdit);
                 setCanEdit(newCanEdit);
+                // Stop polling once we have edit permission
+                if (newCanEdit && pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
             }
         };
         
         // Check immediately
         checkPermissions();
         
-        // Also check after delays to catch late profile loads
-        const timer1 = setTimeout(checkPermissions, 500);
-        const timer2 = setTimeout(checkPermissions, 1500);
-        const timer3 = setTimeout(checkPermissions, 3000);
+        // Poll every 100ms until we get edit permission or timeout
+        pollInterval = setInterval(() => {
+            pollCount++;
+            if (pollCount >= MAX_POLLS) {
+                console.log('[WeeklySchedule] Permission poll timeout');
+                clearInterval(pollInterval);
+                pollInterval = null;
+                return;
+            }
+            checkPermissions();
+        }, 100);
         
         // Listen for profile changes
         const handleProfileChange = () => {
@@ -195,9 +212,7 @@ const useWeeklySchedule = () => {
         window.addEventListener('moda-profile-loaded', handleProfileChange);
         
         return () => {
-            clearTimeout(timer1);
-            clearTimeout(timer2);
-            clearTimeout(timer3);
+            if (pollInterval) clearInterval(pollInterval);
             window.removeEventListener('moda-profile-loaded', handleProfileChange);
         };
     }, [isSupabaseAvailable]);
