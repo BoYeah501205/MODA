@@ -477,12 +477,11 @@ function useAuth() {
         localStorage.setItem('autovol_users', JSON.stringify(users)); 
     }, [users]);
 
-    // Listen for Supabase profile loaded event (fires on page refresh when session is restored)
+    // Listen for Supabase profile loaded event AND check if already loaded
     useEffect(() => {
-        const handleProfileLoaded = (event) => {
-            const profile = event.detail;
+        const updateFromProfile = (profile) => {
             if (profile && profile.id) {
-                console.log('[Auth] Profile loaded from Supabase, updating session with role:', profile.dashboard_role);
+                console.log('[Auth] Updating session with Supabase profile, role:', profile.dashboard_role);
                 const updatedSession = {
                     id: profile.id,
                     email: profile.email,
@@ -495,10 +494,23 @@ function useAuth() {
                 // Update storage to keep in sync
                 const storage = localStorage.getItem('autovol_session') ? localStorage : sessionStorage;
                 storage.setItem('autovol_session', JSON.stringify(updatedSession));
+                return true;
             }
+            return false;
+        };
+
+        const handleProfileLoaded = (event) => {
+            updateFromProfile(event.detail);
         };
 
         window.addEventListener('moda-profile-loaded', handleProfileLoaded);
+
+        // Check if profile is already loaded (event may have fired before component mounted)
+        if (window.MODA_SUPABASE?.userProfile) {
+            console.log('[Auth] Found existing Supabase profile on mount');
+            updateFromProfile(window.MODA_SUPABASE.userProfile);
+        }
+
         return () => window.removeEventListener('moda-profile-loaded', handleProfileLoaded);
     }, []);
 
