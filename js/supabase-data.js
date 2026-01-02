@@ -367,6 +367,123 @@
     };
 
     // ============================================================================
+    // DEPARTMENTS API
+    // ============================================================================
+
+    const DepartmentsAPI = {
+        // Get all departments
+        async getAll() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('departments')
+                .select('*')
+                .order('name', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        },
+
+        // Get single department by ID
+        async getById(departmentId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('departments')
+                .select('*')
+                .eq('id', departmentId)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') throw error;
+            return data;
+        },
+
+        // Create new department
+        async create(departmentData) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('departments')
+                .insert({
+                    name: departmentData.name,
+                    supervisor: departmentData.supervisor || null,
+                    linked_station_id: departmentData.linkedStationId || null,
+                    employee_count: departmentData.employeeCount || 0
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            console.log('[Departments] Created:', data.id);
+            return data;
+        },
+
+        // Update department
+        async update(departmentId, updates) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const dbUpdates = {};
+            if (updates.name !== undefined) dbUpdates.name = updates.name;
+            if (updates.supervisor !== undefined) dbUpdates.supervisor = updates.supervisor;
+            if (updates.linkedStationId !== undefined) dbUpdates.linked_station_id = updates.linkedStationId;
+            if (updates.employeeCount !== undefined) dbUpdates.employee_count = updates.employeeCount;
+            
+            const { data, error } = await getClient()
+                .from('departments')
+                .update(dbUpdates)
+                .eq('id', departmentId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            console.log('[Departments] Updated:', departmentId);
+            return data;
+        },
+
+        // Delete department
+        async delete(departmentId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { error } = await getClient()
+                .from('departments')
+                .delete()
+                .eq('id', departmentId);
+            
+            if (error) throw error;
+            console.log('[Departments] Deleted:', departmentId);
+            return true;
+        },
+
+        // Subscribe to real-time changes
+        onSnapshot(callback) {
+            if (!isAvailable()) {
+                console.warn('[Departments] Supabase not available for real-time');
+                return () => {};
+            }
+
+            // Initial load
+            this.getAll().then(departments => callback(departments)).catch(console.error);
+
+            // Subscribe to changes
+            const subscription = getClient()
+                .channel('departments-changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'departments' },
+                    async (payload) => {
+                        console.log('[Departments] Real-time update:', payload.eventType);
+                        const departments = await this.getAll();
+                        callback(departments);
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                subscription.unsubscribe();
+            };
+        }
+    };
+
+    // ============================================================================
     // DATA MIGRATION UTILITIES
     // ============================================================================
 
@@ -826,6 +943,7 @@
         projects: ProjectsAPI,
         modules: ModulesAPI,
         employees: EmployeesAPI,
+        departments: DepartmentsAPI,
         migration: MigrationAPI,
         weeklySchedules: WeeklySchedulesAPI,
         productionWeeks: ProductionWeeksAPI,
