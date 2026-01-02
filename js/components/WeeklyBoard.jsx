@@ -171,10 +171,10 @@ const useWeeklySchedule = () => {
     }, [isSupabaseAvailable]);
     
     // Re-check edit permissions when user profile changes
+    // This runs continuously until permission is granted (no timeout)
     useEffect(() => {
         let pollInterval = null;
-        let pollCount = 0;
-        const MAX_POLLS = 60; // Poll for up to 6 seconds (profile can take time to load)
+        let isMounted = true;
         
         const checkPermissions = () => {
             // Check if user profile is available
@@ -182,53 +182,40 @@ const useWeeklySchedule = () => {
             const hasProfile = userProfile && (userProfile.email || userProfile.dashboard_role);
             
             if (!hasProfile) {
-                console.log('[WeeklySchedule] Waiting for user profile...');
-                return false; // Profile not ready yet
+                // Profile not ready yet - keep waiting
+                return false;
             }
             
             if (isSupabaseAvailable() && window.MODA_SUPABASE_DATA?.weeklySchedules) {
                 const newCanEdit = window.MODA_SUPABASE_DATA.weeklySchedules.canEdit();
                 console.log('[WeeklySchedule] Permission check result:', newCanEdit);
-                setCanEdit(newCanEdit);
-                return newCanEdit; // Return true if we have edit permission
+                if (isMounted) {
+                    setCanEdit(newCanEdit);
+                }
+                return true; // Profile was checked (regardless of result)
             }
             return false;
         };
         
         // Check immediately
-        const hasPermission = checkPermissions();
-        
-        // If we already have permission, no need to poll
-        if (hasPermission) {
-            return;
+        if (checkPermissions()) {
+            return; // Already have profile, no need to poll
         }
         
-        // Poll every 100ms until we get edit permission or timeout
+        // Poll every 200ms until profile is available (no timeout - keep trying)
         pollInterval = setInterval(() => {
-            pollCount++;
-            if (pollCount >= MAX_POLLS) {
-                console.log('[WeeklySchedule] Permission poll timeout - final check');
-                // Do one final check
-                checkPermissions();
-                clearInterval(pollInterval);
-                pollInterval = null;
-                return;
-            }
-            const result = checkPermissions();
-            if (result) {
-                // Got edit permission, stop polling
+            if (checkPermissions()) {
+                // Profile loaded and checked, stop polling
                 clearInterval(pollInterval);
                 pollInterval = null;
             }
-        }, 100);
+        }, 200);
         
-        // Listen for profile changes
+        // Listen for profile changes (backup mechanism)
         const handleProfileChange = (event) => {
-            console.log('[WeeklySchedule] Profile loaded event received:', event.detail);
-            // Small delay to ensure profile is fully set
+            console.log('[WeeklySchedule] Profile loaded event received');
             setTimeout(() => {
-                const result = checkPermissions();
-                if (result && pollInterval) {
+                if (checkPermissions() && pollInterval) {
                     clearInterval(pollInterval);
                     pollInterval = null;
                 }
@@ -237,6 +224,7 @@ const useWeeklySchedule = () => {
         window.addEventListener('moda-profile-loaded', handleProfileChange);
         
         return () => {
+            isMounted = false;
             if (pollInterval) clearInterval(pollInterval);
             window.removeEventListener('moda-profile-loaded', handleProfileChange);
         };
