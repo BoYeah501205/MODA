@@ -33,6 +33,12 @@ const getQAConstants = () => window.QA_CONSTANTS || {
 function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = true }) {
     const QA = getQAConstants();
     
+    // Filter to active projects only (consistent with WeeklyBoard, DashboardHome)
+    const activeProjects = React.useMemo(() => 
+        projects.filter(p => p.status === 'Active'), 
+        [projects]
+    );
+    
     // Active sub-tab
     const [activeSubTab, setActiveSubTab] = React.useState('dashboard');
     
@@ -208,10 +214,10 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
         }
     }, [projects]); // Re-run when projects change (module progress updates)
     
-    // Get all modules from all projects
+    // Get all modules from active projects only
     const allModules = React.useMemo(() => {
         const modules = [];
-        projects.forEach(project => {
+        activeProjects.forEach(project => {
             (project.modules || []).forEach(module => {
                 modules.push({
                     ...module,
@@ -222,12 +228,13 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
             });
         });
         return modules;
-    }, [projects, travelers]);
+    }, [activeProjects, travelers]);
     
-    // Filter modules by project
+    // Filter modules by project (handle both string and number IDs)
     const filteredModules = React.useMemo(() => {
         if (selectedProject === 'all') return allModules;
-        return allModules.filter(m => m.projectId === parseInt(selectedProject));
+        // Compare as strings to handle both UUID and numeric IDs
+        return allModules.filter(m => String(m.projectId) === String(selectedProject));
     }, [allModules, selectedProject]);
     
     // Helper: Check if module is online (has started production)
@@ -499,8 +506,8 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
                         onChange={(e) => setSelectedProject(e.target.value)}
                         className="px-3 py-2 border rounded-lg text-sm min-w-[200px]"
                     >
-                        <option value="all">All Projects</option>
-                        {projects.map(p => (
+                        <option value="all">All Active Projects</option>
+                        {activeProjects.map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
                     </select>

@@ -160,15 +160,16 @@ function NewDeviationModal({ modules, employees, onClose, onSave, QA }) {
         notedBy: ''
     });
     
-    const selectedModule = modules.find(m => m.id === parseInt(formData.moduleId));
+    // Compare as strings to handle both UUID and numeric IDs
+    const selectedModule = modules.find(m => String(m.id) === String(formData.moduleId));
     
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!formData.moduleId || !formData.title) return;
         onSave({
             ...formData,
-            moduleId: parseInt(formData.moduleId),
-            moduleName: selectedModule?.name || '',
+            moduleId: formData.moduleId, // Keep as-is (may be UUID or number)
+            moduleName: selectedModule?.name || selectedModule?.serialNumber || '',
             projectId: selectedModule?.projectId
         });
     };
