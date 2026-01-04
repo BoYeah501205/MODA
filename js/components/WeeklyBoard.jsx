@@ -965,7 +965,9 @@ function ScheduleSetupTab({
     setProjects,
     // Permission props
     canEdit = true, // Tab-specific edit permission (false = view-only mode)
-    userEmail = '' // User email passed from Dashboard auth
+    userEmail = '', // User email passed from Dashboard auth
+    // Navigation props
+    onViewWeek = null // Callback to view a week in WeeklyBoard: (weekId) => void
 }) {
     const { useState } = React;
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
@@ -1345,22 +1347,32 @@ function ScheduleSetupTab({
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
-                                                                                    {canEdit && (
-                                                                                        <div className="flex gap-1">
+                                                                                    <div className="flex gap-1">
+                                                                                        {onViewWeek && (
                                                                                             <button 
-                                                                                                onClick={() => handleOpenEdit(week)} 
-                                                                                                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                                                                                                onClick={() => onViewWeek(week.id)} 
+                                                                                                className="px-2 py-1 text-xs bg-autovol-teal text-white hover:bg-teal-600 rounded"
                                                                                             >
-                                                                                                Edit
+                                                                                                View
                                                                                             </button>
-                                                                                            <button 
-                                                                                                onClick={() => handleDelete(week.id)} 
-                                                                                                className="px-2 py-1 text-xs bg-red-100 text-red-600 hover:bg-red-200 rounded"
-                                                                                            >
-                                                                                                Delete
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    )}
+                                                                                        )}
+                                                                                        {canEdit && (
+                                                                                            <>
+                                                                                                <button 
+                                                                                                    onClick={() => handleOpenEdit(week)} 
+                                                                                                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                                                                                                >
+                                                                                                    Edit
+                                                                                                </button>
+                                                                                                <button 
+                                                                                                    onClick={() => handleDelete(week.id)} 
+                                                                                                    className="px-2 py-1 text-xs bg-red-100 text-red-600 hover:bg-red-200 rounded"
+                                                                                                >
+                                                                                                    Delete
+                                                                                                </button>
+                                                                                            </>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
                                                                             );
                                                                         })}
@@ -1756,7 +1768,9 @@ function WeeklyBoardTab({
     canEdit = true, // Tab-specific edit permission (false = view-only mode)
     stationCapacities = {}, // Optional: custom capacities per station { stationId: number }
     userRole = null, // User's dashboard role (e.g., 'qa', 'admin')
-    onLogQAInspection = null // Callback for QA inspection (module, station) => void
+    onLogQAInspection = null, // Callback for QA inspection (module, station) => void
+    initialSelectedWeekId = null, // Initial week to display (from Schedule Setup navigation)
+    onWeekSelected = null // Callback when week is selected (to clear initialSelectedWeekId)
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
@@ -1769,8 +1783,17 @@ function WeeklyBoardTab({
     
     // ===== WEEK SELECTOR =====
     // selectedWeekId: null means "use currentWeek (auto)", otherwise use specific week
-    const [selectedWeekId, setSelectedWeekId] = useState(null);
+    const [selectedWeekId, setSelectedWeekId] = useState(initialSelectedWeekId);
     const [showWeekPicker, setShowWeekPicker] = useState(false);
+    
+    // Handle initialSelectedWeekId from Schedule Setup navigation
+    useEffect(() => {
+        if (initialSelectedWeekId) {
+            setSelectedWeekId(initialSelectedWeekId);
+            // Clear the initial selection after applying it
+            if (onWeekSelected) onWeekSelected();
+        }
+    }, [initialSelectedWeekId, onWeekSelected]);
     
     // Determine which week to display
     const displayWeek = useMemo(() => {
@@ -1956,7 +1979,8 @@ function WeeklyBoardTab({
     })));
     
     // Get line balance for current display
-    const lineBalance = getLineBalance();
+    // Use the displayed week's plannedModules if available, otherwise fall back to global getLineBalance()
+    const lineBalance = displayWeek?.plannedModules || getLineBalance();
     
     // Get all modules from all active projects, sorted by productionOrder then buildSequence
     // Filter out modules with excludeFromSchedule flag
@@ -2045,7 +2069,8 @@ function WeeklyBoardTab({
         const startingModule = getStationStartingModule(station.id);
         if (!startingModule) return { previous: [], current: [], next: [] };
         
-        const lineBalance = getLineBalance();
+        // Use the displayed week's plannedModules if available
+        const weekLineBalance = displayWeek?.plannedModules || getLineBalance();
         
         // Find the starting module index - try by ID first, then by serial number
         let startIdx = allModules.findIndex(m => m.id === startingModule.id);
@@ -2073,11 +2098,11 @@ function WeeklyBoardTab({
         const prevStartIdx = startIdx - prevCount;
         const previousModules = allModules.slice(prevStartIdx, startIdx);
         
-        // Current week: line balance modules
-        const currentModules = allModules.slice(startIdx, startIdx + lineBalance);
+        // Current week: line balance modules (use weekLineBalance from displayed week)
+        const currentModules = allModules.slice(startIdx, startIdx + weekLineBalance);
         
         // Next week preview: 5 modules after current week (or fewer if at end)
-        const nextStartIdx = startIdx + lineBalance;
+        const nextStartIdx = startIdx + weekLineBalance;
         const nextModules = allModules.slice(nextStartIdx, nextStartIdx + 5);
         
         return {

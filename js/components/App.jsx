@@ -1503,6 +1503,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const activeProjects = projects.filter(p => p.status === 'Active');
             const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || null);
             const [productionTab, setProductionTab] = useState('weekly-board');
+            const [selectedWeekId, setSelectedWeekId] = useState(null); // For viewing specific weeks from Schedule Setup
             
             // Module Detail State (for Station Board "View Details" button)
             const [selectedModuleDetail, setSelectedModuleDetail] = useState(null);
@@ -1807,6 +1808,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 setProductionTab={setProductionTab}
                                                 setProjects={setProjects}
                                                 canEdit={auth.canEditTab('production')}
+                                                initialSelectedWeekId={selectedWeekId}
+                                                onWeekSelected={() => setSelectedWeekId(null)}
                                                 onReportIssue={(module, station) => {
                                                     setReportIssueContext({ module, station, project: selectedProject });
                                                     setShowReportIssueModal(true);
@@ -1844,6 +1847,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 setProjects={setProjects}
                                                 canEdit={auth.isAdmin || (auth.currentUser?.email && ['trevor@autovol.com', 'stephanie@autovol.com'].includes(auth.currentUser.email.toLowerCase()))}
                                                 userEmail={auth.currentUser?.email}
+                                                onViewWeek={(weekId) => {
+                                                    setSelectedWeekId(weekId);
+                                                    setProductionTab('weekly-board');
+                                                }}
                                             />
                                         ) : (
                                             <div className="text-center py-8 text-gray-500">
