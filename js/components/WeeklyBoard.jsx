@@ -2034,22 +2034,16 @@ function WeeklyBoardTab({
         const stagger = staggerConfig?.[stationId] || 0;
         const startIdx = allModules.findIndex(m => m.id === weekStartingModule.id);
         
-        // Debug: Log stagger application
-        if (stationId === 'auto-fc' || stationId === 'wall-set') {
-            console.log('[WeeklyBoard] Stagger debug:', {
-                stationId,
-                stagger,
-                staggerConfig: staggerConfig,
-                startIdx,
-                weekStartingModule: weekStartingModule?.serialNumber
-            });
-        }
-        
         if (startIdx === -1) return null;
         
         // Apply stagger - downstream stations work on earlier modules
         const staggeredIdx = Math.max(0, startIdx - stagger);
-        return allModules[staggeredIdx] || null;
+        const staggeredModule = allModules[staggeredIdx] || null;
+        
+        // Debug: Log stagger application for all stations
+        console.log(`[WeeklyBoard] Station ${stationId}: stagger=${stagger}, startIdx=${startIdx}, staggeredIdx=${staggeredIdx}, module=${staggeredModule?.serialNumber}`);
+        
+        return staggeredModule;
     };
     
     // Get modules for a station column based on stagger and line balance
