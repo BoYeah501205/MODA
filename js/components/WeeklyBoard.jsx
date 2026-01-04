@@ -1760,6 +1760,9 @@ function WeeklyBoardTab({
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
+    // Debug: Log staggerConfig when component renders
+    console.log('[WeeklyBoardTab] Received staggerConfig prop:', staggerConfig);
+    
     // Mobile detection
     const isMobile = window.useIsMobile ? window.useIsMobile(768) : false;
     
