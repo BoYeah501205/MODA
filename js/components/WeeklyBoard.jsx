@@ -1760,9 +1760,6 @@ function WeeklyBoardTab({
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
-    // Debug: Log staggerConfig when component renders
-    console.log('[WeeklyBoardTab] Received staggerConfig prop:', staggerConfig);
-    
     // Mobile detection
     const isMobile = window.useIsMobile ? window.useIsMobile(768) : false;
     
@@ -2029,30 +2026,17 @@ function WeeklyBoardTab({
             ? allModules.find(m => m.serialNumber === displayWeek.startingModule)
             : autoStartingModule;
             
-        if (!weekStartingModule) {
-            console.log('[WeeklyBoard] No weekStartingModule for station:', stationId);
-            return null;
-        }
+        if (!weekStartingModule) return null;
         
         const stagger = staggerConfig?.[stationId] || 0;
         const startIdx = allModules.findIndex(m => m.id === weekStartingModule.id);
         
         if (startIdx === -1) return null;
         
-        // Apply stagger - downstream stations work on EARLIER modules in the sequence
-        // A stagger of 5 means this station is 5 modules behind automation
-        // So if automation starts at module 636, wall-set (stagger 5) starts at 631
-        // This means we need to go BACK in the module list (subtract from base index)
-        // But the base index is the FIRST module of the week for automation
-        // For downstream stations, they're working on modules that automation finished earlier
-        // So we ADD the stagger to show modules that are further along in production
+        // Apply stagger - downstream stations work on modules further along in production
+        // A stagger of 5 means this station shows modules 5 positions ahead
         const staggeredIdx = Math.min(allModules.length - 1, startIdx + stagger);
-        const staggeredModule = allModules[staggeredIdx] || null;
-        
-        // Debug: Log stagger application for all stations
-        console.log(`[WeeklyBoard] Station ${stationId}: stagger=${stagger}, startIdx=${startIdx}, staggeredIdx=${staggeredIdx}, module=${staggeredModule?.serialNumber}`);
-        
-        return staggeredModule;
+        return allModules[staggeredIdx] || null;
     };
     
     // Get modules for a station column based on stagger and line balance

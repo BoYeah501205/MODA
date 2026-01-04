@@ -857,12 +857,7 @@
                     .order('created_at', { ascending: false })
                     .limit(1);
                 
-                if (error) {
-                    console.error('[StationStaggers] Query error:', error);
-                    throw error;
-                }
-                
-                console.log('[StationStaggers] Raw data from Supabase:', data);
+                if (error) throw error;
                 
                 // Return the config from the first (most recent) row
                 if (data && data.length > 0 && data[0].config) {
@@ -870,7 +865,6 @@
                 }
                 return null;
             } catch (error) {
-                console.error('[StationStaggers] Error fetching:', error.message);
                 return null;
             }
         },

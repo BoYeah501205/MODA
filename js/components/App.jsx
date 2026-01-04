@@ -210,24 +210,18 @@ const useProductionWeeks = () => {
                             }
                         }
                     } catch (err) {
-                        console.log('[App] Production weeks table may not exist');
                     }
                     setWeeksLoaded(true);
                     
                     // Load staggers
                     try {
                         const supabaseStaggers = await window.MODA_SUPABASE_DATA.stationStaggers.get();
-                        console.log('[App] Supabase staggers result:', supabaseStaggers);
                         if (supabaseStaggers && Object.keys(supabaseStaggers).length > 0) {
                             setStaggerConfig(supabaseStaggers);
-                            console.log('[App] Loaded staggers from Supabase:', supabaseStaggers);
                         } else {
-                            // Fallback to defaults
-                            console.log('[App] No staggers in Supabase, using defaults');
                             setStaggerConfig({ ...stationStaggers });
                         }
                     } catch (err) {
-                        console.log('[App] Staggers table may not exist, using defaults:', err.message);
                         setStaggerConfig({ ...stationStaggers });
                     }
                     setStaggersLoaded(true);
