@@ -266,7 +266,7 @@
             const { data, error } = await getClient()
                 .from('employees')
                 .select('*')
-                .order('name', { ascending: true });
+                .order('last_name', { ascending: true });
             
             if (error) throw error;
             return data || [];
