@@ -2036,8 +2036,14 @@ function WeeklyBoardTab({
         
         if (startIdx === -1) return null;
         
-        // Apply stagger - downstream stations work on earlier modules
-        const staggeredIdx = Math.max(0, startIdx - stagger);
+        // Apply stagger - downstream stations work on EARLIER modules in the sequence
+        // A stagger of 5 means this station is 5 modules behind automation
+        // So if automation starts at module 636, wall-set (stagger 5) starts at 631
+        // This means we need to go BACK in the module list (subtract from base index)
+        // But the base index is the FIRST module of the week for automation
+        // For downstream stations, they're working on modules that automation finished earlier
+        // So we ADD the stagger to show modules that are further along in production
+        const staggeredIdx = Math.min(allModules.length - 1, startIdx + stagger);
         const staggeredModule = allModules[staggeredIdx] || null;
         
         // Debug: Log stagger application for all stations
