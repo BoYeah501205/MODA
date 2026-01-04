@@ -967,7 +967,9 @@ function ScheduleSetupTab({
     canEdit = true, // Tab-specific edit permission (false = view-only mode)
     userEmail = '', // User email passed from Dashboard auth
     // Navigation props
-    onViewWeek = null // Callback to view a week in WeeklyBoard: (weekId) => void
+    onViewWeek = null, // Callback to view a week in WeeklyBoard: (weekId) => void
+    initialEditWeekId = null, // Week ID to open edit modal for (from WeeklyBoard Edit Week button)
+    onEditWeekHandled = null // Callback when edit week has been handled
 }) {
     const { useState } = React;
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
@@ -1027,6 +1029,37 @@ function ScheduleSetupTab({
         shift1: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
         shift2: { friday: 0, saturday: 0, sunday: 0 }
     });
+    
+    // Handle initialEditWeekId from WeeklyBoard Edit Week button
+    React.useEffect(() => {
+        if (initialEditWeekId && weeks) {
+            const weekToEdit = weeks.find(w => w.id === initialEditWeekId);
+            if (weekToEdit) {
+                // Open the edit modal for this week
+                setFormData({ 
+                    weekStart: weekToEdit.weekStart, 
+                    weekEnd: weekToEdit.weekEnd, 
+                    productionGoal: weekToEdit.productionGoal || 20, 
+                    dailyGoal: weekToEdit.dailyGoal || 5, 
+                    startingModule: weekToEdit.startingModule || '', 
+                    notes: weekToEdit.notes || '',
+                    shift1: weekToEdit.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+                    shift2: weekToEdit.shift2 || { friday: 0, saturday: 0, sunday: 0 }
+                }); 
+                setEditingWeek(weekToEdit); 
+                setShowAddWeek(true); 
+                setError('');
+                
+                // Expand the year and quarter containing this week
+                const year = weekToEdit.year || new Date(weekToEdit.weekStart).getFullYear();
+                const quarter = weekToEdit.quarter || Math.ceil((new Date(weekToEdit.weekStart).getMonth() + 1) / 3);
+                setExpandedYears(prev => ({ ...prev, [year]: true }));
+                setExpandedQuarters(prev => ({ ...prev, [`${year}-Q${quarter}`]: true }));
+            }
+            // Clear the initialEditWeekId after handling
+            if (onEditWeekHandled) onEditWeekHandled();
+        }
+    }, [initialEditWeekId, weeks, onEditWeekHandled]);
     
     // Sort modules: first by project (productionOrder, then projectId), then by buildSequence within project
     const sortedModules = [...(allModules || [])].sort((a, b) => {
@@ -1137,10 +1170,15 @@ function ScheduleSetupTab({
         if (!formData.startingModule) { setError('Please select a starting module'); return; } 
         const validation = validateWeek?.(formData, editingWeek?.id); 
         if (validation && !validation.valid) { setError(validation.error); return; } 
+        
+        // Calculate and include plannedModules in the saved data
+        const plannedModules = getFormLineBalance();
+        const dataToSave = { ...formData, plannedModules };
+        
         if (editingWeek) { 
-            updateWeek?.(editingWeek.id, formData); 
+            updateWeek?.(editingWeek.id, dataToSave); 
         } else { 
-            addWeek?.(formData); 
+            addWeek?.(dataToSave); 
         } 
         setShowAddWeek(false); 
         resetForm(); 
@@ -1770,7 +1808,8 @@ function WeeklyBoardTab({
     userRole = null, // User's dashboard role (e.g., 'qa', 'admin')
     onLogQAInspection = null, // Callback for QA inspection (module, station) => void
     initialSelectedWeekId = null, // Initial week to display (from Schedule Setup navigation)
-    onWeekSelected = null // Callback when week is selected (to clear initialSelectedWeekId)
+    onWeekSelected = null, // Callback when week is selected (to clear initialSelectedWeekId)
+    onEditWeek = null // Callback to edit a week in Schedule Setup: (weekId) => void
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
@@ -3883,7 +3922,13 @@ function WeeklyBoardTab({
                     )}
                     {canEdit && (
                         <button
-                            onClick={() => setProductionTab?.('schedule-setup')}
+                            onClick={() => {
+                                if (onEditWeek && displayWeek?.id) {
+                                    onEditWeek(displayWeek.id);
+                                } else {
+                                    setProductionTab?.('schedule-setup');
+                                }
+                            }}
                             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
                             title="Change week configuration"
                         >
