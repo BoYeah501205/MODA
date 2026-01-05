@@ -5,6 +5,13 @@
 
 const { useState, useMemo } = React;
 
+// Format date for display
+const formatWeekDate = (dateStr) => {
+    if (!dateStr) return 'Unknown';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 // Report type definitions
 const REPORT_TYPES = {
     HEAT_MAP: 'heat-map',
@@ -123,12 +130,6 @@ function WeekSelector({
         
         return weekList;
     }, [currentWeek, completedWeeks]);
-    
-    const formatWeekDate = (dateStr) => {
-        if (!dateStr) return 'Unknown';
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
     
     const selectedWeek = availableWeeks.find(w => w.id === selectedWeekId) || availableWeeks[0];
     
