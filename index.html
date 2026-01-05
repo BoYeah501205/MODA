@@ -40,6 +40,26 @@
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
     <div id="root"></div>
     
+    <!-- Debug: Show JS errors on screen for Safari/iPad debugging -->
+    <div id="error-display" style="display:none; position:fixed; bottom:0; left:0; right:0; background:red; color:white; padding:10px; font-size:12px; max-height:200px; overflow:auto; z-index:99999;"></div>
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var el = document.getElementById('error-display');
+        if (el) {
+          el.style.display = 'block';
+          el.innerHTML += '<div><b>' + msg + '</b><br>File: ' + url + '<br>Line: ' + line + '</div><hr>';
+        }
+        return false;
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        var el = document.getElementById('error-display');
+        if (el) {
+          el.style.display = 'block';
+          el.innerHTML += '<div><b>Promise Error:</b> ' + (e.reason ? e.reason.message || e.reason : 'Unknown') + '</div><hr>';
+        }
+      });
+    </script>
+    
     <!-- Feature Flags (Dashboard Migration) -->
     <script src="./js/config/featureFlags.js"></script>
     
