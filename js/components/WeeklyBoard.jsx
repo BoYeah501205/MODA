@@ -2113,9 +2113,10 @@ function WeeklyBoardTab({
         
         if (startIdx === -1) return null;
         
-        // Apply stagger - downstream stations work on modules further along in production
-        // A stagger of 5 means this station shows modules 5 positions ahead
-        const staggeredIdx = Math.min(allModules.length - 1, startIdx + stagger);
+        // Apply stagger - downstream stations work on modules earlier in the sequence
+        // A stagger of 5 means this station shows modules 5 positions behind Automation
+        // (they've already passed through upstream stations)
+        const staggeredIdx = Math.max(0, startIdx - stagger);
         return allModules[staggeredIdx] || null;
     };
     
