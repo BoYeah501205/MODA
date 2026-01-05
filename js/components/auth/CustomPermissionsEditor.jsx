@@ -35,8 +35,49 @@ function CustomPermissionsEditor({ userId, userEmail, userName, userRole, onClos
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
     const [hasChanges, setHasChanges] = useState(false);
+    const [isNewCustomization, setIsNewCustomization] = useState(false);
 
-    // Load user's current custom permissions
+    // Get role-based permissions for a tab from DEFAULT_DASHBOARD_ROLES
+    const getRolePermissions = useCallback((roleId, tabId) => {
+        const roles = window.DEFAULT_DASHBOARD_ROLES || [];
+        const role = roles.find(r => r.id === roleId);
+        if (!role) return { canView: false, canEdit: false, canCreate: false, canDelete: false };
+        
+        // Check tabPermissions first
+        if (role.tabPermissions && role.tabPermissions[tabId]) {
+            return {
+                canView: role.tabPermissions[tabId].canView || false,
+                canEdit: role.tabPermissions[tabId].canEdit || false,
+                canCreate: role.tabPermissions[tabId].canCreate || false,
+                canDelete: role.tabPermissions[tabId].canDelete || false
+            };
+        }
+        
+        // Fallback: if tab is in viewable tabs, grant view-only
+        if (role.tabs?.includes(tabId)) {
+            return { canView: true, canEdit: false, canCreate: false, canDelete: false };
+        }
+        
+        return { canView: false, canEdit: false, canCreate: false, canDelete: false };
+    }, []);
+
+    // Build full permissions matrix from role defaults
+    const buildRoleBasedPermissions = useCallback((roleId) => {
+        const allItems = [...PERMISSION_TABS, ...SPECIAL_FEATURES];
+        const perms = {};
+        
+        allItems.forEach(item => {
+            const rolePerms = getRolePermissions(roleId, item.id);
+            // Only include if at least one permission is true
+            if (rolePerms.canView || rolePerms.canEdit || rolePerms.canCreate || rolePerms.canDelete) {
+                perms[item.id] = rolePerms;
+            }
+        });
+        
+        return perms;
+    }, [getRolePermissions]);
+
+    // Load user's current custom permissions OR pre-populate with role defaults
     useEffect(() => {
         const loadPermissions = async () => {
             if (!userId) return;
@@ -47,9 +88,19 @@ function CustomPermissionsEditor({ userId, userEmail, userName, userRole, onClos
             try {
                 const result = await window.MODA_SUPABASE.getUserCustomPermissions(userId);
                 if (result.success) {
-                    const perms = result.customPermissions || {};
-                    setCustomPermissions(perms);
-                    setOriginalPermissions(JSON.stringify(perms));
+                    if (result.hasCustomPermissions) {
+                        // User already has custom permissions - load them
+                        const perms = result.customPermissions || {};
+                        setCustomPermissions(perms);
+                        setOriginalPermissions(JSON.stringify(perms));
+                        setIsNewCustomization(false);
+                    } else {
+                        // No custom permissions yet - pre-populate with role defaults
+                        const rolePerms = buildRoleBasedPermissions(userRole);
+                        setCustomPermissions(rolePerms);
+                        setOriginalPermissions(JSON.stringify({})); // Original is empty (no custom perms)
+                        setIsNewCustomization(true);
+                    }
                 } else {
                     setError(result.error);
                 }
@@ -61,7 +112,7 @@ function CustomPermissionsEditor({ userId, userEmail, userName, userRole, onClos
         };
         
         loadPermissions();
-    }, [userId]);
+    }, [userId, userRole, buildRoleBasedPermissions]);
 
     // Track changes
     useEffect(() => {
@@ -196,16 +247,19 @@ function CustomPermissionsEditor({ userId, userEmail, userName, userRole, onClos
 
             {/* Info Banner */}
             <div style={{
-                background: '#EFF6FF',
-                border: '1px solid #BFDBFE',
+                background: isNewCustomization ? '#F0FDF4' : '#EFF6FF',
+                border: `1px solid ${isNewCustomization ? '#BBF7D0' : '#BFDBFE'}`,
                 borderRadius: '6px',
                 padding: '12px 16px',
                 marginBottom: '20px',
                 fontSize: '13px',
-                color: '#1E40AF'
+                color: isNewCustomization ? '#166534' : '#1E40AF'
             }}>
-                <strong>How it works:</strong> Custom permissions override the user's role defaults. 
-                Only set permissions for tabs you want to customize. Unchecked tabs will use role defaults.
+                {isNewCustomization ? (
+                    <><strong>Starting from role defaults:</strong> The checkboxes below show the current permissions from the "{userRole}" role. Modify as needed and save to create custom permissions for this user.</>
+                ) : (
+                    <><strong>Editing custom permissions:</strong> This user has custom overrides. Changes here will update their custom permissions.</>
+                )}
             </div>
 
             {/* Error Display */}
