@@ -684,23 +684,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [searchTerm, setSearchTerm] = useState('');
             const [stageFilter, setStageFilter] = useState('all');
             
-            // Theme state (dark mode) - defaults to light mode
-            const [darkMode, setDarkMode] = useState(() => {
-                const saved = localStorage.getItem('moda_theme');
-                if (saved) return saved === 'dark';
-                // Default to light mode instead of system preference
-                return false;
-            });
-            
-            // Keyboard shortcuts help modal
-            const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-            
-            // Apply theme to document
-            useEffect(() => {
-                document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-                localStorage.setItem('moda_theme', darkMode ? 'dark' : 'light');
-            }, [darkMode]);
-            
             // Keyboard shortcuts
             useEffect(() => {
                 const handleKeyDown = (e) => {
@@ -712,23 +695,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     const key = e.key.toLowerCase();
                     const ctrl = e.ctrlKey || e.metaKey;
                     
-                    // Ctrl+D: Toggle dark mode
-                    if (ctrl && key === 'd') {
-                        e.preventDefault();
-                        setDarkMode(prev => !prev);
-                        return;
-                    }
-                    
-                    // ?: Show shortcuts help
-                    if (e.key === '?' || (e.shiftKey && key === '/')) {
-                        e.preventDefault();
-                        setShowShortcutsHelp(true);
-                        return;
-                    }
-                    
                     // Escape: Close modals
                     if (key === 'escape') {
-                        setShowShortcutsHelp(false);
                         setShowProjectModal(false);
                         setShowImportModal(false);
                         setShowDataManagement(false);
@@ -1066,47 +1034,19 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
-                                {auth.isAdmin && (
-                                    <button 
-                                        onClick={() => setShowDataManagement(true)}
-                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center gap-1 hide-mobile-tablet"
-                                        title="Data Management"
-                                    >
-                                        <span className="icon-settings" style={{width: '14px', height: '14px', display: 'inline-block'}}></span> Data
-                                    </button>
-                                )}
                                 <div className="text-right cursor-pointer hover:opacity-80 transition mobile-user-profile" onClick={() => setShowUserProfile(true)} title="View your profile">
                                     <p className="text-sm font-medium hide-mobile" style={{color: 'var(--autovol-navy)'}}>{auth.currentUser?.name || 'User'}</p>
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${auth.isAdmin ? 'role-badge-admin' : 'role-badge-user'}`}>
                                         {auth.userRole?.name || auth.currentUser?.dashboardRole || 'User'}
                                     </span>
                                 </div>
-                                {/* User Controls Group */}
-                                <div className="flex items-center gap-1 hide-mobile-tablet">
-                                    {/* Theme Toggle */}
-                                    <button 
-                                        onClick={() => setDarkMode(prev => !prev)}
-                                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
-                                        title={`Switch to ${darkMode ? 'light' : 'dark'} mode (Ctrl+D)`}
-                                    >
-                                        <span className={darkMode ? 'icon-sun' : 'icon-moon'} style={{width: '16px', height: '16px', display: 'inline-block'}}></span>
-                                    </button>
-                                    {/* Keyboard Shortcuts Help */}
-                                    <button 
-                                        onClick={() => setShowShortcutsHelp(true)}
-                                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
-                                        title="Keyboard shortcuts (?)"
-                                    >
-                                        <span className="icon-keyboard" style={{width: '16px', height: '16px', display: 'inline-block'}}></span>
-                                    </button>
-                                    {/* Sign Out */}
-                                    <button 
-                                        onClick={() => auth.logout()} 
-                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition"
-                                    >
-                                        Sign Out
-                                    </button>
-                                </div>
+                                {/* Sign Out */}
+                                <button 
+                                    onClick={() => auth.logout()} 
+                                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition hide-mobile-tablet"
+                                >
+                                    Sign Out
+                                </button>
                             </div>
                         </div>
                     </header>
@@ -1335,6 +1275,24 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
 
                         {activeTab === 'admin' && auth.canAccessAdmin && (
                             <>
+                                {/* Data Management Button */}
+                                <div className="mb-6">
+                                    <div className="bg-white rounded-lg shadow p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h2 className="text-xl font-bold" style={{color: 'var(--autovol-navy)'}}>Data Management</h2>
+                                                <p className="text-gray-600 text-sm mt-1">Manage trash, backup and restore data</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => setShowDataManagement(true)}
+                                                className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center gap-2"
+                                            >
+                                                <span className="icon-settings" style={{width: '16px', height: '16px', display: 'inline-block'}}></span>
+                                                Open Data Management
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                                 {/* User Permissions Manager */}
                                 <div className="mb-6">
                                     {window.UserPermissionsManager ? (
@@ -1446,67 +1404,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             exportData={exportData}
                             importData={importData}
                         />
-                    )}
-
-                    {/* Keyboard Shortcuts Help Modal */}
-                    {showShortcutsHelp && (
-                        <div className="shortcuts-modal-overlay" onClick={() => setShowShortcutsHelp(false)}>
-                            <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-bold" style={{color: 'var(--autovol-navy)'}}>Keyboard Shortcuts</h2>
-                                    <button 
-                                        onClick={() => setShowShortcutsHelp(false)}
-                                        className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                                
-                                <div className="mb-4">
-                                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Navigation</h3>
-                                    <div className="shortcut-row">
-                                        <span>Go to tab 1-9</span>
-                                        <span className="shortcut-key"><kbd>1</kbd> - <kbd>9</kbd></span>
-                                    </div>
-                                    <div className="shortcut-row">
-                                        <span>Close modal / Go back</span>
-                                        <span className="shortcut-key"><kbd>Esc</kbd></span>
-                                    </div>
-                                </div>
-                                
-                                <div className="mb-4">
-                                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Actions</h3>
-                                    <div className="shortcut-row">
-                                        <span>Toggle dark mode</span>
-                                        <span className="shortcut-key"><kbd>Ctrl</kbd> + <kbd>D</kbd></span>
-                                    </div>
-                                    <div className="shortcut-row">
-                                        <span>Focus search (Projects tab)</span>
-                                        <span className="shortcut-key"><kbd>Ctrl</kbd> + <kbd>F</kbd></span>
-                                    </div>
-                                    {auth.isAdmin && (
-                                        <div className="shortcut-row">
-                                            <span>Export data backup</span>
-                                            <span className="shortcut-key"><kbd>Ctrl</kbd> + <kbd>E</kbd></span>
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                <div>
-                                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Help</h3>
-                                    <div className="shortcut-row">
-                                        <span>Show this help</span>
-                                        <span className="shortcut-key"><kbd>?</kbd></span>
-                                    </div>
-                                </div>
-                                
-                                <div className="mt-6 pt-4 border-t text-center">
-                                    <p className="text-xs text-gray-500">
-                                        Press <kbd className="bg-gray-100 px-1 rounded">Esc</kbd> to close
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
                     )}
                 </div>
             );
