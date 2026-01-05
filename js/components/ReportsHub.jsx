@@ -19,6 +19,32 @@ const REPORT_TYPES = {
     WEEKLY_BOARD_MANAGEMENT: 'weekly-board-management'
 };
 
+// Wrapper component for Print Report - checks if component is loaded
+function WeeklyBoardPrintReportContent(props) {
+    if (window.WeeklyBoardPrintReport) {
+        return React.createElement(window.WeeklyBoardPrintReport, props);
+    }
+    return (
+        <div className="p-8 text-center text-gray-500">
+            <p>Loading Print Report component...</p>
+            <p className="text-xs mt-2">If this persists, check console for errors.</p>
+        </div>
+    );
+}
+
+// Wrapper component for Management Report - checks if component is loaded
+function WeeklyBoardManagementReportContent(props) {
+    if (window.WeeklyBoardManagementReport) {
+        return React.createElement(window.WeeklyBoardManagementReport, props);
+    }
+    return (
+        <div className="p-8 text-center text-gray-500">
+            <p>Loading Management Report component...</p>
+            <p className="text-xs mt-2">If this persists, check console for errors.</p>
+        </div>
+    );
+}
+
 // Report card component
 function ReportCard({ 
     title, 
@@ -248,22 +274,18 @@ function ReportsHub({
                     />
                 </div>
                 
-                {window.WeeklyBoardPrintReport ? (
-                    <window.WeeklyBoardPrintReport
-                        projects={projects}
-                        productionStages={productionStages}
-                        currentWeek={currentWeek}
-                        selectedWeekId={selectedWeekId}
-                        completedWeeks={completedWeeks}
-                        scheduleSetup={scheduleSetup}
-                        staggerConfig={staggerConfig}
-                        allModules={allModules}
-                        activeProjects={activeProjects}
-                        lineBalance={lineBalance}
-                    />
-                ) : (
-                    <div className="p-8 text-center text-gray-500">Loading Print Report...</div>
-                )}
+                <WeeklyBoardPrintReportContent
+                    projects={projects}
+                    productionStages={productionStages}
+                    currentWeek={currentWeek}
+                    selectedWeekId={selectedWeekId}
+                    completedWeeks={completedWeeks}
+                    scheduleSetup={scheduleSetup}
+                    staggerConfig={staggerConfig}
+                    allModules={allModules}
+                    activeProjects={activeProjects}
+                    lineBalance={lineBalance}
+                />
             </div>
         );
     }
@@ -291,22 +313,18 @@ function ReportsHub({
                     />
                 </div>
                 
-                {window.WeeklyBoardManagementReport ? (
-                    <window.WeeklyBoardManagementReport
-                        projects={projects}
-                        productionStages={productionStages}
-                        currentWeek={currentWeek}
-                        selectedWeekId={selectedWeekId}
-                        completedWeeks={completedWeeks}
-                        scheduleSetup={scheduleSetup}
-                        staggerConfig={staggerConfig}
-                        allModules={allModules}
-                        activeProjects={activeProjects}
-                        lineBalance={lineBalance}
-                    />
-                ) : (
-                    <div className="p-8 text-center text-gray-500">Loading Management Report...</div>
-                )}
+                <WeeklyBoardManagementReportContent
+                    projects={projects}
+                    productionStages={productionStages}
+                    currentWeek={currentWeek}
+                    selectedWeekId={selectedWeekId}
+                    completedWeeks={completedWeeks}
+                    scheduleSetup={scheduleSetup}
+                    staggerConfig={staggerConfig}
+                    allModules={allModules}
+                    activeProjects={activeProjects}
+                    lineBalance={lineBalance}
+                />
             </div>
         );
     }
