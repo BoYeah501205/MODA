@@ -258,6 +258,57 @@
     // EMPLOYEES API
     // ============================================================================
 
+    // Map Supabase snake_case to camelCase for UI compatibility
+    const mapEmployeeFromDb = (row) => ({
+        id: row.id,
+        prefix: row.prefix || '',
+        firstName: row.first_name || '',
+        middleName: row.middle_name || '',
+        lastName: row.last_name || '',
+        suffix: row.suffix || '',
+        name: row.name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        department: row.department || '',
+        jobTitle: row.job_title || '',
+        shift: row.shift || '',
+        permissions: row.permissions || 'No Access',
+        accessStatus: row.access_status || 'none',
+        supabaseUserId: row.supabase_user_id || null,
+        isActive: row.is_active !== false,
+        inactiveReason: row.inactive_reason || null,
+        inactiveNotes: row.inactive_notes || null,
+        inactiveDate: row.inactive_date || null,
+        invitedAt: row.invited_at || null,
+        createdAt: row.created_at || null,
+        updatedAt: row.updated_at || null
+    });
+
+    // Map camelCase to snake_case for Supabase inserts/updates
+    const mapEmployeeToDb = (data) => {
+        const mapped = {};
+        if (data.prefix !== undefined) mapped.prefix = data.prefix;
+        if (data.firstName !== undefined) mapped.first_name = data.firstName;
+        if (data.middleName !== undefined) mapped.middle_name = data.middleName;
+        if (data.lastName !== undefined) mapped.last_name = data.lastName;
+        if (data.suffix !== undefined) mapped.suffix = data.suffix;
+        if (data.name !== undefined) mapped.name = data.name;
+        if (data.email !== undefined) mapped.email = data.email;
+        if (data.phone !== undefined) mapped.phone = data.phone;
+        if (data.department !== undefined) mapped.department = data.department;
+        if (data.jobTitle !== undefined) mapped.job_title = data.jobTitle;
+        if (data.shift !== undefined) mapped.shift = data.shift;
+        if (data.permissions !== undefined) mapped.permissions = data.permissions;
+        if (data.accessStatus !== undefined) mapped.access_status = data.accessStatus;
+        if (data.supabaseUserId !== undefined) mapped.supabase_user_id = data.supabaseUserId;
+        if (data.isActive !== undefined) mapped.is_active = data.isActive;
+        if (data.inactiveReason !== undefined) mapped.inactive_reason = data.inactiveReason;
+        if (data.inactiveNotes !== undefined) mapped.inactive_notes = data.inactiveNotes;
+        if (data.inactiveDate !== undefined) mapped.inactive_date = data.inactiveDate;
+        if (data.invitedAt !== undefined) mapped.invited_at = data.invitedAt;
+        return mapped;
+    };
+
     const EmployeesAPI = {
         // Get all employees
         async getAll() {
@@ -269,7 +320,7 @@
                 .order('last_name', { ascending: true });
             
             if (error) throw error;
-            return data || [];
+            return (data || []).map(mapEmployeeFromDb);
         },
 
         // Get single employee by ID
@@ -283,44 +334,40 @@
                 .single();
             
             if (error && error.code !== 'PGRST116') throw error;
-            return data;
+            return data ? mapEmployeeFromDb(data) : null;
         },
 
         // Create new employee
         async create(employeeData) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            const dbData = mapEmployeeToDb(employeeData);
             const { data, error } = await getClient()
                 .from('employees')
-                .insert({
-                    name: employeeData.name,
-                    department: employeeData.department,
-                    role: employeeData.role,
-                    email: employeeData.email,
-                    phone: employeeData.phone
-                })
+                .insert(dbData)
                 .select()
                 .single();
             
             if (error) throw error;
             console.log('[Employees] Created:', data.id);
-            return data;
+            return mapEmployeeFromDb(data);
         },
 
         // Update employee
         async update(employeeId, updates) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            const dbUpdates = mapEmployeeToDb(updates);
             const { data, error } = await getClient()
                 .from('employees')
-                .update(updates)
+                .update(dbUpdates)
                 .eq('id', employeeId)
                 .select()
                 .single();
             
             if (error) throw error;
             console.log('[Employees] Updated:', employeeId);
-            return data;
+            return mapEmployeeFromDb(data);
         },
 
         // Delete employee
