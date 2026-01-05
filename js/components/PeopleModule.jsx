@@ -961,6 +961,23 @@
                 accessStatus: employee?.accessStatus || 'none'
             });
             
+            // State for custom permissions editor
+            const [showCustomPermissions, setShowCustomPermissions] = useState(false);
+            const [hasCustomPermissions, setHasCustomPermissions] = useState(false);
+            
+            // Check if user has custom permissions on load
+            useEffect(() => {
+                if (employee?.supabaseUserId) {
+                    window.MODA_SUPABASE?.getUserCustomPermissions(employee.supabaseUserId)
+                        .then(result => {
+                            if (result?.hasCustomPermissions) {
+                                setHasCustomPermissions(true);
+                            }
+                        })
+                        .catch(() => {});
+                }
+            }, [employee?.supabaseUserId]);
+            
             const dashboardRoles = window.DEFAULT_DASHBOARD_ROLES || [
                 { id: 'admin', name: 'Admin' },
                 { id: 'executive', name: 'Executive' },
@@ -1219,27 +1236,79 @@
                                 {/* Dashboard Role - show when user has access, disabled when No Access */}
                                 <div className="border-t pt-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Dashboard Role</label>
-                                    <select
-                                        value={formData.dashboardRole}
-                                        onChange={(e) => setFormData({ ...formData, dashboardRole: e.target.value })}
-                                        disabled={formData.permissions === 'No Access'}
-                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 ${
-                                            formData.permissions === 'No Access' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
-                                        }`}
-                                    >
-                                        {dashboardRoles.filter(r => r.id !== 'no-access').map(role => (
-                                            <option key={role.id} value={role.id}>
-                                                {role.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={formData.dashboardRole}
+                                            onChange={(e) => setFormData({ ...formData, dashboardRole: e.target.value })}
+                                            disabled={formData.permissions === 'No Access'}
+                                            className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 ${
+                                                formData.permissions === 'No Access' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                                            }`}
+                                        >
+                                            {dashboardRoles.filter(r => r.id !== 'no-access').map(role => (
+                                                <option key={role.id} value={role.id}>
+                                                    {role.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {/* Custom Permissions Button - only show for existing users with Supabase account */}
+                                        {employee?.supabaseUserId && formData.permissions !== 'No Access' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCustomPermissions(true)}
+                                                className={`px-3 py-2 rounded-lg border-2 text-sm font-medium whitespace-nowrap ${
+                                                    hasCustomPermissions
+                                                        ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                                        : 'border-gray-300 bg-white text-gray-600 hover:border-teal-500 hover:text-teal-600'
+                                                }`}
+                                            >
+                                                {hasCustomPermissions ? 'Edit Custom' : 'Customize'}
+                                            </button>
+                                        )}
+                                    </div>
                                     <p className="text-xs text-gray-500 mt-2">
                                         {formData.permissions === 'No Access' 
                                             ? 'Set permissions to User or Admin to enable dashboard role selection'
-                                            : (dashboardRoles.find(r => r.id === formData.dashboardRole)?.description || 'Controls which tabs and features this user can access')
+                                            : hasCustomPermissions
+                                                ? 'This user has custom tab permissions that override their role defaults'
+                                                : (dashboardRoles.find(r => r.id === formData.dashboardRole)?.description || 'Controls which tabs and features this user can access')
                                         }
                                     </p>
+                                    {/* Custom Permissions Hint */}
+                                    {!employee?.supabaseUserId && formData.permissions !== 'No Access' && (
+                                        <p className="text-xs text-blue-600 mt-2">
+                                            Tip: After the user accepts their invite, you can set custom tab permissions for them.
+                                        </p>
+                                    )}
                                 </div>
+                                
+                                {/* Custom Permissions Editor Modal */}
+                                {showCustomPermissions && employee?.supabaseUserId && (
+                                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{zIndex: 10000}} onClick={() => setShowCustomPermissions(false)}>
+                                        <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+                                            {window.CustomPermissionsEditor ? (
+                                                <window.CustomPermissionsEditor
+                                                    userId={employee.supabaseUserId}
+                                                    userEmail={employee.email}
+                                                    userName={[employee.firstName, employee.lastName].filter(Boolean).join(' ')}
+                                                    userRole={formData.dashboardRole}
+                                                    onClose={() => setShowCustomPermissions(false)}
+                                                    onSave={(updatedUser) => {
+                                                        setHasCustomPermissions(
+                                                            updatedUser.custom_tab_permissions != null && 
+                                                            Object.keys(updatedUser.custom_tab_permissions).length > 0
+                                                        );
+                                                        setShowCustomPermissions(false);
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    Loading Custom Permissions Editor...
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="flex gap-2 justify-end mt-6">
