@@ -438,14 +438,25 @@ function useDashboardRoles() {
 // Standalone helper function to check if current user can edit a tab
 // This can be called without the hook for quick permission checks
 // Uses Supabase as single source of truth
+// Priority: Protected user > Custom permissions > Role permissions
 function canUserEditTab(tabId) {
-    // Primary source: Supabase profile (authoritative)
-    const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 'employee';
+    const profile = window.MODA_SUPABASE?.userProfile;
+    const userRole = profile?.dashboard_role || 'employee';
     
-    // Admin always has full edit access - check before loading roles
+    // Protected users (trevor@autovol.com) always have full access
+    if (profile?.is_protected) return true;
+    
+    // Admin role always has full edit access
     if (userRole === 'admin') return true;
     
-    // Get roles from localStorage
+    // CHECK 1: User-level custom permissions override (from Supabase profile)
+    const customPerms = profile?.custom_tab_permissions;
+    if (customPerms && customPerms[tabId] !== undefined) {
+        // User has custom override for this tab
+        return customPerms[tabId]?.canEdit || false;
+    }
+    
+    // CHECK 2: Fall back to role-based permissions
     const rolesJson = localStorage.getItem('autovol_dashboard_roles');
     if (!rolesJson) return false;
     
@@ -453,9 +464,6 @@ function canUserEditTab(tabId) {
         const roles = JSON.parse(rolesJson);
         const role = roles.find(r => r.id === userRole);
         if (!role) return false;
-        
-        // Admin always has full edit access (redundant but kept for safety)
-        if (role.id === 'admin') return true;
         
         // Check tabPermissions object (new structure)
         if (role.tabPermissions && role.tabPermissions[tabId]) {
@@ -477,13 +485,25 @@ function canUserEditTab(tabId) {
 // Check if current user can perform a specific action on a tab
 // Actions: 'canView', 'canEdit', 'canCreate', 'canDelete'
 // Uses Supabase as single source of truth
+// Priority: Protected user > Custom permissions > Role permissions
 function canUserPerformAction(tabId, action) {
-    // Primary source: Supabase profile (authoritative)
-    const userRole = window.MODA_SUPABASE?.userProfile?.dashboard_role || 'employee';
+    const profile = window.MODA_SUPABASE?.userProfile;
+    const userRole = profile?.dashboard_role || 'employee';
     
-    // Admin always has full access - check before loading roles
+    // Protected users (trevor@autovol.com) always have full access
+    if (profile?.is_protected) return true;
+    
+    // Admin role always has full access
     if (userRole === 'admin') return true;
     
+    // CHECK 1: User-level custom permissions override (from Supabase profile)
+    const customPerms = profile?.custom_tab_permissions;
+    if (customPerms && customPerms[tabId] !== undefined) {
+        // User has custom override for this tab
+        return customPerms[tabId]?.[action] || false;
+    }
+    
+    // CHECK 2: Fall back to role-based permissions
     const rolesJson = localStorage.getItem('autovol_dashboard_roles');
     if (!rolesJson) return false;
     
@@ -491,9 +511,6 @@ function canUserPerformAction(tabId, action) {
         const roles = JSON.parse(rolesJson);
         const role = roles.find(r => r.id === userRole);
         if (!role) return false;
-        
-        // Admin always has full access (redundant but kept for safety)
-        if (role.id === 'admin') return true;
         
         // Check tabPermissions object
         if (role.tabPermissions && role.tabPermissions[tabId]) {
@@ -505,6 +522,11 @@ function canUserPerformAction(tabId, action) {
             return role.tabs?.includes(tabId) || false;
         }
         
+        // For canEdit, check editableTabs (legacy)
+        if (action === 'canEdit' && role.editableTabs) {
+            return role.editableTabs.includes(tabId) || false;
+        }
+        
         return false;
     } catch (e) {
         console.error('Error checking tab permissions:', e);
@@ -512,6 +534,68 @@ function canUserPerformAction(tabId, action) {
     }
 }
 
+// Get visible tabs for current user (considers custom permissions)
+// Returns array of tab IDs the user can view
+function getUserVisibleTabs() {
+    const profile = window.MODA_SUPABASE?.userProfile;
+    const userRole = profile?.dashboard_role || 'employee';
+    
+    // Protected users and admins see all tabs
+    if (profile?.is_protected || userRole === 'admin') {
+        return ALL_AVAILABLE_TABS.map(t => t.id);
+    }
+    
+    // Get role-based visible tabs
+    const rolesJson = localStorage.getItem('autovol_dashboard_roles');
+    let roleVisibleTabs = [];
+    
+    if (rolesJson) {
+        try {
+            const roles = JSON.parse(rolesJson);
+            const role = roles.find(r => r.id === userRole);
+            roleVisibleTabs = role?.tabs || [];
+        } catch (e) {
+            console.error('Error getting visible tabs:', e);
+        }
+    }
+    
+    // Apply custom permission overrides
+    const customPerms = profile?.custom_tab_permissions;
+    if (customPerms) {
+        // Start with role tabs
+        const visibleSet = new Set(roleVisibleTabs);
+        
+        // Apply custom overrides
+        Object.entries(customPerms).forEach(([tabId, perms]) => {
+            if (perms.canView === true) {
+                visibleSet.add(tabId);
+            } else if (perms.canView === false) {
+                visibleSet.delete(tabId);
+            }
+        });
+        
+        return Array.from(visibleSet);
+    }
+    
+    return roleVisibleTabs;
+}
+
+// Check if user has any custom permissions set
+function userHasCustomPermissions() {
+    const profile = window.MODA_SUPABASE?.userProfile;
+    return profile?.custom_tab_permissions != null && 
+           Object.keys(profile.custom_tab_permissions).length > 0;
+}
+
+// Get user's custom permissions (for admin UI)
+function getUserCustomPermissions() {
+    const profile = window.MODA_SUPABASE?.userProfile;
+    return profile?.custom_tab_permissions || null;
+}
+
 // Export for global access
 window.canUserEditTab = canUserEditTab;
 window.canUserPerformAction = canUserPerformAction;
+window.getUserVisibleTabs = getUserVisibleTabs;
+window.userHasCustomPermissions = userHasCustomPermissions;
+window.getUserCustomPermissions = getUserCustomPermissions;

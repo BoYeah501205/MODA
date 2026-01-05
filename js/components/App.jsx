@@ -1335,19 +1335,26 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
 
                         {activeTab === 'admin' && auth.canAccessAdmin && (
                             <>
-                                {/* User Manager - Supabase based */}
-                                <div className="bg-white rounded-lg shadow p-6 mb-6">
-                                    <h2 className="text-xl font-bold mb-4" style={{color: 'var(--autovol-navy)'}}>User Management</h2>
-                                    <p className="text-gray-600 mb-4">Manage users through Supabase Dashboard or the People module.</p>
-                                    <a 
-                                        href="https://supabase.com/dashboard/project/syreuphexagezawjyjgt/auth/users" 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                                    >
-                                        Open Supabase Auth Dashboard
-                                    </a>
+                                {/* User Permissions Manager */}
+                                <div className="mb-6">
+                                    {window.UserPermissionsManager ? (
+                                        <window.UserPermissionsManager auth={auth} />
+                                    ) : (
+                                        <div className="bg-white rounded-lg shadow p-6">
+                                            <h2 className="text-xl font-bold mb-4" style={{color: 'var(--autovol-navy)'}}>User Management</h2>
+                                            <p className="text-gray-600 mb-4">Manage users through Supabase Dashboard or the People module.</p>
+                                            <a 
+                                                href="https://supabase.com/dashboard/project/syreuphexagezawjyjgt/auth/users" 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                                            >
+                                                Open Supabase Auth Dashboard
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
+                                {/* Role Manager */}
                                 <div className="mt-6">
                                     {window.DashboardRoleManager ? <window.DashboardRoleManager auth={auth} /> : <div className="p-4 text-gray-500">Loading Role Manager...</div>}
                                 </div>

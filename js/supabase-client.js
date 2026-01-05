@@ -189,6 +189,9 @@
                     profileData = profiles[0];
                     userProfile = profileData;
                     console.log('[Supabase] Loaded profile, role:', profileData.dashboard_role);
+                    if (profileData.custom_tab_permissions) {
+                        console.log('[Supabase] User has custom tab permissions:', Object.keys(profileData.custom_tab_permissions));
+                    }
                 } else {
                     console.log('[Supabase] No profile found, using defaults');
                     userProfile = {
@@ -196,7 +199,8 @@
                         email: result.user.email,
                         name: result.user.email.split('@')[0],
                         dashboard_role: 'employee',
-                        is_protected: false
+                        is_protected: false,
+                        custom_tab_permissions: null
                     };
                     profileData = userProfile;
                 }
@@ -207,7 +211,8 @@
                     email: result.user.email,
                     name: result.user.email.split('@')[0],
                     dashboard_role: 'employee',
-                    is_protected: false
+                    is_protected: false,
+                    custom_tab_permissions: null
                 };
                 profileData = userProfile;
             }
@@ -401,6 +406,89 @@
         }
     }
 
+    // Update user's custom tab permissions (admin only)
+    // permissions: JSONB object like {"production": {"canView": true, "canEdit": true}, ...}
+    // Pass null to clear custom permissions (revert to role defaults)
+    async function updateUserCustomPermissions(userId, permissions) {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            // Validate caller is admin
+            if (!userProfile || (userProfile.dashboard_role !== 'admin' && !userProfile.is_protected)) {
+                return { success: false, error: 'Only admins can modify custom permissions' };
+            }
+
+            // Check if target user is protected
+            const { data: targetProfile } = await supabase
+                .from('profiles')
+                .select('is_protected')
+                .eq('id', userId)
+                .single();
+
+            if (targetProfile?.is_protected) {
+                return { success: false, error: 'Cannot modify permissions for protected users' };
+            }
+
+            // Update the custom permissions
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ custom_tab_permissions: permissions })
+                .eq('id', userId)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Update custom permissions error:', error);
+                return { success: false, error: error.message };
+            }
+
+            console.log('[Supabase] User custom permissions updated:', permissions ? 'set' : 'cleared');
+            return { success: true, user: data };
+
+        } catch (error) {
+            console.error('[Supabase] Update custom permissions exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Get a user's custom tab permissions
+    async function getUserCustomPermissions(userId) {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, email, name, dashboard_role, custom_tab_permissions, is_protected')
+                .eq('id', userId)
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Get custom permissions error:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { 
+                success: true, 
+                user: data,
+                customPermissions: data?.custom_tab_permissions || null,
+                hasCustomPermissions: data?.custom_tab_permissions != null && Object.keys(data.custom_tab_permissions).length > 0
+            };
+
+        } catch (error) {
+            console.error('[Supabase] Get custom permissions exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Clear a user's custom permissions (revert to role defaults)
+    async function clearUserCustomPermissions(userId) {
+        return updateUserCustomPermissions(userId, null);
+    }
+
     // Invite user by email (sends magic link)
     // This calls a Supabase Edge Function that uses service_role key
     async function inviteUser(email, metadata = {}) {
@@ -495,6 +583,9 @@
         onAuthStateChange,
         getAllUsers,
         updateUserRole,
+        updateUserCustomPermissions,
+        getUserCustomPermissions,
+        clearUserCustomPermissions,
         inviteUser,
         checkUserByEmail,
         get client() { return supabase; },
