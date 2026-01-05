@@ -3,6 +3,23 @@
 // Weekly Board and Schedule Setup sub-tabs for Production Dashboard
 // ============================================================================
 
+// ===== DATE HELPER FUNCTIONS =====
+// Format a Date object to YYYY-MM-DD string in LOCAL timezone (not UTC)
+const formatLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Parse a YYYY-MM-DD string as LOCAL date (not UTC)
+// This prevents timezone shift when parsing date strings
+const parseLocalDate = (dateStr) => {
+    if (!dateStr) return new Date();
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
 // ===== WEEKLY SCHEDULE MANAGEMENT HOOK =====
 // Manages schedule setup (shift assignments) and completed week history
 // Uses Supabase for persistence (shared across all users)
@@ -601,9 +618,9 @@ function CalendarWeekPicker({ weeks, currentWeek, selectedWeekId, onSelectWeek, 
     const initialDate = useMemo(() => {
         if (selectedWeekId) {
             const selected = weeks.find(w => w.id === selectedWeekId);
-            if (selected?.weekStart) return new Date(selected.weekStart);
+            if (selected?.weekStart) return parseLocalDate(selected.weekStart);
         }
-        if (currentWeek?.weekStart) return new Date(currentWeek.weekStart);
+        if (currentWeek?.weekStart) return parseLocalDate(currentWeek.weekStart);
         return new Date();
     }, [selectedWeekId, currentWeek, weeks]);
     
@@ -628,18 +645,18 @@ function CalendarWeekPicker({ weeks, currentWeek, selectedWeekId, onSelectWeek, 
         
         return weeks.filter(w => {
             if (!w.weekStart) return false;
-            const weekStart = new Date(w.weekStart);
-            const weekEnd = new Date(w.weekEnd || w.weekStart);
+            const weekStart = parseLocalDate(w.weekStart);
+            const weekEnd = parseLocalDate(w.weekEnd || w.weekStart);
             // Include week if it overlaps with this month
             return (weekStart <= lastDay && weekEnd >= firstDay);
-        }).sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+        }).sort((a, b) => parseLocalDate(a.weekStart) - parseLocalDate(b.weekStart));
     }, [weeks, viewDate]);
     
     // Get week status
     const getWeekStatus = (week) => {
         const now = new Date();
-        const weekEnd = new Date(week.weekEnd || week.weekStart);
-        const weekStart = new Date(week.weekStart);
+        const weekEnd = parseLocalDate(week.weekEnd || week.weekStart);
+        const weekStart = parseLocalDate(week.weekStart);
         
         if (currentWeek?.id === week.id) return 'current';
         if (weekEnd < now) return 'past';
@@ -712,8 +729,8 @@ function CalendarWeekPicker({ weeks, currentWeek, selectedWeekId, onSelectWeek, 
                     <div className="space-y-2">
                         {weeksInMonth.map(week => {
                             const status = getWeekStatus(week);
-                            const startDate = new Date(week.weekStart);
-                            const endDate = new Date(week.weekEnd || week.weekStart);
+                            const startDate = parseLocalDate(week.weekStart);
+                            const endDate = parseLocalDate(week.weekEnd || week.weekStart);
                             const weekNum = week.weekNumber || Math.ceil((startDate - new Date(startDate.getFullYear(), 0, 1)) / (7 * 24 * 60 * 60 * 1000));
                             
                             return (
@@ -1003,8 +1020,8 @@ function ScheduleSetupTab({
     const groupWeeksByYearQuarter = (weeksList) => {
         const grouped = {};
         (weeksList || []).forEach(week => {
-            const year = week.year || new Date(week.weekStart).getFullYear();
-            const quarter = week.quarter || Math.ceil((new Date(week.weekStart).getMonth() + 1) / 3);
+            const year = week.year || parseLocalDate(week.weekStart).getFullYear();
+            const quarter = week.quarter || Math.ceil((parseLocalDate(week.weekStart).getMonth() + 1) / 3);
             if (!grouped[year]) grouped[year] = {};
             if (!grouped[year][quarter]) grouped[year][quarter] = [];
             grouped[year][quarter].push(week);
@@ -1051,8 +1068,8 @@ function ScheduleSetupTab({
                 setError('');
                 
                 // Expand the year and quarter containing this week
-                const year = weekToEdit.year || new Date(weekToEdit.weekStart).getFullYear();
-                const quarter = weekToEdit.quarter || Math.ceil((new Date(weekToEdit.weekStart).getMonth() + 1) / 3);
+                const year = weekToEdit.year || parseLocalDate(weekToEdit.weekStart).getFullYear();
+                const quarter = weekToEdit.quarter || Math.ceil((parseLocalDate(weekToEdit.weekStart).getMonth() + 1) / 3);
                 setExpandedYears(prev => ({ ...prev, [year]: true }));
                 setExpandedQuarters(prev => ({ ...prev, [`${year}-Q${quarter}`]: true }));
             }
@@ -1076,10 +1093,10 @@ function ScheduleSetupTab({
     });
     
     const getWeekSunday = (mondayStr) => { 
-        const monday = new Date(mondayStr); 
+        const monday = parseLocalDate(mondayStr); 
         const sunday = new Date(monday); 
         sunday.setDate(monday.getDate() + 6); 
-        return sunday.toISOString().split('T')[0]; 
+        return formatLocalDate(sunday); 
     };
     
     const getWeekOptions = () => { 
@@ -1095,7 +1112,7 @@ function ScheduleSetupTab({
             weekSunday.setDate(weekMonday.getDate() + 6); 
             const label = i === 0 ? 'This Week' : i === 1 ? 'Next Week' : i === -1 ? 'Last Week' : ''; 
             options.push({ 
-                value: weekMonday.toISOString().split('T')[0], 
+                value: formatLocalDate(weekMonday), 
                 label: `${weekMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekSunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${label ? ` (${label})` : ''}`, 
                 isCurrent: i === 0 
             }); 
@@ -1351,7 +1368,7 @@ function ScheduleSetupTab({
                                                                     <div className="divide-y">
                                                                         {quarterWeeks.map(week => {
                                                                             const isCurrentWeekItem = currentWeek?.id === week.id;
-                                                                            const isPast = new Date(week.weekEnd) < new Date();
+                                                                            const isPast = parseLocalDate(week.weekEnd) < new Date();
                                                                             const weekShift1 = week.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 };
                                                                             const weekShift2 = week.shift2 || { friday: 0, saturday: 0, sunday: 0 };
                                                                             const shift1Total = (weekShift1.monday || 0) + (weekShift1.tuesday || 0) + 
@@ -2055,7 +2072,7 @@ function WeeklyBoardTab({
         if (!displayWeek || !weeks || weeks.length === 0) return 0;
         
         // Sort weeks by date
-        const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+        const sortedWeeks = [...weeks].sort((a, b) => parseLocalDate(a.weekStart) - parseLocalDate(b.weekStart));
         
         // Find index of current display week
         const currentWeekIdx = sortedWeeks.findIndex(w => w.id === displayWeek.id);
@@ -2194,7 +2211,7 @@ function WeeklyBoardTab({
     // Get the last working day date for previous week label
     const getPreviousWeekLastDay = () => {
         if (!displayWeek?.weekStart) return null;
-        const weekStart = new Date(displayWeek.weekStart);
+        const weekStart = parseLocalDate(displayWeek.weekStart);
         // Go back to previous Thursday (last working day of previous week)
         const prevThursday = new Date(weekStart);
         prevThursday.setDate(weekStart.getDate() - 4); // Monday - 4 = Thursday of prev week
@@ -2545,7 +2562,7 @@ function WeeklyBoardTab({
             // Use displayWeek's shift config when viewing a specific week, fallback to scheduleSetup
             const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
             if (count > 0) {
-                const weekStart = displayWeek?.weekStart ? new Date(displayWeek.weekStart) : new Date();
+                const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
                 const dayOffset = shift1Days.indexOf(day);
                 const dayDate = new Date(weekStart);
                 dayDate.setDate(dayDate.getDate() + dayOffset);
@@ -2864,7 +2881,7 @@ function WeeklyBoardTab({
     <div class="header">
         <div class="header-left">${dateStr}, ${timeStr}</div>
         <div class="header-center">Weekly Production Schedule <span class="view-mode">(${isDetailed ? 'Detailed' : 'Compact'} View)</span></div>
-        <div class="header-right">Week of ${displayWeek?.weekStart ? new Date(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dateStr}</div>
+        <div class="header-right">Week of ${displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dateStr}</div>
     </div>
     
     <table>
@@ -2931,7 +2948,7 @@ function WeeklyBoardTab({
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
         const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        const weekDateStr = displayWeek?.weekStart ? new Date(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dateStr;
+        const weekDateStr = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dateStr;
         
         // Calculate columns needed - aim for ~6-8 columns to fit on 11x17
         const totalModules = modulesOnBoard.length;
@@ -3467,7 +3484,7 @@ function WeeklyBoardTab({
             const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
             if (count > 0) {
                 // Calculate date for this day
-                const weekStart = displayWeek?.weekStart ? new Date(displayWeek.weekStart) : new Date();
+                const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
                 const dayOffset = shift1Days.indexOf(day);
                 const dayDate = new Date(weekStart);
                 dayDate.setDate(dayDate.getDate() + dayOffset);
@@ -3833,9 +3850,9 @@ function WeeklyBoardTab({
                             <span className="text-gray-400">&#128197;</span>
                             {displayWeek ? (
                                 <span>
-                                    {new Date(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {parseLocalDate(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                     {' - '}
-                                    {new Date(displayWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    {parseLocalDate(displayWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
                             ) : (
                                 <span>Select Week</span>
@@ -4740,14 +4757,14 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
     // Calculate next week dates
     const getNextWeekDates = () => {
         if (!currentWeek?.weekStart) return { start: '', end: '' };
-        const currentStart = new Date(currentWeek.weekStart);
+        const currentStart = parseLocalDate(currentWeek.weekStart);
         const nextMonday = new Date(currentStart);
         nextMonday.setDate(currentStart.getDate() + 7);
         const nextSunday = new Date(nextMonday);
         nextSunday.setDate(nextMonday.getDate() + 6);
         return {
-            start: nextMonday.toISOString().split('T')[0],
-            end: nextSunday.toISOString().split('T')[0]
+            start: formatLocalDate(nextMonday),
+            end: formatLocalDate(nextSunday)
         };
     };
     
