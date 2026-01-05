@@ -952,6 +952,7 @@
                 department: employee?.department || '',
                 shift: employee?.shift || 'N/A',
                 hireDate: employee?.hireDate || '',
+                birthDate: employee?.birthDate || '',
                 email: employee?.email || '',
                 phone: employee?.phone || '',
                 company: employee?.company || 'Autovol',
@@ -1097,8 +1098,8 @@
                                     </select>
                                 </div>
 
-                                {/* Row 3: Shift, Hire Date */}
-                                <div className="grid grid-cols-2 gap-4">
+                                {/* Row 3: Shift, Hire Date, Birth Date */}
+                                <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Shift</label>
                                         <select
@@ -1117,6 +1118,15 @@
                                             type="date"
                                             value={formData.hireDate}
                                             onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Birth Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData.birthDate}
+                                            onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                                             className="w-full px-3 py-2 border rounded-lg"
                                         />
                                     </div>

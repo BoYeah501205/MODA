@@ -280,6 +280,7 @@
         inactiveNotes: row.inactive_notes || null,
         inactiveDate: row.inactive_date || null,
         invitedAt: row.invited_at || null,
+        birthDate: row.birth_date || null,
         createdAt: row.created_at || null,
         updatedAt: row.updated_at || null
     });
@@ -306,6 +307,7 @@
         if (data.inactiveNotes !== undefined) mapped.inactive_notes = data.inactiveNotes;
         if (data.inactiveDate !== undefined) mapped.inactive_date = data.inactiveDate;
         if (data.invitedAt !== undefined) mapped.invited_at = data.invitedAt;
+        if (data.birthDate !== undefined) mapped.birth_date = data.birthDate;
         return mapped;
     };
 
