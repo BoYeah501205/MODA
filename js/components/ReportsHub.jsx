@@ -215,6 +215,7 @@ function ReportsHub({
     
     // Handle report selection
     const handleOpenReport = (reportType) => {
+        console.log('[ReportsHub] Opening report:', reportType);
         setActiveReport(reportType);
     };
     
@@ -223,35 +224,12 @@ function ReportsHub({
         setActiveReport(null);
     };
     
-    // Render active report
-    if (activeReport === REPORT_TYPES.HEAT_MAP) {
-        return (
-            <div className="space-y-4">
-                <button
-                    onClick={handleBackToHub}
-                    className="flex items-center gap-2 text-gray-600 hover:text-autovol-navy text-sm"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    Back to Reports
-                </button>
-                
-                {window.WeeklyHeatMapReport ? (
-                    <window.WeeklyHeatMapReport
-                        projects={projects}
-                        productionStages={productionStages}
-                        weeks={weeks}
-                        currentWeek={currentWeek}
-                    />
-                ) : (
-                    <div className="p-8 text-center text-gray-500">Loading Heat Map Report...</div>
-                )}
-            </div>
-        );
-    }
+    // Debug: log active report on each render
+    console.log('[ReportsHub] Current activeReport:', activeReport, 'REPORT_TYPES:', REPORT_TYPES);
     
+    // Render active report based on type
     if (activeReport === REPORT_TYPES.WEEKLY_BOARD_PRINT) {
+        console.log('[ReportsHub] Rendering WEEKLY_BOARD_PRINT');
         return (
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -291,6 +269,7 @@ function ReportsHub({
     }
     
     if (activeReport === REPORT_TYPES.WEEKLY_BOARD_MANAGEMENT) {
+        console.log('[ReportsHub] Rendering WEEKLY_BOARD_MANAGEMENT');
         return (
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -325,6 +304,34 @@ function ReportsHub({
                     activeProjects,
                     lineBalance
                 }, 'Loading Management Report...')}
+            </div>
+        );
+    }
+    
+    if (activeReport === REPORT_TYPES.HEAT_MAP) {
+        console.log('[ReportsHub] Rendering HEAT_MAP');
+        return (
+            <div className="space-y-4">
+                <button
+                    onClick={handleBackToHub}
+                    className="flex items-center gap-2 text-gray-600 hover:text-autovol-navy text-sm"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to Reports
+                </button>
+                
+                {window.WeeklyHeatMapReport ? (
+                    <window.WeeklyHeatMapReport
+                        projects={projects}
+                        productionStages={productionStages}
+                        weeks={weeks}
+                        currentWeek={currentWeek}
+                    />
+                ) : (
+                    <div className="p-8 text-center text-gray-500">Loading Heat Map Report...</div>
+                )}
             </div>
         );
     }
