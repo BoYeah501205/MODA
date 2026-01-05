@@ -1358,6 +1358,23 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 <div className="mt-6">
                                     {window.DashboardRoleManager ? <window.DashboardRoleManager auth={auth} /> : <div className="p-4 text-gray-500">Loading Role Manager...</div>}
                                 </div>
+                                {/* Activity Log */}
+                                <div className="mt-6">
+                                    <div className="bg-white rounded-lg shadow">
+                                        {window.ActivityLogViewer ? (
+                                            <window.ActivityLogViewer 
+                                                showFilters={true}
+                                                showExport={true}
+                                                maxHeight="500px"
+                                            />
+                                        ) : (
+                                            <div className="p-6">
+                                                <h2 className="text-xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Activity Log</h2>
+                                                <p className="text-gray-500">Activity logging module not loaded.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </>
                         )}
 

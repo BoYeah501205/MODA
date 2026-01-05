@@ -76,6 +76,10 @@
             
             if (error) throw error;
             console.log('[Projects] Created:', data.id);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logCreate('project', 'project', data.id, data.name, { status: data.status });
+            }
             return data;
         },
 
@@ -95,6 +99,10 @@
             
             if (error) throw error;
             console.log('[Projects] Updated:', projectId);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logUpdate('project', 'project', projectId, data.name, null, updates);
+            }
             return data;
         },
 
@@ -109,6 +117,10 @@
             
             if (error) throw error;
             console.log('[Projects] Deleted:', projectId);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logDelete('project', 'project', projectId, `Project ${projectId}`, {});
+            }
             return true;
         },
 
@@ -195,6 +207,10 @@
             
             if (error) throw error;
             console.log('[Modules] Created:', data.id);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logCreate('module', 'module', data.id, data.serial_number, { projectId: data.project_id });
+            }
             return data;
         },
 
@@ -214,6 +230,10 @@
             
             if (error) throw error;
             console.log('[Modules] Updated:', moduleId);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logUpdate('module', 'module', moduleId, data.serial_number, null, updates);
+            }
             return data;
         },
 
@@ -228,6 +248,10 @@
             
             if (error) throw error;
             console.log('[Modules] Deleted:', moduleId);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logDelete('module', 'module', moduleId, `Module ${moduleId}`, {});
+            }
             return true;
         },
 
@@ -352,7 +376,12 @@
             
             if (error) throw error;
             console.log('[Employees] Created:', data.id);
-            return mapEmployeeFromDb(data);
+            const mapped = mapEmployeeFromDb(data);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logCreate('employee', 'employee', data.id, mapped.name || `${mapped.firstName} ${mapped.lastName}`, { department: mapped.department });
+            }
+            return mapped;
         },
 
         // Update employee
@@ -369,7 +398,12 @@
             
             if (error) throw error;
             console.log('[Employees] Updated:', employeeId);
-            return mapEmployeeFromDb(data);
+            const mapped = mapEmployeeFromDb(data);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logUpdate('employee', 'employee', employeeId, mapped.name || `${mapped.firstName} ${mapped.lastName}`, null, updates);
+            }
+            return mapped;
         },
 
         // Delete employee
@@ -383,6 +417,10 @@
             
             if (error) throw error;
             console.log('[Employees] Deleted:', employeeId);
+            // Log activity
+            if (window.ActivityLog) {
+                window.ActivityLog.logDelete('employee', 'employee', employeeId, `Employee ${employeeId}`, {});
+            }
             return true;
         },
 

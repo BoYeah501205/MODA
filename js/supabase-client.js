@@ -159,6 +159,10 @@
             
             if (!response.ok || result.error) {
                 console.error('[Supabase] Login error:', result.error_description || result.error || result.msg);
+                // Log failed login attempt
+                if (window.ActivityLog) {
+                    window.ActivityLog.logLoginFailed(normalizedEmail, result.error_description || result.error || 'invalid_credentials');
+                }
                 return { success: false, error: result.error_description || result.error || result.msg || 'Login failed' };
             }
             
@@ -219,6 +223,11 @@
             
             console.log('[Supabase] Login complete, user:', result.user.email, 'role:', profileData?.dashboard_role);
             
+            // Log successful login
+            if (window.ActivityLog) {
+                window.ActivityLog.logLogin(result.user.email, profileData?.name || result.user.email, result.user.id);
+            }
+            
             // Dispatch event to notify components that profile is loaded
             window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: profileData }));
             
@@ -266,6 +275,11 @@
         }
 
         try {
+            // Log logout before clearing user state
+            if (window.ActivityLog && currentUser) {
+                window.ActivityLog.logLogout();
+            }
+            
             const { error } = await supabase.auth.signOut();
 
             if (error) {
