@@ -42,6 +42,33 @@ const MODA_API = (function() {
         }
     }
     
+    // Safe localStorage.setItem wrapper - handles quota exceeded errors (Safari/iPad)
+    function safeSetItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+            return true;
+        } catch (e) {
+            if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+                console.warn(`[API] localStorage quota exceeded for ${key}, clearing old data...`);
+                // Try to clear some space by removing less critical cached data
+                const keysToTry = ['autovol_trash_projects', 'autovol_cache_timestamp', 'autovol_temp'];
+                for (const k of keysToTry) {
+                    try { localStorage.removeItem(k); } catch (err) { /* ignore */ }
+                }
+                // Retry once after clearing
+                try {
+                    localStorage.setItem(key, value);
+                    return true;
+                } catch (retryErr) {
+                    console.error(`[API] localStorage still full after cleanup for ${key}`);
+                    return false;
+                }
+            }
+            console.error(`[API] localStorage.setItem error for ${key}:`, e);
+            return false;
+        }
+    }
+    
     async function checkBackend() {
         // Skip backend check if using Supabase
         if (!USE_LOCAL_BACKEND) {
@@ -128,7 +155,7 @@ const MODA_API = (function() {
                 if (!await checkBackend()) {
                     const projects = safeParseJSON('autovol_projects', []);
                     projects.push(project);
-                    localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                    safeSetItem('autovol_projects', JSON.stringify(projects));
                     return { id: project.id };
                 }
                 return request('/projects', { method: 'POST', body: project });
@@ -140,7 +167,7 @@ const MODA_API = (function() {
                     const index = projects.findIndex(p => p.id === id);
                     if (index !== -1) {
                         projects[index] = { ...projects[index], ...updates };
-                        localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                        safeSetItem('autovol_projects', JSON.stringify(projects));
                     }
                     return { message: 'Updated' };
                 }
@@ -155,9 +182,9 @@ const MODA_API = (function() {
                         // Move to trash
                         const trash = safeParseJSON('autovol_trash_projects', []);
                         trash.push({ ...project, deletedAt: Date.now() });
-                        localStorage.setItem('autovol_trash_projects', JSON.stringify(trash));
+                        safeSetItem('autovol_trash_projects', JSON.stringify(trash));
                         // Remove from active
-                        localStorage.setItem('autovol_projects', JSON.stringify(projects.filter(p => p.id !== id)));
+                        safeSetItem('autovol_projects', JSON.stringify(projects.filter(p => p.id !== id)));
                     }
                     return { message: 'Deleted' };
                 }
@@ -172,8 +199,8 @@ const MODA_API = (function() {
                         delete project.deletedAt;
                         const projects = safeParseJSON('autovol_projects', []);
                         projects.push(project);
-                        localStorage.setItem('autovol_projects', JSON.stringify(projects));
-                        localStorage.setItem('autovol_trash_projects', JSON.stringify(trash.filter(p => p.id !== id)));
+                        safeSetItem('autovol_projects', JSON.stringify(projects));
+                        safeSetItem('autovol_trash_projects', JSON.stringify(trash.filter(p => p.id !== id)));
                     }
                     return { message: 'Restored' };
                 }
@@ -218,7 +245,7 @@ const MODA_API = (function() {
                     if (project) {
                         if (!project.modules) project.modules = [];
                         project.modules.push(module);
-                        localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                        safeSetItem('autovol_projects', JSON.stringify(projects));
                     }
                     return { id: module.id };
                 }
@@ -232,7 +259,7 @@ const MODA_API = (function() {
                         const index = (p.modules || []).findIndex(m => m.id === id);
                         if (index !== -1) {
                             p.modules[index] = { ...p.modules[index], ...updates };
-                            localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                            safeSetItem('autovol_projects', JSON.stringify(projects));
                             break;
                         }
                     }
@@ -249,7 +276,7 @@ const MODA_API = (function() {
                         if (mod) {
                             if (!mod.stageProgress) mod.stageProgress = {};
                             mod.stageProgress[stageId] = progress;
-                            localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                            safeSetItem('autovol_projects', JSON.stringify(projects));
                             break;
                         }
                     }
@@ -265,7 +292,7 @@ const MODA_API = (function() {
                         const index = (p.modules || []).findIndex(m => m.id === id);
                         if (index !== -1) {
                             p.modules.splice(index, 1);
-                            localStorage.setItem('autovol_projects', JSON.stringify(projects));
+                            safeSetItem('autovol_projects', JSON.stringify(projects));
                             break;
                         }
                     }
@@ -305,7 +332,7 @@ const MODA_API = (function() {
                 if (!await checkBackend()) {
                     const employees = safeParseJSON('autovol_employees', []);
                     employees.push(employee);
-                    localStorage.setItem('autovol_employees', JSON.stringify(employees));
+                    safeSetItem('autovol_employees', JSON.stringify(employees));
                     return { id: employee.id };
                 }
                 return request('/employees', { method: 'POST', body: employee });
@@ -317,7 +344,7 @@ const MODA_API = (function() {
                     const index = employees.findIndex(e => e.id === id);
                     if (index !== -1) {
                         employees[index] = { ...employees[index], ...updates };
-                        localStorage.setItem('autovol_employees', JSON.stringify(employees));
+                        safeSetItem('autovol_employees', JSON.stringify(employees));
                     }
                     return { message: 'Updated' };
                 }
@@ -331,8 +358,8 @@ const MODA_API = (function() {
                     if (employee) {
                         const trash = safeParseJSON('autovol_trash_employees', []);
                         trash.push({ ...employee, deletedAt: Date.now() });
-                        localStorage.setItem('autovol_trash_employees', JSON.stringify(trash));
-                        localStorage.setItem('autovol_employees', JSON.stringify(employees.filter(e => e.id !== id)));
+                        safeSetItem('autovol_trash_employees', JSON.stringify(trash));
+                        safeSetItem('autovol_employees', JSON.stringify(employees.filter(e => e.id !== id)));
                     }
                     return { message: 'Deleted' };
                 }
@@ -372,11 +399,11 @@ const MODA_API = (function() {
             syncToLocalStorage: async function() {
                 const data = await this.exportFromBackend();
                 
-                localStorage.setItem('autovol_projects', JSON.stringify(data.projects || []));
-                localStorage.setItem('autovol_trash_projects', JSON.stringify(data.trashedProjects || []));
-                localStorage.setItem('autovol_employees', JSON.stringify(data.employees || []));
-                localStorage.setItem('autovol_trash_employees', JSON.stringify(data.trashedEmployees || []));
-                localStorage.setItem('autovol_departments', JSON.stringify(data.departments || []));
+                safeSetItem('autovol_projects', JSON.stringify(data.projects || []));
+                safeSetItem('autovol_trash_projects', JSON.stringify(data.trashedProjects || []));
+                safeSetItem('autovol_employees', JSON.stringify(data.employees || []));
+                safeSetItem('autovol_trash_employees', JSON.stringify(data.trashedEmployees || []));
+                safeSetItem('autovol_departments', JSON.stringify(data.departments || []));
                 
                 return { message: 'Synced to localStorage', data };
             },
@@ -431,10 +458,10 @@ if (typeof window !== 'undefined') {
                 try {
                     const data = await MODA_API.sync.exportFromBackend();
                     if (data.projects && data.projects.length > 0) {
-                        localStorage.setItem('autovol_projects', JSON.stringify(data.projects));
-                        localStorage.setItem('autovol_trash_projects', JSON.stringify(data.trashedProjects || []));
-                        localStorage.setItem('autovol_employees', JSON.stringify(data.employees || []));
-                        localStorage.setItem('autovol_trash_employees', JSON.stringify(data.trashedEmployees || []));
+                        safeSetItem('autovol_projects', JSON.stringify(data.projects));
+                        safeSetItem('autovol_trash_projects', JSON.stringify(data.trashedProjects || []));
+                        safeSetItem('autovol_employees', JSON.stringify(data.employees || []));
+                        safeSetItem('autovol_trash_employees', JSON.stringify(data.trashedEmployees || []));
                         console.log(`[MODA] Loaded ${data.projects.length} projects from backend`);
                         
                         // Trigger page reload to pick up new data (only if data changed)
