@@ -4,7 +4,7 @@
 // v2.0 - Added Per-Tab Permission Matrix UI
 // ============================================================================
 
-const { useState } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 function DashboardRoleManager({ auth }) {
     const { 
@@ -26,6 +26,48 @@ function DashboardRoleManager({ auth }) {
     const [editingRole, setEditingRole] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deletingRole, setDeletingRole] = useState(null);
+    
+    // Unsaved changes tracking
+    const [pendingChanges, setPendingChanges] = useState({});
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const originalRolesRef = useRef(JSON.stringify(roles));
+    
+    // Track changes
+    useEffect(() => {
+        const currentRoles = JSON.stringify(roles);
+        setHasUnsavedChanges(currentRoles !== originalRolesRef.current);
+    }, [roles]);
+    
+    // Warn before leaving with unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes to role permissions. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        };
+        
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
+    
+    // Save all changes
+    const handleSaveAllChanges = useCallback(() => {
+        // Changes are already applied to roles via the hook functions
+        // Just update the reference to mark as saved
+        originalRolesRef.current = JSON.stringify(roles);
+        setHasUnsavedChanges(false);
+        alert('Role permissions saved successfully!');
+    }, [roles]);
+    
+    // Discard changes
+    const handleDiscardChanges = useCallback(() => {
+        if (confirm('Discard all unsaved changes? This cannot be undone.')) {
+            // Reload from localStorage to discard changes
+            window.location.reload();
+        }
+    }, []);
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
 
@@ -113,6 +155,58 @@ function DashboardRoleManager({ auth }) {
                 </p>
             </div>
 
+            {/* Unsaved Changes Banner */}
+            {hasUnsavedChanges && (
+                <div style={{ 
+                    padding: '12px 16px',
+                    borderRadius: '6px',
+                    marginBottom: '20px',
+                    fontSize: '13px',
+                    background: '#FEF3C7',
+                    color: '#92400E',
+                    border: '2px solid #FCD34D',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div>
+                        <strong>Unsaved Changes:</strong> You have modified role permissions. Click "Save All Changes" to apply.
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={handleDiscardChanges}
+                            style={{
+                                padding: '6px 14px',
+                                fontSize: '12px',
+                                border: '1px solid #D1D5DB',
+                                borderRadius: '4px',
+                                background: 'white',
+                                color: '#374151',
+                                cursor: 'pointer',
+                                fontWeight: '500'
+                            }}
+                        >
+                            Discard
+                        </button>
+                        <button
+                            onClick={handleSaveAllChanges}
+                            style={{
+                                padding: '6px 14px',
+                                fontSize: '12px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                background: 'var(--autovol-teal)',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontWeight: '600'
+                            }}
+                        >
+                            Save All Changes
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Safety Alert */}
             <div style={{ 
                 padding: '12px',
@@ -123,7 +217,7 @@ function DashboardRoleManager({ auth }) {
                 color: '#065F46',
                 border: '2px solid #6EE7B7'
             }}>
-                <strong>✅ Protected System:</strong> Trevor Fletcher's admin access is permanently protected.
+                <strong>Protected System:</strong> Trevor Fletcher's admin access is permanently protected.
             </div>
 
             {/* Main Grid */}

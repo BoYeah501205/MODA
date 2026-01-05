@@ -5,6 +5,8 @@
 
 const { useState, useEffect, useCallback } = React;
 
+const USERS_PER_PAGE = 10;
+
 function UserPermissionsManager({ auth }) {
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -12,6 +14,7 @@ function UserPermissionsManager({ auth }) {
     const [selectedUser, setSelectedUser] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Load users from Supabase
     const loadUsers = useCallback(async () => {
@@ -44,6 +47,16 @@ function UserPermissionsManager({ auth }) {
         const matchesRole = filterRole === 'all' || user.dashboard_role === filterRole;
         return matchesSearch && matchesRole;
     });
+
+    // Pagination
+    const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+    const startIndex = (currentPage - 1) * USERS_PER_PAGE;
+    const paginatedUsers = filteredUsers.slice(startIndex, startIndex + USERS_PER_PAGE);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterRole]);
 
     // Get unique roles for filter dropdown
     const uniqueRoles = [...new Set(users.map(u => u.dashboard_role).filter(Boolean))];
@@ -224,18 +237,18 @@ function UserPermissionsManager({ auth }) {
                 </div>
 
                 {/* Table Body */}
-                {filteredUsers.length === 0 ? (
+                {paginatedUsers.length === 0 ? (
                     <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>
                         No users found
                     </div>
                 ) : (
-                    filteredUsers.map((user, index) => (
+                    paginatedUsers.map((user, index) => (
                         <div 
                             key={user.id}
                             style={{
                                 display: 'grid',
                                 gridTemplateColumns: '2fr 1fr 1fr 120px',
-                                borderBottom: index < filteredUsers.length - 1 ? '1px solid #E5E7EB' : 'none',
+                                borderBottom: index < paginatedUsers.length - 1 ? '1px solid #E5E7EB' : 'none',
                                 background: index % 2 === 0 ? 'white' : '#FAFAFA',
                                 alignItems: 'center'
                             }}
@@ -341,6 +354,83 @@ function UserPermissionsManager({ auth }) {
                 )}
             </div>
 
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div style={{ 
+                    marginTop: '16px', 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        style={{
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '4px',
+                            background: 'white',
+                            color: currentPage === 1 ? '#9CA3AF' : '#374151',
+                            cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                        }}
+                    >
+                        Previous
+                    </button>
+                    
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                                // Show first, last, current, and adjacent pages
+                                return page === 1 || 
+                                       page === totalPages || 
+                                       Math.abs(page - currentPage) <= 1;
+                            })
+                            .map((page, idx, arr) => (
+                                <React.Fragment key={page}>
+                                    {idx > 0 && arr[idx - 1] !== page - 1 && (
+                                        <span style={{ padding: '6px 4px', color: '#9CA3AF' }}>...</span>
+                                    )}
+                                    <button
+                                        onClick={() => setCurrentPage(page)}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: '12px',
+                                            border: '1px solid',
+                                            borderColor: currentPage === page ? 'var(--autovol-teal)' : '#D1D5DB',
+                                            borderRadius: '4px',
+                                            background: currentPage === page ? 'var(--autovol-teal)' : 'white',
+                                            color: currentPage === page ? 'white' : '#374151',
+                                            cursor: 'pointer',
+                                            fontWeight: currentPage === page ? '600' : '400'
+                                        }}
+                                    >
+                                        {page}
+                                    </button>
+                                </React.Fragment>
+                            ))
+                        }
+                    </div>
+                    
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        style={{
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '4px',
+                            background: 'white',
+                            color: currentPage === totalPages ? '#9CA3AF' : '#374151',
+                            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                        }}
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
+
             {/* Summary */}
             <div style={{ 
                 marginTop: '16px', 
@@ -350,7 +440,8 @@ function UserPermissionsManager({ auth }) {
                 justifyContent: 'space-between'
             }}>
                 <span>
-                    Showing {filteredUsers.length} of {users.length} users
+                    Showing {startIndex + 1}-{Math.min(startIndex + USERS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
+                    {filteredUsers.length !== users.length && ` (${users.length} total)`}
                 </span>
                 <span>
                     {users.filter(hasCustomPermissions).length} with custom permissions
