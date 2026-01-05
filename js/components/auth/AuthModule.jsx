@@ -718,5 +718,4 @@ function useAuth() {
 // Export for use in App.jsx
 window.useAuth = useAuth;
 window.useDashboardRoles = useDashboardRoles;
-window.initializeDashboardRoles = initializeDashboardRoles;
 
