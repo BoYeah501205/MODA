@@ -33,6 +33,9 @@ const featureFlags = {
     // ===== ANALYTICS FEATURES =====
     enableHeatMapMatrix: true,       // Heat Map Matrix for labor forecasting
     
+    // ===== YARD MAP V2 =====
+    enableYardMapV2: true,           // New Yard Map with Transport integration
+    
     // ===== TESTING =====
     // Users in this list see new features regardless of flags above
     testUsers: [

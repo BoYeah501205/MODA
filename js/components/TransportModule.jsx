@@ -1656,7 +1656,11 @@
             {activeView === 'yards' && <YardsView />}
             {activeView === 'companies' && <CompaniesView />}
             {activeView === 'history' && <HistoryView />}
-            {activeView === 'yardmap' && window.YardMapComponent && <window.YardMapComponent projects={projectsList} />}
+            {activeView === 'yardmap' && (
+              window.MODA_FEATURE_FLAGS?.flags?.enableYardMapV2 && window.YardMapV2
+                ? <window.YardMapV2 projects={projectsList} />
+                : window.YardMapComponent && <window.YardMapComponent projects={projectsList} />
+            )}
           </div>
 
           {/* Modals */}
