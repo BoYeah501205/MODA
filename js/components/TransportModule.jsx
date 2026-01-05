@@ -114,23 +114,24 @@
               (projectsData || []).forEach(project => {
                 const projectModules = project.modules || [];
                 projectModules.forEach(mod => {
-                  // Default stage is 'readyForYard' for all modules
+                  // Spread mod first, then override with our mapped fields
+                  // This ensures our stage default takes precedence
                   allModules.push({
+                    ...mod, // Spread first so our overrides take precedence
                     id: mod.id || `${project.id}-${mod.serial_number || mod.serialNumber}`,
                     blm: mod.blm_id || mod.hitchBLM || mod.serial_number || mod.serialNumber,
                     serialNumber: mod.serial_number || mod.serialNumber,
                     project: project.name,
                     projectId: project.id,
                     unitType: mod.unit_type || mod.hitchUnit,
+                    // Default stage is 'readyForYard' - only use transport_stage if explicitly set
                     stage: mod.transport_stage || 'readyForYard',
                     yardId: mod.yard_id || null,
                     transportCompanyId: mod.transport_company_id || null,
                     scheduledDate: mod.scheduled_transport_date || null,
                     // Map BLM fields - support both snake_case and camelCase
                     hitchBLM: mod.hitchBLM || mod.hitch_blm || mod.hitch_blm_id || '',
-                    rearBLM: mod.rearBLM || mod.rear_blm || mod.rear_blm_id || '',
-                    // Preserve any existing transport data
-                    ...mod
+                    rearBLM: mod.rearBLM || mod.rear_blm || mod.rear_blm_id || ''
                   });
                 });
               });
