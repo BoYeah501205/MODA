@@ -19,28 +19,28 @@ const REPORT_TYPES = {
     WEEKLY_BOARD_MANAGEMENT: 'weekly-board-management'
 };
 
-// Wrapper component for Print Report - checks if component is loaded
-function WeeklyBoardPrintReportContent(props) {
-    if (window.WeeklyBoardPrintReport) {
-        return React.createElement(window.WeeklyBoardPrintReport, props);
+// Render component from window with fallback
+function renderWindowComponent(componentName, props, fallbackMessage) {
+    console.log(`[ReportsHub] Attempting to render ${componentName}, exists:`, !!window[componentName]);
+    const Component = window[componentName];
+    if (Component) {
+        try {
+            return React.createElement(Component, props);
+        } catch (err) {
+            console.error(`[ReportsHub] Error rendering ${componentName}:`, err);
+            return (
+                <div className="p-8 text-center text-red-500">
+                    <p>Error rendering {componentName}</p>
+                    <p className="text-xs mt-2">{err.message}</p>
+                </div>
+            );
+        }
     }
+    console.warn(`[ReportsHub] Component ${componentName} not found on window`);
     return (
-        <div className="p-8 text-center text-gray-500">
-            <p>Loading Print Report component...</p>
-            <p className="text-xs mt-2">If this persists, check console for errors.</p>
-        </div>
-    );
-}
-
-// Wrapper component for Management Report - checks if component is loaded
-function WeeklyBoardManagementReportContent(props) {
-    if (window.WeeklyBoardManagementReport) {
-        return React.createElement(window.WeeklyBoardManagementReport, props);
-    }
-    return (
-        <div className="p-8 text-center text-gray-500">
-            <p>Loading Management Report component...</p>
-            <p className="text-xs mt-2">If this persists, check console for errors.</p>
+        <div className="p-8 text-center text-amber-600 bg-amber-50 rounded-lg">
+            <p className="font-semibold">{fallbackMessage || `Loading ${componentName}...`}</p>
+            <p className="text-xs mt-2">Component "{componentName}" not found. Check console for script loading errors.</p>
         </div>
     );
 }
@@ -274,18 +274,18 @@ function ReportsHub({
                     />
                 </div>
                 
-                <WeeklyBoardPrintReportContent
-                    projects={projects}
-                    productionStages={productionStages}
-                    currentWeek={currentWeek}
-                    selectedWeekId={selectedWeekId}
-                    completedWeeks={completedWeeks}
-                    scheduleSetup={scheduleSetup}
-                    staggerConfig={staggerConfig}
-                    allModules={allModules}
-                    activeProjects={activeProjects}
-                    lineBalance={lineBalance}
-                />
+                {renderWindowComponent('WeeklyBoardPrintReport', {
+                    projects,
+                    productionStages,
+                    currentWeek,
+                    selectedWeekId,
+                    completedWeeks,
+                    scheduleSetup,
+                    staggerConfig,
+                    allModules,
+                    activeProjects,
+                    lineBalance
+                }, 'Loading Print Report...')}
             </div>
         );
     }
@@ -313,18 +313,18 @@ function ReportsHub({
                     />
                 </div>
                 
-                <WeeklyBoardManagementReportContent
-                    projects={projects}
-                    productionStages={productionStages}
-                    currentWeek={currentWeek}
-                    selectedWeekId={selectedWeekId}
-                    completedWeeks={completedWeeks}
-                    scheduleSetup={scheduleSetup}
-                    staggerConfig={staggerConfig}
-                    allModules={allModules}
-                    activeProjects={activeProjects}
-                    lineBalance={lineBalance}
-                />
+                {renderWindowComponent('WeeklyBoardManagementReport', {
+                    projects,
+                    productionStages,
+                    currentWeek,
+                    selectedWeekId,
+                    completedWeeks,
+                    scheduleSetup,
+                    staggerConfig,
+                    allModules,
+                    activeProjects,
+                    lineBalance
+                }, 'Loading Management Report...')}
             </div>
         );
     }
