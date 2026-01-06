@@ -191,15 +191,25 @@ function IssueSubmissionModal({
 
             // Use routing system if available, otherwise fall back to onSubmit
             if (window.MODA_ISSUE_ROUTING?.createIssue) {
+                console.log('[IssueSubmissionModal] Using routing system to create issue');
                 const newIssue = window.MODA_ISSUE_ROUTING.createIssue(issueData);
                 const destination = getRoutingDestination(formData.issue_type);
+                console.log('[IssueSubmissionModal] Issue created:', newIssue);
+                setIsSubmitting(false);
                 alert(`Issue ${newIssue.issue_display_id} submitted successfully!\n\nRouted to: ${destination}`);
                 onClose();
             } else if (onSubmit) {
+                console.log('[IssueSubmissionModal] Using onSubmit callback');
                 await onSubmit(issueData);
+                setIsSubmitting(false);
+                onClose();
+            } else {
+                console.error('[IssueSubmissionModal] No routing system or onSubmit available');
+                setError('Issue routing system not available. Please refresh and try again.');
+                setIsSubmitting(false);
             }
         } catch (err) {
-            console.error('Error submitting issue:', err);
+            console.error('[IssueSubmissionModal] Error submitting issue:', err);
             setError(err.message || 'Failed to submit issue. Please try again.');
             setIsSubmitting(false);
         }
