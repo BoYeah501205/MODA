@@ -173,8 +173,8 @@ function IssueSubmissionModal({
             setError('Please select an issue type');
             return;
         }
-        if (!formData.description.trim() || formData.description.trim().length < 10) {
-            setError('Please provide a description (at least 10 characters)');
+        if (!formData.description.trim() || formData.description.trim().length < 5) {
+            setError('Please provide a description (at least 5 characters)');
             return;
         }
 
@@ -529,7 +529,7 @@ function IssueSubmissionModal({
                         <button
                             type="submit"
                             onClick={handleSubmit}
-                            disabled={isSubmitting || !formData.issue_type || formData.description.length < 10}
+                            disabled={isSubmitting || !formData.issue_type || formData.description.trim().length < 5}
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                             {isSubmitting ? (
