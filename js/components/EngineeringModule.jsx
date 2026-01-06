@@ -99,26 +99,28 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
         setError(null);
         
         try {
-            if (window.MODA_SUPABASE_ISSUES?.issues) {
-                const data = await window.MODA_SUPABASE_ISSUES.issues.getAll();
-                setIssues(data);
+            // Always load from localStorage first (primary source for now)
+            const stored = localStorage.getItem('moda_engineering_issues');
+            console.log('[Engineering] Loading issues from localStorage:', stored ? 'found' : 'empty');
+            
+            if (stored && stored !== 'undefined' && stored !== 'null') {
+                const parsed = JSON.parse(stored);
+                console.log('[Engineering] Parsed issues:', parsed.length, 'issues');
+                setIssues(parsed);
             } else {
-                // Fallback to localStorage
-                const stored = localStorage.getItem('moda_engineering_issues');
-                if (stored) {
-                    setIssues(JSON.parse(stored));
-                }
+                console.log('[Engineering] No issues in localStorage');
+                setIssues([]);
             }
+            
+            // TODO: Sync with Supabase when available
+            // if (window.MODA_SUPABASE_ISSUES?.issues) {
+            //     const data = await window.MODA_SUPABASE_ISSUES.issues.getAll();
+            //     setIssues(data);
+            // }
         } catch (err) {
             console.error('[Engineering] Error loading issues:', err);
             setError('Failed to load issues');
-            // Try localStorage fallback
-            try {
-                const stored = localStorage.getItem('moda_engineering_issues');
-                if (stored) {
-                    setIssues(JSON.parse(stored));
-                }
-            } catch (e) { /* ignore */ }
+            setIssues([]);
         } finally {
             setIsLoading(false);
         }
