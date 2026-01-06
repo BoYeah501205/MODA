@@ -1254,11 +1254,21 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         )}
 
                         {activeTab === 'engineering' && (
-                            <div className="text-center py-20">
-                                <div className="text-6xl mb-4">📋</div>
-                                <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Engineering Module</h2>
-                                <p className="text-gray-600">Coming soon - Module integration pending</p>
-                            </div>
+                            window.EngineeringModule ? (
+                                <window.EngineeringModule 
+                                    projects={projects} 
+                                    employees={employees}
+                                    auth={auth}
+                                />
+                            ) : (
+                                <div className="text-center py-20">
+                                    <div className="text-6xl mb-4">
+                                        <span className="icon-engineering" style={{width: '64px', height: '64px', display: 'inline-block'}}></span>
+                                    </div>
+                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Engineering Module</h2>
+                                    <p className="text-gray-600">Loading Engineering Issue Tracker...</p>
+                                </div>
+                            )
                         )}
 
                         {activeTab === 'automation' && (
