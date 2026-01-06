@@ -1445,7 +1445,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
             const [reportIssueContext, setReportIssueContext] = useState(null);
             const [engineeringIssues, setEngineeringIssues] = useState(() => {
-                const saved = localStorage.getItem('autovol_engineering_issues');
+                const saved = localStorage.getItem('moda_engineering_issues');
                 if (saved && saved !== 'undefined' && saved !== 'null') {
                     try { return JSON.parse(saved); } catch (e) { return []; }
                 }
@@ -1473,9 +1473,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 synced: false
             };
             
-            // Save engineering issues to localStorage
+            // Save engineering issues to localStorage (same key as EngineeringModule)
             useEffect(() => {
-                localStorage.setItem('autovol_engineering_issues', JSON.stringify(engineeringIssues));
+                localStorage.setItem('moda_engineering_issues', JSON.stringify(engineeringIssues));
             }, [engineeringIssues]);
             
             // Open report issue modal with context
@@ -1484,22 +1484,40 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 setShowReportIssueModal(true);
             };
             
-            // Handle issue submission
+            // Handle issue submission - format matches EngineeringModule
             const handleSubmitIssue = (issueData) => {
+                const counter = parseInt(localStorage.getItem('moda_issue_counter') || '0') + 1;
+                localStorage.setItem('moda_issue_counter', counter.toString());
+                
                 const newIssue = {
-                    id: `ENG-${Date.now()}`,
-                    ...issueData,
+                    id: `issue-${Date.now()}`,
+                    issue_number: counter,
+                    issue_display_id: `ENG-${String(counter).padStart(4, '0')}`,
+                    issue_type: issueData.category || 'other',
+                    priority: issueData.urgency || 'medium',
+                    title: issueData.title || '',
+                    description: issueData.description || '',
+                    project_name: issueData.projectName || '',
+                    blm_id: issueData.moduleSerial || '',
+                    department: issueData.department || '',
+                    stage: issueData.location || '',
+                    submitted_by: issueData.reportedBy || 'Unknown',
+                    photo_urls: (issueData.photos || []).map(p => p.data || p),
                     status: 'open',
-                    createdAt: new Date().toISOString(),
-                    history: [{
-                        action: 'Issue Created',
+                    comments: [],
+                    status_history: [{
+                        status: 'open',
+                        changed_by: issueData.reportedBy || 'Unknown',
                         timestamp: new Date().toISOString(),
-                        by: issueData.reportedBy
-                    }]
+                        note: 'Issue created'
+                    }],
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 };
                 setEngineeringIssues(prev => [newIssue, ...prev]);
                 setShowReportIssueModal(false);
                 setReportIssueContext(null);
+                alert(`Issue ${newIssue.issue_display_id} submitted successfully!`);
             };
             
             const selectedProject = projects.find(p => p.id === selectedProjectId);
@@ -2141,7 +2159,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
             const [reportIssueContext, setReportIssueContext] = useState(null);
             const [engineeringIssues, setEngineeringIssues] = useState(() => {
-                const saved = localStorage.getItem('autovol_engineering_issues');
+                const saved = localStorage.getItem('moda_engineering_issues');
                 if (saved && saved !== 'undefined' && saved !== 'null') {
                     try { return JSON.parse(saved); } catch (e) { return []; }
                 }
@@ -2276,9 +2294,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 return 0;
             });
 
-            // Save engineering issues to localStorage
+            // Save engineering issues to localStorage (same key as EngineeringModule)
             useEffect(() => {
-                localStorage.setItem('autovol_engineering_issues', JSON.stringify(engineeringIssues));
+                localStorage.setItem('moda_engineering_issues', JSON.stringify(engineeringIssues));
             }, [engineeringIssues]);
             
             // Open report issue modal with context
@@ -2287,22 +2305,40 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 setShowReportIssueModal(true);
             };
             
-            // Handle issue submission
+            // Handle issue submission - format matches EngineeringModule
             const handleSubmitIssue = (issueData) => {
+                const counter = parseInt(localStorage.getItem('moda_issue_counter') || '0') + 1;
+                localStorage.setItem('moda_issue_counter', counter.toString());
+                
                 const newIssue = {
-                    id: `ENG-${Date.now()}`,
-                    ...issueData,
+                    id: `issue-${Date.now()}`,
+                    issue_number: counter,
+                    issue_display_id: `ENG-${String(counter).padStart(4, '0')}`,
+                    issue_type: issueData.category || 'other',
+                    priority: issueData.urgency || 'medium',
+                    title: issueData.title || '',
+                    description: issueData.description || '',
+                    project_name: issueData.projectName || '',
+                    blm_id: issueData.moduleSerial || '',
+                    department: issueData.department || '',
+                    stage: issueData.location || '',
+                    submitted_by: issueData.reportedBy || 'Unknown',
+                    photo_urls: (issueData.photos || []).map(p => p.data || p),
                     status: 'open',
-                    createdAt: new Date().toISOString(),
-                    history: [{
-                        action: 'Issue Created',
+                    comments: [],
+                    status_history: [{
+                        status: 'open',
+                        changed_by: issueData.reportedBy || 'Unknown',
                         timestamp: new Date().toISOString(),
-                        by: issueData.reportedBy
-                    }]
+                        note: 'Issue created'
+                    }],
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 };
                 setEngineeringIssues(prev => [newIssue, ...prev]);
                 setShowReportIssueModal(false);
                 setReportIssueContext(null);
+                alert(`Issue ${newIssue.issue_display_id} submitted successfully!`);
             };
             
             // Update project modules
