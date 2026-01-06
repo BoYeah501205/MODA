@@ -16,8 +16,8 @@ function IssueSubmissionModal({
     onSubmit,
     onClose
 }) {
-    // ===== CONSTANTS =====
-    const ISSUE_TYPES = window.MODA_SUPABASE_ISSUES?.ISSUE_TYPES || [
+    // ===== CONSTANTS (from routing system) =====
+    const ISSUE_TYPES = window.MODA_ISSUE_ROUTING?.ISSUE_TYPES || [
         { id: 'shop-drawing', label: 'Shop Drawing', color: '#0057B8' },
         { id: 'design-conflict', label: 'Design Conflict', color: '#7C3AED' },
         { id: 'material-supply', label: 'Material/Supply', color: '#EA580C' },
@@ -27,12 +27,18 @@ function IssueSubmissionModal({
         { id: 'other', label: 'Other', color: '#6B7280' }
     ];
 
-    const PRIORITY_LEVELS = window.MODA_SUPABASE_ISSUES?.PRIORITY_LEVELS || [
+    const PRIORITY_LEVELS = window.MODA_ISSUE_ROUTING?.PRIORITY_LEVELS || [
         { id: 'low', label: 'Low', color: '#10B981', description: 'Can wait' },
         { id: 'medium', label: 'Medium', color: '#F59E0B', description: 'Normal priority' },
         { id: 'high', label: 'High', color: '#EA580C', description: 'Needs attention' },
         { id: 'critical', label: 'Critical', color: '#DC2626', description: 'Blocking work' }
     ];
+    
+    // Get routing destination for selected issue type
+    const getRoutingDestination = (issueType) => {
+        if (!issueType) return null;
+        return window.MODA_ISSUE_ROUTING?.getDashboardLabel?.(issueType) || 'Engineering';
+    };
 
     // ===== STATE =====
     const [formData, setFormData] = useState({
@@ -183,7 +189,15 @@ function IssueSubmissionModal({
                 submitted_by_id: currentUser.id
             };
 
-            await onSubmit(issueData);
+            // Use routing system if available, otherwise fall back to onSubmit
+            if (window.MODA_ISSUE_ROUTING?.createIssue) {
+                const newIssue = window.MODA_ISSUE_ROUTING.createIssue(issueData);
+                const destination = getRoutingDestination(formData.issue_type);
+                alert(`Issue ${newIssue.issue_display_id} submitted successfully!\n\nRouted to: ${destination}`);
+                onClose();
+            } else if (onSubmit) {
+                await onSubmit(issueData);
+            }
         } catch (err) {
             console.error('Error submitting issue:', err);
             setError(err.message || 'Failed to submit issue. Please try again.');
@@ -208,10 +222,15 @@ function IssueSubmissionModal({
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Report Engineering Issue</h2>
+                        <h2 className="text-xl font-bold text-gray-900">Report Issue</h2>
                         {context?.blm_id && (
                             <p className="text-sm text-gray-500 mt-1">
                                 Module: {context.blm_id} {context.unit_type && `(${context.unit_type})`}
+                            </p>
+                        )}
+                        {formData.issue_type && (
+                            <p className="text-sm text-blue-600 mt-1">
+                                Will be routed to: <span className="font-semibold">{getRoutingDestination(formData.issue_type)}</span>
                             </p>
                         )}
                     </div>
@@ -306,24 +325,28 @@ function IssueSubmissionModal({
                             Issue Type <span className="text-red-500">*</span>
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {ISSUE_TYPES.map(type => (
-                                <button
-                                    key={type.id}
-                                    type="button"
-                                    onClick={() => handleChange('issue_type', type.id)}
-                                    className={`p-3 rounded-lg border-2 text-center transition-all ${
-                                        formData.issue_type === type.id
-                                            ? 'border-blue-500 bg-blue-50'
-                                            : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                >
-                                    <div 
-                                        className="w-3 h-3 rounded-full mx-auto mb-1"
-                                        style={{ backgroundColor: type.color }}
-                                    ></div>
-                                    <div className="text-xs font-medium text-gray-700">{type.label}</div>
-                                </button>
-                            ))}
+                            {ISSUE_TYPES.map(type => {
+                                const destination = getRoutingDestination(type.id);
+                                return (
+                                    <button
+                                        key={type.id}
+                                        type="button"
+                                        onClick={() => handleChange('issue_type', type.id)}
+                                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                                            formData.issue_type === type.id
+                                                ? 'border-blue-500 bg-blue-50'
+                                                : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                        title={`Routes to ${destination}`}
+                                    >
+                                        <div 
+                                            className="w-3 h-3 rounded-full mx-auto mb-1"
+                                            style={{ backgroundColor: type.color }}
+                                        ></div>
+                                        <div className="text-xs font-medium text-gray-700">{type.label}</div>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 

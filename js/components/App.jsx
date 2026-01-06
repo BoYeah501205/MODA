@@ -1837,16 +1837,36 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         </>
                     )}
                     
-                    {/* Report Issue Modal */}
+                    {/* Report Issue Modal - Uses unified IssueSubmissionModal with routing */}
                     {showReportIssueModal && reportIssueContext && (
-                        <ReportIssueModal
-                            context={reportIssueContext}
-                            onSubmit={handleSubmitIssue}
-                            onClose={() => {
-                                setShowReportIssueModal(false);
-                                setReportIssueContext(null);
-                            }}
-                        />
+                        window.IssueSubmissionModal ? (
+                            <window.IssueSubmissionModal
+                                context={{
+                                    project_id: reportIssueContext.project?.id,
+                                    project_name: reportIssueContext.project?.name,
+                                    blm_id: reportIssueContext.module?.serialNumber || reportIssueContext.module?.hitchBLM,
+                                    unit_type: reportIssueContext.module?.hitchUnit,
+                                    department: reportIssueContext.station?.name || '',
+                                    stage: reportIssueContext.station?.id || ''
+                                }}
+                                projects={projects}
+                                employees={[]}
+                                auth={auth}
+                                onClose={() => {
+                                    setShowReportIssueModal(false);
+                                    setReportIssueContext(null);
+                                }}
+                            />
+                        ) : (
+                            <ReportIssueModal
+                                context={reportIssueContext}
+                                onSubmit={handleSubmitIssue}
+                                onClose={() => {
+                                    setShowReportIssueModal(false);
+                                    setReportIssueContext(null);
+                                }}
+                            />
+                        )
                     )}
                     
                     {/* Module Detail Modal (for Station Board "View Details" button) */}
@@ -2939,16 +2959,36 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         />
                     )}
                     
-                    {/* Report Issue Modal */}
+                    {/* Report Issue Modal - Uses unified IssueSubmissionModal with routing */}
                     {showReportIssueModal && reportIssueContext && (
-                        <ReportIssueModal
-                            context={reportIssueContext}
-                            onSubmit={handleSubmitIssue}
-                            onClose={() => {
-                                setShowReportIssueModal(false);
-                                setReportIssueContext(null);
-                            }}
-                        />
+                        window.IssueSubmissionModal ? (
+                            <window.IssueSubmissionModal
+                                context={{
+                                    project_id: reportIssueContext.project?.id,
+                                    project_name: reportIssueContext.project?.name,
+                                    blm_id: reportIssueContext.module?.serialNumber || reportIssueContext.module?.hitchBLM,
+                                    unit_type: reportIssueContext.module?.hitchUnit,
+                                    department: reportIssueContext.station?.name || '',
+                                    stage: reportIssueContext.station?.id || ''
+                                }}
+                                projects={projects}
+                                employees={[]}
+                                auth={auth}
+                                onClose={() => {
+                                    setShowReportIssueModal(false);
+                                    setReportIssueContext(null);
+                                }}
+                            />
+                        ) : (
+                            <ReportIssueModal
+                                context={reportIssueContext}
+                                onSubmit={handleSubmitIssue}
+                                onClose={() => {
+                                    setShowReportIssueModal(false);
+                                    setReportIssueContext(null);
+                                }}
+                            />
+                        )
                     )}
                     
                     {/* Schedule Online Modal */}
