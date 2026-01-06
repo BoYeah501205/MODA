@@ -1853,6 +1853,13 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         function ReportIssueModal({ context, onSubmit, onClose }) {
             const { module, station, project } = context;
             const fileInputRef = useRef(null);
+            
+            const URGENCY_LEVELS = [
+                { id: 'low', label: 'Low', color: '#10B981', bgColor: '#D1FAE5' },
+                { id: 'medium', label: 'Medium', color: '#F59E0B', bgColor: '#FEF3C7' },
+                { id: 'high', label: 'High', color: '#EA580C', bgColor: '#FFEDD5' },
+                { id: 'critical', label: 'Critical', color: '#DC2626', bgColor: '#FEE2E2' }
+            ];
             const [formData, setFormData] = useState({
                 title: '',
                 category: '',
