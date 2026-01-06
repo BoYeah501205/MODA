@@ -1037,7 +1037,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 <div className="text-right cursor-pointer hover:opacity-80 transition mobile-user-profile" onClick={() => setShowUserProfile(true)} title="View your profile">
                                     <p className="text-sm font-medium hide-mobile" style={{color: 'var(--autovol-navy)'}}>{auth.currentUser?.name || 'User'}</p>
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${auth.isAdmin ? 'role-badge-admin' : 'role-badge-user'}`}>
-                                        {auth.userRole?.name || auth.currentUser?.dashboardRole || 'User'}
+                                        {String(auth.userRole?.name || auth.currentUser?.dashboardRole || 'User')}
                                     </span>
                                 </div>
                                 {/* Sign Out */}

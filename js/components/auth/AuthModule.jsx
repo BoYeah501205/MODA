@@ -11,16 +11,25 @@ function isSupabaseRolesAvailable() {
 }
 
 // Get localStorage fallback roles (for offline/initial load)
+// Fallback roles if DEFAULT_DASHBOARD_ROLES not loaded yet
+const FALLBACK_ROLES = [
+    { id: 'admin', name: 'Admin', tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'automation', 'tracker', 'admin'], capabilities: { canManageUsers: true, canAccessAdmin: true, canExportData: true }, tabPermissions: {}, isDefault: false, isProtected: true },
+    { id: 'employee', name: 'Employee', tabs: ['production'], capabilities: { canManageUsers: false, canAccessAdmin: false, canExportData: false }, tabPermissions: {}, isDefault: true, isProtected: false }
+];
+
 function getLocalStorageRoles() {
     const saved = localStorage.getItem('autovol_dashboard_roles');
     if (saved && saved !== 'undefined' && saved !== 'null') {
         try {
-            return JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
         } catch (e) {
             console.error('[Auth] Error parsing dashboard roles from localStorage:', e);
         }
     }
-    return window.DEFAULT_DASHBOARD_ROLES || [];
+    return window.DEFAULT_DASHBOARD_ROLES || FALLBACK_ROLES;
 }
 
 // Hook for managing dashboard roles - syncs with Supabase
