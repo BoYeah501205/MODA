@@ -58,6 +58,37 @@
           el.innerHTML += '<div><b>Promise Error:</b> ' + (e.reason ? e.reason.message || e.reason : 'Unknown') + '</div><hr>';
         }
       });
+      
+      // GLOBAL: Patch localStorage.setItem to handle Safari/iPad quota errors
+      (function() {
+        var originalSetItem = localStorage.setItem.bind(localStorage);
+        localStorage.setItem = function(key, value) {
+          try {
+            originalSetItem(key, value);
+          } catch (e) {
+            if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+              console.warn('[Storage] Quota exceeded for ' + key + ', clearing old data...');
+              // Clear less critical cached data
+              var keysToRemove = [];
+              for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k && (k.indexOf('_trash') > -1 || k.indexOf('_cache') > -1 || k.indexOf('_temp') > -1)) {
+                  keysToRemove.push(k);
+                }
+              }
+              keysToRemove.forEach(function(k) { try { localStorage.removeItem(k); } catch(err) {} });
+              // Retry once
+              try {
+                originalSetItem(key, value);
+              } catch (retryErr) {
+                console.error('[Storage] Still full after cleanup for ' + key);
+              }
+            } else {
+              console.error('[Storage] setItem error:', e);
+            }
+          }
+        };
+      })();
     </script>
     
     <!-- Feature Flags (Dashboard Migration) -->
