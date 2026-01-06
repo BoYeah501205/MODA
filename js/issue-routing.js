@@ -159,6 +159,14 @@
         
         console.log(`[IssueRouting] Issue ${newIssue.issue_display_id} created and routed to ${routing.label}`);
         
+        // Dispatch custom event for same-tab updates
+        window.dispatchEvent(new CustomEvent('moda-issues-updated', { 
+            detail: { 
+                dashboard: routing.dashboard, 
+                issue: newIssue 
+            } 
+        }));
+        
         return newIssue;
     }
 

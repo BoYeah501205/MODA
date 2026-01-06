@@ -70,6 +70,28 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
     // ===== DATA LOADING =====
     useEffect(() => {
         loadIssues();
+        
+        // Listen for storage changes (when issues are added from other components)
+        const handleStorageChange = (e) => {
+            if (e.key === 'moda_engineering_issues') {
+                console.log('[Engineering] Storage changed, reloading issues');
+                loadIssues();
+            }
+        };
+        
+        // Also listen for custom event (for same-tab updates)
+        const handleIssueUpdate = () => {
+            console.log('[Engineering] Issue update event received, reloading');
+            loadIssues();
+        };
+        
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('moda-issues-updated', handleIssueUpdate);
+        
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('moda-issues-updated', handleIssueUpdate);
+        };
     }, []);
 
     const loadIssues = async () => {
