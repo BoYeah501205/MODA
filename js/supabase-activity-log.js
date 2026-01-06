@@ -66,12 +66,24 @@
         return SEVERITY.INFO;
     }
 
-    // Get current user info from auth context
+    // Get current user info from global state (NOT from hook - hooks can't be called outside components)
     function getCurrentUserInfo() {
-        const auth = window.useAuth?.() || {};
-        const user = auth.currentUser;
+        // Try to get user from global window state set by auth system
+        const user = window.MODA_CURRENT_USER || window.currentUser || null;
         
         if (!user) {
+            // Try localStorage as fallback
+            try {
+                const session = localStorage.getItem('autovol_session');
+                if (session) {
+                    const parsed = JSON.parse(session);
+                    return {
+                        userId: parsed.id || parsed.uid || null,
+                        userEmail: parsed.email || 'unknown',
+                        userName: parsed.name || parsed.displayName || parsed.email?.split('@')[0] || 'Unknown'
+                    };
+                }
+            } catch (e) { /* ignore */ }
             return { userId: null, userEmail: 'anonymous', userName: 'Anonymous' };
         }
         

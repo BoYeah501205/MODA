@@ -486,6 +486,11 @@ function useAuth() {
         localStorage.setItem('autovol_users', JSON.stringify(users)); 
     }, [users]);
 
+    // Set global user state for non-React code (like activity logging)
+    useEffect(() => {
+        window.MODA_CURRENT_USER = currentUser;
+    }, [currentUser]);
+
     // Listen for Supabase profile loaded event AND poll for it if not immediately available
     useEffect(() => {
         let pollInterval = null;
