@@ -429,8 +429,30 @@
         }
 
         try {
-            // Validate caller is admin
-            if (!userProfile || (userProfile.dashboard_role !== 'admin' && !userProfile.is_protected)) {
+            // Validate caller is admin - check userProfile first, then fetch if needed
+            let callerProfile = userProfile;
+            
+            // If userProfile not available, try to fetch it from current session
+            if (!callerProfile && currentUser) {
+                console.log('[Supabase] userProfile not available, fetching from current session...');
+                const { data: session } = await supabase.auth.getSession();
+                if (session?.session?.user) {
+                    const { data: profiles } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.session.user.id);
+                    if (profiles && profiles.length > 0) {
+                        callerProfile = profiles[0];
+                        userProfile = callerProfile; // Cache it for future calls
+                    }
+                }
+            }
+            
+            console.log('[Supabase] Custom permissions check - callerProfile:', callerProfile);
+            console.log('[Supabase] Role:', callerProfile?.dashboard_role, 'Protected:', callerProfile?.is_protected);
+            
+            if (!callerProfile || (callerProfile.dashboard_role !== 'admin' && !callerProfile.is_protected)) {
+                console.log('[Supabase] Admin check failed - role:', callerProfile?.dashboard_role, 'protected:', callerProfile?.is_protected);
                 return { success: false, error: 'Only admins can modify custom permissions' };
             }
 
