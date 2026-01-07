@@ -573,6 +573,45 @@
         }
     }
 
+    // Admin function to set a user's password directly
+    async function adminSetPassword(email, password) {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            console.log('[Supabase] Admin setting password for:', email);
+            
+            // Get current session token for authorization
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-set-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            console.log('[Supabase] Admin set password response:', response.status, data);
+
+            if (!response.ok || !data.success) {
+                return { success: false, error: data.error || 'Failed to set password' };
+            }
+
+            return { success: true, message: data.message, userId: data.userId };
+
+        } catch (error) {
+            console.error('[Supabase] Admin set password exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // Check if a user exists by email (uses profiles table)
     // Uses direct fetch API to avoid SDK Promise hanging
     async function checkUserByEmail(email) {
@@ -631,6 +670,7 @@
         clearUserCustomPermissions,
         inviteUser,
         checkUserByEmail,
+        adminSetPassword,
         get client() { return supabase; },
         get currentUser() { return currentUser; },
         get userProfile() { return userProfile; },

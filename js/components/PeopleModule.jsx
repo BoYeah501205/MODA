@@ -30,6 +30,11 @@
             // Inactive employee state
             const [showInactiveModal, setShowInactiveModal] = useState(null);
             const [showInactiveFilter, setShowInactiveFilter] = useState(false);
+            
+            // Password set modal state
+            const [showPasswordModal, setShowPasswordModal] = useState(null);
+            const [newPassword, setNewPassword] = useState('');
+            const [settingPassword, setSettingPassword] = useState(false);
 
             const handleSort = (column) => {
                 if (sortColumn === column) {
@@ -300,6 +305,41 @@
             const handleResendInvite = async (employee) => {
                 // Resend is the same as send
                 await handleSendInvite(employee);
+            };
+
+            // Admin function to set password directly
+            const handleSetPassword = async () => {
+                if (!showPasswordModal || !newPassword) return;
+                
+                if (newPassword.length < 6) {
+                    alert('Password must be at least 6 characters');
+                    return;
+                }
+                
+                setSettingPassword(true);
+                try {
+                    const result = await window.MODA_SUPABASE?.adminSetPassword(showPasswordModal.email, newPassword);
+                    
+                    if (result?.success) {
+                        // Update employee status to active
+                        setEmployees(employees.map(e => 
+                            e.id === showPasswordModal.id 
+                                ? { ...e, accessStatus: 'active' } 
+                                : e
+                        ));
+                        
+                        alert(`Password set successfully for ${showPasswordModal.email}!\n\nThey can now log in with this password.`);
+                        setShowPasswordModal(null);
+                        setNewPassword('');
+                    } else {
+                        throw new Error(result?.error || 'Failed to set password');
+                    }
+                } catch (error) {
+                    console.error('[PeopleModule] Set password error:', error);
+                    alert(`Error setting password: ${error.message}`);
+                } finally {
+                    setSettingPassword(false);
+                }
             };
 
             // Mark employee as inactive with reason and notes
@@ -614,6 +654,15 @@
                                                                     Resend
                                                                 </button>
                                                             )}
+                                                            {/* Show Set Password for admins - works for invited or existing users */}
+                                                            {isAdmin && emp.email && (emp.permissions === 'User' || emp.permissions === 'Admin') && (
+                                                                <button 
+                                                                    onClick={() => setShowPasswordModal(emp)}
+                                                                    className="text-sm text-purple-600 hover:underline"
+                                                                >
+                                                                    Set Password
+                                                                </button>
+                                                            )}
                                                             {/* Show Mark Inactive for active employees, Reactivate for inactive */}
                                                             {emp.isActive !== false ? (
                                                                 <button 
@@ -906,6 +955,57 @@
                             onClose={() => setShowInactiveModal(null)}
                             onConfirm={(reason, notes) => handleMarkInactive(emp, reason, notes)}
                         />
+                        );
+                    })()}
+
+                    {/* Set Password Modal */}
+                    {showPasswordModal && (() => {
+                        const emp = showPasswordModal;
+                        const empName = [emp.firstName, emp.lastName].filter(Boolean).join(' ') || emp.email;
+                        return (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowPasswordModal(null); setNewPassword(''); }}>
+                            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Set Password</h3>
+                                <p className="text-gray-600 mb-4">
+                                    Set a password for <strong>{empName}</strong> ({emp.email})
+                                </p>
+                                <p className="text-sm text-gray-500 mb-4">
+                                    This will allow the user to log in immediately with this password. Use this if email invites are not working.
+                                </p>
+                                
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        New Password <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Enter password (min 6 characters)"
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
+                                        autoFocus
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Password is shown in plain text so you can share it with the user</p>
+                                </div>
+                                
+                                <div className="flex justify-end gap-3">
+                                    <button 
+                                        onClick={() => { setShowPasswordModal(null); setNewPassword(''); }}
+                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                                        disabled={settingPassword}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={handleSetPassword}
+                                        disabled={settingPassword || newPassword.length < 6}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                                    >
+                                        {settingPassword ? 'Setting...' : 'Set Password'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         );
                     })()}
                 </div>
