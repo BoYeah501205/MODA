@@ -1022,6 +1022,186 @@
     };
 
     // ============================================================================
+    // DASHBOARD ROLES API
+    // ============================================================================
+
+    const DashboardRolesAPI = {
+        // Get all roles
+        async getAll() {
+            const client = getClient();
+            if (!client) return [];
+            
+            try {
+                const { data, error } = await client
+                    .from('dashboard_roles')
+                    .select('*')
+                    .order('name', { ascending: true });
+                
+                if (error) throw error;
+                
+                // Transform from DB format to app format
+                return (data || []).map(role => ({
+                    id: role.id,
+                    name: role.name,
+                    description: role.description,
+                    tabs: role.tabs || [],
+                    editableTabs: role.editable_tabs || [],
+                    capabilities: role.capabilities || {},
+                    tabPermissions: role.tab_permissions || {},
+                    isDefault: role.is_default || false,
+                    isProtected: role.is_protected || false
+                }));
+            } catch (error) {
+                console.error('[DashboardRoles] Error fetching:', error.message);
+                return [];
+            }
+        },
+
+        // Get single role by ID
+        async getById(roleId) {
+            const client = getClient();
+            if (!client) return null;
+            
+            try {
+                const { data, error } = await client
+                    .from('dashboard_roles')
+                    .select('*')
+                    .eq('id', roleId)
+                    .single();
+                
+                if (error) throw error;
+                
+                return {
+                    id: data.id,
+                    name: data.name,
+                    description: data.description,
+                    tabs: data.tabs || [],
+                    editableTabs: data.editable_tabs || [],
+                    capabilities: data.capabilities || {},
+                    tabPermissions: data.tab_permissions || {},
+                    isDefault: data.is_default || false,
+                    isProtected: data.is_protected || false
+                };
+            } catch (error) {
+                console.error('[DashboardRoles] Error fetching role:', error.message);
+                return null;
+            }
+        },
+
+        // Create new role
+        async create(roleData) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            const { data, error } = await client
+                .from('dashboard_roles')
+                .insert({
+                    id: roleData.id,
+                    name: roleData.name,
+                    description: roleData.description || '',
+                    tabs: roleData.tabs || [],
+                    editable_tabs: roleData.editableTabs || [],
+                    capabilities: roleData.capabilities || {},
+                    tab_permissions: roleData.tabPermissions || {},
+                    is_default: roleData.isDefault || false,
+                    is_protected: roleData.isProtected || false
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            console.log('[DashboardRoles] Created:', data.id);
+            return data;
+        },
+
+        // Update existing role
+        async update(roleId, updates) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            const dbUpdates = {};
+            if (updates.name !== undefined) dbUpdates.name = updates.name;
+            if (updates.description !== undefined) dbUpdates.description = updates.description;
+            if (updates.tabs !== undefined) dbUpdates.tabs = updates.tabs;
+            if (updates.editableTabs !== undefined) dbUpdates.editable_tabs = updates.editableTabs;
+            if (updates.capabilities !== undefined) dbUpdates.capabilities = updates.capabilities;
+            if (updates.tabPermissions !== undefined) dbUpdates.tab_permissions = updates.tabPermissions;
+            if (updates.isDefault !== undefined) dbUpdates.is_default = updates.isDefault;
+            
+            const { data, error } = await client
+                .from('dashboard_roles')
+                .update(dbUpdates)
+                .eq('id', roleId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            console.log('[DashboardRoles] Updated:', roleId);
+            return data;
+        },
+
+        // Delete role
+        async delete(roleId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            const { error } = await client
+                .from('dashboard_roles')
+                .delete()
+                .eq('id', roleId);
+            
+            if (error) throw error;
+            console.log('[DashboardRoles] Deleted:', roleId);
+            return true;
+        },
+
+        // Set a role as default (unsets others)
+        async setDefault(roleId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not available');
+            
+            // First unset all defaults
+            await client
+                .from('dashboard_roles')
+                .update({ is_default: false })
+                .neq('id', roleId);
+            
+            // Then set the new default
+            const { error } = await client
+                .from('dashboard_roles')
+                .update({ is_default: true })
+                .eq('id', roleId);
+            
+            if (error) throw error;
+            console.log('[DashboardRoles] Set default:', roleId);
+            return true;
+        },
+
+        // Subscribe to real-time updates
+        onSnapshot(callback) {
+            const client = getClient();
+            if (!client) return () => {};
+            
+            const subscription = client
+                .channel('dashboard_roles_changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'dashboard_roles' },
+                    async () => {
+                        // Refetch all roles on any change
+                        const roles = await DashboardRolesAPI.getAll();
+                        callback(roles);
+                    }
+                )
+                .subscribe();
+            
+            // Return unsubscribe function
+            return () => {
+                client.removeChannel(subscription);
+            };
+        }
+    };
+
+    // ============================================================================
     // EXPOSE GLOBAL API
     // ============================================================================
 
@@ -1035,7 +1215,8 @@
         weeklySchedules: WeeklySchedulesAPI,
         productionWeeks: ProductionWeeksAPI,
         stationStaggers: StationStaggersAPI,
-        staggerChangeLog: StaggerChangeLogAPI
+        staggerChangeLog: StaggerChangeLogAPI,
+        dashboardRoles: DashboardRolesAPI
     };
 
     console.log('[Supabase Data] Module loaded');
