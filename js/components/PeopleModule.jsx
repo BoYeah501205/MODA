@@ -116,6 +116,26 @@
                         // Update existing employee
                         const updated = { ...editingEmployee, ...employeeData };
                         setEmployees(employees.map(e => e.id === editingEmployee.id ? updated : e));
+                        
+                        // If user has Supabase account and dashboard role changed, update in Supabase
+                        if (editingEmployee.supabaseUserId && 
+                            employeeData.dashboardRole && 
+                            employeeData.dashboardRole !== editingEmployee.dashboardRole) {
+                            try {
+                                const result = await window.MODA_SUPABASE?.updateUserRole(
+                                    editingEmployee.supabaseUserId, 
+                                    employeeData.dashboardRole
+                                );
+                                if (result?.success) {
+                                    console.log('[PeopleModule] Dashboard role updated in Supabase:', employeeData.dashboardRole);
+                                } else {
+                                    console.warn('[PeopleModule] Failed to update role in Supabase:', result?.error);
+                                }
+                            } catch (err) {
+                                console.warn('[PeopleModule] Error updating role in Supabase:', err.message);
+                            }
+                        }
+                        
                         setActionMessage(`Updated ${fullName}`);
                     } else {
                         // Create new employee
