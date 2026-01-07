@@ -65,9 +65,10 @@ serve(async (req) => {
       }
     }
 
-    // Send invite email
+    // Send invite email - always use production domain to avoid 404s from expired preview deployments
+    const productionUrl = 'https://modulardashboard.com';
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: redirectTo || 'https://modulardashboard.com',
+      redirectTo: productionUrl,
       data: {
         name: metadata?.name || email.split('@')[0],
         invited_by: metadata?.invitedBy || 'MODA Admin',
