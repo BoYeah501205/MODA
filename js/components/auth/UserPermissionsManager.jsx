@@ -15,6 +15,18 @@ function UserPermissionsManager({ auth }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
+    const [savingRoleFor, setSavingRoleFor] = useState(null);
+
+    // Get all available dashboard roles
+    const allDashboardRoles = window.DEFAULT_DASHBOARD_ROLES || [
+        { id: 'admin', name: 'Admin' },
+        { id: 'executive', name: 'Executive' },
+        { id: 'production_management', name: 'Production Management' },
+        { id: 'production_supervisor', name: 'Production Supervisor' },
+        { id: 'department-supervisor', name: 'Department Supervisor' },
+        { id: 'coordinator', name: 'Coordinator' },
+        { id: 'employee', name: 'Employee' }
+    ];
 
     // Load users from Supabase
     const loadUsers = useCallback(async () => {
@@ -74,6 +86,31 @@ function UserPermissionsManager({ auth }) {
     const handleSavePermissions = (updatedUser) => {
         setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
         setSelectedUser(null);
+    };
+
+    // Handle role change from dropdown
+    const handleRoleChange = async (userId, newRole) => {
+        const user = users.find(u => u.id === userId);
+        if (!user || user.is_protected) return;
+        
+        setSavingRoleFor(userId);
+        try {
+            const result = await window.MODA_SUPABASE?.updateUserRole(userId, newRole);
+            if (result?.success) {
+                setUsers(prev => prev.map(u => 
+                    u.id === userId ? { ...u, dashboard_role: newRole } : u
+                ));
+                console.log('[UserPermissions] Role updated:', userId, '->', newRole);
+            } else {
+                console.error('[UserPermissions] Failed to update role:', result?.error);
+                alert('Failed to update role: ' + (result?.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('[UserPermissions] Error updating role:', err);
+            alert('Error updating role: ' + err.message);
+        } finally {
+            setSavingRoleFor(null);
+        }
     };
 
     // Check if user has custom permissions
@@ -282,19 +319,43 @@ function UserPermissionsManager({ auth }) {
                                 </div>
                             </div>
 
-                            {/* Role */}
+                            {/* Role - Editable Dropdown */}
                             <div style={{ padding: '12px 16px' }}>
-                                <span style={{
-                                    display: 'inline-block',
-                                    padding: '4px 10px',
-                                    fontSize: '11px',
-                                    fontWeight: '600',
-                                    borderRadius: '4px',
-                                    background: user.dashboard_role === 'admin' ? '#DBEAFE' : '#F3F4F6',
-                                    color: user.dashboard_role === 'admin' ? '#1E40AF' : '#374151'
-                                }}>
-                                    {user.dashboard_role || 'employee'}
-                                </span>
+                                {user.is_protected ? (
+                                    <span style={{
+                                        display: 'inline-block',
+                                        padding: '4px 10px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        borderRadius: '4px',
+                                        background: '#DBEAFE',
+                                        color: '#1E40AF'
+                                    }}>
+                                        {user.dashboard_role || 'admin'}
+                                    </span>
+                                ) : (
+                                    <select
+                                        value={user.dashboard_role || 'employee'}
+                                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                        disabled={savingRoleFor === user.id}
+                                        style={{
+                                            padding: '4px 8px',
+                                            fontSize: '12px',
+                                            border: '1px solid #D1D5DB',
+                                            borderRadius: '4px',
+                                            background: savingRoleFor === user.id ? '#F3F4F6' : 'white',
+                                            color: '#374151',
+                                            cursor: savingRoleFor === user.id ? 'wait' : 'pointer',
+                                            minWidth: '120px'
+                                        }}
+                                    >
+                                        {allDashboardRoles.filter(r => r.id !== 'no-access').map(role => (
+                                            <option key={role.id} value={role.id}>
+                                                {role.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
 
                             {/* Custom Permissions Status */}
