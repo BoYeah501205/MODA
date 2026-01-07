@@ -7,6 +7,30 @@ const { useState, useEffect, useCallback } = React;
 
 const USERS_PER_PAGE = 10;
 
+// Password reset handler
+async function sendPasswordReset(email, setResettingFor) {
+    if (!email) return;
+    
+    if (!confirm(`Send password reset email to ${email}?`)) {
+        return;
+    }
+    
+    setResettingFor(email);
+    try {
+        const result = await window.MODA_SUPABASE?.resetPassword(email);
+        if (result?.success) {
+            alert(`Password reset email sent to ${email}`);
+        } else {
+            alert('Failed to send reset email: ' + (result?.error || 'Unknown error'));
+        }
+    } catch (err) {
+        console.error('[UserPermissions] Password reset error:', err);
+        alert('Error sending reset email: ' + err.message);
+    } finally {
+        setResettingFor(null);
+    }
+}
+
 function UserPermissionsManager({ auth }) {
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -16,6 +40,7 @@ function UserPermissionsManager({ auth }) {
     const [filterRole, setFilterRole] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [savingRoleFor, setSavingRoleFor] = useState(null);
+    const [resettingPasswordFor, setResettingPasswordFor] = useState(null);
 
     // Get all available dashboard roles
     const allDashboardRoles = window.DEFAULT_DASHBOARD_ROLES || [
@@ -260,7 +285,7 @@ function UserPermissionsManager({ auth }) {
                 {/* Table Header */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '2fr 1fr 1fr 120px',
+                    gridTemplateColumns: '2fr 1fr 1fr 200px',
                     background: '#F9FAFB',
                     borderBottom: '1px solid #E5E7EB',
                     fontWeight: '600',
@@ -284,7 +309,7 @@ function UserPermissionsManager({ auth }) {
                             key={user.id}
                             style={{
                                 display: 'grid',
-                                gridTemplateColumns: '2fr 1fr 1fr 120px',
+                                gridTemplateColumns: '2fr 1fr 1fr 200px',
                                 borderBottom: index < paginatedUsers.length - 1 ? '1px solid #E5E7EB' : 'none',
                                 background: index % 2 === 0 ? 'white' : '#FAFAFA',
                                 alignItems: 'center'
@@ -391,13 +416,14 @@ function UserPermissionsManager({ auth }) {
                             </div>
 
                             {/* Actions */}
-                            <div style={{ padding: '12px 16px', textAlign: 'center' }}>
+                            <div style={{ padding: '12px 16px', textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
                                 <button
                                     onClick={() => handleEditPermissions(user)}
                                     disabled={user.is_protected}
+                                    title="Edit custom permissions"
                                     style={{
-                                        padding: '6px 12px',
-                                        fontSize: '12px',
+                                        padding: '6px 10px',
+                                        fontSize: '11px',
                                         border: '1px solid',
                                         borderColor: user.is_protected ? '#E5E7EB' : 'var(--autovol-teal)',
                                         borderRadius: '4px',
@@ -408,6 +434,23 @@ function UserPermissionsManager({ auth }) {
                                     }}
                                 >
                                     {hasCustomPermissions(user) ? 'Edit' : 'Customize'}
+                                </button>
+                                <button
+                                    onClick={() => sendPasswordReset(user.email, setResettingPasswordFor)}
+                                    disabled={resettingPasswordFor === user.email}
+                                    title="Send password reset email"
+                                    style={{
+                                        padding: '6px 10px',
+                                        fontSize: '11px',
+                                        border: '1px solid #F59E0B',
+                                        borderRadius: '4px',
+                                        background: resettingPasswordFor === user.email ? '#FEF3C7' : 'white',
+                                        color: '#B45309',
+                                        cursor: resettingPasswordFor === user.email ? 'wait' : 'pointer',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    {resettingPasswordFor === user.email ? 'Sending...' : 'Reset PW'}
                                 </button>
                             </div>
                         </div>
