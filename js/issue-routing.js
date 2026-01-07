@@ -98,6 +98,16 @@
         const issueType = issueData.issue_type || 'other';
         const routing = getRoutingInfo(issueType);
         
+        // Wait for Supabase to be ready (up to 2 seconds)
+        if (routing.dashboard === 'engineering') {
+            let attempts = 0;
+            while (attempts < 10 && !window.MODA_SUPABASE_ISSUES?.isAvailable?.()) {
+                console.log('[IssueRouting] Waiting for Supabase... attempt', attempts + 1);
+                await new Promise(resolve => setTimeout(resolve, 200));
+                attempts++;
+            }
+        }
+        
         // Try Supabase first for engineering issues (primary source for multi-user sync)
         if (routing.dashboard === 'engineering' && window.MODA_SUPABASE_ISSUES?.isAvailable?.()) {
             try {

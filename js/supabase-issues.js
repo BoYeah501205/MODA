@@ -19,8 +19,13 @@
         return;
     }
 
-    const getClient = () => window.MODA_SUPABASE.client;
-    const isAvailable = () => window.MODA_SUPABASE.isInitialized && getClient();
+    const getClient = () => window.MODA_SUPABASE?.client;
+    const isAvailable = () => {
+        const initialized = window.MODA_SUPABASE?.isInitialized;
+        const client = getClient();
+        console.log('[Supabase Issues] isAvailable check - initialized:', initialized, 'client:', !!client);
+        return initialized && client;
+    };
 
     // ============================================================================
     // CONSTANTS

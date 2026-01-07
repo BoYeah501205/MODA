@@ -69,7 +69,26 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
 
     // ===== DATA LOADING =====
     useEffect(() => {
-        loadIssues();
+        // Wait for Supabase to initialize before loading
+        const waitForSupabaseAndLoad = async () => {
+            // Give Supabase a moment to initialize (it's async)
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            while (attempts < maxAttempts) {
+                if (window.MODA_SUPABASE?.isInitialized) {
+                    console.log('[Engineering] Supabase ready, loading issues...');
+                    break;
+                }
+                attempts++;
+                console.log('[Engineering] Waiting for Supabase initialization... attempt', attempts);
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            loadIssues();
+        };
+        
+        waitForSupabaseAndLoad();
         
         // Listen for storage changes (when issues are added from other components)
         const handleStorageChange = (e) => {
