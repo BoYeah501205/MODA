@@ -51,7 +51,8 @@ const MODA_CONSTANTS = {
     
     // Production Stages
     PRODUCTION_STAGES: [
-        { id: 'auto-fc', name: 'Auto Floor/Ceiling', color: '#3B82F6' },
+        { id: 'auto-c', name: 'Auto Ceiling', color: '#334155' },
+        { id: 'auto-f', name: 'Auto Floor', color: '#3B82F6' },
         { id: 'auto-walls', name: 'Auto Walls', color: '#8B5CF6' },
         { id: 'mezzanine', name: 'Mezzanine', color: '#EC4899' },
         { id: 'elec-ceiling', name: 'Electrical Ceiling', color: '#F59E0B' },

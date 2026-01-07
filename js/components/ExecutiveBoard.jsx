@@ -7,7 +7,8 @@ const { useState, useEffect, useMemo } = React;
 
 // ===== PRODUCTION STAGES (mirrored from App.jsx for standalone use) =====
 const PRODUCTION_STAGES = [
-    { id: 'auto-fc', name: 'Automation (Floor/Ceiling)', dept: 'AUTO-FC', group: 'automation' },
+    { id: 'auto-c', name: 'Automation (Ceiling)', dept: 'AUTO-C', group: 'automation' },
+    { id: 'auto-f', name: 'Automation (Floor)', dept: 'AUTO-F', group: 'automation' },
     { id: 'auto-walls', name: 'Automation (Walls)', dept: 'AUTO-W', group: 'automation' },
     { id: 'mezzanine', name: 'Mezzanine', dept: 'MEZZ', group: null },
     { id: 'elec-ceiling', name: 'Electrical Ceiling', dept: 'ELEC-C', group: null },

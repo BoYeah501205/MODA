@@ -94,7 +94,8 @@ const DEFAULT_DASHBOARD_ROLES = window.DEFAULT_DASHBOARD_ROLES || [];
         // startingSerial: the module serial # that starts at this station this week
         // stagger: offset from Automation (calculated from starting modules)
         const productionStages = [
-            { id: 'auto-fc', name: 'Automation (Floor/Ceiling)', dept: 'AUTO-FC', color: 'bg-slate-600', group: 'automation', startingSerial: '25-0861' },
+            { id: 'auto-c', name: 'Automation (Ceiling)', dept: 'AUTO-C', color: 'bg-slate-700', group: 'automation', startingSerial: '25-0861' },
+            { id: 'auto-f', name: 'Automation (Floor)', dept: 'AUTO-F', color: 'bg-slate-600', group: 'automation', startingSerial: '25-0861' },
             { id: 'auto-walls', name: 'Automation (Walls)', dept: 'AUTO-W', color: 'bg-slate-500', group: 'automation', startingSerial: '25-0861' },
             { id: 'mezzanine', name: 'Mezzanine (FC Prep, Plumbing - Floors)', dept: 'MEZZ', color: 'bg-violet-500', group: null, startingSerial: '25-0860' },
             { id: 'elec-ceiling', name: 'Electrical - Ceilings', dept: 'ELEC-C', color: 'bg-amber-400', group: null, startingSerial: '25-0857' },
@@ -119,7 +120,7 @@ const DEFAULT_DASHBOARD_ROLES = window.DEFAULT_DASHBOARD_ROLES || [];
 
         // Station groups for visual styling
         const stationGroups = {
-            'automation': { name: 'Automation', borderColor: 'border-autovol-teal', stations: ['auto-fc', 'auto-walls'] },
+            'automation': { name: 'Automation', borderColor: 'border-autovol-teal', stations: ['auto-c', 'auto-f', 'auto-walls'] },
             'mep-rough': { name: 'MEP Rough-In', borderColor: 'border-cyan-500', stations: ['mech-rough', 'elec-rough', 'plumb-rough'] },
             'mep-trim': { name: 'MEP Trim', borderColor: 'border-yellow-500', stations: ['mech-trim', 'elec-trim', 'plumb-trim'] }
         };
@@ -128,7 +129,8 @@ const DEFAULT_DASHBOARD_ROLES = window.DEFAULT_DASHBOARD_ROLES || [];
         // Higher number = station is working on modules further ahead in production
         // Default values as of Dec 5, 2025
         const stationStaggers = {
-            'auto-fc': 0,        // Automation (Floor/Ceiling) - Base
+            'auto-c': 0,         // Automation (Ceiling) - Base
+            'auto-f': 0,         // Automation (Floor) - Parallel with Ceiling
             'auto-walls': 0,     // Automation (Walls) - Parallel with F/C
             'mezzanine': 1,      // Mezzanine (FC Prep, Plumbing - Floors)
             'elec-ceiling': 4,   // Electrical - Ceilings
@@ -1534,7 +1536,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 
                 sortedModules.forEach(module => {
                     const progress = module.stageProgress || {};
-                    const autoProgress = Math.max(progress['auto-fc'] || 0, progress['auto-walls'] || 0);
+                    const autoProgress = Math.max(progress['auto-c'] || 0, progress['auto-f'] || 0, progress['auto-walls'] || 0);
                     const closeUpProgress = progress['close-up'] || 0;
                     
                     if (closeUpProgress === 100) {

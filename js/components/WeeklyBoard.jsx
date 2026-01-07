@@ -1478,7 +1478,7 @@ function ScheduleSetupTab({
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Starting Module (AUTO-FC / AUTO-W)
+                                    Starting Module (AUTO-C / AUTO-F / AUTO-W)
                                 </label>
                                 <select 
                                     value={formData.startingModule} 
@@ -1493,7 +1493,7 @@ function ScheduleSetupTab({
                                     ))}
                                 </select>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    This module will appear at AUTO-FC/AUTO-W. Other stations offset by their stagger.
+                                    This module will appear at AUTO-C/AUTO-F/AUTO-W. Other stations offset by their stagger.
                                 </p>
                             </div>
                             
@@ -3759,7 +3759,7 @@ function WeeklyBoardTab({
                         )}
                         
                         <p className="text-xs text-gray-500 mt-4">
-                            Tip: The starting module determines which modules appear at AUTO-FC/AUTO-W.
+                            Tip: The starting module determines which modules appear at AUTO-C/AUTO-F/AUTO-W.
                             Other stations will show modules based on their stagger offset.
                         </p>
                     </div>
@@ -4544,7 +4544,7 @@ function WeeklyBoardTab({
                                     <div>
                                         <div className="font-semibold text-blue-800">Apply to ALL stations</div>
                                         <div className="text-sm text-blue-700 mt-1">
-                                            This will update the build sequence for this module across the entire production line (AUTO-FC through Close-Up).
+                                            This will update the build sequence for this module across the entire production line (AUTO-C through Close-Up).
                                         </div>
                                         <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                                             <span>⚠️</span> Recommended to keep stations in sync

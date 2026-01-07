@@ -134,7 +134,8 @@ function TravelerDetailModal({ traveler, module, updateTraveler, addDeviation, o
     
     // Production stages in order (matches App.jsx)
     const PRODUCTION_STAGES = [
-        { id: 'auto-fc', name: 'Auto-FC' },
+        { id: 'auto-c', name: 'Auto-C' },
+        { id: 'auto-f', name: 'Auto-F' },
         { id: 'auto-walls', name: 'Auto-Walls' },
         { id: 'mezzanine', name: 'Mezzanine' },
         { id: 'elec-ceiling', name: 'Elec-Ceiling' },
@@ -179,7 +180,7 @@ function TravelerDetailModal({ traveler, module, updateTraveler, addDeviation, o
                 return 'Complete';
             }
         }
-        return 'Auto-FC';
+        return 'Auto-C';
     };
     
     const currentStation = getCurrentStation();

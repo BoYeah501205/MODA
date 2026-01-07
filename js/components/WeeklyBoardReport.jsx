@@ -166,7 +166,7 @@ function generateWeeklyBoardPDF(options) {
         const boxHeight = 20;
         const boxes = [
             { label: 'Line Balance', value: `${lineBalance}`, sublabel: 'modules/week' },
-            { label: 'Starting Module', value: currentWeek?.startingModule || '—', sublabel: 'AUTO-FC/AUTO-W' },
+            { label: 'Starting Module', value: currentWeek?.startingModule || '—', sublabel: 'AUTO-C/AUTO-F/AUTO-W' },
             { label: 'Active Projects', value: `${activeProjects?.length || 0}`, sublabel: 'in production' },
             { label: 'Total Modules', value: `${allModules?.length || 0}`, sublabel: 'in queue' }
         ];

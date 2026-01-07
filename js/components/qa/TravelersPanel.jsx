@@ -33,7 +33,7 @@ function TravelersPanel({
     // Check if module has completed all stations
     // A module is complete when ALL stages are at 100% (same logic as Weekly Board)
     const PRODUCTION_STAGE_IDS = [
-        'auto-fc', 'auto-walls', 'mezzanine', 'elec-ceiling', 'wall-set', 'ceiling-set',
+        'auto-c', 'auto-f', 'auto-walls', 'mezzanine', 'elec-ceiling', 'wall-set', 'ceiling-set',
         'soffits', 'mech-rough', 'elec-rough', 'plumb-rough', 'exteriors', 'drywall-bp',
         'drywall-ttp', 'roofing', 'pre-finish', 'mech-trim', 'elec-trim', 'plumb-trim',
         'final-finish', 'sign-off', 'close-up'
@@ -124,7 +124,8 @@ function TravelersPanel({
     
     // Production stages in order (matches App.jsx)
     const PRODUCTION_STAGES = [
-        { id: 'auto-fc', name: 'Auto-FC' },
+        { id: 'auto-c', name: 'Auto-C' },
+        { id: 'auto-f', name: 'Auto-F' },
         { id: 'auto-walls', name: 'Auto-Walls' },
         { id: 'mezzanine', name: 'Mezzanine' },
         { id: 'elec-ceiling', name: 'Elec-Ceiling' },

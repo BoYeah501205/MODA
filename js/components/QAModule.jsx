@@ -173,7 +173,7 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
     
     // Production stage IDs (must match App.jsx)
     const PRODUCTION_STAGE_IDS = [
-        'auto-fc', 'auto-walls', 'mezzanine', 'elec-ceiling', 'wall-set', 'ceiling-set',
+        'auto-c', 'auto-f', 'auto-walls', 'mezzanine', 'elec-ceiling', 'wall-set', 'ceiling-set',
         'soffits', 'mech-rough', 'elec-rough', 'plumb-rough', 'exteriors', 'drywall-bp',
         'drywall-ttp', 'roofing', 'pre-finish', 'mech-trim', 'elec-trim', 'plumb-trim',
         'final-finish', 'sign-off', 'close-up'
