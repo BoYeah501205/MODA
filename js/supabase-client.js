@@ -582,19 +582,24 @@
         try {
             console.log('[Supabase] Admin setting password for:', email);
             
-            // Get current session token for authorization
+            // Get current session token for authorization (if available)
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) {
-                return { success: false, error: 'Not authenticated' };
-            }
+            
+            // Build headers - use session token if available, otherwise use anon key
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': session?.access_token 
+                    ? `Bearer ${session.access_token}` 
+                    : `Bearer ${SUPABASE_ANON_KEY}`
+            };
+
+            // Include admin email in body for fallback verification
+            const adminEmail = currentUser?.email || userProfile?.email;
 
             const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-set-password`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({ email, password })
+                headers,
+                body: JSON.stringify({ email, password, adminEmail })
             });
 
             const data = await response.json();
@@ -604,7 +609,7 @@
                 return { success: false, error: data.error || 'Failed to set password' };
             }
 
-            return { success: true, message: data.message, userId: data.userId };
+            return { success: true, message: data.message, userId: data.userId, created: data.created };
 
         } catch (error) {
             console.error('[Supabase] Admin set password exception:', error);
