@@ -94,9 +94,32 @@
     }
 
     // ===== CREATE ISSUE =====
-    function createIssue(issueData) {
+    async function createIssue(issueData) {
         const issueType = issueData.issue_type || 'other';
         const routing = getRoutingInfo(issueType);
+        
+        // Try Supabase first for engineering issues (primary source for multi-user sync)
+        if (routing.dashboard === 'engineering' && window.MODA_SUPABASE_ISSUES?.isAvailable?.()) {
+            try {
+                console.log('[IssueRouting] Creating issue via Supabase...');
+                const created = await window.MODA_SUPABASE_ISSUES.issues.create(issueData);
+                console.log(`[IssueRouting] Issue ${created.issue_display_id} created in Supabase and routed to ${routing.label}`);
+                
+                // Dispatch custom event for same-tab updates
+                window.dispatchEvent(new CustomEvent('moda-issues-updated', { 
+                    detail: { 
+                        dashboard: routing.dashboard, 
+                        issue: created 
+                    } 
+                }));
+                
+                return created;
+            } catch (err) {
+                console.error('[IssueRouting] Supabase create failed, falling back to localStorage:', err);
+            }
+        }
+        
+        // Fallback to localStorage
         const issueNumber = getNextIssueNumber();
         
         // Generate prefix based on dashboard
@@ -157,7 +180,7 @@
         issues.unshift(newIssue);
         saveIssues(routing.storageKey, issues);
         
-        console.log(`[IssueRouting] Issue ${newIssue.issue_display_id} created and routed to ${routing.label}`);
+        console.log(`[IssueRouting] Issue ${newIssue.issue_display_id} created (localStorage) and routed to ${routing.label}`);
         
         // Dispatch custom event for same-tab updates
         window.dispatchEvent(new CustomEvent('moda-issues-updated', { 

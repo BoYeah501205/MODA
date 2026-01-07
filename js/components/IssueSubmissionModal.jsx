@@ -192,7 +192,7 @@ function IssueSubmissionModal({
             // Use routing system if available, otherwise fall back to onSubmit
             if (window.MODA_ISSUE_ROUTING?.createIssue) {
                 console.log('[IssueSubmissionModal] Using routing system to create issue');
-                const newIssue = window.MODA_ISSUE_ROUTING.createIssue(issueData);
+                const newIssue = await window.MODA_ISSUE_ROUTING.createIssue(issueData);
                 const destination = getRoutingDestination(formData.issue_type);
                 console.log('[IssueSubmissionModal] Issue created:', newIssue);
                 setIsSubmitting(false);

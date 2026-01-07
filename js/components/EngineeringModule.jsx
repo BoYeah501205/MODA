@@ -99,24 +99,26 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
         setError(null);
         
         try {
-            // Always load from localStorage first (primary source for now)
-            const stored = localStorage.getItem('moda_engineering_issues');
-            console.log('[Engineering] Loading issues from localStorage:', stored ? 'found' : 'empty');
-            
-            if (stored && stored !== 'undefined' && stored !== 'null') {
-                const parsed = JSON.parse(stored);
-                console.log('[Engineering] Parsed issues:', parsed.length, 'issues');
-                setIssues(parsed);
+            // Try Supabase first (primary source for multi-user sync)
+            if (window.MODA_SUPABASE_ISSUES?.isAvailable?.()) {
+                console.log('[Engineering] Loading issues from Supabase...');
+                const data = await window.MODA_SUPABASE_ISSUES.issues.getAll();
+                console.log('[Engineering] Loaded', data.length, 'issues from Supabase');
+                setIssues(data);
             } else {
-                console.log('[Engineering] No issues in localStorage');
-                setIssues([]);
+                // Fallback to localStorage (offline mode)
+                console.log('[Engineering] Supabase not available, using localStorage fallback');
+                const stored = localStorage.getItem('moda_engineering_issues');
+                
+                if (stored && stored !== 'undefined' && stored !== 'null') {
+                    const parsed = JSON.parse(stored);
+                    console.log('[Engineering] Parsed issues from localStorage:', parsed.length, 'issues');
+                    setIssues(parsed);
+                } else {
+                    console.log('[Engineering] No issues in localStorage');
+                    setIssues([]);
+                }
             }
-            
-            // TODO: Sync with Supabase when available
-            // if (window.MODA_SUPABASE_ISSUES?.issues) {
-            //     const data = await window.MODA_SUPABASE_ISSUES.issues.getAll();
-            //     setIssues(data);
-            // }
         } catch (err) {
             console.error('[Engineering] Error loading issues:', err);
             setError('Failed to load issues');
