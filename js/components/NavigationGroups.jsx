@@ -5,76 +5,56 @@
  * Groups related tabs into collapsible sections for cleaner navigation
  * 
  * Groups:
- * - Production: Production, Projects, Tracker, Weekly Board
- * - People: People, Training
- * - Precon: Precon, Engineering
- * - Quality: QA
- * - Logistics: Transport, Materials/Equipment
- * - Field: On-Site
+ * - Operations: Production, Projects, Tracker, People, Automation, Equipment
+ * - Projects: Precon, Engineering
+ * - Quality & Site: QA, On-Site
+ * - Supply & Logistics: Transport, Supply Chain
+ * - Executive: Standalone
+ * 
+ * Easy to modify: Just update NAV_GROUPS array or STANDALONE_TABS array
+ * Single-tab groups auto-render as standalone buttons (no dropdown)
  */
 
 // Navigation group definitions
 const NAV_GROUPS = [
     {
-        id: 'production',
-        label: 'Production',
+        id: 'operations',
+        label: 'Operations',
         iconClass: 'icon-production',
         tabs: [
             { id: 'production', label: 'Production Board', iconClass: 'icon-production' },
             { id: 'projects', label: 'Projects', iconClass: 'icon-projects' },
-            { id: 'tracker', label: 'Tracker', iconClass: 'icon-tracker' }
-        ]
-    },
-    {
-        id: 'people',
-        label: 'People',
-        iconClass: 'icon-people',
-        tabs: [
-            { id: 'people', label: 'People', iconClass: 'icon-people' }
-            // Training tab will be added when implemented
+            { id: 'tracker', label: 'Tracker', iconClass: 'icon-tracker' },
+            { id: 'people', label: 'People', iconClass: 'icon-people' },
+            { id: 'automation', label: 'Automation', iconClass: 'icon-automation' },
+            { id: 'equipment', label: 'Tools & Equipment', iconClass: 'icon-equipment' }
         ]
     },
     {
         id: 'design',
-        label: 'Design & Planning',
-        iconClass: 'icon-design',
+        label: 'Projects',
+        iconClass: 'icon-precon',
         tabs: [
             { id: 'precon', label: 'Precon', iconClass: 'icon-precon' },
             { id: 'engineering', label: 'Engineering', iconClass: 'icon-engineering' }
         ]
     },
     {
-        id: 'quality',
-        label: 'QA',
+        id: 'quality-site',
+        label: 'Quality & Site',
         iconClass: 'icon-qa',
         tabs: [
-            { id: 'qa', label: 'QA', iconClass: 'icon-qa' }
-        ]
-    },
-    {
-        id: 'site-logistics',
-        label: 'Site & Logistics',
-        iconClass: 'icon-site-logistics',
-        tabs: [
-            { id: 'transport', label: 'Transport', iconClass: 'icon-transport' },
+            { id: 'qa', label: 'QA', iconClass: 'icon-qa' },
             { id: 'onsite', label: 'On-Site', iconClass: 'icon-onsite' }
         ]
     },
     {
-        id: 'supply',
-        label: 'Supply & Equipment',
-        iconClass: 'icon-supply',
+        id: 'supply-logistics',
+        label: 'Supply & Logistics',
+        iconClass: 'icon-transport',
         tabs: [
-            { id: 'equipment', label: 'Tools & Equipment', iconClass: 'icon-equipment' },
+            { id: 'transport', label: 'Transport', iconClass: 'icon-transport' },
             { id: 'supply-chain', label: 'Supply Chain', iconClass: 'icon-supply' }
-        ]
-    },
-    {
-        id: 'automation',
-        label: 'Automation',
-        iconClass: 'icon-automation',
-        tabs: [
-            { id: 'automation', label: 'Automation', iconClass: 'icon-automation' }
         ]
     }
 ];

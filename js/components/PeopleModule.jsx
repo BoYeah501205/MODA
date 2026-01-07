@@ -3,6 +3,14 @@
 // Extracted from App.jsx for better maintainability
 // ============================================================================
 
+        // Helper to check if an ID is a valid UUID (Supabase uses UUIDs)
+        const isValidUUID = (id) => {
+            if (!id || typeof id !== 'string') return false;
+            // UUID v4 pattern
+            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            return uuidPattern.test(id);
+        };
+
         // People Module Component
         function PeopleModule({ employees, setEmployees, departments, setDepartments, productionStages, isAdmin }) {
             const [activeView, setActiveView] = useState('directory');
@@ -197,8 +205,11 @@
                     const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
                     console.log('[PeopleModule] useSupabase:', useSupabase);
                     
-                    if (useSupabase) {
+                    // Only delete from Supabase if employee has a valid UUID (not a local emp_* ID)
+                    if (useSupabase && isValidUUID(id)) {
                         await window.MODA_SUPABASE_DATA.employees.delete(id);
+                    } else if (useSupabase && !isValidUUID(id)) {
+                        console.log('[PeopleModule] Skipping Supabase delete - employee has local ID:', id);
                     }
                     
                     setEmployees(employees.filter(e => e.id !== id));
@@ -227,11 +238,14 @@
                         // User already has account - just link them
                         const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
                         
-                        if (useSupabase) {
+                        // Only update Supabase if employee has a valid UUID (not a local emp_* ID)
+                        if (useSupabase && isValidUUID(employee.id)) {
                             await window.MODA_SUPABASE_DATA.employees.update(employee.id, {
                                 supabaseUserId: existingUser.user.id,
                                 accessStatus: 'active'
                             });
+                        } else if (useSupabase && !isValidUUID(employee.id)) {
+                            console.log('[PeopleModule] Skipping Supabase update - employee has local ID:', employee.id);
                         }
                         
                         setEmployees(employees.map(e => 
@@ -255,10 +269,14 @@
                         // Update employee status
                         const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
                         
-                        if (useSupabase) {
+                        // Only update Supabase if employee has a valid UUID (not a local emp_* ID)
+                        // The Edge Function already updates by email, so this is just for consistency
+                        if (useSupabase && isValidUUID(employee.id)) {
                             await window.MODA_SUPABASE_DATA.employees.update(employee.id, {
                                 accessStatus: 'invited'
                             });
+                        } else if (useSupabase && !isValidUUID(employee.id)) {
+                            console.log('[PeopleModule] Skipping Supabase update - employee has local ID:', employee.id);
                         }
                         
                         setEmployees(employees.map(e => 
@@ -296,8 +314,11 @@
                     
                     const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
                     
-                    if (useSupabase) {
+                    // Only update Supabase if employee has a valid UUID (not a local emp_* ID)
+                    if (useSupabase && isValidUUID(employee.id)) {
                         await window.MODA_SUPABASE_DATA.employees.update(employee.id, updateData);
+                    } else if (useSupabase && !isValidUUID(employee.id)) {
+                        console.log('[PeopleModule] Skipping Supabase update - employee has local ID:', employee.id);
                     }
                     
                     setEmployees(employees.map(e => 
@@ -329,8 +350,11 @@
                     
                     const useSupabase = window.MODA_SUPABASE_DATA?.isAvailable?.();
                     
-                    if (useSupabase) {
+                    // Only update Supabase if employee has a valid UUID (not a local emp_* ID)
+                    if (useSupabase && isValidUUID(employee.id)) {
                         await window.MODA_SUPABASE_DATA.employees.update(employee.id, updateData);
+                    } else if (useSupabase && !isValidUUID(employee.id)) {
+                        console.log('[PeopleModule] Skipping Supabase update - employee has local ID:', employee.id);
                     }
                     
                     setEmployees(employees.map(e => 
