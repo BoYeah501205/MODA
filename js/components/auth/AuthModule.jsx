@@ -17,15 +17,38 @@ function getDefaultRoles() {
     if (window.DEFAULT_DASHBOARD_ROLES && Array.isArray(window.DEFAULT_DASHBOARD_ROLES) && window.DEFAULT_DASHBOARD_ROLES.length > 0) {
         return window.DEFAULT_DASHBOARD_ROLES;
     }
-    // Minimal fallback if dashboardRoles.js hasn't loaded yet
+    // Full fallback with all roles if dashboardRoles.js hasn't loaded yet
     return [
-        { id: 'admin', name: 'Admin', tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'onsite', 'engineering', 'automation', 'tracker', 'admin'], capabilities: { canManageUsers: true, canAccessAdmin: true, canExportData: true }, tabPermissions: {}, isDefault: false, isProtected: true },
-        { id: 'executive', name: 'Executive', tabs: ['executive', 'production', 'projects', 'people'], capabilities: { canExportData: true }, tabPermissions: {}, isDefault: false, isProtected: false },
-        { id: 'employee', name: 'Employee', tabs: ['production'], capabilities: {}, tabPermissions: {}, isDefault: true, isProtected: false }
+        { id: 'admin', name: 'Admin', tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'onsite', 'engineering', 'automation', 'tracker', 'admin'], capabilities: { canManageUsers: true, canAccessAdmin: true, canExportData: true, canEdit: true, canDelete: true, canCreate: true }, tabPermissions: {}, editableTabs: ['production', 'projects', 'people', 'qa', 'transport', 'equipment', 'onsite', 'engineering', 'automation', 'tracker', 'admin'], isDefault: false, isProtected: true },
+        { id: 'production_management', name: 'Production Management', tabs: ['executive', 'production', 'projects', 'people', 'qa'], capabilities: { canEdit: true, canDelete: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['production', 'projects'], isDefault: false, isProtected: false },
+        { id: 'production_supervisor', name: 'Production Supervisor', tabs: ['production', 'projects', 'people', 'qa'], capabilities: { canEdit: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['production'], isDefault: false, isProtected: false },
+        { id: 'qa_inspector', name: 'QA Inspector', tabs: ['production', 'qa', 'projects'], capabilities: { canEdit: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['qa'], isDefault: false, isProtected: false },
+        { id: 'transportation', name: 'Transportation', tabs: ['production', 'transport', 'projects'], capabilities: { canEdit: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['transport'], isDefault: false, isProtected: false },
+        { id: 'supply_chain', name: 'Supply Chain', tabs: ['production', 'projects', 'equipment'], capabilities: { canEdit: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['equipment'], isDefault: false, isProtected: false },
+        { id: 'preconstruction', name: 'Preconstruction', tabs: ['projects', 'production', 'engineering'], capabilities: { canEdit: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['projects'], isDefault: false, isProtected: false },
+        { id: 'onsite', name: 'On-Site', tabs: ['production', 'onsite', 'transport', 'projects'], capabilities: { canEdit: true, canCreate: true }, tabPermissions: {}, editableTabs: ['onsite'], isDefault: false, isProtected: false },
+        { id: 'engineering', name: 'Engineering', tabs: ['production', 'engineering', 'projects', 'qa'], capabilities: { canEdit: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['engineering'], isDefault: false, isProtected: false },
+        { id: 'maintenance', name: 'Maintenance', tabs: ['production', 'equipment'], capabilities: { canEdit: true, canCreate: true }, tabPermissions: {}, editableTabs: ['equipment'], isDefault: false, isProtected: false },
+        { id: 'executive', name: 'Executive', tabs: ['executive', 'production', 'projects', 'people'], capabilities: { canExportData: true }, tabPermissions: {}, editableTabs: [], isDefault: false, isProtected: false },
+        { id: 'department-supervisor', name: 'Department Supervisor', tabs: ['production', 'projects', 'people'], capabilities: { canEdit: true, canCreate: true, canExportData: true }, tabPermissions: {}, editableTabs: ['production'], isDefault: false, isProtected: false },
+        { id: 'coordinator', name: 'Coordinator', tabs: ['production', 'projects'], capabilities: { canEdit: true, canCreate: true }, tabPermissions: {}, editableTabs: ['production'], isDefault: false, isProtected: false },
+        { id: 'employee', name: 'Employee', tabs: ['production'], capabilities: {}, tabPermissions: {}, editableTabs: [], isDefault: true, isProtected: false }
     ];
 }
 
 function getLocalStorageRoles() {
+    const ROLES_VERSION = 3; // Increment to force update on all clients
+    const currentVersion = parseInt(localStorage.getItem('autovol_dashboard_roles_version') || '0');
+    
+    // Force update if version is old
+    if (currentVersion < ROLES_VERSION) {
+        console.log('[Auth] Upgrading dashboard roles to version', ROLES_VERSION);
+        const defaultRoles = getDefaultRoles();
+        localStorage.setItem('autovol_dashboard_roles', JSON.stringify(defaultRoles));
+        localStorage.setItem('autovol_dashboard_roles_version', ROLES_VERSION.toString());
+        return defaultRoles;
+    }
+    
     const saved = localStorage.getItem('autovol_dashboard_roles');
     if (saved && saved !== 'undefined' && saved !== 'null') {
         try {
@@ -41,6 +64,7 @@ function getLocalStorageRoles() {
     const defaultRoles = getDefaultRoles();
     // Initialize localStorage with defaults so future loads work
     localStorage.setItem('autovol_dashboard_roles', JSON.stringify(defaultRoles));
+    localStorage.setItem('autovol_dashboard_roles_version', ROLES_VERSION.toString());
     return defaultRoles;
 }
 
