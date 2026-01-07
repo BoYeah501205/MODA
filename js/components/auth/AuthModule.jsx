@@ -535,14 +535,15 @@ function useAuth() {
         
         const updateFromProfile = (profile) => {
             if (profile && profile.id) {
-                console.log('[Auth] Updating session with Supabase profile, role:', profile.dashboard_role);
+                console.log('[Auth] Updating session with Supabase profile, role:', profile.dashboard_role, 'customPerms:', profile.custom_tab_permissions ? 'yes' : 'no');
                 const updatedSession = {
                     id: profile.id,
                     email: profile.email,
                     name: profile.name || profile.email?.split('@')[0],
                     dashboardRole: profile.dashboard_role || 'employee',
                     department: profile.department || '',
-                    isProtected: (profile.email || '').toLowerCase() === 'trevor@autovol.com'
+                    isProtected: (profile.email || '').toLowerCase() === 'trevor@autovol.com',
+                    customTabPermissions: profile.custom_tab_permissions || null
                 };
                 setCurrentUser(updatedSession);
                 // Update storage to keep in sync
@@ -608,7 +609,8 @@ function useAuth() {
                         name: profile.name || result.user.email.split('@')[0],
                         dashboardRole: profile.dashboard_role || 'employee',
                         department: profile.department || '',
-                        isProtected: ((profile.email || result.user.email) || '').toLowerCase() === 'trevor@autovol.com'
+                        isProtected: ((profile.email || result.user.email) || '').toLowerCase() === 'trevor@autovol.com',
+                        customTabPermissions: profile.custom_tab_permissions || null
                     };
                     console.log('[Auth] Setting session:', session);
                     setCurrentUser(session);
@@ -721,7 +723,25 @@ function useAuth() {
     // Dashboard roles integration
     const dashboardRoles = useDashboardRoles();
     const userRole = currentUser ? dashboardRoles.getRoleById(currentUser.dashboardRole) : null;
-    const visibleTabs = currentUser ? dashboardRoles.getVisibleTabs(currentUser.dashboardRole) : [];
+    
+    // Compute visible tabs: custom permissions override role defaults
+    // If user has customTabPermissions, use tabs where canView is true
+    // Otherwise fall back to role's default tabs
+    const visibleTabs = React.useMemo(() => {
+        if (!currentUser) return [];
+        
+        // Check for custom tab permissions first
+        if (currentUser.customTabPermissions && Object.keys(currentUser.customTabPermissions).length > 0) {
+            const customTabs = Object.entries(currentUser.customTabPermissions)
+                .filter(([tabId, perms]) => perms && perms.canView)
+                .map(([tabId]) => tabId);
+            console.log('[Auth] Using custom tab permissions, visible tabs:', customTabs);
+            return customTabs;
+        }
+        
+        // Fall back to role defaults
+        return dashboardRoles.getVisibleTabs(currentUser.dashboardRole);
+    }, [currentUser, dashboardRoles]);
     
     // Capability checks
     const canEdit = currentUser ? dashboardRoles.hasCapability(currentUser.dashboardRole, 'canEdit') : false;
