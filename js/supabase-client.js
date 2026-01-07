@@ -429,26 +429,33 @@
         }
 
         try {
-            // Validate caller is admin - check userProfile first, then fetch if needed
+            // Validate caller is admin - check userProfile first, then fetch from session
             let callerProfile = userProfile;
             
-            // If userProfile not available, try to fetch it from current session
-            if (!callerProfile && currentUser) {
-                console.log('[Supabase] userProfile not available, fetching from current session...');
-                const { data: session } = await supabase.auth.getSession();
-                if (session?.session?.user) {
-                    const { data: profiles } = await supabase
+            // Always try to fetch from session if userProfile not available
+            if (!callerProfile) {
+                console.log('[Supabase] userProfile not available, fetching from Supabase session...');
+                const { data: sessionData } = await supabase.auth.getSession();
+                console.log('[Supabase] Session data:', sessionData?.session?.user?.email);
+                
+                if (sessionData?.session?.user) {
+                    const { data: profiles, error: profileError } = await supabase
                         .from('profiles')
                         .select('*')
-                        .eq('id', session.session.user.id);
-                    if (profiles && profiles.length > 0) {
+                        .eq('id', sessionData.session.user.id);
+                    
+                    if (profileError) {
+                        console.error('[Supabase] Profile fetch error:', profileError);
+                    } else if (profiles && profiles.length > 0) {
                         callerProfile = profiles[0];
                         userProfile = callerProfile; // Cache it for future calls
+                        currentUser = sessionData.session.user; // Also cache the user
+                        console.log('[Supabase] Fetched profile:', callerProfile.email, 'role:', callerProfile.dashboard_role);
                     }
                 }
             }
             
-            console.log('[Supabase] Custom permissions check - callerProfile:', callerProfile);
+            console.log('[Supabase] Custom permissions check - callerProfile:', callerProfile?.email);
             console.log('[Supabase] Role:', callerProfile?.dashboard_role, 'Protected:', callerProfile?.is_protected);
             
             if (!callerProfile || (callerProfile.dashboard_role !== 'admin' && !callerProfile.is_protected)) {
