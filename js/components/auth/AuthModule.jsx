@@ -11,11 +11,19 @@ function isSupabaseRolesAvailable() {
 }
 
 // Get localStorage fallback roles (for offline/initial load)
-// Fallback roles if DEFAULT_DASHBOARD_ROLES not loaded yet
-const FALLBACK_ROLES = [
-    { id: 'admin', name: 'Admin', tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'automation', 'tracker', 'admin'], capabilities: { canManageUsers: true, canAccessAdmin: true, canExportData: true }, tabPermissions: {}, isDefault: false, isProtected: true },
-    { id: 'employee', name: 'Employee', tabs: ['production'], capabilities: { canManageUsers: false, canAccessAdmin: false, canExportData: false }, tabPermissions: {}, isDefault: true, isProtected: false }
-];
+// Uses DEFAULT_DASHBOARD_ROLES from dashboardRoles.js if available
+function getDefaultRoles() {
+    // Prefer the full DEFAULT_DASHBOARD_ROLES from dashboardRoles.js
+    if (window.DEFAULT_DASHBOARD_ROLES && Array.isArray(window.DEFAULT_DASHBOARD_ROLES) && window.DEFAULT_DASHBOARD_ROLES.length > 0) {
+        return window.DEFAULT_DASHBOARD_ROLES;
+    }
+    // Minimal fallback if dashboardRoles.js hasn't loaded yet
+    return [
+        { id: 'admin', name: 'Admin', tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'onsite', 'engineering', 'automation', 'tracker', 'admin'], capabilities: { canManageUsers: true, canAccessAdmin: true, canExportData: true }, tabPermissions: {}, isDefault: false, isProtected: true },
+        { id: 'executive', name: 'Executive', tabs: ['executive', 'production', 'projects', 'people'], capabilities: { canExportData: true }, tabPermissions: {}, isDefault: false, isProtected: false },
+        { id: 'employee', name: 'Employee', tabs: ['production'], capabilities: {}, tabPermissions: {}, isDefault: true, isProtected: false }
+    ];
+}
 
 function getLocalStorageRoles() {
     const saved = localStorage.getItem('autovol_dashboard_roles');
@@ -29,7 +37,11 @@ function getLocalStorageRoles() {
             console.error('[Auth] Error parsing dashboard roles from localStorage:', e);
         }
     }
-    return window.DEFAULT_DASHBOARD_ROLES || FALLBACK_ROLES;
+    // Use full DEFAULT_DASHBOARD_ROLES or fallback
+    const defaultRoles = getDefaultRoles();
+    // Initialize localStorage with defaults so future loads work
+    localStorage.setItem('autovol_dashboard_roles', JSON.stringify(defaultRoles));
+    return defaultRoles;
 }
 
 // Hook for managing dashboard roles - syncs with Supabase
