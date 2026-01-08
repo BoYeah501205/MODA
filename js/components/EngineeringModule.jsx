@@ -118,25 +118,31 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
         setError(null);
         
         try {
+            // Debug: Check Supabase state
+            console.log('[Engineering] Checking Supabase state:', {
+                MODA_SUPABASE: !!window.MODA_SUPABASE,
+                isInitialized: window.MODA_SUPABASE?.isInitialized,
+                MODA_SUPABASE_ISSUES: !!window.MODA_SUPABASE_ISSUES,
+                isAvailable: window.MODA_SUPABASE_ISSUES?.isAvailable?.()
+            });
+            
             // Try Supabase first (primary source for multi-user sync)
             if (window.MODA_SUPABASE_ISSUES?.isAvailable?.()) {
                 console.log('[Engineering] Loading issues from Supabase...');
-                const data = await window.MODA_SUPABASE_ISSUES.issues.getAll();
-                console.log('[Engineering] Loaded', data.length, 'issues from Supabase');
-                setIssues(data);
+                try {
+                    const data = await window.MODA_SUPABASE_ISSUES.issues.getAll();
+                    console.log('[Engineering] Loaded', data?.length || 0, 'issues from Supabase');
+                    setIssues(data || []);
+                } catch (supabaseErr) {
+                    console.error('[Engineering] Supabase getAll failed:', supabaseErr);
+                    // Fall back to localStorage on Supabase error
+                    console.log('[Engineering] Falling back to localStorage due to Supabase error');
+                    loadFromLocalStorage();
+                }
             } else {
                 // Fallback to localStorage (offline mode)
                 console.log('[Engineering] Supabase not available, using localStorage fallback');
-                const stored = localStorage.getItem('moda_engineering_issues');
-                
-                if (stored && stored !== 'undefined' && stored !== 'null') {
-                    const parsed = JSON.parse(stored);
-                    console.log('[Engineering] Parsed issues from localStorage:', parsed.length, 'issues');
-                    setIssues(parsed);
-                } else {
-                    console.log('[Engineering] No issues in localStorage');
-                    setIssues([]);
-                }
+                loadFromLocalStorage();
             }
         } catch (err) {
             console.error('[Engineering] Error loading issues:', err);
@@ -144,6 +150,24 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
             setIssues([]);
         } finally {
             setIsLoading(false);
+        }
+    };
+    
+    const loadFromLocalStorage = () => {
+        const stored = localStorage.getItem('moda_engineering_issues');
+        
+        if (stored && stored !== 'undefined' && stored !== 'null') {
+            try {
+                const parsed = JSON.parse(stored);
+                console.log('[Engineering] Parsed issues from localStorage:', parsed.length, 'issues');
+                setIssues(parsed);
+            } catch (parseErr) {
+                console.error('[Engineering] Error parsing localStorage:', parseErr);
+                setIssues([]);
+            }
+        } else {
+            console.log('[Engineering] No issues in localStorage');
+            setIssues([]);
         }
     };
 

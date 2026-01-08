@@ -146,9 +146,15 @@
                 query = query.eq('assigned_to_id', filters.assignedToId);
             }
 
+            console.log('[Issues] Executing Supabase query...');
             const { data, error } = await query;
             
-            if (error) throw error;
+            if (error) {
+                console.error('[Issues] Supabase query error:', error);
+                throw error;
+            }
+            
+            console.log('[Issues] Supabase query returned', data?.length || 0, 'issues');
             
             // Also save to localStorage as backup
             if (data) {
