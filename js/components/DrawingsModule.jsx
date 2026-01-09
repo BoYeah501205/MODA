@@ -85,6 +85,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     
     // Disciplines within Shop Drawings category
     const SHOP_DISCIPLINES = [
+        { id: 'shop-module-packages', name: 'Module Packages', icon: 'icon-folder', color: 'bg-emerald-100 border-emerald-400' },
         { id: 'shop-soffits', name: 'Soffits', icon: 'icon-folder', color: 'bg-slate-100 border-slate-400' },
         { id: 'shop-reference', name: 'Reference Sheets', icon: 'icon-folder', color: 'bg-blue-100 border-blue-400' },
         { id: 'shop-prototype', name: 'Prototype Drawings', icon: 'icon-folder', color: 'bg-purple-100 border-purple-400' },

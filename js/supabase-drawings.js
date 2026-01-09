@@ -476,6 +476,7 @@
             
             // Create default shop disciplines
             const shopDisciplines = [
+                { name: 'Module Packages', color: 'bg-emerald-100 border-emerald-400' },
                 { name: 'Soffits', color: 'bg-slate-100 border-slate-400' },
                 { name: 'Reference Sheets', color: 'bg-blue-100 border-blue-400' },
                 { name: 'Prototype Drawings', color: 'bg-purple-100 border-purple-400' },
@@ -567,7 +568,8 @@
             }
             
             // Create default shop disciplines
-            const shopDisciplines = [
+            const shopDisciplines2 = [
+                { name: 'Module Packages', color: 'bg-emerald-100 border-emerald-400' },
                 { name: 'Soffits', color: 'bg-slate-100 border-slate-400' },
                 { name: 'Reference Sheets', color: 'bg-blue-100 border-blue-400' },
                 { name: 'Prototype Drawings', color: 'bg-purple-100 border-purple-400' },
@@ -577,13 +579,13 @@
                 { name: '3HR Walls', color: 'bg-red-100 border-red-400' }
             ];
             
-            for (let i = 0; i < shopDisciplines.length; i++) {
+            for (let i = 0; i < shopDisciplines2.length; i++) {
                 await this.create({
                     projectId,
                     parentId: shopCategory.id,
-                    name: shopDisciplines[i].name,
+                    name: shopDisciplines2[i].name,
                     folderType: 'discipline',
-                    color: shopDisciplines[i].color,
+                    color: shopDisciplines2[i].color,
                     sortOrder: i + 1,
                     isDefault: true,
                     createdBy
