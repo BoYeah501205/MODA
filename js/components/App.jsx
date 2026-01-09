@@ -2372,7 +2372,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             };
 
             // Import handler
-            const handleImport = (importedModules) => {
+            const handleImport = async (importedModules) => {
                 const newModules = importedModules.map((m, idx) => ({
                     ...m,
                     id: Date.now() + idx,
@@ -2383,6 +2383,20 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 }));
                 updateProjectModules([...modules, ...newModules]);
                 setShowImportModal(false);
+                
+                // Generate module package folders in Drawings
+                if (window.MODA_SUPABASE_DRAWINGS?.isAvailable?.()) {
+                    try {
+                        const result = await window.MODA_SUPABASE_DRAWINGS.folders.generateAllModulePackages(
+                            project.id,
+                            newModules,
+                            auth?.currentUser?.email || 'system'
+                        );
+                        console.log('[ProjectDetail] Generated module packages:', result.created, 'created,', result.skipped, 'skipped');
+                    } catch (err) {
+                        console.error('[ProjectDetail] Error generating module packages:', err);
+                    }
+                }
                 
                 // Show success notification
                 setImportNotification({

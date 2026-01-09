@@ -591,6 +591,112 @@
             }
             
             return this.getByProject(projectId);
+        },
+
+        // Get or create Module Packages folder under Shop Drawings
+        async getOrCreateModulePackagesFolder(projectId, createdBy) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Find Shop Drawings category
+            const folders = await this.getByProject(projectId);
+            const shopCategory = folders.find(f => f.name === 'Shop Drawings' && f.folder_type === 'category');
+            
+            if (!shopCategory) {
+                throw new Error('Shop Drawings category not found. Initialize defaults first.');
+            }
+            
+            // Check if Module Packages folder exists
+            let modulePackagesFolder = folders.find(f => 
+                f.name === 'Module Packages' && 
+                f.parent_id === shopCategory.id
+            );
+            
+            if (!modulePackagesFolder) {
+                // Create Module Packages folder
+                modulePackagesFolder = await this.create({
+                    projectId,
+                    parentId: shopCategory.id,
+                    name: 'Module Packages',
+                    folderType: 'discipline',
+                    color: 'bg-emerald-100 border-emerald-400',
+                    sortOrder: 0,
+                    isDefault: true,
+                    createdBy
+                });
+                console.log('[Drawings] Created Module Packages folder:', modulePackagesFolder.id);
+            }
+            
+            return modulePackagesFolder;
+        },
+
+        // Create a module package folder
+        async createModulePackage(projectId, module, createdBy) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Get or create Module Packages parent folder
+            const modulePackagesFolder = await this.getOrCreateModulePackagesFolder(projectId, createdBy);
+            
+            // Build folder name: "serialNumber | hitchBLM / rearBLM" or just serial if no BLMs
+            const hitchBLM = module.hitchBLM || '';
+            const rearBLM = module.rearBLM || '';
+            let folderName = module.serialNumber;
+            
+            if (hitchBLM && rearBLM && hitchBLM !== rearBLM) {
+                folderName = `${module.serialNumber} | ${hitchBLM} / ${rearBLM}`;
+            } else if (hitchBLM || rearBLM) {
+                folderName = `${module.serialNumber} | ${hitchBLM || rearBLM}`;
+            }
+            
+            // Check if folder already exists
+            const existingFolders = await this.getByProject(projectId);
+            const existingFolder = existingFolders.find(f => 
+                f.parent_id === modulePackagesFolder.id && 
+                f.name === folderName
+            );
+            
+            if (existingFolder) {
+                console.log('[Drawings] Module package folder already exists:', folderName);
+                return { folder: existingFolder, created: false };
+            }
+            
+            // Create the module folder
+            const moduleFolder = await this.create({
+                projectId,
+                parentId: modulePackagesFolder.id,
+                name: folderName,
+                folderType: 'module',
+                color: 'bg-gray-100 border-gray-400',
+                sortOrder: parseInt(module.buildSequence) || 0,
+                isDefault: false,
+                createdBy
+            });
+            
+            console.log('[Drawings] Created module package folder:', folderName);
+            return { folder: moduleFolder, created: true };
+        },
+
+        // Generate all module package folders for a project
+        async generateAllModulePackages(projectId, modules, createdBy) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            if (!modules || modules.length === 0) return { created: 0, skipped: 0 };
+            
+            let created = 0;
+            let skipped = 0;
+            
+            for (const module of modules) {
+                if (!module.serialNumber) continue;
+                
+                try {
+                    const result = await this.createModulePackage(projectId, module, createdBy);
+                    if (result.created) created++;
+                    else skipped++;
+                } catch (err) {
+                    console.error('[Drawings] Error creating module package:', module.serialNumber, err);
+                }
+            }
+            
+            console.log('[Drawings] Generated module packages:', created, 'created,', skipped, 'skipped');
+            return { created, skipped };
         }
     };
 
