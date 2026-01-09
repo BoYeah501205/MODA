@@ -214,38 +214,78 @@
             return data;
         },
 
-        // Create a new version (with file upload)
+        // Create a new version (with file upload to SharePoint)
         async create(drawingId, file, versionData) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            // Generate storage path
-            const timestamp = Date.now();
-            const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const storagePath = `${drawingId}/${timestamp}_${sanitizedName}`;
+            let fileUrl = '';
+            let storagePath = '';
+            let sharePointFileId = null;
+            let storageType = 'supabase'; // Track where file is stored
             
-            // Upload file to storage
-            const { data: uploadData, error: uploadError } = await getClient()
-                .storage
-                .from(STORAGE_BUCKET)
-                .upload(storagePath, file, {
-                    cacheControl: '3600',
-                    upsert: false
-                });
-            
-            if (uploadError) {
-                console.error('[Drawings] Upload error:', uploadError);
-                throw uploadError;
+            // Try SharePoint first if available
+            if (window.MODA_SHAREPOINT?.isAvailable()) {
+                try {
+                    console.log('[Drawings] Uploading to SharePoint...');
+                    
+                    // Get project, category, discipline info for folder path
+                    const projectName = versionData.projectName || 'Unknown Project';
+                    const categoryName = versionData.categoryName || 'Shop Drawings';
+                    const disciplineName = versionData.disciplineName || 'General';
+                    
+                    // Upload to SharePoint
+                    const spResult = await window.MODA_SHAREPOINT.uploadFile(
+                        file,
+                        projectName,
+                        categoryName,
+                        disciplineName,
+                        versionData.onProgress
+                    );
+                    
+                    fileUrl = spResult.webUrl || '';
+                    storagePath = `sharepoint:${spResult.id}`; // Prefix to identify SharePoint storage
+                    sharePointFileId = spResult.id;
+                    storageType = 'sharepoint';
+                    
+                    console.log('[Drawings] SharePoint upload successful:', spResult.name);
+                } catch (spError) {
+                    console.warn('[Drawings] SharePoint upload failed, falling back to Supabase:', spError.message);
+                    // Fall through to Supabase upload
+                }
             }
             
-            // Get public URL (or signed URL for private bucket)
-            const { data: urlData } = await getClient()
-                .storage
-                .from(STORAGE_BUCKET)
-                .createSignedUrl(storagePath, 60 * 60 * 24 * 365); // 1 year expiry
+            // Fallback to Supabase Storage if SharePoint failed or unavailable
+            if (!fileUrl) {
+                console.log('[Drawings] Uploading to Supabase Storage...');
+                
+                const timestamp = Date.now();
+                const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                storagePath = `${drawingId}/${timestamp}_${sanitizedName}`;
+                
+                const { data: uploadData, error: uploadError } = await getClient()
+                    .storage
+                    .from(STORAGE_BUCKET)
+                    .upload(storagePath, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+                
+                if (uploadError) {
+                    console.error('[Drawings] Upload error:', uploadError);
+                    throw uploadError;
+                }
+                
+                // Get signed URL
+                const { data: urlData } = await getClient()
+                    .storage
+                    .from(STORAGE_BUCKET)
+                    .createSignedUrl(storagePath, 60 * 60 * 24 * 365); // 1 year expiry
+                
+                fileUrl = urlData?.signedUrl || '';
+                storageType = 'supabase';
+            }
             
-            const fileUrl = urlData?.signedUrl || '';
-            
-            // Create version record
+            // Create version record in database
             const { data, error } = await getClient()
                 .from('drawing_versions')
                 .insert({
@@ -256,6 +296,8 @@
                     file_type: file.type,
                     file_url: fileUrl,
                     storage_path: storagePath,
+                    storage_type: storageType,
+                    sharepoint_file_id: sharePointFileId,
                     notes: versionData.notes || '',
                     uploaded_by: versionData.uploadedBy || 'Unknown'
                 })
@@ -263,14 +305,29 @@
                 .single();
             
             if (error) throw error;
-            console.log('[Drawings] Created version:', data.id);
+            console.log('[Drawings] Created version:', data.id, 'Storage:', storageType);
             return data;
         },
 
         // Get download URL for a version
-        async getDownloadUrl(storagePath) {
+        async getDownloadUrl(storagePath, sharePointFileId = null) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            // Check if stored in SharePoint
+            if (storagePath?.startsWith('sharepoint:') || sharePointFileId) {
+                const fileId = sharePointFileId || storagePath.replace('sharepoint:', '');
+                if (window.MODA_SHAREPOINT?.isAvailable()) {
+                    try {
+                        return await window.MODA_SHAREPOINT.getDownloadUrl(fileId);
+                    } catch (e) {
+                        console.error('[Drawings] SharePoint download URL error:', e);
+                        throw e;
+                    }
+                }
+                throw new Error('SharePoint not available');
+            }
+            
+            // Supabase Storage
             const { data, error } = await getClient()
                 .storage
                 .from(STORAGE_BUCKET)
@@ -284,16 +341,29 @@
         async delete(versionId) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            // Get the version to find storage path
+            // Get the version to find storage info
             const { data: version } = await getClient()
                 .from('drawing_versions')
-                .select('storage_path')
+                .select('storage_path, storage_type, sharepoint_file_id')
                 .eq('id', versionId)
                 .single();
             
-            // Delete from storage
+            // Delete from storage based on type
             if (version?.storage_path) {
-                await getClient().storage.from(STORAGE_BUCKET).remove([version.storage_path]);
+                if (version.storage_type === 'sharepoint' || version.storage_path.startsWith('sharepoint:')) {
+                    // Delete from SharePoint
+                    const fileId = version.sharepoint_file_id || version.storage_path.replace('sharepoint:', '');
+                    if (window.MODA_SHAREPOINT?.isAvailable()) {
+                        try {
+                            await window.MODA_SHAREPOINT.deleteFile(fileId);
+                        } catch (e) {
+                            console.warn('[Drawings] SharePoint delete failed:', e.message);
+                        }
+                    }
+                } else {
+                    // Delete from Supabase Storage
+                    await getClient().storage.from(STORAGE_BUCKET).remove([version.storage_path]);
+                }
             }
             
             // Delete the record

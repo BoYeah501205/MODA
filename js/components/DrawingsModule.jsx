@@ -399,9 +399,19 @@ const DrawingsModule = ({ projects = [], auth }) => {
         
         setUploadProgress({ current: 0, total: files.length });
         
+        // Get category and discipline names for SharePoint folder path
+        const categoryObj = getCategories().find(c => c.id === selectedCategory);
+        const categoryName = categoryObj?.name || 'Shop Drawings';
+        
+        // Get discipline name - check custom disciplines first, then static
+        let disciplineName = disciplineToUse;
+        const disciplines = getDisciplinesForCategory(selectedCategory);
+        const disciplineObj = disciplines.find(d => d.id === disciplineToUse || d.name === disciplineToUse);
+        if (disciplineObj) disciplineName = disciplineObj.name;
+        
         try {
             if (isSupabaseAvailable()) {
-                // Upload to Supabase
+                // Upload to Supabase (which now routes to SharePoint)
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     setUploadProgress({ current: i + 1, total: files.length, fileName: file.name });
@@ -415,11 +425,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         createdBy: auth?.currentUser?.name || 'Unknown'
                     });
                     
-                    // Upload first version
+                    // Upload first version (now routes to SharePoint if available)
                     await window.MODA_SUPABASE_DRAWINGS.versions.create(drawing.id, file, {
                         version: '1.0',
                         notes: metadata.notes || 'Initial upload',
-                        uploadedBy: auth?.currentUser?.name || 'Unknown'
+                        uploadedBy: auth?.currentUser?.name || 'Unknown',
+                        // Pass context for SharePoint folder structure
+                        projectName: selectedProject.name,
+                        categoryName: categoryName,
+                        disciplineName: disciplineName
                     });
                 }
                 
@@ -492,17 +506,30 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const handleVersionUpload = useCallback(async (drawingId, file, notes) => {
         if (!selectedProject || !selectedDiscipline || !file) return;
         
+        // Get category and discipline names for SharePoint folder path
+        const categoryObj = getCategories().find(c => c.id === selectedCategory);
+        const categoryName = categoryObj?.name || 'Shop Drawings';
+        
+        let disciplineName = selectedDiscipline;
+        const disciplines = getDisciplinesForCategory(selectedCategory);
+        const disciplineObj = disciplines.find(d => d.id === selectedDiscipline || d.name === selectedDiscipline);
+        if (disciplineObj) disciplineName = disciplineObj.name;
+        
         try {
             if (isSupabaseAvailable()) {
                 // Get existing versions to calculate next version number
                 const versions = await window.MODA_SUPABASE_DRAWINGS.versions.getByDrawing(drawingId);
                 const nextVersion = window.MODA_SUPABASE_DRAWINGS.utils.getNextVersion(versions);
                 
-                // Upload new version
+                // Upload new version (now routes to SharePoint if available)
                 await window.MODA_SUPABASE_DRAWINGS.versions.create(drawingId, file, {
                     version: nextVersion,
                     notes: notes || `Version ${nextVersion}`,
-                    uploadedBy: auth?.currentUser?.name || 'Unknown'
+                    uploadedBy: auth?.currentUser?.name || 'Unknown',
+                    // Pass context for SharePoint folder structure
+                    projectName: selectedProject.name,
+                    categoryName: categoryName,
+                    disciplineName: disciplineName
                 });
                 
                 // Reload drawings to get updated versions
