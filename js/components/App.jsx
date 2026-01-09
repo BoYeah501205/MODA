@@ -4463,24 +4463,33 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
 
         // ============================================================================
         // EXTRACTED MODULES:
-        // - PeopleModule.jsx (People directory, employee management)
-        // - TransportModule.jsx (Transport board, yards, companies)
-        // - EquipmentModule.jsx (Tools & equipment tracking)
-        // ============================================================================
 
-        function App() {
-            const auth = window.useAuth ? window.useAuth() : { currentUser: null };
-            
-            // If not logged in, show login page
-            if (!auth.currentUser) {
-                return window.LoginPage ? <window.LoginPage auth={auth} /> : <div className="p-8 text-center">Loading...</div>;
-            }
-            
-            // If logged in, show dashboard
-            return <Dashboard auth={auth} />;
+function App() {
+    // useAuth must be called unconditionally - React hooks rule
+    // The hook itself handles the case when auth isn't ready
+    const auth = window.useAuth();
+    
+    // If not logged in, show login page
+    if (!auth.currentUser) {
+        return window.LoginPage ? <window.LoginPage auth={auth} /> : <div className="p-8 text-center">Loading...</div>;
+    }
+    
+    // If logged in, show dashboard
+    return <Dashboard auth={auth} />;
+}
+
+// Only render App after useAuth is available
+if (window.useAuth) {
+    ReactDOM.render(<App />, document.getElementById('root'));
+} else {
+    // Wait for AuthModule to load
+    const checkAuth = setInterval(() => {
+        if (window.useAuth) {
+            clearInterval(checkAuth);
+            ReactDOM.render(<App />, document.getElementById('root'));
         }
-
-        ReactDOM.render(<App />, document.getElementById('root'));
+    }, 50);
+}
 
 // ============================================================================
 // EMERGENCY RECOVERY FUNCTION
