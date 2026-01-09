@@ -36,7 +36,8 @@ const NAV_GROUPS = [
         iconClass: 'icon-precon',
         tabs: [
             { id: 'precon', label: 'Precon', iconClass: 'icon-precon' },
-            { id: 'engineering', label: 'Engineering', iconClass: 'icon-engineering' }
+            { id: 'engineering', label: 'Engineering', iconClass: 'icon-engineering' },
+            { id: 'drawings', label: 'Drawings', iconClass: 'icon-drawings' }
         ]
     },
     {

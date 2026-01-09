@@ -1273,6 +1273,21 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             )
                         )}
 
+                        {activeTab === 'drawings' && (
+                            window.DrawingsModule ? (
+                                <window.DrawingsModule 
+                                    projects={projects} 
+                                    auth={auth}
+                                />
+                            ) : (
+                                <div className="text-center py-20">
+                                    <div className="text-6xl mb-4">📐</div>
+                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Drawings Module</h2>
+                                    <p className="text-gray-600">Loading Drawings Module...</p>
+                                </div>
+                            )
+                        )}
+
                         {activeTab === 'automation' && (
                             window.AutomationModule ? (
                                 <window.AutomationModule auth={auth} />

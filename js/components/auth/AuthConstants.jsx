@@ -17,6 +17,7 @@ window.ALL_AVAILABLE_TABS = [
     { id: 'rfi', label: 'RFI', icon: 'icon-rfi', description: 'Request for Information management' },
     { id: 'onsite', label: 'On-Site', icon: 'icon-onsite', description: 'Field operations & reporting' },
     { id: 'engineering', label: 'Engineering', icon: 'icon-engineering', description: 'Engineering documentation' },
+    { id: 'drawings', label: 'Drawings', icon: 'icon-drawings', description: 'Project drawings management' },
     { id: 'automation', label: 'Automation', icon: 'icon-automation', description: 'Automation systems' },
     { id: 'tracker', label: 'Tracker', icon: 'icon-tracker', description: 'Module tracking system' },
     { id: 'admin', label: 'Admin', icon: 'icon-admin', description: 'System administration' }
@@ -44,7 +45,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
         id: 'admin',
         name: 'Admin',
         description: 'Full system access for operations management',
-        tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'automation', 'tracker', 'admin'],
+        tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'drawings', 'automation', 'tracker', 'admin'],
         capabilities: {
             canManageUsers: true,
             canAccessAdmin: true,
@@ -62,6 +63,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
             rfi: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             onsite: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             engineering: { canView: true, canEdit: true, canCreate: true, canDelete: true },
+            drawings: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             automation: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             tracker: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             admin: { canView: true, canEdit: true, canCreate: true, canDelete: true },
