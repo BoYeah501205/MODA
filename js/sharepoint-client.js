@@ -31,18 +31,29 @@
 
     // Call the SharePoint edge function
     async function callSharePoint(action, params = {}) {
+        console.log('[SharePoint] Calling action:', action);
+        
         const response = await fetch(getEdgeFunctionUrl(), {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ action, ...params })
         });
 
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            const text = await response.text();
+            console.error('[SharePoint] Failed to parse response:', text);
+            throw new Error(`SharePoint response parse error: ${response.status} - ${text.substring(0, 200)}`);
+        }
         
         if (!response.ok || data.error) {
+            console.error('[SharePoint] Error response:', data);
             throw new Error(data.error || `SharePoint operation failed: ${response.status}`);
         }
         
+        console.log('[SharePoint] Success:', action);
         return data;
     }
 
