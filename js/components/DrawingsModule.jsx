@@ -18,7 +18,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [currentDrawings, setCurrentDrawings] = useState([]);
     const [drawingCounts, setDrawingCounts] = useState({});
     const [isLoading, setIsLoading] = useState(true);
-    const [uploadProgress, setUploadProgress] = useState(null);
+    const [uploadProgress, setUploadProgress] = useState(null); // { current, total, fileName, percent, status }
     
     // Modal states
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -433,7 +433,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         // Pass context for SharePoint folder structure
                         projectName: selectedProject.name,
                         categoryName: categoryName,
-                        disciplineName: disciplineName
+                        disciplineName: disciplineName,
+                        // Progress callback for upload progress bar
+                        onProgress: (progress) => {
+                            setUploadProgress(prev => ({
+                                ...prev,
+                                percent: progress.percent || 0,
+                                status: progress.status || 'uploading',
+                                uploaded: progress.uploaded,
+                                totalBytes: progress.total
+                            }));
+                        }
                     });
                 }
                 
@@ -1136,6 +1146,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             <tbody className="divide-y divide-gray-200">
                                 {currentDrawings.map(drawing => {
                                     const latestVersion = getLatestVersion(drawing);
+                                    // Parse module ID from filename
+                                    const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
                                     
                                     return (
                                         <tr key={drawing.id} className="hover:bg-gray-50">
@@ -1143,7 +1155,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                 <div className="flex items-center gap-3">
                                                     <span className="icon-file w-5 h-5 text-gray-400"></span>
                                                     <div>
-                                                        <div className="font-medium text-gray-900">{drawing.name}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium text-gray-900">{drawing.name}</span>
+                                                            {parsedModule && (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800" title="Parsed module from filename">
+                                                                    {parsedModule}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {drawing.description && (
                                                             <div className="text-sm text-gray-500">{drawing.description}</div>
                                                         )}
@@ -1272,7 +1291,35 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     </div>
                     
                     <div className="p-6 space-y-4">
+                        {/* Upload Progress Bar */}
+                        {uploadProgress && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-blue-900">
+                                        {uploadProgress.status === 'preparing' && 'Preparing upload...'}
+                                        {uploadProgress.status === 'creating session' && 'Creating upload session...'}
+                                        {uploadProgress.status === 'uploading' && `Uploading: ${uploadProgress.fileName || 'file'}`}
+                                        {uploadProgress.status === 'complete' && 'Upload complete!'}
+                                        {!uploadProgress.status && `Uploading ${uploadProgress.current} of ${uploadProgress.total}...`}
+                                    </span>
+                                    <span className="text-sm text-blue-700">{uploadProgress.percent || 0}%</span>
+                                </div>
+                                <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
+                                    <div 
+                                        className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                                        style={{ width: `${uploadProgress.percent || 0}%` }}
+                                    ></div>
+                                </div>
+                                {uploadProgress.uploaded && uploadProgress.totalBytes && (
+                                    <p className="text-xs text-blue-600 mt-1">
+                                        {formatFileSize(uploadProgress.uploaded)} / {formatFileSize(uploadProgress.totalBytes)}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                        
                         {/* Drop Zone */}
+                        {!uploadProgress && (
                         <div
                             onDragEnter={handleDrag}
                             onDragLeave={handleDrag}
@@ -1298,6 +1345,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 Supported: PDF, DWG, DXF, PNG, JPG, TIFF
                             </p>
                         </div>
+                        )}
                         
                         {/* Selected Files */}
                         {files.length > 0 && (

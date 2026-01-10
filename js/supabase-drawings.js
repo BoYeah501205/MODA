@@ -774,6 +774,93 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
+        },
+
+        // Parse module identifier from filename
+        // Supports formats: B1L2M15, B1-L2-M15, B1_L2_M15, Module B1L2M15, etc.
+        parseModuleFromFilename(filename) {
+            if (!filename) return null;
+            
+            // Common module patterns:
+            // B1L2M15, B1-L2-M15, B1_L2_M15 (Building-Level-Module)
+            // M15, M-15, Module15, Module-15
+            // Also handle with prefixes like "Shops - B1L2M15.pdf"
+            
+            const patterns = [
+                // Full format: B1L2M15 or B1-L2-M15 or B1_L2_M15
+                /\b([Bb]\d+[_\-]?[Ll]\d+[_\-]?[Mm]\d+)\b/,
+                // Level-Module format: L2M15 or L2-M15
+                /\b([Ll]\d+[_\-]?[Mm]\d+)\b/,
+                // Simple module: M15 or M-15 or Module15
+                /\b[Mm](?:odule)?[_\-]?(\d+)\b/,
+                // Just numbers after common prefixes
+                /(?:module|mod|unit)[_\-\s]*(\d+)/i
+            ];
+            
+            for (const pattern of patterns) {
+                const match = filename.match(pattern);
+                if (match) {
+                    // Normalize the result (uppercase, remove separators for consistency)
+                    let moduleId = match[1] || match[0];
+                    moduleId = moduleId.toUpperCase().replace(/[_\-]/g, '');
+                    return moduleId;
+                }
+            }
+            
+            return null;
+        },
+
+        // Find matching module from project modules list
+        findMatchingModule(filename, modules) {
+            const parsedId = this.parseModuleFromFilename(filename);
+            if (!parsedId || !modules || !modules.length) return null;
+            
+            // Try to find exact match first
+            let match = modules.find(m => {
+                const moduleId = (m.moduleId || m.module_id || '').toUpperCase().replace(/[_\-]/g, '');
+                return moduleId === parsedId;
+            });
+            
+            if (match) return match;
+            
+            // Try partial match (e.g., M15 matches B1L2M15)
+            if (parsedId.startsWith('M') || /^\d+$/.test(parsedId)) {
+                const moduleNum = parsedId.replace(/\D/g, '');
+                match = modules.find(m => {
+                    const mId = (m.moduleId || m.module_id || '');
+                    return mId.toUpperCase().includes('M' + moduleNum);
+                });
+            }
+            
+            return match || null;
+        },
+
+        // Generate versioned filename for SharePoint (handles duplicates)
+        generateVersionedFilename(originalName, existingVersions) {
+            if (!existingVersions || existingVersions.length === 0) {
+                return originalName;
+            }
+            
+            // Extract base name and extension
+            const lastDot = originalName.lastIndexOf('.');
+            const baseName = lastDot > 0 ? originalName.substring(0, lastDot) : originalName;
+            const extension = lastDot > 0 ? originalName.substring(lastDot) : '';
+            
+            // Find highest version number for this base filename
+            let maxVersion = 0;
+            const versionPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:_v(\\d+))?${extension.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+            
+            existingVersions.forEach(v => {
+                const fileName = v.file_name || v.fileName || '';
+                const match = fileName.match(versionPattern);
+                if (match) {
+                    const ver = match[1] ? parseInt(match[1]) : 1;
+                    if (ver > maxVersion) maxVersion = ver;
+                }
+            });
+            
+            // Return versioned filename
+            return `${baseName}_v${maxVersion + 1}${extension}`;
         }
     };
 
