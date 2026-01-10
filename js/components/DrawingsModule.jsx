@@ -26,6 +26,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
     const [showFolderModal, setShowFolderModal] = useState(null); // { mode: 'add'|'edit', type: 'category'|'discipline', folder?: existing }
     const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(null);
+    const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -415,6 +416,57 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     setUploadProgress({ current: i + 1, total: files.length, fileName: file.name });
+                    
+                    // Check for existing drawing with same name
+                    const existingDrawing = currentDrawings.find(d => 
+                        d.name.toLowerCase() === file.name.toLowerCase()
+                    );
+                    
+                    if (existingDrawing) {
+                        // Show duplicate prompt and wait for user decision
+                        const userAction = await new Promise((resolve) => {
+                            setShowDuplicatePrompt({
+                                file,
+                                existingDrawing,
+                                metadata,
+                                disciplineToUse,
+                                categoryName,
+                                disciplineName,
+                                onAction: resolve
+                            });
+                        });
+                        setShowDuplicatePrompt(null);
+                        
+                        if (userAction === 'skip') {
+                            continue; // Skip this file
+                        } else if (userAction === 'newVersion') {
+                            // Add as new version to existing drawing
+                            const nextVersion = window.MODA_SUPABASE_DRAWINGS.utils.getNextVersion(existingDrawing.versions || []);
+                            await window.MODA_SUPABASE_DRAWINGS.versions.create(existingDrawing.id, file, {
+                                version: nextVersion,
+                                notes: metadata.notes || `Version ${nextVersion}`,
+                                uploadedBy: auth?.currentUser?.name || 'Unknown',
+                                projectName: selectedProject.name,
+                                categoryName: categoryName,
+                                disciplineName: disciplineName,
+                                onProgress: (progress) => {
+                                    setUploadProgress(prev => ({
+                                        ...prev,
+                                        percent: progress.percent || 0,
+                                        status: progress.status || 'uploading',
+                                        uploaded: progress.uploaded,
+                                        totalBytes: progress.total,
+                                        speed: progress.speed
+                                    }));
+                                }
+                            });
+                            continue;
+                        } else if (userAction === 'replace') {
+                            // Delete existing and upload new
+                            await window.MODA_SUPABASE_DRAWINGS.drawings.delete(existingDrawing.id);
+                        }
+                        // If 'replace', fall through to create new drawing below
+                    }
                     
                     // Create drawing record
                     const drawing = await window.MODA_SUPABASE_DRAWINGS.drawings.create({
@@ -1629,6 +1681,101 @@ const DrawingsModule = ({ projects = [], auth }) => {
     };
     
     // =========================================================================
+    // RENDER: Duplicate File Prompt Modal
+    // =========================================================================
+    const DuplicatePromptModal = () => {
+        if (!showDuplicatePrompt) return null;
+        
+        const { file, existingDrawing, onAction } = showDuplicatePrompt;
+        const existingVersion = existingDrawing.versions?.[0];
+        
+        return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+                    <div className="p-6 border-b border-gray-200">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                                <span className="icon-file w-6 h-6 text-amber-600"></span>
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900">Duplicate File Detected</h2>
+                                <p className="text-sm text-gray-600">A file with this name already exists</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="p-6">
+                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                            <p className="font-medium text-gray-900 mb-2">{file.name}</p>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-gray-500">New File</p>
+                                    <p className="text-gray-700">{formatFileSize(file.size)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">Existing File</p>
+                                    <p className="text-gray-700">
+                                        {formatFileSize(existingVersion?.file_size)} • v{existingVersion?.version || '1.0'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p className="text-gray-700 mb-4">What would you like to do?</p>
+                        
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => onAction('newVersion')}
+                                className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center group-hover:bg-blue-200">
+                                        <span className="icon-history w-5 h-5 text-blue-600"></span>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">Add as New Version</p>
+                                        <p className="text-sm text-gray-500">Keep existing file and add this as a new version</p>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <button
+                                onClick={() => onAction('replace')}
+                                className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-amber-500 hover:bg-amber-50 transition group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center group-hover:bg-amber-200">
+                                        <span className="icon-upload w-5 h-5 text-amber-600"></span>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">Replace Existing</p>
+                                        <p className="text-sm text-gray-500">Delete the existing file and upload this one</p>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <button
+                                onClick={() => onAction('skip')}
+                                className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200">
+                                        <span className="icon-close w-5 h-5 text-gray-600"></span>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">Skip This File</p>
+                                        <p className="text-sm text-gray-500">Don't upload this file, keep the existing one</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // =========================================================================
     // RENDER: Delete Confirmation Modal
     // =========================================================================
     const DeleteConfirmModal = () => {
@@ -1854,6 +2001,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
             {showUploadModal && <UploadModal />}
             <VersionHistoryModal />
             <DeleteConfirmModal />
+            <DuplicatePromptModal />
             <FolderModal />
             <DeleteFolderConfirmModal />
             
