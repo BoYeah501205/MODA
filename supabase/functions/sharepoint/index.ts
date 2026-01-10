@@ -72,6 +72,14 @@ serve(async (req) => {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       result = { downloadUrl: data["@microsoft.graph.downloadUrl"] };
+    }
+    else if (action === "getViewUrl") {
+      // Get web URL for viewing file in browser (not download)
+      const url = "https://graph.microsoft.com/v1.0/sites/" + SITE_ID + "/drive/items/" + body.fileId;
+      const res = await fetch(url, { headers: { "Authorization": "Bearer " + accessToken }});
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      result = { webUrl: data.webUrl };
     } 
     else if (action === "createFolder") {
       const parentPath = body.parentPath || "";

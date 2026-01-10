@@ -229,12 +229,21 @@
         },
 
         /**
-         * Get download URL for a file
+         * Get download URL for a file (forces download)
          * @param {string} fileId - SharePoint file ID
          */
         async getDownloadUrl(fileId) {
             const result = await callSharePoint('download', { fileId });
             return result.downloadUrl;
+        },
+
+        /**
+         * Get web view URL for a file (opens in browser for viewing)
+         * @param {string} fileId - SharePoint file ID
+         */
+        async getViewUrl(fileId) {
+            const result = await callSharePoint('getViewUrl', { fileId });
+            return result.webUrl;
         },
 
         /**

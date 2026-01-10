@@ -274,7 +274,7 @@
             return data;
         },
 
-        // Get download URL for a version
+        // Get download URL for a version (forces download)
         async getDownloadUrl(storagePath, sharePointFileId = null) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
@@ -297,6 +297,34 @@
                 .storage
                 .from(STORAGE_BUCKET)
                 .createSignedUrl(storagePath, 60 * 60); // 1 hour expiry
+            
+            if (error) throw error;
+            return data?.signedUrl;
+        },
+
+        // Get view URL for a version (opens in browser for viewing)
+        async getViewUrl(storagePath, sharePointFileId = null) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Check if stored in SharePoint
+            if (storagePath?.startsWith('sharepoint:') || sharePointFileId) {
+                const fileId = sharePointFileId || storagePath.replace('sharepoint:', '');
+                if (window.MODA_SHAREPOINT?.isAvailable()) {
+                    try {
+                        return await window.MODA_SHAREPOINT.getViewUrl(fileId);
+                    } catch (e) {
+                        console.error('[Drawings] SharePoint view URL error:', e);
+                        throw e;
+                    }
+                }
+                throw new Error('SharePoint not available');
+            }
+            
+            // Supabase Storage - use signed URL (will open in browser)
+            const { data, error } = await getClient()
+                .storage
+                .from(STORAGE_BUCKET)
+                .createSignedUrl(storagePath, 60 * 60);
             
             if (error) throw error;
             return data?.signedUrl;

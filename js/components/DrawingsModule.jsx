@@ -636,13 +636,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, [selectedProject, selectedDiscipline]);
     
-    // Handle view - opens file in new browser tab for viewing
+    // Handle view - opens file in new browser tab for viewing (not download)
     const handleView = useCallback(async (version) => {
         try {
             const storagePath = version.storage_path || version.storagePath;
+            const sharePointFileId = version.sharepoint_file_id || version.sharepointFileId;
             
             if (isSupabaseAvailable() && storagePath) {
-                const url = await window.MODA_SUPABASE_DRAWINGS.versions.getDownloadUrl(storagePath);
+                // Use getViewUrl for SharePoint files to open in browser
+                const url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
                 if (url) {
                     window.open(url, '_blank');
                 } else {
