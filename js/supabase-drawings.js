@@ -214,76 +214,41 @@
             return data;
         },
 
-        // Create a new version (with file upload to SharePoint)
+        // Create a new version (with file upload to SharePoint - NO Supabase fallback)
         async create(drawingId, file, versionData) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
             let fileUrl = '';
             let storagePath = '';
             let sharePointFileId = null;
-            let storageType = 'supabase'; // Track where file is stored
+            let storageType = 'sharepoint';
             
-            // Try SharePoint first if available
-            if (window.MODA_SHAREPOINT?.isAvailable()) {
-                try {
-                    console.log('[Drawings] Uploading to SharePoint...');
-                    
-                    // Get project, category, discipline info for folder path
-                    const projectName = versionData.projectName || 'Unknown Project';
-                    const categoryName = versionData.categoryName || 'Shop Drawings';
-                    const disciplineName = versionData.disciplineName || 'General';
-                    
-                    // Upload to SharePoint
-                    const spResult = await window.MODA_SHAREPOINT.uploadFile(
-                        file,
-                        projectName,
-                        categoryName,
-                        disciplineName,
-                        versionData.onProgress
-                    );
-                    
-                    fileUrl = spResult.webUrl || '';
-                    storagePath = `sharepoint:${spResult.id}`; // Prefix to identify SharePoint storage
-                    sharePointFileId = spResult.id;
-                    storageType = 'sharepoint';
-                    
-                    console.log('[Drawings] SharePoint upload successful:', spResult.name);
-                } catch (spError) {
-                    console.warn('[Drawings] SharePoint upload failed, falling back to Supabase:', spError.message);
-                    // Fall through to Supabase upload
-                }
+            // SharePoint is required - no fallback
+            if (!window.MODA_SHAREPOINT?.isAvailable()) {
+                throw new Error('SharePoint is not available. Please check your connection and try again.');
             }
             
-            // Fallback to Supabase Storage if SharePoint failed or unavailable
-            if (!fileUrl) {
-                console.log('[Drawings] Uploading to Supabase Storage...');
-                
-                const timestamp = Date.now();
-                const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                storagePath = `${drawingId}/${timestamp}_${sanitizedName}`;
-                
-                const { data: uploadData, error: uploadError } = await getClient()
-                    .storage
-                    .from(STORAGE_BUCKET)
-                    .upload(storagePath, file, {
-                        cacheControl: '3600',
-                        upsert: false
-                    });
-                
-                if (uploadError) {
-                    console.error('[Drawings] Upload error:', uploadError);
-                    throw uploadError;
-                }
-                
-                // Get signed URL
-                const { data: urlData } = await getClient()
-                    .storage
-                    .from(STORAGE_BUCKET)
-                    .createSignedUrl(storagePath, 60 * 60 * 24 * 365); // 1 year expiry
-                
-                fileUrl = urlData?.signedUrl || '';
-                storageType = 'supabase';
-            }
+            console.log('[Drawings] Uploading to SharePoint...');
+            
+            // Get project, category, discipline info for folder path
+            const projectName = versionData.projectName || 'Unknown Project';
+            const categoryName = versionData.categoryName || 'Shop Drawings';
+            const disciplineName = versionData.disciplineName || 'General';
+            
+            // Upload to SharePoint (using chunked upload for large files)
+            const spResult = await window.MODA_SHAREPOINT.uploadFile(
+                file,
+                projectName,
+                categoryName,
+                disciplineName,
+                versionData.onProgress
+            );
+            
+            fileUrl = spResult.webUrl || '';
+            storagePath = `sharepoint:${spResult.id}`;
+            sharePointFileId = spResult.id;
+            
+            console.log('[Drawings] SharePoint upload successful:', spResult.name);
             
             // Create version record in database
             const { data, error } = await getClient()

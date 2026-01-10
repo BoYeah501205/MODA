@@ -105,7 +105,7 @@
         },
 
         /**
-         * Upload a file to SharePoint
+         * Upload a file to SharePoint using chunked upload
          * @param {File} file - File object to upload
          * @param {string} projectName - Project name
          * @param {string} categoryName - Category name (e.g., "Permit Drawings")
@@ -118,21 +118,92 @@
             // Ensure folder structure exists
             await this.ensureFolderExists(projectName, categoryName, disciplineName);
             
-            if (onProgress) onProgress({ status: 'converting', percent: 10 });
+            if (onProgress) onProgress({ status: 'preparing', percent: 5 });
             
-            // Convert file to base64
-            const fileContent = await fileToBase64(file);
+            // For small files (< 1MB), use simple upload with smaller chunks
+            // For larger files, use upload session
+            const fileSizeMB = file.size / (1024 * 1024);
             
-            if (onProgress) onProgress({ status: 'uploading', percent: 30 });
+            if (fileSizeMB < 1) {
+                // Small file - use simple upload but with smaller base64 chunk
+                if (onProgress) onProgress({ status: 'uploading', percent: 20 });
+                
+                const fileContent = await fileToBase64(file);
+                
+                const result = await callSharePoint('upload', {
+                    folderPath,
+                    fileName: file.name,
+                    fileContent
+                });
+                
+                if (onProgress) onProgress({ status: 'complete', percent: 100 });
+                
+                return {
+                    id: result.id,
+                    name: result.name,
+                    size: result.size,
+                    webUrl: result.webUrl,
+                    downloadUrl: result['@microsoft.graph.downloadUrl']
+                };
+            }
             
-            // Upload file
-            const result = await callSharePoint('upload', {
+            // Large file - use chunked upload session
+            console.log('[SharePoint] Using chunked upload for large file:', file.name, fileSizeMB.toFixed(2), 'MB');
+            
+            // Step 1: Create upload session via Edge Function
+            if (onProgress) onProgress({ status: 'creating session', percent: 10 });
+            
+            const sessionResult = await callSharePoint('createUploadSession', {
                 folderPath,
-                fileName: file.name,
-                fileContent
+                fileName: file.name
             });
             
+            const uploadUrl = sessionResult.uploadUrl;
+            if (!uploadUrl) {
+                throw new Error('Failed to create upload session');
+            }
+            
+            // Step 2: Upload file in chunks directly to SharePoint (bypassing Edge Function)
+            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+            const totalSize = file.size;
+            let offset = 0;
+            let result;
+            
+            while (offset < totalSize) {
+                const end = Math.min(offset + chunkSize, totalSize);
+                const chunk = file.slice(offset, end);
+                const chunkBuffer = await chunk.arrayBuffer();
+                
+                const percent = Math.round(10 + (offset / totalSize) * 85);
+                if (onProgress) onProgress({ status: 'uploading', percent, uploaded: offset, total: totalSize });
+                
+                console.log(`[SharePoint] Uploading chunk ${offset}-${end-1}/${totalSize}`);
+                
+                const chunkResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Length': chunkBuffer.byteLength.toString(),
+                        'Content-Range': `bytes ${offset}-${end - 1}/${totalSize}`
+                    },
+                    body: chunkBuffer
+                });
+                
+                if (!chunkResponse.ok && chunkResponse.status !== 202) {
+                    const errorText = await chunkResponse.text();
+                    throw new Error(`Chunk upload failed: ${chunkResponse.status} - ${errorText}`);
+                }
+                
+                // Last chunk returns the file metadata
+                if (end >= totalSize) {
+                    result = await chunkResponse.json();
+                }
+                
+                offset = end;
+            }
+            
             if (onProgress) onProgress({ status: 'complete', percent: 100 });
+            
+            console.log('[SharePoint] Chunked upload complete:', result?.name);
             
             return {
                 id: result.id,

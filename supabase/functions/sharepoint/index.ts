@@ -88,7 +88,19 @@ serve(async (req) => {
       const url = "https://graph.microsoft.com/v1.0/sites/" + SITE_ID + "/drive/items/" + body.fileId;
       await fetch(url, { method: "DELETE", headers: { "Authorization": "Bearer " + accessToken }});
       result = { success: true };
-    } 
+    }
+    else if (action === "createUploadSession") {
+      // Create upload session for large file chunked upload
+      const path = encodeURIComponent(body.folderPath + "/" + body.fileName);
+      const url = "https://graph.microsoft.com/v1.0/sites/" + SITE_ID + "/drive/root:/" + path + ":/createUploadSession";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" },
+        body: JSON.stringify({ item: { "@microsoft.graph.conflictBehavior": "replace" } })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      result = await res.json();
+    }
     else {
       throw new Error("Unknown action: " + action);
     }
