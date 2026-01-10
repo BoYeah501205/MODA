@@ -30,6 +30,7 @@
         'engineering', 
         'automation', 
         'tracker',
+        'drawings',
         'admin'
     ];
     
