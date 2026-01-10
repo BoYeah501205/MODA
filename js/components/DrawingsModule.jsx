@@ -1649,7 +1649,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             Are you sure you want to delete <strong>{showDeleteConfirm.name}</strong>?
                         </p>
                         <p className="text-sm text-gray-500">
-                            All {showDeleteConfirm.versions?.length || 0} version(s) will be permanently removed.
+                            All {showDeleteConfirm.versions?.length || 1} version(s) will be permanently removed.
                         </p>
                     </div>
                     <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
