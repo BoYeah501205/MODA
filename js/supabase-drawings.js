@@ -868,13 +868,134 @@
     // EXPORT
     // ============================================================================
 
+    // Admin utility to clear Supabase Storage files
+    const AdminUtils = {
+        // Clear all files from Supabase Storage bucket
+        async clearSupabaseStorage() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            console.log('[Admin] Listing files in drawings bucket...');
+            
+            // List all files in the bucket
+            const { data: files, error: listError } = await getClient()
+                .storage
+                .from(STORAGE_BUCKET)
+                .list('', { limit: 1000 });
+            
+            if (listError) {
+                console.error('[Admin] Error listing files:', listError);
+                throw listError;
+            }
+            
+            if (!files || files.length === 0) {
+                console.log('[Admin] No files found in storage bucket');
+                return { deleted: 0 };
+            }
+            
+            console.log(`[Admin] Found ${files.length} files to delete`);
+            
+            // Get all file paths (including nested folders)
+            const allPaths = [];
+            for (const file of files) {
+                if (file.id) {
+                    // It's a file
+                    allPaths.push(file.name);
+                } else {
+                    // It's a folder, list its contents
+                    const { data: folderFiles } = await getClient()
+                        .storage
+                        .from(STORAGE_BUCKET)
+                        .list(file.name, { limit: 1000 });
+                    
+                    if (folderFiles) {
+                        folderFiles.forEach(f => {
+                            if (f.id) allPaths.push(`${file.name}/${f.name}`);
+                        });
+                    }
+                }
+            }
+            
+            if (allPaths.length === 0) {
+                console.log('[Admin] No files to delete');
+                return { deleted: 0 };
+            }
+            
+            console.log(`[Admin] Deleting ${allPaths.length} files...`);
+            
+            // Delete all files
+            const { error: deleteError } = await getClient()
+                .storage
+                .from(STORAGE_BUCKET)
+                .remove(allPaths);
+            
+            if (deleteError) {
+                console.error('[Admin] Error deleting files:', deleteError);
+                throw deleteError;
+            }
+            
+            console.log(`[Admin] Successfully deleted ${allPaths.length} files from Supabase Storage`);
+            return { deleted: allPaths.length, paths: allPaths };
+        },
+
+        // Delete drawing version records that used Supabase storage
+        async clearSupabaseVersionRecords() {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            // Find versions stored in Supabase
+            const { data: versions, error: findError } = await getClient()
+                .from('drawing_versions')
+                .select('id, file_name, storage_path, storage_type')
+                .or('storage_type.eq.supabase,storage_type.is.null')
+                .not('storage_path', 'like', 'sharepoint:%');
+            
+            if (findError) throw findError;
+            
+            if (!versions || versions.length === 0) {
+                console.log('[Admin] No Supabase version records found');
+                return { deleted: 0 };
+            }
+            
+            console.log(`[Admin] Found ${versions.length} Supabase version records to delete`);
+            
+            // Delete the records
+            const ids = versions.map(v => v.id);
+            const { error: deleteError } = await getClient()
+                .from('drawing_versions')
+                .delete()
+                .in('id', ids);
+            
+            if (deleteError) throw deleteError;
+            
+            console.log(`[Admin] Deleted ${versions.length} version records`);
+            return { deleted: versions.length, versions };
+        },
+
+        // Full cleanup: storage files + database records
+        async fullCleanup() {
+            console.log('[Admin] Starting full Supabase cleanup...');
+            
+            const storageResult = await this.clearSupabaseStorage();
+            const recordsResult = await this.clearSupabaseVersionRecords();
+            
+            console.log('[Admin] Cleanup complete!');
+            console.log(`  - Storage files deleted: ${storageResult.deleted}`);
+            console.log(`  - Database records deleted: ${recordsResult.deleted}`);
+            
+            return {
+                storageFilesDeleted: storageResult.deleted,
+                recordsDeleted: recordsResult.deleted
+            };
+        }
+    };
+
     window.MODA_SUPABASE_DRAWINGS = {
         isAvailable,
         disciplines: DisciplinesAPI,
         drawings: DrawingsAPI,
         versions: VersionsAPI,
         folders: FoldersAPI,
-        utils: Utils
+        utils: Utils,
+        admin: AdminUtils
     };
 
     console.log('[Supabase Drawings] Module initialized');
