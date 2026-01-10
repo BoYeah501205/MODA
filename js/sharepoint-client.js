@@ -164,20 +164,31 @@
             }
             
             // Step 2: Upload file in chunks directly to SharePoint (bypassing Edge Function)
-            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+            // Using 10MB chunks for optimal speed (SharePoint supports up to 60MB)
+            const chunkSize = 10 * 1024 * 1024; // 10MB chunks for faster uploads
             const totalSize = file.size;
             let offset = 0;
             let result;
+            const startTime = Date.now();
             
             while (offset < totalSize) {
                 const end = Math.min(offset + chunkSize, totalSize);
                 const chunk = file.slice(offset, end);
                 const chunkBuffer = await chunk.arrayBuffer();
                 
-                const percent = Math.round(10 + (offset / totalSize) * 85);
-                if (onProgress) onProgress({ status: 'uploading', percent, uploaded: offset, total: totalSize });
+                const percent = Math.round(10 + (end / totalSize) * 85);
+                const elapsed = (Date.now() - startTime) / 1000;
+                const speed = offset > 0 ? (offset / elapsed / 1024 / 1024).toFixed(1) : 0;
                 
-                console.log(`[SharePoint] Uploading chunk ${offset}-${end-1}/${totalSize}`);
+                if (onProgress) onProgress({ 
+                    status: 'uploading', 
+                    percent, 
+                    uploaded: end, 
+                    total: totalSize,
+                    speed: `${speed} MB/s`
+                });
+                
+                console.log(`[SharePoint] Uploading chunk ${offset}-${end-1}/${totalSize} (${speed} MB/s)`);
                 
                 const chunkResponse = await fetch(uploadUrl, {
                     method: 'PUT',
@@ -200,6 +211,9 @@
                 
                 offset = end;
             }
+            
+            const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`[SharePoint] Upload complete in ${totalTime}s`);
             
             if (onProgress) onProgress({ status: 'complete', percent: 100 });
             

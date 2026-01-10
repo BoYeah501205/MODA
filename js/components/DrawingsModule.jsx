@@ -441,7 +441,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 percent: progress.percent || 0,
                                 status: progress.status || 'uploading',
                                 uploaded: progress.uploaded,
-                                totalBytes: progress.total
+                                totalBytes: progress.total,
+                                speed: progress.speed
                             }));
                         }
                     });
@@ -1313,6 +1314,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 {uploadProgress.uploaded && uploadProgress.totalBytes && (
                                     <p className="text-xs text-blue-600 mt-1">
                                         {formatFileSize(uploadProgress.uploaded)} / {formatFileSize(uploadProgress.totalBytes)}
+                                        {uploadProgress.speed && <span className="ml-2">({uploadProgress.speed})</span>}
                                     </p>
                                 )}
                             </div>
