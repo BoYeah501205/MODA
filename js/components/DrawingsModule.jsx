@@ -1211,7 +1211,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     <span className="icon-file w-5 h-5 text-gray-400"></span>
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="font-medium text-gray-900">{drawing.name}</span>
+                                                            <button
+                                                                onClick={() => latestVersion && handleView(latestVersion)}
+                                                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition cursor-pointer text-left"
+                                                                disabled={!latestVersion}
+                                                                title="Click to view drawing"
+                                                            >
+                                                                {drawing.name}
+                                                            </button>
                                                             {parsedModule && (
                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800" title="Parsed module from filename">
                                                                     {parsedModule}
