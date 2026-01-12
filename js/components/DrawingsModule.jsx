@@ -29,6 +29,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
     const [showSheetBrowser, setShowSheetBrowser] = useState(false);
     const [processingDrawing, setProcessingDrawing] = useState(null); // { drawingId, status, progress }
+    const [selectedDrawings, setSelectedDrawings] = useState([]); // Array of drawing IDs selected for OCR
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -716,38 +717,43 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, []);
     
-    // Handle extract sheets - trigger OCR processing for PDFs
+    // Handle extract sheets - trigger OCR processing for selected PDFs
     const handleExtractSheets = useCallback(async () => {
         if (!window.MODA_DRAWING_SHEETS?.processDrawingSheets) {
             alert('Sheet extraction feature not available. Please refresh the page.');
             return;
         }
         
-        // Get all PDF drawings in current view
-        const pdfDrawings = currentDrawings.filter(d => 
-            d.name.toLowerCase().endsWith('.pdf')
-        );
-        
-        if (pdfDrawings.length === 0) {
-            alert('No PDF files found to extract sheets from.');
+        if (selectedDrawings.length === 0) {
+            alert('Please select at least one PDF file to process.');
             return;
         }
         
-        const confirmed = confirm(`Extract sheets from ${pdfDrawings.length} PDF file(s)?\n\nThis will process each PDF and extract individual sheets with OCR metadata.\n\nCost: ~$0.01-0.02 per sheet`);
+        // Get selected drawings that are PDFs
+        const drawingsToProcess = currentDrawings.filter(d => 
+            selectedDrawings.includes(d.id) && d.name.toLowerCase().endsWith('.pdf')
+        );
+        
+        if (drawingsToProcess.length === 0) {
+            alert('No PDF files selected. Please select PDF files to process.');
+            return;
+        }
+        
+        const confirmed = confirm(`Run OCR on ${drawingsToProcess.length} PDF file(s)?\n\nThis will process each PDF and extract individual sheets with OCR metadata.\n\nCost: ~$0.01-0.02 per sheet`);
         if (!confirmed) return;
         
         try {
             setProcessingDrawing({ status: 'processing', progress: 0 });
             
-            for (let i = 0; i < pdfDrawings.length; i++) {
-                const drawing = pdfDrawings[i];
-                console.log(`[Drawings] Processing ${i + 1}/${pdfDrawings.length}: ${drawing.name}`);
+            for (let i = 0; i < drawingsToProcess.length; i++) {
+                const drawing = drawingsToProcess[i];
+                console.log(`[Drawings] Processing ${i + 1}/${drawingsToProcess.length}: ${drawing.name}`);
                 
                 setProcessingDrawing({ 
                     status: 'processing', 
-                    progress: Math.round((i / pdfDrawings.length) * 100),
+                    progress: Math.round((i / drawingsToProcess.length) * 100),
                     current: i + 1,
-                    total: pdfDrawings.length,
+                    total: drawingsToProcess.length,
                     fileName: drawing.name
                 });
                 
@@ -755,13 +761,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
             }
             
             setProcessingDrawing(null);
-            alert(`Successfully extracted sheets from ${pdfDrawings.length} PDF file(s)!\n\nClick "Browse Sheets" to view and filter the extracted sheets.`);
+            setSelectedDrawings([]); // Clear selection after processing
+            alert(`Successfully extracted sheets from ${drawingsToProcess.length} PDF file(s)!\n\nClick "Browse Sheets" to view and filter the extracted sheets.`);
         } catch (error) {
             console.error('[Drawings] Extract sheets error:', error);
             setProcessingDrawing(null);
             alert('Error extracting sheets: ' + error.message);
         }
-    }, [currentDrawings]);
+    }, [currentDrawings, selectedDrawings]);
     
     // Handle download - forces file download
     const handleDownload = useCallback(async (version) => {
@@ -1250,12 +1257,12 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 </button>
                                 <button
                                     onClick={handleExtractSheets}
-                                    disabled={processingDrawing !== null}
+                                    disabled={processingDrawing !== null || selectedDrawings.length === 0}
                                     className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Extract individual sheets from PDFs using OCR"
+                                    title="Run OCR on selected PDF files to extract individual sheets"
                                 >
                                     <span className="icon-file w-4 h-4"></span>
-                                    {processingDrawing ? 'Processing...' : 'Extract Sheets'}
+                                    {processingDrawing ? 'Processing...' : `Run OCR${selectedDrawings.length > 0 ? ` (${selectedDrawings.length})` : ''}`}
                                 </button>
                             </>
                         )}
@@ -1297,6 +1304,24 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
+                                    {window.MODA_DRAWING_SHEETS && (
+                                        <th className="px-4 py-3 text-left">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedDrawings.length > 0 && selectedDrawings.length === currentDrawings.filter(d => d.name.toLowerCase().endsWith('.pdf')).length}
+                                                onChange={(e) => {
+                                                    const pdfDrawings = currentDrawings.filter(d => d.name.toLowerCase().endsWith('.pdf'));
+                                                    if (e.target.checked) {
+                                                        setSelectedDrawings(pdfDrawings.map(d => d.id));
+                                                    } else {
+                                                        setSelectedDrawings([]);
+                                                    }
+                                                }}
+                                                className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                                                title="Select all PDFs"
+                                            />
+                                        </th>
+                                    )}
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Version</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
@@ -1311,8 +1336,30 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     // Parse module ID from filename
                                     const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
                                     
+                                    const isPdf = drawing.name.toLowerCase().endsWith('.pdf');
+                                    const isSelected = selectedDrawings.includes(drawing.id);
+                                    
                                     return (
                                         <tr key={drawing.id} className="hover:bg-gray-50">
+                                            {window.MODA_DRAWING_SHEETS && (
+                                                <td className="px-4 py-4">
+                                                    {isPdf && (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedDrawings([...selectedDrawings, drawing.id]);
+                                                                } else {
+                                                                    setSelectedDrawings(selectedDrawings.filter(id => id !== drawing.id));
+                                                                }
+                                                            }}
+                                                            className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                                                            title="Select for OCR processing"
+                                                        />
+                                                    )}
+                                                </td>
+                                            )}
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <span className="icon-file w-5 h-5 text-gray-400"></span>
