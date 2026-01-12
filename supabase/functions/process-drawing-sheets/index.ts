@@ -171,17 +171,26 @@ serve(async (req) => {
                   },
                   {
                     type: 'text',
-                    text: `Analyze this shop drawing sheet and extract the title block information. Return a JSON object with these fields:
+                    text: `Analyze this shop drawing sheet and extract the title block information. Focus on these key fields:
+
+PRIORITY FIELDS (most important):
+- SHEET NUMBER: The sheet identifier (e.g., 'XS-B1L2M15-01', 'M-101', 'E-202')
+- SHEET TITLE: The sheet title/description (e.g., 'FLOOR FRAMING PLAN', 'MECHANICAL LAYOUT')
+- DATE: The drawing date in YYYY-MM-DD format
+
+OPTIONAL FIELDS:
+- SCALE: Drawing scale (e.g., 'As indicated', '1/4"=1\'-0"')
+- DISCIPLINE: Discipline (Mechanical, Electrical, Plumbing, Structural, Architectural, Fire Protection)
+- REVISION: Revision number/letter
+
+Return a JSON object with these fields:
 {
-  "sheet_name": "Sheet identifier (e.g., 'Cover Sheet', 'S-1', 'M-2')",
+  "sheet_number": "Complete sheet number from title block",
   "sheet_title": "Sheet title/description",
-  "blm_type": "BLM/Unit type code (e.g., 'C1', 'B2', 'SW')",
-  "discipline": "Discipline (Mechanical, Electrical, Plumbing, Structural, Architectural)",
+  "date": "Date in YYYY-MM-DD format if present",
   "scale": "Drawing scale",
-  "drawing_date": "Date in YYYY-MM-DD format if present",
+  "discipline": "Discipline if identifiable",
   "revision": "Revision number/letter",
-  "drawn_by": "Drawn by name",
-  "checked_by": "Checked by name",
   "confidence": "Your confidence in the extraction (0-100)"
 }
 
@@ -204,15 +213,15 @@ Return ONLY the JSON object, no other text.`,
 
             // Map to parsed fields
             parsedFields = {
-              sheet_name: extracted.sheet_name || null,
+              sheet_name: extracted.sheet_number || null,
               sheet_title: extracted.sheet_title || null,
-              blm_type: extracted.blm_type || null,
+              blm_type: null, // Excluded - often erroneous
               discipline: extracted.discipline || null,
               scale: extracted.scale || null,
-              drawing_date: extracted.drawing_date || null,
+              drawing_date: extracted.date || null,
               revision: extracted.revision || null,
-              drawn_by: extracted.drawn_by || null,
-              checked_by: extracted.checked_by || null,
+              drawn_by: null,
+              checked_by: null,
             };
           }
         } catch (ocrError) {
@@ -250,12 +259,12 @@ Return ONLY the JSON object, no other text.`,
           continue;
         }
 
-        // Auto-link to module
+        // Auto-link to module by extracting BLM ID from sheet number
+        // Example: XS-B1L2M15-01 -> B1L2M15
         await supabaseClient.rpc('auto_link_sheet_to_module', {
           p_sheet_id: sheet.id,
           p_project_id: drawingFile.project_id,
-          p_drawing_file_name: drawingFile.name,
-          p_blm_type: parsedFields.blm_type,
+          p_sheet_number: parsedFields.sheet_name || '',
         });
 
         sheets.push(sheet);
