@@ -38,7 +38,17 @@
                 .select('*')
                 .order('created_at', { ascending: false });
             
-            if (error) throw error;
+            if (error) {
+                // Add detailed error info for debugging quota issues
+                console.error('[Supabase Projects] Error details:', {
+                    message: error.message,
+                    code: error.code,
+                    hint: error.hint,
+                    details: error.details,
+                    status: error.status
+                });
+                throw error;
+            }
             return data || [];
         },
 
