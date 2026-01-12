@@ -1839,7 +1839,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 projects={projects}
                                                 productionStages={productionStages}
                                                 weeks={weeks}
-                                                currentWeek={currentWeek}
+                                                currentWeek={currentWeek ? {
+                                                    ...currentWeek,
+                                                    startingModule: currentWeek.startingModule,
+                                                    shift1: weeklySchedule.scheduleSetup.shift1,
+                                                    shift2: weeklySchedule.scheduleSetup.shift2
+                                                } : null}
                                                 completedWeeks={weeklySchedule.completedWeeks}
                                                 scheduleSetup={weeklySchedule.scheduleSetup}
                                                 staggerConfig={staggerConfig}
