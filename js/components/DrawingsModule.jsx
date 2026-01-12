@@ -716,6 +716,53 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, []);
     
+    // Handle extract sheets - trigger OCR processing for PDFs
+    const handleExtractSheets = useCallback(async () => {
+        if (!window.MODA_DRAWING_SHEETS?.processDrawingSheets) {
+            alert('Sheet extraction feature not available. Please refresh the page.');
+            return;
+        }
+        
+        // Get all PDF drawings in current view
+        const pdfDrawings = currentDrawings.filter(d => 
+            d.name.toLowerCase().endsWith('.pdf')
+        );
+        
+        if (pdfDrawings.length === 0) {
+            alert('No PDF files found to extract sheets from.');
+            return;
+        }
+        
+        const confirmed = confirm(`Extract sheets from ${pdfDrawings.length} PDF file(s)?\n\nThis will process each PDF and extract individual sheets with OCR metadata.\n\nCost: ~$0.01-0.02 per sheet`);
+        if (!confirmed) return;
+        
+        try {
+            setProcessingDrawing({ status: 'processing', progress: 0 });
+            
+            for (let i = 0; i < pdfDrawings.length; i++) {
+                const drawing = pdfDrawings[i];
+                console.log(`[Drawings] Processing ${i + 1}/${pdfDrawings.length}: ${drawing.name}`);
+                
+                setProcessingDrawing({ 
+                    status: 'processing', 
+                    progress: Math.round((i / pdfDrawings.length) * 100),
+                    current: i + 1,
+                    total: pdfDrawings.length,
+                    fileName: drawing.name
+                });
+                
+                await window.MODA_DRAWING_SHEETS.processDrawingSheets(drawing.id);
+            }
+            
+            setProcessingDrawing(null);
+            alert(`Successfully extracted sheets from ${pdfDrawings.length} PDF file(s)!\n\nClick "Browse Sheets" to view and filter the extracted sheets.`);
+        } catch (error) {
+            console.error('[Drawings] Extract sheets error:', error);
+            setProcessingDrawing(null);
+            alert('Error extracting sheets: ' + error.message);
+        }
+    }, [currentDrawings]);
+    
     // Handle download - forces file download
     const handleDownload = useCallback(async (version) => {
         try {
@@ -1191,15 +1238,26 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     
                     <div className="flex items-center gap-3">
                         {window.MODA_DRAWING_SHEETS && (
-                            <button
-                                onClick={() => setShowSheetBrowser(true)}
-                                className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
-                                style={{ backgroundColor: 'var(--autovol-teal)' }}
-                                title="Browse individual sheets with advanced filtering"
-                            >
-                                <span className="icon-layers w-4 h-4"></span>
-                                Browse Sheets
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => setShowSheetBrowser(true)}
+                                    className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
+                                    style={{ backgroundColor: 'var(--autovol-teal)' }}
+                                    title="Browse individual sheets with advanced filtering"
+                                >
+                                    <span className="icon-layers w-4 h-4"></span>
+                                    Browse Sheets
+                                </button>
+                                <button
+                                    onClick={handleExtractSheets}
+                                    disabled={processingDrawing !== null}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Extract individual sheets from PDFs using OCR"
+                                >
+                                    <span className="icon-file w-4 h-4"></span>
+                                    {processingDrawing ? 'Processing...' : 'Extract Sheets'}
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={() => handleBreadcrumbClick('disciplines')}
