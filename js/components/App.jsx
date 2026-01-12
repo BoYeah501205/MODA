@@ -3915,13 +3915,19 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 </div>
                             </div>
                             
-                            {/* Shop Drawing Button */}
-                            <div className="mb-6">
+                            {/* Action Buttons */}
+                            <div className="mb-6 grid grid-cols-2 gap-3">
                                 <button
                                     onClick={handleOpenShopDrawing}
-                                    className="w-full py-3 bg-autovol-navy text-white rounded-lg font-medium hover:bg-autovol-navy-light transition flex items-center justify-center gap-2"
+                                    className="py-3 bg-autovol-navy text-white rounded-lg font-medium hover:bg-autovol-navy-light transition flex items-center justify-center gap-2"
                                 >
-                                    <span>📐</span> Open Shop Drawing
+                                    <span className="icon-file"></span> Open Shop Drawing
+                                </button>
+                                <button
+                                    onClick={() => alert('License Plate Viewer - Coming Soon!\n\nThis will show the module license plate with download and QR code options.')}
+                                    className="py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition flex items-center justify-center gap-2"
+                                >
+                                    <span className="icon-tag"></span> View License Plate
                                 </button>
                             </div>
 
