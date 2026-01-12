@@ -3500,10 +3500,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 const blm = side === 'H' ? (module.hitchBLM || '') : (module.rearBLM || '');
                 const unitType = module.hitchUnit || module.unitType || '';
                 const indicators = getLicensePlateIndicators(module);
-                
-                // Get shop drawing URL for this module's BLM
-                const shopDrawingLinks = project.shopDrawingLinks || {};
-                const shopDrawingUrl = shopDrawingLinks[blm] || '';
+                const moduleMenuUrl = `https://modulardashboard.com/module/${project.id}/${blm}`;
                 
                 let y = 50 * scale;
                 doc.setFontSize(14 * scale).setFont('helvetica', 'bold');
@@ -3526,20 +3523,18 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 doc.setFontSize(32 * scale).text(String(unitType).toUpperCase(), centerX, y, { align: 'center' });
                 y += 50 * scale;
                 
-                // Only show QR code if shop drawing URL exists
-                if (shopDrawingUrl) {
-                    doc.setFontSize(8 * scale).setFont('helvetica', 'bold');
-                    doc.text('Shop Drawing Package Link', centerX, y, { align: 'center' });
-                    y += 12 * scale;
-                    const qr = qrcode(0, 'M');
-                    qr.addData(shopDrawingUrl);
-                    qr.make();
-                    const qrSize = 100 * scale;
-                    doc.addImage(qr.createDataURL(4, 0), 'PNG', centerX - qrSize/2, y, qrSize, qrSize);
-                    y += qrSize + 12 * scale;
-                    doc.setFontSize(8 * scale).setFont('helvetica', 'normal');
-                    doc.text('Scan to open shop drawing', centerX, y, { align: 'center' });
-                }
+                // Always show QR code
+                doc.setFontSize(8 * scale).setFont('helvetica', 'bold');
+                doc.text('Module Information', centerX, y, { align: 'center' });
+                y += 12 * scale;
+                const qr = qrcode(0, 'M');
+                qr.addData(moduleMenuUrl);
+                qr.make();
+                const qrSize = 100 * scale;
+                doc.addImage(qr.createDataURL(4, 0), 'PNG', centerX - qrSize/2, y, qrSize, qrSize);
+                y += qrSize + 12 * scale;
+                doc.setFontSize(8 * scale).setFont('helvetica', 'normal');
+                doc.text('Scan for drawings & info', centerX, y, { align: 'center' });
                 
                 let footerY = height - 50 * scale;
                 doc.setFontSize(10 * scale);
@@ -3579,8 +3574,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 const blm = side === 'H' ? (module.hitchBLM || '') : (module.rearBLM || '');
                 const unitType = module.hitchUnit || module.unitType || '';
                 const indicators = getLicensePlateIndicators(module);
-                const shopDrawingLinks = project.shopDrawingLinks || {};
-                const shopDrawingUrl = shopDrawingLinks[blm] || '';
+                const moduleMenuUrl = `https://modulardashboard.com/module/${project.id}/${blm}`;
                 return (
                     <div className="bg-white border-2 border-gray-400 rounded p-4 w-64 text-center mx-auto shadow-lg" style={{ fontFamily: 'Arial, sans-serif' }}>
                         <div className="text-xs font-bold text-gray-700">PROJECT: {project.name.toUpperCase()}</div>
@@ -3590,15 +3584,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         <div className="text-4xl font-bold my-2" style={{ color: 'var(--autovol-navy)' }}>({side}) - {blm}</div>
                         {indicators.length > 0 && <div className="text-red-600 font-bold text-sm my-1">{indicators.map(i => i.label).join('; ')}</div>}
                         <div className="text-xl font-bold text-gray-800 my-1">{String(unitType).toUpperCase()}</div>
-                        {shopDrawingUrl ? (
-                            <div className="my-3">
-                                <div className="text-xs font-bold text-gray-600 mb-1">Shop Drawing Package Link</div>
-                                <img src={generateQRCode(shopDrawingUrl)} className="w-20 h-20 mx-auto" alt="QR Code" />
-                                <div className="text-xs text-gray-500 mt-1">Scan to open shop drawing</div>
-                            </div>
-                        ) : (
-                            <div className="my-3 py-4 text-xs text-gray-400 italic">No shop drawing link</div>
-                        )}
+                        <div className="my-3">
+                            <div className="text-xs font-bold text-gray-600 mb-1">Module Information</div>
+                            <img src={generateQRCode(moduleMenuUrl)} className="w-20 h-20 mx-auto" alt="QR Code" />
+                            <div className="text-xs text-gray-500 mt-1">Scan for drawings & info</div>
+                        </div>
                         {footerNotes && <div className="text-xs italic text-gray-600 my-1">{footerNotes}</div>}
                         <div className="text-xs text-gray-500 border-t pt-2 mt-2">
                             <div>{new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}</div>
