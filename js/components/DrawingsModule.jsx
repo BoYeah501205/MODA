@@ -1291,26 +1291,26 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     
                     <div className="flex items-center gap-3">
                         {window.MODA_DRAWING_SHEETS && (
-                            <>
-                                <button
-                                    onClick={() => setShowSheetBrowser(true)}
-                                    className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
-                                    style={{ backgroundColor: 'var(--autovol-teal)' }}
-                                    title="Browse individual sheets with advanced filtering"
-                                >
-                                    <span className="icon-layers w-4 h-4"></span>
-                                    Browse Sheets
-                                </button>
-                                <button
-                                    onClick={handleExtractSheets}
-                                    disabled={processingDrawing !== null || selectedDrawings.length === 0}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Run OCR on selected PDF files to extract individual sheets"
-                                >
-                                    <span className="icon-file w-4 h-4"></span>
-                                    {processingDrawing ? 'Processing...' : `Run OCR${selectedDrawings.length > 0 ? ` (${selectedDrawings.length})` : ''}`}
-                                </button>
-                            </>
+                            <button
+                                onClick={() => setShowSheetBrowser(true)}
+                                className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
+                                style={{ backgroundColor: 'var(--autovol-teal)' }}
+                                title="Browse individual sheets with advanced filtering"
+                            >
+                                <span className="icon-layers w-4 h-4"></span>
+                                Browse Sheets
+                            </button>
+                        )}
+                        {(window.MODA_TESSERACT_OCR || window.Tesseract) && (
+                            <button
+                                onClick={handleExtractSheets}
+                                disabled={processingDrawing !== null || selectedDrawings.length === 0}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Run OCR on selected PDF files to extract individual sheets"
+                            >
+                                <span className="icon-file w-4 h-4"></span>
+                                {processingDrawing ? 'Processing...' : `Run OCR${selectedDrawings.length > 0 ? ` (${selectedDrawings.length})` : ''}`}
+                            </button>
                         )}
                         <button
                             onClick={() => handleBreadcrumbClick('disciplines')}
@@ -1350,7 +1350,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    {window.MODA_DRAWING_SHEETS && (
+                                    {(window.MODA_TESSERACT_OCR || window.Tesseract) && (
                                         <th className="px-4 py-3 text-left">
                                             <input
                                                 type="checkbox"
@@ -1387,7 +1387,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     
                                     return (
                                         <tr key={drawing.id} className="hover:bg-gray-50">
-                                            {window.MODA_DRAWING_SHEETS && (
+                                            {(window.MODA_TESSERACT_OCR || window.Tesseract) && (
                                                 <td className="px-4 py-4">
                                                     {isPdf && (
                                                         <input
