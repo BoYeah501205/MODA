@@ -23,7 +23,6 @@ const NAV_GROUPS = [
         iconClass: 'icon-production',
         tabs: [
             { id: 'production', label: 'Production Board', iconClass: 'icon-production' },
-            { id: 'projects', label: 'Projects', iconClass: 'icon-projects' },
             { id: 'tracker', label: 'Tracker', iconClass: 'icon-tracker' },
             { id: 'people', label: 'People', iconClass: 'icon-people' },
             { id: 'automation', label: 'Automation', iconClass: 'icon-automation' },
@@ -35,6 +34,7 @@ const NAV_GROUPS = [
         label: 'Projects',
         iconClass: 'icon-precon',
         tabs: [
+            { id: 'projects', label: 'Projects', iconClass: 'icon-projects' },
             { id: 'precon', label: 'Precon', iconClass: 'icon-precon' },
             { id: 'engineering', label: 'Engineering', iconClass: 'icon-engineering' },
             { id: 'drawings', label: 'Drawings', iconClass: 'icon-drawings' }
