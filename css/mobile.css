@@ -5,10 +5,47 @@
 
 /* ===== MOBILE-FIRST BASE STYLES ===== */
 
+/* iOS-specific fixes */
+html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Fix iOS viewport height */
+    height: -webkit-fill-available;
+}
+
+body {
+    /* Fix iOS viewport height issues */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    /* Prevent rubber-band scrolling on iOS */
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+    /* Prevent iOS Safari from hiding content behind bottom bar */
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Root container fix for iOS */
+#root {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Ensure proper touch behavior */
 * {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+}
+
+/* iOS button fix - prevent default styling */
+button,
+input[type="button"],
+input[type="submit"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
 }
 
 /* Prevent zoom on input focus (iOS) */
