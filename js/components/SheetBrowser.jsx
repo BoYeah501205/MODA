@@ -78,10 +78,46 @@ const SheetBrowser = ({
         setError(null);
         
         try {
-            const results = await window.MODA_DRAWING_SHEETS.searchSheets({
-                projectId,
-                ...filters
-            });
+            let results = [];
+            
+            if (window.MODA_DRAWING_SHEETS?.searchSheets) {
+                // Use drawing sheets module if available
+                results = await window.MODA_DRAWING_SHEETS.searchSheets({
+                    projectId,
+                    ...filters
+                });
+            } else if (window.MODA_SUPABASE?.client) {
+                // Fallback: Query database directly
+                console.log('[SheetBrowser] Using direct database query');
+                
+                let query = window.MODA_SUPABASE.client
+                    .from('drawing_sheets')
+                    .select('*, drawing_files(name), modules(serial_number)')
+                    .eq('project_id', projectId);
+                
+                // Apply filters
+                if (filters.moduleId) {
+                    query = query.eq('linked_module_id', filters.moduleId);
+                }
+                if (filters.discipline) {
+                    query = query.eq('discipline', filters.discipline);
+                }
+                if (filters.searchText) {
+                    query = query.or(`sheet_name.ilike.%${filters.searchText}%,sheet_title.ilike.%${filters.searchText}%`);
+                }
+                
+                const { data, error } = await query.order('sheet_name');
+                
+                if (error) throw error;
+                
+                // Transform data to match expected format
+                results = (data || []).map(sheet => ({
+                    ...sheet,
+                    sheet_id: sheet.id,
+                    drawing_file_name: sheet.drawing_files?.name,
+                    module_identifier: sheet.modules?.serial_number
+                }));
+            }
             
             setSheets(results || []);
         } catch (err) {
@@ -94,7 +130,30 @@ const SheetBrowser = ({
     
     const loadStats = async () => {
         try {
-            const projectStats = await window.MODA_DRAWING_SHEETS.getProjectSheetStats(projectId);
+            let projectStats = null;
+            
+            if (window.MODA_DRAWING_SHEETS?.getProjectSheetStats) {
+                projectStats = await window.MODA_DRAWING_SHEETS.getProjectSheetStats(projectId);
+            } else if (window.MODA_SUPABASE?.client) {
+                // Fallback: Calculate stats from direct query
+                const { data, error } = await window.MODA_SUPABASE.client
+                    .from('drawing_sheets')
+                    .select('discipline, linked_module_id')
+                    .eq('project_id', projectId);
+                
+                if (!error && data) {
+                    const disciplines = new Set(data.map(s => s.discipline).filter(Boolean));
+                    const linkedCount = data.filter(s => s.linked_module_id).length;
+                    
+                    projectStats = {
+                        total_sheets: data.length,
+                        total_disciplines: disciplines.size,
+                        linked_sheets: linkedCount,
+                        unlinked_sheets: data.length - linkedCount
+                    };
+                }
+            }
+            
             setStats(projectStats);
         } catch (err) {
             console.error('[SheetBrowser] Error loading stats:', err);
