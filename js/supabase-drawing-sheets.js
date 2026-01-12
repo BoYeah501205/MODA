@@ -508,6 +508,75 @@
         return 'text-red-600';
     }
 
+    /**
+     * Save sheets extracted by Tesseract OCR to database
+     * @param {string} drawingFileId - Drawing file UUID
+     * @param {string} projectId - Project UUID
+     * @param {Array} sheets - Array of sheet data from Tesseract
+     * @returns {Promise<Object>} Result with saved sheet count
+     */
+    async function saveSheets(drawingFileId, projectId, sheets) {
+        if (!isAvailable()) throw new Error('Supabase not available');
+        
+        console.log(`[DrawingSheets] Saving ${sheets.length} sheets for drawing ${drawingFileId}`);
+        
+        const savedSheets = [];
+        
+        for (const sheet of sheets) {
+            try {
+                // Insert sheet record
+                const { data: insertedSheet, error: insertError } = await getClient()
+                    .from('drawing_sheets')
+                    .insert({
+                        drawing_file_id: drawingFileId,
+                        project_id: projectId,
+                        sheet_name: sheet.sheet_number || `Sheet ${sheet.page_number}`,
+                        sheet_title: sheet.sheet_title,
+                        drawing_date: sheet.date,
+                        page_number: sheet.page_number,
+                        ocr_confidence: sheet.ocr_confidence,
+                        ocr_metadata: {
+                            raw_text: sheet.raw_text,
+                            blm_id: sheet.blm_id,
+                            extracted_at: new Date().toISOString(),
+                            ocr_engine: 'tesseract'
+                        }
+                    })
+                    .select()
+                    .single();
+                
+                if (insertError) {
+                    console.error(`[DrawingSheets] Error inserting sheet ${sheet.page_number}:`, insertError);
+                    continue;
+                }
+                
+                // Auto-link to module if BLM ID found
+                if (sheet.blm_id && insertedSheet) {
+                    try {
+                        await getClient().rpc('auto_link_sheet_to_module', {
+                            p_sheet_id: insertedSheet.id,
+                            p_sheet_number: sheet.sheet_number || sheet.blm_id
+                        });
+                    } catch (linkError) {
+                        console.warn(`[DrawingSheets] Auto-link failed for sheet ${sheet.page_number}:`, linkError);
+                    }
+                }
+                
+                savedSheets.push(insertedSheet);
+            } catch (error) {
+                console.error(`[DrawingSheets] Error processing sheet ${sheet.page_number}:`, error);
+            }
+        }
+        
+        console.log(`[DrawingSheets] Saved ${savedSheets.length}/${sheets.length} sheets`);
+        
+        return {
+            total: sheets.length,
+            saved: savedSheets.length,
+            sheets: savedSheets
+        };
+    }
+
     // ============================================================================
     // EXPORT
     // ============================================================================
@@ -515,6 +584,7 @@
     window.MODA_DRAWING_SHEETS = {
         // Processing
         processDrawingSheets,
+        saveSheets,
         getExtractionJobStatus,
         getExtractionJobs,
 

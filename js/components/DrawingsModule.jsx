@@ -717,10 +717,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, []);
     
-    // Handle extract sheets - trigger OCR processing for selected PDFs
+    // Handle extract sheets - trigger OCR processing for selected PDFs using Tesseract
     const handleExtractSheets = useCallback(async () => {
-        if (!window.MODA_DRAWING_SHEETS?.processDrawingSheets) {
-            alert('Sheet extraction feature not available. Please refresh the page.');
+        if (!window.MODA_TESSERACT_OCR?.isAvailable()) {
+            alert('Tesseract OCR not loaded. Please refresh the page.');
             return;
         }
         
@@ -739,36 +739,82 @@ const DrawingsModule = ({ projects = [], auth }) => {
             return;
         }
         
-        const confirmed = confirm(`Run OCR on ${drawingsToProcess.length} PDF file(s)?\n\nThis will process each PDF and extract individual sheets with OCR metadata.\n\nCost: ~$0.01-0.02 per sheet`);
+        const confirmed = confirm(`Run OCR on ${drawingsToProcess.length} PDF file(s)?\n\nThis will process each PDF using Tesseract.js (free, client-side OCR).\n\nProcessing may take 2-5 seconds per page.`);
         if (!confirmed) return;
         
         try {
-            setProcessingDrawing({ status: 'processing', progress: 0 });
+            setProcessingDrawing({ status: 'processing', progress: 0, stage: 'starting' });
             
             for (let i = 0; i < drawingsToProcess.length; i++) {
                 const drawing = drawingsToProcess[i];
                 console.log(`[Drawings] Processing ${i + 1}/${drawingsToProcess.length}: ${drawing.name}`);
+                
+                // Download PDF file
+                const latestVersion = getLatestVersion(drawing);
+                if (!latestVersion) {
+                    console.error(`[Drawings] No version found for ${drawing.name}`);
+                    continue;
+                }
                 
                 setProcessingDrawing({ 
                     status: 'processing', 
                     progress: Math.round((i / drawingsToProcess.length) * 100),
                     current: i + 1,
                     total: drawingsToProcess.length,
-                    fileName: drawing.name
+                    fileName: drawing.name,
+                    stage: 'downloading'
                 });
                 
-                await window.MODA_DRAWING_SHEETS.processDrawingSheets(drawing.id);
+                // Download PDF from Supabase Storage
+                const storagePath = latestVersion.storage_path || latestVersion.storagePath;
+                const { data: pdfBlob, error: downloadError } = await window.MODA_SUPABASE?.client
+                    ?.storage
+                    .from('drawings')
+                    .download(storagePath);
+                
+                if (downloadError || !pdfBlob) {
+                    console.error(`[Drawings] Download error for ${drawing.name}:`, downloadError);
+                    continue;
+                }
+                
+                // Convert blob to File object
+                const pdfFile = new File([pdfBlob], drawing.name, { type: 'application/pdf' });
+                
+                // Process with Tesseract OCR
+                const sheets = await window.MODA_TESSERACT_OCR.processPDF(pdfFile, {
+                    onProgress: (progress) => {
+                        const baseProgress = Math.round((i / drawingsToProcess.length) * 100);
+                        const fileProgress = Math.round((progress.percent / 100) * (100 / drawingsToProcess.length));
+                        
+                        setProcessingDrawing({
+                            status: 'processing',
+                            progress: baseProgress + fileProgress,
+                            current: i + 1,
+                            total: drawingsToProcess.length,
+                            fileName: drawing.name,
+                            stage: progress.stage,
+                            pageProgress: `${progress.current}/${progress.total}`
+                        });
+                    }
+                });
+                
+                // Save sheets to database
+                if (window.MODA_DRAWING_SHEETS?.saveSheets) {
+                    await window.MODA_DRAWING_SHEETS.saveSheets(drawing.id, selectedProject.id, sheets);
+                }
+                
+                console.log(`[Drawings] Extracted ${sheets.length} sheets from ${drawing.name}`);
             }
             
             setProcessingDrawing(null);
             setSelectedDrawings([]); // Clear selection after processing
-            alert(`Successfully extracted sheets from ${drawingsToProcess.length} PDF file(s)!\n\nClick "Browse Sheets" to view and filter the extracted sheets.`);
+            alert(`Successfully extracted sheets from ${drawingsToProcess.length} PDF file(s) using Tesseract OCR!\n\nClick "Browse Sheets" to view and filter the extracted sheets.`);
         } catch (error) {
             console.error('[Drawings] Extract sheets error:', error);
             setProcessingDrawing(null);
             alert('Error extracting sheets: ' + error.message);
         }
-    }, [currentDrawings, selectedDrawings]);
+    }, [currentDrawings, selectedDrawings, selectedProject]);
     
     // Handle download - forces file download
     const handleDownload = useCallback(async (version) => {

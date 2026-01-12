@@ -625,12 +625,24 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 setProjectsSynced(true);
                                 console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
                             } catch (supabaseError) {
-                                console.error('[App] Supabase projects error:', supabaseError.message || supabaseError);
-                                console.log('[App] Projects table may not exist yet, falling back to localStorage');
-                                // Fallback to localStorage if Supabase projects table doesn't exist
+                                // Log detailed error info for debugging
+                                const errorDetails = {
+                                    message: supabaseError.message,
+                                    code: supabaseError.code,
+                                    hint: supabaseError.hint,
+                                    details: supabaseError.details
+                                };
+                                console.error('[App] Supabase projects error:', JSON.stringify(errorDetails));
+                                if (window.debugError) {
+                                    window.debugError(`Supabase projects failed: ${supabaseError.message || 'Unknown error'}`);
+                                    if (supabaseError.code) window.debugError(`Error code: ${supabaseError.code}`);
+                                }
+                                console.log('[App] Falling back to localStorage for projects');
+                                // Fallback to localStorage
                                 const saved = localStorage.getItem('autovol_projects');
                                 if (saved && saved !== 'undefined' && saved !== 'null') {
                                     setProjectsState(JSON.parse(saved));
+                                    if (window.debugInfo) window.debugInfo(`Loaded ${JSON.parse(saved).length} projects from localStorage`);
                                 }
                             }
                         } else {
