@@ -1015,7 +1015,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                             {id: 'transport', label: 'Transport', icon: 'icon-transport'},
                                             {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
                                             {id: 'precon', label: 'Precon', icon: 'icon-precon'},
-                                            {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'}
+                                            {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'},
+                                            {id: 'drawings', label: 'Drawings', icon: 'icon-drawings'},
+                                            {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
+                                            {id: 'onsite', label: 'On-Site', icon: 'icon-building'},
+                                            {id: 'reports', label: 'Reports', icon: 'icon-reports'},
+                                            {id: 'automation', label: 'Automation', icon: 'icon-automation'}
                                         ].filter(tab => auth.visibleTabs.includes(tab.id))}
                                         activeTab={activeTab}
                                         onTabChange={(tabId) => { setActiveTab(tabId); setSelectedProject(null); }}
