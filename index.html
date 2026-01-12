@@ -51,17 +51,132 @@
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
     <div id="root"></div>
     
-    <!-- Debug: Show JS errors on screen for Safari/iPad debugging -->
-    <div id="error-display" style="display:none; position:fixed; bottom:0; left:0; right:0; background:red; color:white; padding:10px; font-size:12px; max-height:200px; overflow:auto; z-index:99999;"></div>
+    <!-- Mobile Debug Console for Safari/iOS debugging -->
+    <div id="mobile-debug-console" style="position:fixed; top:0; left:0; right:0; background:rgba(0,0,0,0.95); color:#0f0; padding:8px; font-family:monospace; font-size:11px; max-height:40vh; overflow:auto; z-index:999999; display:none; border-bottom:2px solid #0f0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; border-bottom:1px solid #0f0; padding-bottom:5px;">
+        <strong style="color:#0ff;">🐛 MODA Debug Console</strong>
+        <button onclick="document.getElementById('mobile-debug-console').style.display='none'" style="background:#f00; color:#fff; border:none; padding:4px 8px; border-radius:3px; font-size:10px;">Close</button>
+      </div>
+      <div id="debug-log" style="font-size:10px; line-height:1.3;"></div>
+    </div>
+    
+    <!-- Debug Toggle Button -->
+    <button id="debug-toggle" onclick="var d=document.getElementById('mobile-debug-console'); d.style.display=d.style.display==='none'?'block':'none';" style="position:fixed; bottom:10px; right:10px; background:#0f0; color:#000; border:none; padding:8px 12px; border-radius:50%; font-size:16px; z-index:999998; box-shadow:0 2px 8px rgba(0,0,0,0.3); font-weight:bold;">🐛</button>
+    
     <script>
-      window.onerror = function(msg, url, line, col, error) {
-        var el = document.getElementById('error-display');
-        if (el) {
-          el.style.display = 'block';
-          el.innerHTML += '<div><b>' + msg + '</b><br>File: ' + url + '<br>Line: ' + line + '</div><hr>';
+      // Enhanced Mobile Debug System
+      (function() {
+        var debugLog = document.getElementById('debug-log');
+        var debugConsole = document.getElementById('mobile-debug-console');
+        var logCount = 0;
+        var maxLogs = 100;
+        
+        function addLog(type, message, color) {
+          if (!debugLog) return;
+          logCount++;
+          var timestamp = new Date().toLocaleTimeString();
+          var logEntry = document.createElement('div');
+          logEntry.style.color = color || '#0f0';
+          logEntry.style.marginBottom = '3px';
+          logEntry.style.borderBottom = '1px solid #333';
+          logEntry.style.paddingBottom = '2px';
+          logEntry.innerHTML = '<span style="color:#888;">[' + timestamp + ']</span> <b style="color:' + color + ';">' + type + ':</b> ' + message;
+          debugLog.insertBefore(logEntry, debugLog.firstChild);
+          
+          // Keep only last maxLogs entries
+          while (debugLog.children.length > maxLogs) {
+            debugLog.removeChild(debugLog.lastChild);
+          }
+          
+          // Auto-show on error
+          if (type === 'ERROR' || type === 'FATAL') {
+            debugConsole.style.display = 'block';
+          }
         }
-        return false;
-      };
+        
+        // Capture console.log
+        var originalLog = console.log;
+        console.log = function() {
+          originalLog.apply(console, arguments);
+          var msg = Array.prototype.slice.call(arguments).map(function(arg) {
+            return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
+          }).join(' ');
+          addLog('LOG', msg, '#0f0');
+        };
+        
+        // Capture console.warn
+        var originalWarn = console.warn;
+        console.warn = function() {
+          originalWarn.apply(console, arguments);
+          var msg = Array.prototype.slice.call(arguments).map(function(arg) {
+            return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
+          }).join(' ');
+          addLog('WARN', msg, '#ff0');
+        };
+        
+        // Capture console.error
+        var originalError = console.error;
+        console.error = function() {
+          originalError.apply(console, arguments);
+          var msg = Array.prototype.slice.call(arguments).map(function(arg) {
+            return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
+          }).join(' ');
+          addLog('ERROR', msg, '#f00');
+        };
+        
+        // Capture window errors
+        window.onerror = function(msg, url, line, col, error) {
+          var errorMsg = msg + '<br>File: ' + (url || 'unknown') + '<br>Line: ' + line + ':' + col;
+          if (error && error.stack) {
+            errorMsg += '<br>Stack: ' + error.stack.substring(0, 200);
+          }
+          addLog('FATAL', errorMsg, '#f00');
+          return false;
+        };
+        
+        // Capture promise rejections
+        window.addEventListener('unhandledrejection', function(e) {
+          var msg = e.reason ? (e.reason.message || e.reason.stack || e.reason) : 'Unknown promise rejection';
+          addLog('PROMISE', String(msg), '#f80');
+        });
+        
+        // Track page load
+        addLog('INIT', 'MODA Debug Console Started', '#0ff');
+        addLog('INFO', 'User Agent: ' + navigator.userAgent, '#0ff');
+        addLog('INFO', 'Viewport: ' + window.innerWidth + 'x' + window.innerHeight, '#0ff');
+        
+        // Track DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+          addLog('LOAD', 'DOM Content Loaded', '#0f0');
+        });
+        
+        // Track full page load
+        window.addEventListener('load', function() {
+          addLog('LOAD', 'Page Fully Loaded', '#0f0');
+        });
+        
+        // Track React mount
+        var checkReact = setInterval(function() {
+          if (window.React) {
+            addLog('REACT', 'React library loaded (v' + React.version + ')', '#0f0');
+            clearInterval(checkReact);
+          }
+        }, 100);
+        
+        // Timeout check for React app
+        setTimeout(function() {
+          var root = document.getElementById('root');
+          if (root && root.children.length === 0) {
+            addLog('ERROR', 'React app did not mount after 5 seconds!', '#f00');
+            debugConsole.style.display = 'block';
+          }
+        }, 5000);
+        
+        // Make debug functions globally available
+        window.debugLog = function(msg) { addLog('DEBUG', msg, '#0ff'); };
+        window.debugError = function(msg) { addLog('ERROR', msg, '#f00'); };
+        window.debugInfo = function(msg) { addLog('INFO', msg, '#0f0'); };
+      })();
       window.addEventListener('unhandledrejection', function(e) {
         var el = document.getElementById('error-display');
         if (el) {
