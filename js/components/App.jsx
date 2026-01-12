@@ -612,17 +612,27 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     try {
                         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
                             console.log('[App] Loading projects from Supabase...');
-                            const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
-                            // Map Supabase field names to UI field names
-                            const mappedProjects = (supabaseProjects || []).map(p => ({
-                                ...p,
-                                customer: p.client || p.customer || '', // Supabase uses 'client', UI uses 'customer'
-                                startDate: p.start_date || p.startDate,
-                                endDate: p.end_date || p.endDate
-                            }));
-                            setProjectsState(mappedProjects);
-                            setProjectsSynced(true);
-                            console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
+                            try {
+                                const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
+                                // Map Supabase field names to UI field names
+                                const mappedProjects = (supabaseProjects || []).map(p => ({
+                                    ...p,
+                                    customer: p.client || p.customer || '', // Supabase uses 'client', UI uses 'customer'
+                                    startDate: p.start_date || p.startDate,
+                                    endDate: p.end_date || p.endDate
+                                }));
+                                setProjectsState(mappedProjects);
+                                setProjectsSynced(true);
+                                console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
+                            } catch (supabaseError) {
+                                console.error('[App] Supabase projects error:', supabaseError.message || supabaseError);
+                                console.log('[App] Projects table may not exist yet, falling back to localStorage');
+                                // Fallback to localStorage if Supabase projects table doesn't exist
+                                const saved = localStorage.getItem('autovol_projects');
+                                if (saved && saved !== 'undefined' && saved !== 'null') {
+                                    setProjectsState(JSON.parse(saved));
+                                }
+                            }
                         } else {
                             // Fallback to localStorage
                             console.log('[App] Supabase not available, using localStorage for projects');
