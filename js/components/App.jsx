@@ -4542,17 +4542,19 @@ function App() {
     return <Dashboard auth={auth} />;
 }
 
-// Only render App after useAuth is available
-if (window.useAuth) {
-    ReactDOM.render(<App />, document.getElementById('root'));
-} else {
-    // Wait for AuthModule to load
-    const checkAuth = setInterval(() => {
-        if (window.useAuth) {
-            clearInterval(checkAuth);
-            ReactDOM.render(<App />, document.getElementById('root'));
-        }
-    }, 50);
+// Only render App after useAuth is available (unless another route already handled rendering)
+if (!window.MODA_ROUTE_HANDLED) {
+    if (window.useAuth) {
+        ReactDOM.render(<App />, document.getElementById('root'));
+    } else {
+        // Wait for AuthModule to load
+        const checkAuth = setInterval(() => {
+            if (window.useAuth) {
+                clearInterval(checkAuth);
+                ReactDOM.render(<App />, document.getElementById('root'));
+            }
+        }, 50);
+    }
 }
 
 // ============================================================================

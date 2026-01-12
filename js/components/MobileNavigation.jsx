@@ -53,7 +53,7 @@ window.MobileNavigation = function MobileNavigation({
                 className={`mobile-menu-button ${isOpen ? 'active' : ''}`}
                 onClick={() => setIsOpen(!isOpen)}
                 aria-label="Toggle menu"
-                style={{ color: 'white' }}
+                style={{ color: 'var(--autovol-navy, #1E3A5F)' }}
             >
                 <div className="mobile-menu-icon">
                     <span></span>

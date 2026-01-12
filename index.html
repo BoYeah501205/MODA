@@ -315,6 +315,22 @@
     <!-- Activity Log Viewer -->
     <script type="text/babel" src="./js/components/ActivityLogViewer.jsx"></script>
     
+    <!-- Router: Load appropriate component based on URL -->
+    <script type="text/babel">
+        // Check if URL matches /module/{projectId}/{blm} pattern
+        const path = window.location.pathname;
+        const moduleMatch = path.match(/\/module\/([^\/]+)\/([^\/]+)/);
+        
+        if (moduleMatch) {
+            // Render ModuleMenuPage for QR code scans
+            console.log('[Router] Rendering ModuleMenuPage for:', moduleMatch[1], moduleMatch[2]);
+            ReactDOM.render(<ModuleMenuPage />, document.getElementById('root'));
+            
+            // Set flag to prevent App.jsx from rendering
+            window.MODA_ROUTE_HANDLED = true;
+        }
+    </script>
+    
     <script type="text/babel" src="./js/components/App.jsx?v=5"></script>
 </body>
 </html>
