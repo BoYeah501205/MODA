@@ -177,13 +177,6 @@
         window.debugError = function(msg) { addLog('ERROR', msg, '#f00'); };
         window.debugInfo = function(msg) { addLog('INFO', msg, '#0f0'); };
       })();
-      window.addEventListener('unhandledrejection', function(e) {
-        var el = document.getElementById('error-display');
-        if (el) {
-          el.style.display = 'block';
-          el.innerHTML += '<div><b>Promise Error:</b> ' + (e.reason ? e.reason.message || e.reason : 'Unknown') + '</div><hr>';
-        }
-      });
       
       // GLOBAL: Patch localStorage.setItem to handle Safari/iPad quota errors
       (function() {
