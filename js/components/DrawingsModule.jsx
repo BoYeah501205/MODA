@@ -27,6 +27,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showFolderModal, setShowFolderModal] = useState(null); // { mode: 'add'|'edit', type: 'category'|'discipline', folder?: existing }
     const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(null);
     const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
+    const [showSheetBrowser, setShowSheetBrowser] = useState(false);
+    const [processingDrawing, setProcessingDrawing] = useState(null); // { drawingId, status, progress }
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -773,6 +775,42 @@ const DrawingsModule = ({ projects = [], auth }) => {
         });
     };
     
+    // Handle process drawing sheets (split PDF and OCR)
+    const handleProcessSheets = useCallback(async (drawing) => {
+        if (!window.MODA_DRAWING_SHEETS?.processDrawingSheets) {
+            alert('Sheet processing module not available');
+            return;
+        }
+        
+        const confirmed = confirm(
+            `Process "${drawing.name}" to extract individual sheets?\n\n` +
+            `This will split the PDF into individual pages and extract title block metadata using OCR. ` +
+            `This may take several minutes for large files.`
+        );
+        
+        if (!confirmed) return;
+        
+        setProcessingDrawing({ drawingId: drawing.id, status: 'processing', progress: 0 });
+        
+        try {
+            const result = await window.MODA_DRAWING_SHEETS.processDrawingSheets(drawing.id);
+            
+            setProcessingDrawing(null);
+            
+            alert(
+                `Successfully processed ${result.processed_sheets} sheet(s)!\n\n` +
+                `You can now browse and filter individual sheets.`
+            );
+            
+            // Refresh drawings to show updated state
+            await loadDrawings();
+        } catch (error) {
+            console.error('[Drawings] Error processing sheets:', error);
+            setProcessingDrawing(null);
+            alert('Error processing sheets: ' + error.message);
+        }
+    }, []);
+    
     // Filter projects by search
     const filteredProjects = useMemo(() => {
         if (!searchTerm) return projects;
@@ -1152,6 +1190,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     </div>
                     
                     <div className="flex items-center gap-3">
+                        {window.MODA_DRAWING_SHEETS && (
+                            <button
+                                onClick={() => setShowSheetBrowser(true)}
+                                className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
+                                style={{ backgroundColor: 'var(--autovol-teal)' }}
+                                title="Browse individual sheets with advanced filtering"
+                            >
+                                <span className="icon-layers w-4 h-4"></span>
+                                Browse Sheets
+                            </button>
+                        )}
                         <button
                             onClick={() => handleBreadcrumbClick('disciplines')}
                             className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
@@ -1270,6 +1319,16 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                             >
                                                                 <span className="icon-download w-4 h-4"></span>
                                                             </button>
+                                                            {window.MODA_DRAWING_SHEETS && (
+                                                                <button
+                                                                    onClick={() => handleProcessSheets(drawing)}
+                                                                    className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition"
+                                                                    title="Extract Individual Sheets (OCR)"
+                                                                    disabled={processingDrawing?.drawingId === drawing.id}
+                                                                >
+                                                                    <span className="icon-layers w-4 h-4"></span>
+                                                                </button>
+                                                            )}
                                                         </>
                                                     )}
                                                     <button
@@ -2004,6 +2063,22 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 </div>
             )}
             
+            {/* Sheet Processing Overlay */}
+            {processingDrawing && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
+                        <h3 className="font-medium text-gray-900">Processing Sheets...</h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Splitting PDF and extracting title block metadata
+                        </p>
+                        <p className="text-xs text-gray-400 mt-2">
+                            This may take several minutes for large files
+                        </p>
+                    </div>
+                </div>
+            )}
+            
             {/* Modals */}
             {showUploadModal && <UploadModal />}
             <VersionHistoryModal />
@@ -2011,6 +2086,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <DuplicatePromptModal />
             <FolderModal />
             <DeleteFolderConfirmModal />
+            
+            {/* Sheet Browser */}
+            {showSheetBrowser && window.SheetBrowser && (
+                <window.SheetBrowser
+                    projectId={selectedProject?.id}
+                    projectName={selectedProject?.name}
+                    modules={selectedProject?.modules || []}
+                    onClose={() => setShowSheetBrowser(false)}
+                    auth={auth}
+                />
+            )}
             
             {/* Main Content */}
             {!selectedProject && renderProjectsView()}

@@ -1,0 +1,325 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.24.3';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { drawingFileId, action = 'split_and_ocr' } = await req.json();
+
+    if (!drawingFileId) {
+      throw new Error('drawingFileId is required');
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const anthropic = new Anthropic({
+      apiKey: Deno.env.get('CLAUDE_API_KEY') ?? '',
+    });
+
+    console.log(`[ProcessSheets] Processing drawing file: ${drawingFileId}, action: ${action}`);
+
+    // Get drawing file metadata
+    const { data: drawingFile, error: fileError } = await supabaseClient
+      .from('drawing_files')
+      .select('*, drawing_versions(*)')
+      .eq('id', drawingFileId)
+      .single();
+
+    if (fileError || !drawingFile) {
+      throw new Error(`Drawing file not found: ${fileError?.message}`);
+    }
+
+    // Get latest version
+    const latestVersion = drawingFile.drawing_versions
+      .sort((a: any, b: any) => parseFloat(b.version) - parseFloat(a.version))[0];
+
+    if (!latestVersion) {
+      throw new Error('No versions found for drawing file');
+    }
+
+    console.log(`[ProcessSheets] Latest version: ${latestVersion.version}, path: ${latestVersion.storage_path}`);
+
+    // Create extraction job
+    const { data: job, error: jobError } = await supabaseClient
+      .from('sheet_extraction_jobs')
+      .insert({
+        drawing_file_id: drawingFileId,
+        status: 'processing',
+        started_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      throw new Error(`Failed to create extraction job: ${jobError.message}`);
+    }
+
+    console.log(`[ProcessSheets] Created extraction job: ${job.id}`);
+
+    try {
+      // Download PDF from storage
+      const { data: pdfData, error: downloadError } = await supabaseClient.storage
+        .from('drawings')
+        .download(latestVersion.storage_path);
+
+      if (downloadError || !pdfData) {
+        throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+      }
+
+      console.log(`[ProcessSheets] Downloaded PDF, size: ${pdfData.size} bytes`);
+
+      // Convert PDF to array buffer
+      const pdfBuffer = await pdfData.arrayBuffer();
+      const pdfBytes = new Uint8Array(pdfBuffer);
+
+      // Use pdf-lib to split PDF into individual pages
+      // Note: We'll use a dynamic import for pdf-lib
+      const { PDFDocument } = await import('https://cdn.skypack.dev/pdf-lib@1.17.1');
+
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const totalPages = pdfDoc.getPageCount();
+
+      console.log(`[ProcessSheets] PDF has ${totalPages} pages`);
+
+      // Update job with total sheets
+      await supabaseClient
+        .from('sheet_extraction_jobs')
+        .update({ total_sheets: totalPages })
+        .eq('id', job.id);
+
+      const sheets = [];
+
+      // Process each page
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        const sheetNumber = pageNum + 1;
+        console.log(`[ProcessSheets] Processing sheet ${sheetNumber}/${totalPages}`);
+
+        // Create a new PDF with just this page
+        const singlePagePdf = await PDFDocument.create();
+        const [copiedPage] = await singlePagePdf.copyPages(pdfDoc, [pageNum]);
+        singlePagePdf.addPage(copiedPage);
+
+        const singlePageBytes = await singlePagePdf.save();
+
+        // Convert first page to image for OCR (using PDF to PNG conversion)
+        // For now, we'll store the PDF and do OCR on the PDF directly
+        // In production, you might want to convert to PNG first for better OCR
+
+        // Generate storage path for individual sheet
+        const sheetStoragePath = `${drawingFile.project_id}/${drawingFile.category}/${drawingFile.discipline}/sheets/${drawingFile.id}_sheet_${sheetNumber}.pdf`;
+
+        // Upload individual sheet to storage
+        const { error: uploadError } = await supabaseClient.storage
+          .from('drawings')
+          .upload(sheetStoragePath, singlePageBytes, {
+            contentType: 'application/pdf',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error(`[ProcessSheets] Failed to upload sheet ${sheetNumber}:`, uploadError);
+          continue;
+        }
+
+        console.log(`[ProcessSheets] Uploaded sheet ${sheetNumber} to: ${sheetStoragePath}`);
+
+        // Perform OCR on the sheet using Claude Vision
+        let ocrMetadata = {};
+        let ocrConfidence = null;
+        let parsedFields = {
+          sheet_name: null,
+          sheet_title: null,
+          blm_type: null,
+          discipline: null,
+          scale: null,
+          drawing_date: null,
+          revision: null,
+          drawn_by: null,
+          checked_by: null,
+        };
+
+        try {
+          // Convert PDF page to base64 for Claude
+          const base64Pdf = btoa(String.fromCharCode(...singlePageBytes));
+
+          const message = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1024,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'document',
+                    source: {
+                      type: 'base64',
+                      media_type: 'application/pdf',
+                      data: base64Pdf,
+                    },
+                  },
+                  {
+                    type: 'text',
+                    text: `Analyze this shop drawing sheet and extract the title block information. Return a JSON object with these fields:
+{
+  "sheet_name": "Sheet identifier (e.g., 'Cover Sheet', 'S-1', 'M-2')",
+  "sheet_title": "Sheet title/description",
+  "blm_type": "BLM/Unit type code (e.g., 'C1', 'B2', 'SW')",
+  "discipline": "Discipline (Mechanical, Electrical, Plumbing, Structural, Architectural)",
+  "scale": "Drawing scale",
+  "drawing_date": "Date in YYYY-MM-DD format if present",
+  "revision": "Revision number/letter",
+  "drawn_by": "Drawn by name",
+  "checked_by": "Checked by name",
+  "confidence": "Your confidence in the extraction (0-100)"
+}
+
+Return ONLY the JSON object, no other text.`,
+                  },
+                ],
+              },
+            ],
+          });
+
+          const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
+          console.log(`[ProcessSheets] OCR response for sheet ${sheetNumber}:`, responseText);
+
+          // Parse JSON response
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const extracted = JSON.parse(jsonMatch[0]);
+            ocrMetadata = extracted;
+            ocrConfidence = extracted.confidence || null;
+
+            // Map to parsed fields
+            parsedFields = {
+              sheet_name: extracted.sheet_name || null,
+              sheet_title: extracted.sheet_title || null,
+              blm_type: extracted.blm_type || null,
+              discipline: extracted.discipline || null,
+              scale: extracted.scale || null,
+              drawing_date: extracted.drawing_date || null,
+              revision: extracted.revision || null,
+              drawn_by: extracted.drawn_by || null,
+              checked_by: extracted.checked_by || null,
+            };
+          }
+        } catch (ocrError) {
+          console.error(`[ProcessSheets] OCR failed for sheet ${sheetNumber}:`, ocrError);
+          ocrMetadata = { error: ocrError.message };
+        }
+
+        // Insert sheet record
+        const { data: sheet, error: sheetError } = await supabaseClient
+          .from('drawing_sheets')
+          .insert({
+            drawing_file_id: drawingFileId,
+            project_id: drawingFile.project_id,
+            sheet_number: sheetNumber,
+            sheet_name: parsedFields.sheet_name,
+            sheet_title: parsedFields.sheet_title,
+            storage_path: sheetStoragePath,
+            file_size: singlePageBytes.length,
+            ocr_metadata: ocrMetadata,
+            ocr_confidence: ocrConfidence,
+            ocr_processed_at: new Date().toISOString(),
+            blm_type: parsedFields.blm_type,
+            discipline: parsedFields.discipline,
+            scale: parsedFields.scale,
+            drawing_date: parsedFields.drawing_date,
+            revision: parsedFields.revision,
+            drawn_by: parsedFields.drawn_by,
+            checked_by: parsedFields.checked_by,
+          })
+          .select()
+          .single();
+
+        if (sheetError) {
+          console.error(`[ProcessSheets] Failed to insert sheet ${sheetNumber}:`, sheetError);
+          continue;
+        }
+
+        // Auto-link to module
+        await supabaseClient.rpc('auto_link_sheet_to_module', {
+          p_sheet_id: sheet.id,
+          p_project_id: drawingFile.project_id,
+          p_drawing_file_name: drawingFile.name,
+          p_blm_type: parsedFields.blm_type,
+        });
+
+        sheets.push(sheet);
+
+        // Update job progress
+        await supabaseClient
+          .from('sheet_extraction_jobs')
+          .update({ processed_sheets: sheetNumber })
+          .eq('id', job.id);
+      }
+
+      // Mark job as completed
+      const completedAt = new Date();
+      const processingTime = completedAt.getTime() - new Date(job.started_at).getTime();
+
+      await supabaseClient
+        .from('sheet_extraction_jobs')
+        .update({
+          status: 'completed',
+          completed_at: completedAt.toISOString(),
+          processing_time_ms: processingTime,
+        })
+        .eq('id', job.id);
+
+      console.log(`[ProcessSheets] Completed processing ${sheets.length} sheets in ${processingTime}ms`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          job_id: job.id,
+          total_sheets: totalPages,
+          processed_sheets: sheets.length,
+          sheets: sheets,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    } catch (processingError) {
+      // Mark job as failed
+      await supabaseClient
+        .from('sheet_extraction_jobs')
+        .update({
+          status: 'failed',
+          error_message: processingError.message,
+          error_details: { stack: processingError.stack },
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+
+      throw processingError;
+    }
+  } catch (error) {
+    console.error('[ProcessSheets] Error:', error);
+    return new Response(
+      JSON.stringify({
+        error: error.message,
+        details: error.stack,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      }
+    );
+  }
+});
