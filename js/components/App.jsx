@@ -3851,16 +3851,28 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 // First, try the new Drawings Module system
                 if (window.MODA_MODULE_DRAWINGS?.isAvailable()) {
                     try {
-                        const hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.serialNumber);
+                        // Try searching by serial number first
+                        let hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.serialNumber);
+                        let searchTerm = displayModule.serialNumber;
+                        
+                        // If not found, try searching by BLM IDs
+                        if (!hasDrawings && displayModule.hitchBLM) {
+                            hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.hitchBLM);
+                            if (hasDrawings) searchTerm = displayModule.hitchBLM;
+                        }
+                        if (!hasDrawings && displayModule.rearBLM && displayModule.rearBLM !== displayModule.hitchBLM) {
+                            hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.rearBLM);
+                            if (hasDrawings) searchTerm = displayModule.rearBLM;
+                        }
                         
                         if (hasDrawings) {
-                            // Open the Drawings Module filtered to this module's serial number
+                            // Open the Drawings Module filtered to this module
                             // Navigate to Drawings tab with module filter
                             if (window.location.hash !== '#drawings') {
                                 window.location.hash = 'drawings';
                             }
-                            // Store the module serial for the Drawings Module to pick up
-                            sessionStorage.setItem('moda_drawings_module_filter', displayModule.serialNumber);
+                            // Store the search term for the Drawings Module to pick up
+                            sessionStorage.setItem('moda_drawings_module_filter', searchTerm);
                             onClose();
                             return;
                         }
