@@ -3847,7 +3847,29 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
 
             const displayModule = editMode ? editingModule : module;
 
-            const handleOpenShopDrawing = () => {
+            const handleOpenShopDrawing = async () => {
+                // First, try the new Drawings Module system
+                if (window.MODA_MODULE_DRAWINGS?.isAvailable()) {
+                    try {
+                        const hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.serialNumber);
+                        
+                        if (hasDrawings) {
+                            // Open the Drawings Module filtered to this module's serial number
+                            // Navigate to Drawings tab with module filter
+                            if (window.location.hash !== '#drawings') {
+                                window.location.hash = 'drawings';
+                            }
+                            // Store the module serial for the Drawings Module to pick up
+                            sessionStorage.setItem('moda_drawings_module_filter', displayModule.serialNumber);
+                            onClose();
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('[Module Detail] Error checking drawings:', error);
+                    }
+                }
+                
+                // Fallback to old shopDrawingLinks system
                 const shopDrawingLinks = project?.shopDrawingLinks || {};
                 const blmToCheck = [displayModule.hitchBLM, displayModule.rearBLM].filter(Boolean);
                 let foundUrl = null;
@@ -3863,7 +3885,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     window.open(foundUrl, '_blank');
                 } else {
                     const blmList = blmToCheck.length > 0 ? blmToCheck.join(', ') : 'No BLM';
-                    alert(`Shop Drawing Not Found\n\nNo shop drawing link found for module ${displayModule.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawing links, go to Projects → Edit Project → Shop Drawing Links.`);
+                    alert(`Shop Drawing Not Found\n\nNo shop drawing link found for module ${displayModule.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings → Shop Drawings → Module Packages\n2. Upload drawings to the folder for this module\n\nOr add legacy links: Projects → Edit Project → Shop Drawing Links.`);
                 }
             };
 
