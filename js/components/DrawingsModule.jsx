@@ -801,6 +801,51 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 // Save sheets to database
                 if (window.MODA_DRAWING_SHEETS?.saveSheets) {
                     await window.MODA_DRAWING_SHEETS.saveSheets(drawing.id, selectedProject.id, sheets);
+                } else if (window.MODA_SUPABASE?.client) {
+                    // Fallback: Save directly to database if drawing sheets module not loaded
+                    console.log(`[Drawings] Using direct database save for ${sheets.length} sheets`);
+                    for (const sheet of sheets) {
+                        try {
+                            const { data: insertedSheet, error: insertError } = await window.MODA_SUPABASE.client
+                                .from('drawing_sheets')
+                                .insert({
+                                    drawing_file_id: drawing.id,
+                                    project_id: selectedProject.id,
+                                    sheet_name: sheet.sheet_number || `Sheet ${sheet.page_number}`,
+                                    sheet_title: sheet.sheet_title,
+                                    drawing_date: sheet.date,
+                                    page_number: sheet.page_number,
+                                    ocr_confidence: sheet.ocr_confidence,
+                                    ocr_metadata: {
+                                        raw_text: sheet.raw_text,
+                                        blm_id: sheet.blm_id,
+                                        extracted_at: new Date().toISOString(),
+                                        ocr_engine: 'tesseract'
+                                    }
+                                })
+                                .select()
+                                .single();
+                            
+                            if (insertError) {
+                                console.error(`[Drawings] Error inserting sheet ${sheet.page_number}:`, insertError);
+                                continue;
+                            }
+                            
+                            // Auto-link to module if BLM ID found
+                            if (sheet.blm_id && insertedSheet) {
+                                try {
+                                    await window.MODA_SUPABASE.client.rpc('auto_link_sheet_to_module', {
+                                        p_sheet_id: insertedSheet.id,
+                                        p_sheet_number: sheet.sheet_number || sheet.blm_id
+                                    });
+                                } catch (linkError) {
+                                    console.warn(`[Drawings] Auto-link failed for sheet ${sheet.page_number}:`, linkError);
+                                }
+                            }
+                        } catch (error) {
+                            console.error(`[Drawings] Error processing sheet ${sheet.page_number}:`, error);
+                        }
+                    }
                 }
                 
                 console.log(`[Drawings] Extracted ${sheets.length} sheets from ${drawing.name}`);

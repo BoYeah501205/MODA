@@ -27,7 +27,6 @@ const SheetBrowser = ({
         unitType: null,
         roomType: null,
         discipline: null,
-        blmType: null,
         searchText: ''
     });
     
@@ -39,7 +38,6 @@ const SheetBrowser = ({
     // Available filter options
     const [unitTypes, setUnitTypes] = useState([]);
     const [roomTypes, setRoomTypes] = useState([]);
-    const [blmTypes, setBlmTypes] = useState([]);
     
     // Check if sheet module is available
     const isAvailable = () => window.MODA_DRAWING_SHEETS?.searchSheets;
@@ -61,15 +59,10 @@ const SheetBrowser = ({
             // Room types (LIV/KIT, BED/BA, etc.)
             if (mod.hitchRoomType) rooms.add(mod.hitchRoomType);
             if (mod.rearRoomType) rooms.add(mod.rearRoomType);
-            
-            // BLM types
-            if (mod.hitchBLM) blms.add(mod.hitchBLM);
-            if (mod.rearBLM) blms.add(mod.rearBLM);
         });
         
         setUnitTypes(Array.from(units).sort());
         setRoomTypes(Array.from(rooms).sort());
-        setBlmTypes(Array.from(blms).sort());
     }, [modules]);
     
     // Load sheets and stats
@@ -287,21 +280,6 @@ const SheetBrowser = ({
                     </select>
                 </div>
                 
-                {/* BLM Type Filter */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">BLM Type</label>
-                    <select
-                        value={filters.blmType || ''}
-                        onChange={(e) => handleFilterChange('blmType', e.target.value || null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        <option value="">All BLM Types</option>
-                        {blmTypes.map(bt => (
-                            <option key={bt} value={bt}>{bt}</option>
-                        ))}
-                    </select>
-                </div>
-                
                 {/* Search */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -438,13 +416,6 @@ const SheetBrowser = ({
                     </div>
                 )}
                 
-                {sheet.blm_type && (
-                    <div className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-500">BLM Type:</span>
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">{sheet.blm_type}</span>
-                    </div>
-                )}
-                
                 {sheet.module_identifier && (
                     <div className="flex items-center gap-2 text-xs">
                         <span className="text-gray-500">Module:</span>
@@ -506,11 +477,6 @@ const SheetBrowser = ({
             <td className="px-4 py-3">
                 {sheet.discipline && (
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">{sheet.discipline}</span>
-                )}
-            </td>
-            <td className="px-4 py-3">
-                {sheet.blm_type && (
-                    <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded">{sheet.blm_type}</span>
                 )}
             </td>
             <td className="px-4 py-3 text-sm text-gray-600">{sheet.module_identifier || '-'}</td>
@@ -613,7 +579,6 @@ const SheetBrowser = ({
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sheet Name</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discipline</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">BLM Type</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Module</th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
