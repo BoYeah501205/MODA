@@ -25,6 +25,7 @@ const SheetBrowser = ({
     const [filters, setFilters] = useState({
         moduleId: null,
         unitType: null,
+        roomType: null,
         discipline: null,
         blmType: null,
         searchText: ''
@@ -35,20 +36,41 @@ const SheetBrowser = ({
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
     const [sortBy, setSortBy] = useState('sheet_number'); // 'sheet_number', 'sheet_name', 'discipline'
     
-    // Available unit types
+    // Available filter options
     const [unitTypes, setUnitTypes] = useState([]);
+    const [roomTypes, setRoomTypes] = useState([]);
+    const [blmTypes, setBlmTypes] = useState([]);
     
     // Check if sheet module is available
     const isAvailable = () => window.MODA_DRAWING_SHEETS?.searchSheets;
     
-    // Load unit types
+    // Load filter options from project modules
     useEffect(() => {
-        if (!isAvailable()) return;
+        if (!modules || modules.length === 0) return;
         
-        window.MODA_DRAWING_SHEETS.getUnitTypes()
-            .then(types => setUnitTypes(types))
-            .catch(err => console.error('[SheetBrowser] Error loading unit types:', err));
-    }, []);
+        // Extract unique unit types from modules
+        const units = new Set();
+        const rooms = new Set();
+        const blms = new Set();
+        
+        modules.forEach(mod => {
+            // Unit types (S1, A1, C1, B2, etc.)
+            if (mod.hitchUnit) units.add(mod.hitchUnit);
+            if (mod.rearUnit) units.add(mod.rearUnit);
+            
+            // Room types (LIV/KIT, BED/BA, etc.)
+            if (mod.hitchRoomType) rooms.add(mod.hitchRoomType);
+            if (mod.rearRoomType) rooms.add(mod.rearRoomType);
+            
+            // BLM types
+            if (mod.hitchBLM) blms.add(mod.hitchBLM);
+            if (mod.rearBLM) blms.add(mod.rearBLM);
+        });
+        
+        setUnitTypes(Array.from(units).sort());
+        setRoomTypes(Array.from(rooms).sort());
+        setBlmTypes(Array.from(blms).sort());
+    }, [modules]);
     
     // Load sheets and stats
     useEffect(() => {
@@ -90,13 +112,6 @@ const SheetBrowser = ({
     const disciplines = useMemo(() => {
         const unique = new Set();
         sheets.forEach(s => s.discipline && unique.add(s.discipline));
-        return Array.from(unique).sort();
-    }, [sheets]);
-    
-    // Get unique BLM types from sheets
-    const blmTypes = useMemo(() => {
-        const unique = new Set();
-        sheets.forEach(s => s.blm_type && unique.add(s.blm_type));
         return Array.from(unique).sort();
     }, [sheets]);
     
@@ -189,6 +204,7 @@ const SheetBrowser = ({
         setFilters({
             moduleId: null,
             unitType: null,
+            roomType: null,
             discipline: null,
             blmType: null,
             searchText: ''
@@ -236,9 +252,22 @@ const SheetBrowser = ({
                     >
                         <option value="">All Types</option>
                         {unitTypes.map(ut => (
-                            <option key={ut.code} value={ut.code}>
-                                {ut.code} - {ut.name}
-                            </option>
+                            <option key={ut} value={ut}>{ut}</option>
+                        ))}
+                    </select>
+                </div>
+                
+                {/* Room Type Filter */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                    <select
+                        value={filters.roomType || ''}
+                        onChange={(e) => handleFilterChange('roomType', e.target.value || null)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="">All Room Types</option>
+                        {roomTypes.map(rt => (
+                            <option key={rt} value={rt}>{rt}</option>
                         ))}
                     </select>
                 </div>
