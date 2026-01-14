@@ -54,7 +54,7 @@
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
     <div id="root"></div>
     
-    <!-- Mobile Debug Console for Safari/iOS debugging -->
+    <!-- Mobile Debug Console for Safari/iOS debugging (mobile only) -->
     <div id="mobile-debug-console" style="position:fixed; top:0; left:0; right:0; background:rgba(0,0,0,0.95); color:#0f0; padding:8px; font-family:monospace; font-size:11px; max-height:40vh; overflow:auto; z-index:999999; display:none; border-bottom:2px solid #0f0;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; border-bottom:1px solid #0f0; padding-bottom:5px;">
         <strong style="color:#0ff;">🐛 MODA Debug Console</strong>
@@ -63,16 +63,26 @@
       <div id="debug-log" style="font-size:10px; line-height:1.3;"></div>
     </div>
     
-    <!-- Debug Toggle Button -->
+    <!-- Debug Toggle Button (mobile only) -->
     <button id="debug-toggle" onclick="var d=document.getElementById('mobile-debug-console'); d.style.display=d.style.display==='none'?'block':'none';" style="position:fixed; bottom:10px; right:10px; background:#0f0; color:#000; border:none; padding:8px 12px; border-radius:50%; font-size:16px; z-index:999998; box-shadow:0 2px 8px rgba(0,0,0,0.3); font-weight:bold;">🐛</button>
     
     <script>
-      // Enhanced Mobile Debug System
+      // Enhanced Mobile Debug System (Mobile Only)
       (function() {
+        // Check if device is mobile (screen width < 1024px)
+        var isMobile = window.innerWidth < 1024;
         var debugLog = document.getElementById('debug-log');
         var debugConsole = document.getElementById('mobile-debug-console');
+        var debugToggle = document.getElementById('debug-toggle');
         var logCount = 0;
         var maxLogs = 100;
+        
+        // Hide debug console on desktop
+        if (!isMobile) {
+          if (debugConsole) debugConsole.style.display = 'none';
+          if (debugToggle) debugToggle.style.display = 'none';
+          return; // Exit early on desktop
+        }
         
         function addLog(type, message, color) {
           if (!debugLog) return;
