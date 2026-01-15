@@ -125,9 +125,8 @@ DROP POLICY IF EXISTS "Allow authenticated write" ON production_weeks;
 DROP POLICY IF EXISTS "Allow authenticated read" ON engineering_issues;
 DROP POLICY IF EXISTS "Allow authenticated write" ON engineering_issues;
 
--- Activity Log
-DROP POLICY IF EXISTS "Allow authenticated read" ON activity_log;
-DROP POLICY IF EXISTS "Allow authenticated write" ON activity_log;
+-- Activity Log (table may not exist yet - will be created in Step 4)
+-- Policies will be created after table creation in Step 4
 
 -- ============================================================================
 -- STEP 3: CREATE ROLE-BASED POLICIES
@@ -288,6 +287,34 @@ CREATE POLICY "engineering_issues_modify" ON engineering_issues
         get_user_role() IN ('engineering', 'production_management', 'qa_inspector')
     );
 
+-- ============================================================================
+-- STEP 4: CREATE ACTIVITY_LOG AND AUDIT_LOG TABLES WITH POLICIES
+-- ============================================================================
+
+-- Create activity_log table if not exists (for user activity tracking)
+CREATE TABLE IF NOT EXISTS activity_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id),
+    user_email TEXT,
+    user_name TEXT,
+    action_type TEXT NOT NULL,
+    action_category TEXT,
+    entity_type TEXT,
+    entity_id TEXT,
+    entity_name TEXT,
+    details JSONB,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS on activity_log
+ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "activity_log_select" ON activity_log;
+DROP POLICY IF EXISTS "activity_log_insert" ON activity_log;
+
 -- ACTIVITY_LOG: All can read, all authenticated can write (for logging)
 CREATE POLICY "activity_log_select" ON activity_log
     FOR SELECT TO authenticated
@@ -297,11 +324,7 @@ CREATE POLICY "activity_log_insert" ON activity_log
     FOR INSERT TO authenticated
     WITH CHECK (true);
 
--- ============================================================================
--- STEP 4: CREATE AUDIT LOG TABLE AND TRIGGERS
--- ============================================================================
-
--- Create audit log table if not exists
+-- Create audit_log table if not exists (for data change auditing)
 CREATE TABLE IF NOT EXISTS audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     table_name TEXT NOT NULL,
