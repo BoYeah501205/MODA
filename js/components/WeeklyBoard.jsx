@@ -786,10 +786,15 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
     const { useState, useMemo } = React;
     const [expandedProto, setExpandedProto] = useState(null);
     
-    // Get all prototype modules
+    // Get all prototype modules from ALL projects (not just Active ones)
+    // This ensures prototypes are visible for scheduling regardless of parent project status
     const prototypeModules = useMemo(() => {
-        return (allModules || []).filter(m => m.isPrototype);
-    }, [allModules]);
+        return (projects || []).flatMap(p => 
+            (p.modules || [])
+                .filter(m => m.isPrototype)
+                .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation }))
+        );
+    }, [projects]);
     
     // Get non-prototype modules for "Insert After" dropdown (sorted by buildSequence)
     const insertTargets = useMemo(() => {
