@@ -12,6 +12,7 @@ window.ALL_AVAILABLE_TABS = [
     { id: 'people', label: 'People', icon: 'icon-people', description: 'Workforce management' },
     { id: 'qa', label: 'QA', icon: 'icon-qa', description: 'Quality assurance tracking' },
     { id: 'transport', label: 'Transport', icon: 'icon-transport', description: 'Transportation & logistics' },
+    { id: 'procurement', label: 'Procurement', icon: 'icon-procurement', description: 'Material shortage tracking' },
     { id: 'equipment', label: 'Equipment', icon: 'icon-equipment', description: 'Tools & equipment tracking' },
     { id: 'precon', label: 'Precon', icon: 'icon-precon', description: 'Preconstruction planning & estimates' },
     { id: 'rfi', label: 'RFI', icon: 'icon-rfi', description: 'Request for Information management' },
@@ -45,7 +46,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
         id: 'admin',
         name: 'Admin',
         description: 'Full system access for operations management',
-        tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'drawings', 'automation', 'tracker', 'admin'],
+        tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'procurement', 'equipment', 'precon', 'rfi', 'onsite', 'engineering', 'drawings', 'automation', 'tracker', 'admin'],
         capabilities: {
             canManageUsers: true,
             canAccessAdmin: true,
@@ -58,6 +59,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
             people: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             qa: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             transport: { canView: true, canEdit: true, canCreate: true, canDelete: true },
+            procurement: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             equipment: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             precon: { canView: true, canEdit: true, canCreate: true, canDelete: true },
             rfi: { canView: true, canEdit: true, canCreate: true, canDelete: true },
@@ -159,7 +161,7 @@ window.DEFAULT_DASHBOARD_ROLES = [
         id: 'supply_chain',
         name: 'Supply Chain',
         description: 'Manages inventory, materials, and procurement',
-        tabs: ['production', 'projects', 'equipment'],
+        tabs: ['production', 'projects', 'equipment', 'procurement'],
         capabilities: {
             canManageUsers: false,
             canAccessAdmin: false,
@@ -168,7 +170,8 @@ window.DEFAULT_DASHBOARD_ROLES = [
         tabPermissions: {
             production: { canView: true, canEdit: false, canCreate: false, canDelete: false },
             projects: { canView: true, canEdit: false, canCreate: false, canDelete: false },
-            equipment: { canView: true, canEdit: true, canCreate: true, canDelete: false }
+            equipment: { canView: true, canEdit: true, canCreate: true, canDelete: false },
+            procurement: { canView: true, canEdit: true, canCreate: true, canDelete: true }
         },
         isDefault: false,
         isProtected: false

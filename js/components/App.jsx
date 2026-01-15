@@ -1256,6 +1256,23 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                         )}
 
+                        {activeTab === 'procurement' && (
+                            window.ProcurementBoard ? (
+                                <window.ProcurementBoard 
+                                    projects={projects}
+                                    auth={auth}
+                                />
+                            ) : (
+                                <div className="text-center py-20">
+                                    <div className="text-6xl mb-4">
+                                        <span className="icon-procurement" style={{ width: '64px', height: '64px', display: 'inline-block' }}></span>
+                                    </div>
+                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Procurement Board</h2>
+                                    <p className="text-gray-600">Loading Procurement Module...</p>
+                                </div>
+                            )
+                        )}
+
                         {activeTab === 'equipment' && (
                             <div className="bg-white rounded-lg shadow-sm">
                                 {window.EquipmentApp ? <window.EquipmentApp /> : <div className="p-8 text-center text-gray-500">Loading Equipment Module...</div>}

@@ -5343,7 +5343,8 @@ function MobileWeeklyBoardView({
 }
 
 // Mobile Module Card - simplified card for mobile view with progress buttons
-function MobileModuleCard({ module, station, section, onClick, onProgressUpdate, canEdit = true }) {
+// Wrapped with React.memo to prevent unnecessary re-renders in lists
+const MobileModuleCard = React.memo(function MobileModuleCard({ module, station, section, onClick, onProgressUpdate, canEdit = true }) {
     const { useState } = React;
     const [showProgressButtons, setShowProgressButtons] = useState(false);
     const progress = module.stageProgress?.[station.id] || 0;
@@ -5416,7 +5417,7 @@ function MobileModuleCard({ module, station, section, onClick, onProgressUpdate,
             )}
         </div>
     );
-}
+});
 
 // Export for use in App.jsx
 if (typeof window !== 'undefined') {

@@ -3,6 +3,106 @@
 // Extracted from App.jsx for better maintainability
 // ============================================================================
 
+// Memoized Employee Row Component - prevents re-renders when other rows change
+const EmployeeRow = React.memo(function EmployeeRow({ 
+    emp, 
+    isAdmin,
+    onEdit, 
+    onInvite, 
+    onResend, 
+    onSetPassword, 
+    onMarkInactive, 
+    onReactivate, 
+    onDelete,
+    getPermissionBadge,
+    getAccessBadge
+}) {
+    const fullName = [emp.prefix, emp.firstName, emp.middleName, emp.lastName, emp.suffix]
+        .filter(Boolean).join(' ');
+    
+    return (
+        <tr className="hover:bg-gray-50">
+            <td className="px-4 py-3">
+                <div>
+                    <p className="font-medium">{fullName || emp.name || 'Unnamed'}</p>
+                    <p className="text-xs text-gray-500">{emp.email}</p>
+                </div>
+            </td>
+            <td className="px-4 py-3 text-sm">{emp.jobTitle || '-'}</td>
+            <td className="px-4 py-3 text-sm">{emp.department || '-'}</td>
+            <td className="px-4 py-3 text-sm">{emp.shift || '-'}</td>
+            <td className="px-4 py-3">{getPermissionBadge(emp.permissions)}</td>
+            <td className="px-4 py-3">{getAccessBadge(emp)}</td>
+            <td className="px-4 py-3">
+                <div className="flex gap-2 flex-wrap">
+                    <button 
+                        onClick={() => onEdit(emp)}
+                        className="text-sm hover:underline"
+                        style={{color: 'var(--autovol-teal)'}}
+                    >
+                        Edit
+                    </button>
+                    {/* Show Send Invite for users with permission but not yet invited */}
+                    {(emp.permissions === 'User' || emp.permissions === 'Admin') && 
+                     emp.accessStatus !== 'invited' && emp.accessStatus !== 'active' && (
+                        emp.email ? (
+                            <button 
+                                onClick={() => onInvite(emp)}
+                                className="text-sm hover:underline"
+                                style={{color: 'var(--autovol-red)'}}
+                            >
+                                Send Invite
+                            </button>
+                        ) : (
+                            <span className="text-xs text-gray-400 italic">Add email to invite</span>
+                        )
+                    )}
+                    {/* Show Resend for invited but not active */}
+                    {emp.accessStatus === 'invited' && (
+                        <button 
+                            onClick={() => onResend(emp)}
+                            className="text-sm text-orange-600 hover:underline"
+                        >
+                            Resend
+                        </button>
+                    )}
+                    {/* Show Set Password for admins - works for invited or existing users */}
+                    {isAdmin && emp.email && (emp.permissions === 'User' || emp.permissions === 'Admin') && (
+                        <button 
+                            onClick={() => onSetPassword(emp)}
+                            className="text-sm text-purple-600 hover:underline"
+                        >
+                            Set Password
+                        </button>
+                    )}
+                    {/* Show Mark Inactive for active employees, Reactivate for inactive */}
+                    {emp.isActive !== false ? (
+                        <button 
+                            onClick={() => onMarkInactive(emp)}
+                            className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
+                        >
+                            Mark Inactive
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={() => onReactivate(emp)}
+                            className="text-sm text-green-600 hover:underline"
+                        >
+                            Reactivate
+                        </button>
+                    )}
+                    <button 
+                        onClick={() => onDelete(emp.id)}
+                        className="text-sm text-gray-400 hover:text-red-600 hover:underline"
+                    >
+                        Remove
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+});
+
         // Helper to check if an ID is a valid UUID (Supabase uses UUIDs)
         const isValidUUID = (id) => {
             if (!id || typeof id !== 'string') return false;
@@ -605,90 +705,22 @@
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
-                                            {filteredEmployees.map(emp => {
-                                                const fullName = [emp.prefix, emp.firstName, emp.middleName, emp.lastName, emp.suffix]
-                                                    .filter(Boolean).join(' ');
-                                                return (
-                                                <tr key={emp.id} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-3">
-                                                        <div>
-                                                            <p className="font-medium">{fullName || emp.name || 'Unnamed'}</p>
-                                                            <p className="text-xs text-gray-500">{emp.email}</p>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm">{emp.jobTitle || '-'}</td>
-                                                    <td className="px-4 py-3 text-sm">{emp.department || '-'}</td>
-                                                    <td className="px-4 py-3 text-sm">{emp.shift || '-'}</td>
-                                                    <td className="px-4 py-3">{getPermissionBadge(emp.permissions)}</td>
-                                                    <td className="px-4 py-3">{getAccessBadge(emp)}</td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex gap-2 flex-wrap">
-                                                            <button 
-                                                                onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }}
-                                                                className="text-sm hover:underline"
-                                                                style={{color: 'var(--autovol-teal)'}}
-                                                            >
-                                                                Edit
-                                                            </button>
-                                                            {/* Show Send Invite for users with permission but not yet invited */}
-                                                            {(emp.permissions === 'User' || emp.permissions === 'Admin') && 
-                                                             emp.accessStatus !== 'invited' && emp.accessStatus !== 'active' && (
-                                                                emp.email ? (
-                                                                    <button 
-                                                                        onClick={() => setShowInviteConfirm(emp)}
-                                                                        className="text-sm hover:underline"
-                                                                        style={{color: 'var(--autovol-red)'}}
-                                                                    >
-                                                                        Send Invite
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-xs text-gray-400 italic">Add email to invite</span>
-                                                                )
-                                                            )}
-                                                            {/* Show Resend for invited but not active */}
-                                                            {emp.accessStatus === 'invited' && (
-                                                                <button 
-                                                                    onClick={() => handleResendInvite(emp)}
-                                                                    className="text-sm text-orange-600 hover:underline"
-                                                                >
-                                                                    Resend
-                                                                </button>
-                                                            )}
-                                                            {/* Show Set Password for admins - works for invited or existing users */}
-                                                            {isAdmin && emp.email && (emp.permissions === 'User' || emp.permissions === 'Admin') && (
-                                                                <button 
-                                                                    onClick={() => setShowPasswordModal(emp)}
-                                                                    className="text-sm text-purple-600 hover:underline"
-                                                                >
-                                                                    Set Password
-                                                                </button>
-                                                            )}
-                                                            {/* Show Mark Inactive for active employees, Reactivate for inactive */}
-                                                            {emp.isActive !== false ? (
-                                                                <button 
-                                                                    onClick={() => setShowInactiveModal(emp)}
-                                                                    className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
-                                                                >
-                                                                    Mark Inactive
-                                                                </button>
-                                                            ) : (
-                                                                <button 
-                                                                    onClick={() => handleReactivate(emp)}
-                                                                    className="text-sm text-green-600 hover:underline"
-                                                                >
-                                                                    Reactivate
-                                                                </button>
-                                                            )}
-                                                            <button 
-                                                                onClick={() => handleDeleteEmployee(emp.id)}
-                                                                className="text-sm text-gray-400 hover:text-red-600 hover:underline"
-                                                            >
-                                                                Remove
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ); })}
+                                            {filteredEmployees.map(emp => (
+                                                <EmployeeRow
+                                                    key={emp.id}
+                                                    emp={emp}
+                                                    isAdmin={isAdmin}
+                                                    onEdit={(e) => { setEditingEmployee(e); setShowEmployeeModal(true); }}
+                                                    onInvite={(e) => setShowInviteConfirm(e)}
+                                                    onResend={handleResendInvite}
+                                                    onSetPassword={(e) => setShowPasswordModal(e)}
+                                                    onMarkInactive={(e) => setShowInactiveModal(e)}
+                                                    onReactivate={handleReactivate}
+                                                    onDelete={handleDeleteEmployee}
+                                                    getPermissionBadge={getPermissionBadge}
+                                                    getAccessBadge={getAccessBadge}
+                                                />
+                                            ))}
                                         </tbody>
                                     </table>
                                 )}

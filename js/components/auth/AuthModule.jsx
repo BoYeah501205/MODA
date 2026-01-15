@@ -652,11 +652,38 @@ function useAuth() {
     };
 
     const logout = () => { 
-        console.log('[Auth] Logout called - clearing session');
+        console.log('[Auth] Logout called - clearing session and sensitive data');
         
-        // Clear local state immediately
+        // Clear session data
         localStorage.removeItem('autovol_session'); 
         sessionStorage.removeItem('autovol_session');
+        sessionStorage.removeItem('autovol_current_user');
+        
+        // Clear sensitive cached data for security
+        // These contain project/employee data that should not persist after logout
+        const sensitiveKeys = [
+            'autovol_projects',
+            'autovol_employees', 
+            'autovol_users',
+            'autovol_unified_modules',
+            'autovol_schedule_setup',
+            'autovol_completed_weeks',
+            'moda_engineering_issues',
+            'autovol_transport_data',
+            'autovol_yard_data'
+        ];
+        
+        sensitiveKeys.forEach(key => {
+            localStorage.removeItem(key);
+        });
+        
+        console.log('[Auth] Cleared', sensitiveKeys.length, 'sensitive localStorage keys');
+        
+        // Keep non-sensitive preferences (theme, UI settings, role definitions)
+        // 'autovol_dashboard_roles' - role definitions (not user-specific)
+        // 'autovol_theme' - UI preferences
+        // 'autovol_dashboard_roles_version' - version tracking
+        
         setCurrentUser(null);
         
         // Try Supabase logout in background (don't wait for it)
