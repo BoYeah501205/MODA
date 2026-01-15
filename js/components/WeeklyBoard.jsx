@@ -796,10 +796,22 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
         );
     }, [projects]);
     
-    // Get non-prototype modules for "Insert After" dropdown (sorted by buildSequence)
+    // Get modules for "Insert After" dropdown (sorted by buildSequence)
+    // Include: non-prototypes with integer buildSequence, AND scheduled prototypes (with decimal buildSequence)
+    // This allows consecutive prototype scheduling (e.g., Proto 2 after Proto 1)
     const insertTargets = useMemo(() => {
-        return sortedModules.filter(m => !m.isPrototype && Number.isInteger(m.buildSequence));
-    }, [sortedModules]);
+        // Combine sortedModules with already-scheduled prototypes from prototypeModules
+        const scheduledPrototypes = prototypeModules
+            .filter(m => m.buildSequence && !Number.isInteger(m.buildSequence))
+            .map(m => ({ ...m, isScheduledPrototype: true }));
+        
+        const regularModules = sortedModules
+            .filter(m => !m.isPrototype && Number.isInteger(m.buildSequence));
+        
+        // Merge and sort by buildSequence
+        return [...regularModules, ...scheduledPrototypes]
+            .sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+    }, [sortedModules, prototypeModules]);
     
     // Calculate the next available decimal slot after a given module
     const getNextDecimalSlot = (afterBuildSeq) => {
@@ -949,7 +961,7 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
                                             <option value="">Select a module...</option>
                                             {insertTargets.map(m => (
                                                 <option key={m.id} value={m.serialNumber}>
-                                                    {m.serialNumber} (#{m.buildSequence}) - {m.projectName}
+                                                    {m.isScheduledPrototype ? '★ ' : ''}{m.serialNumber} (#{m.buildSequence}) - {m.projectName}
                                                 </option>
                                             ))}
                                         </select>
