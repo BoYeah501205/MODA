@@ -3131,20 +3131,28 @@ function WeeklyBoardTab({
             e.preventDefault();
         } else if (e.key === 'ArrowRight') {
             scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-            e.preventDefault();
-        }
-    }, []);
     
-    // Card height for alignment between date markers and module cards
-    // Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
-    const CARD_HEIGHT = boardViewMode === 'detailed' ? 120 : 58;
+    const scrollAmount = 200; // pixels to scroll
     
-    // Get project abbreviation - use stored abbreviation if available, otherwise auto-generate
-    const getProjectAcronym = (module) => {
-        // First check if module has projectAbbreviation from the project
-        if (module.projectAbbreviation) return module.projectAbbreviation;
-        
-        // Fallback: auto-generate from project name
+    if (e.key === 'ArrowLeft') {
+        scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        e.preventDefault();
+    } else if (e.key === 'ArrowRight') {
+        scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        e.preventDefault();
+    }
+}, []);
+
+// Card height for alignment between date markers and module cards
+// Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
+const CARD_HEIGHT = boardViewMode === 'detailed' ? 140 : 70;
+const COLUMN_WIDTH = 180; // Width of each station column (increased for more visibility)
+const DATE_MARKER_WIDTH = 100; // Width of date marker column (increased for better readability)
+
+// Get project abbreviation - use stored abbreviation if available, otherwise auto-generate
+const getProjectAcronym = (module) => {
+    // First check if module has projectAbbreviation from the project
+    if (module.projectAbbreviation) return module.projectAbbreviation;
         const projectName = module.projectName;
         if (!projectName) return '';
         const words = projectName.trim().split(/\s+/);
@@ -4145,7 +4153,7 @@ function WeeklyBoardTab({
             {/* Main Board Area with Modules Panel */}
             <div className="flex gap-4">
                 {/* Modules On-Board Panel (Left Sidebar) */}
-                <div className="w-[180px] flex-shrink-0 no-print">
+                <div className="w-[140px] flex-shrink-0 no-print">
                     <div className="bg-white border rounded-lg shadow-sm sticky top-0">
                         <div className="bg-autovol-navy text-white px-3 py-2 rounded-t-lg">
                             <div className="font-semibold text-sm">Modules On Board</div>

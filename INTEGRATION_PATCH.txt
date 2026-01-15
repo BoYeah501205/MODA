@@ -1,0 +1,63 @@
+================================================================================
+MODULE IMPORT MODAL - INTEGRATION PATCH
+================================================================================
+
+INSTRUCTIONS:
+Open js/components/App.jsx in your editor and find line 2985-2991.
+Replace the old ImportModal code with the new ModuleImportModal code below.
+
+================================================================================
+FIND THIS CODE (around line 2985-2991):
+================================================================================
+
+                    {/* Import Modal */}
+                    {showImportModal && (
+                        <ImportModal 
+                            onClose={() => setShowImportModal(false)}
+                            onImport={handleImport}
+                        />
+                    )}
+
+================================================================================
+REPLACE WITH THIS CODE:
+================================================================================
+
+                    {/* Import Modal */}
+                    {showImportModal && (
+                        <ModuleImportModal 
+                            projectId={project.id}
+                            onClose={() => setShowImportModal(false)}
+                            onImportComplete={(result) => {
+                                setShowImportModal(false);
+                                loadModules();
+                                alert(`Import complete!\n${result.inserted} modules added\n${result.updated} modules updated${result.errors.length > 0 ? `\n${result.errors.length} errors` : ''}`);
+                            }}
+                        />
+                    )}
+
+================================================================================
+WHAT THIS DOES:
+================================================================================
+
+1. Replaces old ImportModal with new ModuleImportModal
+2. Passes projectId to the modal
+3. Uses onImportComplete callback instead of onImport
+4. Automatically reloads modules after successful import
+5. Shows user-friendly alert with import results
+
+================================================================================
+NEXT STEPS AFTER APPLYING PATCH:
+================================================================================
+
+1. Save the file
+2. Deploy Supabase Edge Function:
+   supabase functions deploy import-modules
+
+3. Test the import feature with a CSV file
+
+4. Commit changes:
+   git add -A
+   git commit -m "Integrate ModuleImportModal with duplicate detection"
+   git push
+
+================================================================================

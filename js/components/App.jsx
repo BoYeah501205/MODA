@@ -2984,9 +2984,14 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
 
                     {/* Import Modal */}
                     {showImportModal && (
-                        <ImportModal 
+                        <ModuleImportModal 
+                            projectId={project.id}
                             onClose={() => setShowImportModal(false)}
-                            onImport={handleImport}
+                            onImportComplete={(result) => {
+                                setShowImportModal(false);
+                                loadModules();
+                                alert(`Import complete!\n${result.inserted} modules added\n${result.updated} modules updated${result.errors.length > 0 ? `\n${result.errors.length} errors` : ''}`);
+                            }}
                         />
                     )}
 
