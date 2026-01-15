@@ -4143,9 +4143,9 @@ const getProjectAcronym = (module) => {
             </div>
             
             {/* Main Board Area with Modules Panel */}
-            <div className="flex gap-4">
+            <div className="flex gap-2">
                 {/* Modules On-Board Panel (Left Sidebar) */}
-                <div className="w-[140px] flex-shrink-0 no-print">
+                <div className="w-[100px] flex-shrink-0 no-print">
                     <div className="bg-white border rounded-lg shadow-sm sticky top-0">
                         <div className="bg-autovol-navy text-white px-3 py-2 rounded-t-lg">
                             <div className="font-semibold text-sm">Modules On Board</div>
