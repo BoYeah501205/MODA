@@ -1256,7 +1256,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                         )}
 
-                        {activeTab === 'procurement' && (
+                        {activeTab === 'supplychain' && (
                             window.ProcurementBoard ? (
                                 <window.ProcurementBoard 
                                     projects={projects}
@@ -1265,10 +1265,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             ) : (
                                 <div className="text-center py-20">
                                     <div className="text-6xl mb-4">
-                                        <span className="icon-procurement" style={{ width: '64px', height: '64px', display: 'inline-block' }}></span>
+                                        <span className="icon-supply-chain" style={{ width: '64px', height: '64px', display: 'inline-block' }}></span>
                                     </div>
-                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Procurement Board</h2>
-                                    <p className="text-gray-600">Loading Procurement Module...</p>
+                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Supply Chain</h2>
+                                    <p className="text-gray-600">Loading Supply Chain Module...</p>
                                 </div>
                             )
                         )}

@@ -26,7 +26,8 @@ const NAV_GROUPS = [
             { id: 'tracker', label: 'Tracker', iconClass: 'icon-tracker' },
             { id: 'people', label: 'People', iconClass: 'icon-people' },
             { id: 'automation', label: 'Automation', iconClass: 'icon-automation' },
-            { id: 'equipment', label: 'Tools & Equipment', iconClass: 'icon-equipment' }
+            { id: 'equipment', label: 'Tools & Equipment', iconClass: 'icon-equipment' },
+            { id: 'supplychain', label: 'Supply Chain', iconClass: 'icon-supply-chain' }
         ]
     },
     {
@@ -54,8 +55,7 @@ const NAV_GROUPS = [
         label: 'Supply & Logistics',
         iconClass: 'icon-transport',
         tabs: [
-            { id: 'transport', label: 'Transport', iconClass: 'icon-transport' },
-            { id: 'supply-chain', label: 'Supply Chain', iconClass: 'icon-supply' }
+            { id: 'transport', label: 'Transport', iconClass: 'icon-transport' }
         ]
     }
 ];
