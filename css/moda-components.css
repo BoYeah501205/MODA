@@ -755,3 +755,11 @@
         transform: translateX(0);
     }
 }
+
+/* ===== WEEKLY BOARD FULL-WIDTH OVERRIDE ===== */
+/* Make the Weekly Board use full screen width */
+.weekly-board-fullwidth {
+    max-width: 100% !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
