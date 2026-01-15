@@ -3550,7 +3550,7 @@ const getProjectAcronym = (module) => {
             : 'bg-white/30';
         
         return (
-            <div key={station.id} className="flex-shrink-0 w-36 flex flex-col">
+            <div key={station.id} className="flex-shrink-0 w-32 flex flex-col">
                 {/* Station Header - with capacity indicator - STICKY */}
                 <div 
                     className={`${station.color} text-white px-2 py-2 text-center rounded-t-lg sticky top-0 z-20`}
@@ -3629,7 +3629,7 @@ const getProjectAcronym = (module) => {
         const { previous, current, next } = firstStationModules;
         
         return (
-            <div className="flex-shrink-0 w-20 sticky left-0 z-30 bg-white flex flex-col" style={{ boxShadow: '4px 0 8px rgba(0,0,0,0.08)' }}>
+            <div className="flex-shrink-0 w-16 sticky left-0 z-30 bg-white flex flex-col" style={{ boxShadow: '4px 0 8px rgba(0,0,0,0.08)' }}>
                 {/* Header - matches station header height (includes capacity bar space) - STICKY */}
                 <div 
                     className="bg-autovol-navy text-white px-2 py-2 text-center rounded-tl-lg sticky top-0 z-30"
@@ -4143,9 +4143,9 @@ const getProjectAcronym = (module) => {
             </div>
             
             {/* Main Board Area with Modules Panel */}
-            <div className="flex gap-2">
+            <div className="flex gap-1">
                 {/* Modules On-Board Panel (Left Sidebar) */}
-                <div className="w-[100px] flex-shrink-0 no-print">
+                <div className="w-[80px] flex-shrink-0 no-print">
                     <div className="bg-white border rounded-lg shadow-sm sticky top-0">
                         <div className="bg-autovol-navy text-white px-3 py-2 rounded-t-lg">
                             <div className="font-semibold text-sm">Modules On Board</div>
@@ -4304,7 +4304,7 @@ const getProjectAcronym = (module) => {
                             minHeight: '400px'
                         }}
                     >
-                        <div className="flex gap-2 min-w-max">
+                        <div className="flex gap-1 min-w-max">
                             {/* Sticky Date Marker Column */}
                             {renderDateMarkerColumn()}
                             
