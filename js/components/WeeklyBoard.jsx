@@ -3131,23 +3131,15 @@ function WeeklyBoardTab({
             e.preventDefault();
         } else if (e.key === 'ArrowRight') {
             scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            e.preventDefault();
+        }
+    }, []);
     
-    const scrollAmount = 200; // pixels to scroll
-    
-    if (e.key === 'ArrowLeft') {
-        scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-        e.preventDefault();
-    } else if (e.key === 'ArrowRight') {
-        scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-        e.preventDefault();
-    }
-}, []);
-
-// Card height for alignment between date markers and module cards
-// Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
-const CARD_HEIGHT = boardViewMode === 'detailed' ? 140 : 70;
-const COLUMN_WIDTH = 180; // Width of each station column (increased for more visibility)
-const DATE_MARKER_WIDTH = 100; // Width of date marker column (increased for better readability)
+    // Card height for alignment between date markers and module cards
+    // Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
+    const CARD_HEIGHT = boardViewMode === 'detailed' ? 140 : 70;
+    const COLUMN_WIDTH = 180; // Width of each station column (increased for more visibility)
+    const DATE_MARKER_WIDTH = 100; // Width of date marker column (increased for better readability)
 
 // Get project abbreviation - use stored abbreviation if available, otherwise auto-generate
 const getProjectAcronym = (module) => {
