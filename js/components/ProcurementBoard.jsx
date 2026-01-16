@@ -13,12 +13,15 @@ const ProcurementBoard = ({ projects = [], auth }) => {
     // ============================================================================
     
     const [shortages, setShortages] = useState([]);
+    const [issues, setIssues] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(null);
+    const [showIssueDetailModal, setShowIssueDetailModal] = useState(null);
     const [filterStatus, setFilterStatus] = useState('active');
     const [filterPriority, setFilterPriority] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeSection, setActiveSection] = useState('shortages'); // 'shortages' or 'issues'
 
     // Get constants from the data layer
     const STATUSES = window.MODA_SUPABASE_PROCUREMENT?.SHORTAGE_STATUSES || [
@@ -114,8 +117,27 @@ const ProcurementBoard = ({ projects = [], auth }) => {
         }
     }, []);
 
+    const loadIssues = useCallback(() => {
+        try {
+            // Load issues routed to supply-chain from the issue routing system
+            if (window.MODA_ISSUE_ROUTING?.getIssuesForDashboard) {
+                const supplyChainIssues = window.MODA_ISSUE_ROUTING.getIssuesForDashboard('supply-chain');
+                setIssues(supplyChainIssues || []);
+            } else {
+                // Fallback: load directly from localStorage
+                const stored = localStorage.getItem('moda_supply_chain_issues');
+                if (stored && stored !== 'undefined' && stored !== 'null') {
+                    setIssues(JSON.parse(stored));
+                }
+            }
+        } catch (error) {
+            console.error('[ProcurementBoard] Error loading issues:', error);
+        }
+    }, []);
+
     useEffect(() => {
         loadShortages();
+        loadIssues();
 
         // Subscribe to real-time updates if available
         if (window.MODA_SUPABASE_PROCUREMENT?.isAvailable?.()) {
@@ -124,7 +146,19 @@ const ProcurementBoard = ({ projects = [], auth }) => {
             );
             return () => unsubscribe?.();
         }
-    }, [loadShortages]);
+
+        // Listen for issue updates
+        const handleIssueUpdate = (e) => {
+            if (e.detail?.dashboard === 'supply-chain') {
+                loadIssues();
+            }
+        };
+        window.addEventListener('moda-issues-updated', handleIssueUpdate);
+        
+        return () => {
+            window.removeEventListener('moda-issues-updated', handleIssueUpdate);
+        };
+    }, [loadShortages, loadIssues]);
 
     // ============================================================================
     // FILTERED DATA
@@ -176,6 +210,60 @@ const ProcurementBoard = ({ projects = [], auth }) => {
             overdue: active.filter(s => s.delivery_eta && new Date(s.delivery_eta) < now).length
         };
     }, [shortages]);
+
+    // Issue stats
+    const issueStats = useMemo(() => {
+        const activeIssues = issues.filter(i => !['resolved', 'closed'].includes(i.status));
+        return {
+            total: issues.length,
+            open: issues.filter(i => i.status === 'open').length,
+            inProgress: issues.filter(i => i.status === 'in-progress').length,
+            resolved: issues.filter(i => i.status === 'resolved' || i.status === 'closed').length,
+            critical: activeIssues.filter(i => i.priority === 'critical').length,
+            high: activeIssues.filter(i => i.priority === 'high').length
+        };
+    }, [issues]);
+
+    // Filtered issues
+    const filteredIssues = useMemo(() => {
+        return issues.filter(issue => {
+            // Status filter
+            if (filterStatus === 'active' && ['resolved', 'closed'].includes(issue.status)) {
+                return false;
+            }
+            if (filterStatus !== 'all' && filterStatus !== 'active' && issue.status !== filterStatus) {
+                return false;
+            }
+
+            // Priority filter
+            if (filterPriority !== 'all' && issue.priority !== filterPriority) {
+                return false;
+            }
+
+            // Search filter
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                const matchesTitle = issue.title?.toLowerCase().includes(term);
+                const matchesDesc = issue.description?.toLowerCase().includes(term);
+                const matchesId = issue.issue_display_id?.toLowerCase().includes(term);
+                const matchesBlm = issue.blm_id?.toLowerCase().includes(term);
+                if (!matchesTitle && !matchesDesc && !matchesId && !matchesBlm) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }, [issues, filterStatus, filterPriority, searchTerm]);
+
+    // Issue status constants
+    const ISSUE_STATUSES = [
+        { id: 'open', label: 'Open', color: '#DC2626' },
+        { id: 'in-progress', label: 'In Progress', color: '#0057B8' },
+        { id: 'pending-info', label: 'Pending Info', color: '#F59E0B' },
+        { id: 'resolved', label: 'Resolved', color: '#10B981' },
+        { id: 'closed', label: 'Closed', color: '#6B7280' }
+    ];
 
     // ============================================================================
     // HANDLERS
@@ -246,6 +334,31 @@ const ProcurementBoard = ({ projects = [], auth }) => {
             loadShortages();
         } catch (error) {
             console.error('[ProcurementBoard] Error updating status:', error);
+        }
+    };
+
+    const handleUpdateIssueStatus = (issueId, newStatus) => {
+        try {
+            const userProfile = window.MODA_SUPABASE?.userProfile;
+            const currentUser = window.MODA_SUPABASE?.currentUser;
+            const userName = userProfile?.name || currentUser?.email || 'Unknown';
+
+            if (window.MODA_ISSUE_ROUTING?.updateIssue) {
+                window.MODA_ISSUE_ROUTING.updateIssue(issueId, {
+                    status: newStatus,
+                    status_history: [
+                        ...(issues.find(i => i.id === issueId)?.status_history || []),
+                        {
+                            status: newStatus,
+                            changed_by: userName,
+                            timestamp: new Date().toISOString()
+                        }
+                    ]
+                }, 'moda_supply_chain_issues');
+                loadIssues();
+            }
+        } catch (error) {
+            console.error('[ProcurementBoard] Error updating issue status:', error);
         }
     };
 
@@ -428,6 +541,55 @@ const ProcurementBoard = ({ projects = [], auth }) => {
     };
 
     // ============================================================================
+    // RENDER HELPERS FOR ISSUES
+    // ============================================================================
+
+    const getIssueStatusBadge = (status) => {
+        const statusObj = ISSUE_STATUSES.find(s => s.id === status) || ISSUE_STATUSES[0];
+        return (
+            <span style={{
+                ...styles.badge,
+                background: `${statusObj.color}20`,
+                color: statusObj.color
+            }}>
+                {statusObj.label}
+            </span>
+        );
+    };
+
+    const getIssueTypeBadge = (issueType) => {
+        const typeColors = {
+            'material-supply': '#EA580C',
+            'quality': '#DC2626',
+            'shop-drawing': '#0057B8',
+            'design-conflict': '#7C3AED',
+            'engineering-question': '#0891B2',
+            'rfi': '#4F46E5',
+            'other': '#6B7280'
+        };
+        const typeLabels = {
+            'material-supply': 'Material/Supply',
+            'quality': 'Quality Issue',
+            'shop-drawing': 'Shop Drawing',
+            'design-conflict': 'Design Conflict',
+            'engineering-question': 'Engineering Question',
+            'rfi': 'RFI Required',
+            'other': 'Other'
+        };
+        const color = typeColors[issueType] || '#6B7280';
+        const label = typeLabels[issueType] || issueType;
+        return (
+            <span style={{
+                ...styles.badge,
+                background: `${color}20`,
+                color: color
+            }}>
+                {label}
+            </span>
+        );
+    };
+
+    // ============================================================================
     // RENDER
     // ============================================================================
 
@@ -435,34 +597,126 @@ const ProcurementBoard = ({ projects = [], auth }) => {
         <div style={styles.container}>
             {/* Header */}
             <div style={styles.header}>
-                <h1 style={styles.headerTitle}>Procurement Board - Shortage Tracker</h1>
+                <h1 style={styles.headerTitle}>Supply Chain Board</h1>
             </div>
 
-            {/* Stats Bar */}
-            <div style={styles.statsBar}>
-                <div style={{ ...styles.statCard, background: '#f0f9ff' }}>
-                    <p style={{ ...styles.statValue, color: COLORS.blue }}>{stats.active}</p>
-                    <p style={styles.statLabel}>Active Shortages</p>
-                </div>
-                <div style={{ ...styles.statCard, background: '#fef2f2' }}>
-                    <p style={{ ...styles.statValue, color: '#DC2626' }}>{stats.critical}</p>
-                    <p style={styles.statLabel}>Critical</p>
-                </div>
-                <div style={{ ...styles.statCard, background: '#fff7ed' }}>
-                    <p style={{ ...styles.statValue, color: '#EA580C' }}>{stats.high}</p>
-                    <p style={styles.statLabel}>High Priority</p>
-                </div>
-                <div style={{ ...styles.statCard, background: '#fefce8' }}>
-                    <p style={{ ...styles.statValue, color: '#CA8A04' }}>{stats.overdue}</p>
-                    <p style={styles.statLabel}>Overdue</p>
-                </div>
+            {/* Section Toggle Tabs */}
+            <div style={{
+                display: 'flex',
+                background: COLORS.white,
+                borderBottom: `1px solid ${COLORS.mediumGray}`
+            }}>
+                <button
+                    onClick={() => setActiveSection('shortages')}
+                    style={{
+                        padding: '14px 24px',
+                        border: 'none',
+                        background: activeSection === 'shortages' ? COLORS.white : '#f5f5f5',
+                        borderBottom: activeSection === 'shortages' ? `3px solid ${COLORS.blue}` : '3px solid transparent',
+                        fontSize: '14px',
+                        fontWeight: activeSection === 'shortages' ? '600' : '400',
+                        color: activeSection === 'shortages' ? COLORS.blue : COLORS.darkGray,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    Shortages
+                    {stats.active > 0 && (
+                        <span style={{
+                            background: '#DC2626',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                        }}>
+                            {stats.active}
+                        </span>
+                    )}
+                </button>
+                <button
+                    onClick={() => setActiveSection('issues')}
+                    style={{
+                        padding: '14px 24px',
+                        border: 'none',
+                        background: activeSection === 'issues' ? COLORS.white : '#f5f5f5',
+                        borderBottom: activeSection === 'issues' ? `3px solid ${COLORS.blue}` : '3px solid transparent',
+                        fontSize: '14px',
+                        fontWeight: activeSection === 'issues' ? '600' : '400',
+                        color: activeSection === 'issues' ? COLORS.blue : COLORS.darkGray,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    Issues
+                    {issueStats.open > 0 && (
+                        <span style={{
+                            background: '#EA580C',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                        }}>
+                            {issueStats.open}
+                        </span>
+                    )}
+                </button>
             </div>
+
+            {/* Stats Bar - Shortages */}
+            {activeSection === 'shortages' && (
+                <div style={styles.statsBar}>
+                    <div style={{ ...styles.statCard, background: '#f0f9ff' }}>
+                        <p style={{ ...styles.statValue, color: COLORS.blue }}>{stats.active}</p>
+                        <p style={styles.statLabel}>Active Shortages</p>
+                    </div>
+                    <div style={{ ...styles.statCard, background: '#fef2f2' }}>
+                        <p style={{ ...styles.statValue, color: '#DC2626' }}>{stats.critical}</p>
+                        <p style={styles.statLabel}>Critical</p>
+                    </div>
+                    <div style={{ ...styles.statCard, background: '#fff7ed' }}>
+                        <p style={{ ...styles.statValue, color: '#EA580C' }}>{stats.high}</p>
+                        <p style={styles.statLabel}>High Priority</p>
+                    </div>
+                    <div style={{ ...styles.statCard, background: '#fefce8' }}>
+                        <p style={{ ...styles.statValue, color: '#CA8A04' }}>{stats.overdue}</p>
+                        <p style={styles.statLabel}>Overdue</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Stats Bar - Issues */}
+            {activeSection === 'issues' && (
+                <div style={styles.statsBar}>
+                    <div style={{ ...styles.statCard, background: '#fef2f2' }}>
+                        <p style={{ ...styles.statValue, color: '#DC2626' }}>{issueStats.open}</p>
+                        <p style={styles.statLabel}>Open Issues</p>
+                    </div>
+                    <div style={{ ...styles.statCard, background: '#f0f9ff' }}>
+                        <p style={{ ...styles.statValue, color: COLORS.blue }}>{issueStats.inProgress}</p>
+                        <p style={styles.statLabel}>In Progress</p>
+                    </div>
+                    <div style={{ ...styles.statCard, background: '#f0fdf4' }}>
+                        <p style={{ ...styles.statValue, color: '#10B981' }}>{issueStats.resolved}</p>
+                        <p style={styles.statLabel}>Resolved</p>
+                    </div>
+                    <div style={{ ...styles.statCard, background: '#fff7ed' }}>
+                        <p style={{ ...styles.statValue, color: '#EA580C' }}>{issueStats.critical + issueStats.high}</p>
+                        <p style={styles.statLabel}>High/Critical</p>
+                    </div>
+                </div>
+            )}
 
             {/* Toolbar */}
             <div style={styles.toolbar}>
                 <input
                     type="text"
-                    placeholder="Search items, suppliers..."
+                    placeholder={activeSection === 'shortages' ? "Search items, suppliers..." : "Search issues..."}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={styles.searchInput}
@@ -474,9 +728,14 @@ const ProcurementBoard = ({ projects = [], auth }) => {
                 >
                     <option value="active">Active Only</option>
                     <option value="all">All Statuses</option>
-                    {STATUSES.map(s => (
-                        <option key={s.id} value={s.id}>{s.label}</option>
-                    ))}
+                    {activeSection === 'shortages' 
+                        ? STATUSES.map(s => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                        ))
+                        : ISSUE_STATUSES.map(s => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                        ))
+                    }
                 </select>
                 <select
                     value={filterPriority}
@@ -488,92 +747,168 @@ const ProcurementBoard = ({ projects = [], auth }) => {
                         <option key={p.id} value={p.id}>{p.label}</option>
                     ))}
                 </select>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    style={styles.addButton}
-                >
-                    + Add Shortage
-                </button>
-            </div>
-
-            {/* Table */}
-            <div style={styles.tableContainer}>
-                {loading ? (
-                    <div style={{ textAlign: 'center', padding: '40px', color: COLORS.darkGray }}>
-                        Loading shortages...
-                    </div>
-                ) : filteredShortages.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px', color: COLORS.darkGray }}>
-                        No shortages found. Click "Add Shortage" to report one.
-                    </div>
-                ) : (
-                    <table style={styles.table}>
-                        <thead>
-                            <tr>
-                                <th style={styles.th}>ID</th>
-                                <th style={styles.th}>Item</th>
-                                <th style={styles.th}>Qty</th>
-                                <th style={styles.th}>Supplier</th>
-                                <th style={styles.th}>ETA</th>
-                                <th style={styles.th}>Projects</th>
-                                <th style={styles.th}>Stations</th>
-                                <th style={styles.th}>Priority</th>
-                                <th style={styles.th}>Status</th>
-                                <th style={styles.th}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredShortages.map(shortage => (
-                                <tr key={shortage.id} style={{ 
-                                    background: shortage.priority === 'critical' ? '#fef2f2' : 'transparent'
-                                }}>
-                                    <td style={styles.td}>
-                                        <strong>{shortage.shortage_display_id}</strong>
-                                    </td>
-                                    <td style={styles.td}>{shortage.item}</td>
-                                    <td style={styles.td}>{shortage.qty} {shortage.uom}</td>
-                                    <td style={styles.td}>{shortage.supplier || '-'}</td>
-                                    <td style={{ 
-                                        ...styles.td,
-                                        color: shortage.delivery_eta && new Date(shortage.delivery_eta) < new Date() 
-                                            ? '#DC2626' : 'inherit'
-                                    }}>
-                                        {formatDate(shortage.delivery_eta)}
-                                    </td>
-                                    <td style={styles.td}>{getProjectNames(shortage.projects_impacted)}</td>
-                                    <td style={styles.td}>{getStationNames(shortage.stations_impacted)}</td>
-                                    <td style={styles.td}>{getPriorityBadge(shortage.priority)}</td>
-                                    <td style={styles.td}>{getStatusBadge(shortage.status)}</td>
-                                    <td style={styles.td}>
-                                        <button
-                                            onClick={() => setShowDetailModal(shortage)}
-                                            style={{ ...styles.actionButton, background: COLORS.blue, color: COLORS.white }}
-                                        >
-                                            View
-                                        </button>
-                                        {shortage.status === 'open' && (
-                                            <button
-                                                onClick={() => handleUpdateStatus(shortage.id, 'ordered')}
-                                                style={{ ...styles.actionButton, background: '#F59E0B', color: COLORS.white }}
-                                            >
-                                                Mark Ordered
-                                            </button>
-                                        )}
-                                        {shortage.status !== 'resolved' && shortage.status !== 'cancelled' && (
-                                            <button
-                                                onClick={() => handleUpdateStatus(shortage.id, 'resolved')}
-                                                style={{ ...styles.actionButton, background: '#10B981', color: COLORS.white }}
-                                            >
-                                                Resolve
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                {activeSection === 'shortages' && (
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        style={styles.addButton}
+                    >
+                        + Add Shortage
+                    </button>
                 )}
             </div>
+
+            {/* Shortages Table */}
+            {activeSection === 'shortages' && (
+                <div style={styles.tableContainer}>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: COLORS.darkGray }}>
+                            Loading shortages...
+                        </div>
+                    ) : filteredShortages.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: COLORS.darkGray }}>
+                            No shortages found. Click "Add Shortage" to report one.
+                        </div>
+                    ) : (
+                        <table style={styles.table}>
+                            <thead>
+                                <tr>
+                                    <th style={styles.th}>ID</th>
+                                    <th style={styles.th}>Item</th>
+                                    <th style={styles.th}>Qty</th>
+                                    <th style={styles.th}>Supplier</th>
+                                    <th style={styles.th}>ETA</th>
+                                    <th style={styles.th}>Projects</th>
+                                    <th style={styles.th}>Stations</th>
+                                    <th style={styles.th}>Priority</th>
+                                    <th style={styles.th}>Status</th>
+                                    <th style={styles.th}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredShortages.map(shortage => (
+                                    <tr key={shortage.id} style={{ 
+                                        background: shortage.priority === 'critical' ? '#fef2f2' : 'transparent'
+                                    }}>
+                                        <td style={styles.td}>
+                                            <strong>{shortage.shortage_display_id}</strong>
+                                        </td>
+                                        <td style={styles.td}>{shortage.item}</td>
+                                        <td style={styles.td}>{shortage.qty} {shortage.uom}</td>
+                                        <td style={styles.td}>{shortage.supplier || '-'}</td>
+                                        <td style={{ 
+                                            ...styles.td,
+                                            color: shortage.delivery_eta && new Date(shortage.delivery_eta) < new Date() 
+                                                ? '#DC2626' : 'inherit'
+                                        }}>
+                                            {formatDate(shortage.delivery_eta)}
+                                        </td>
+                                        <td style={styles.td}>{getProjectNames(shortage.projects_impacted)}</td>
+                                        <td style={styles.td}>{getStationNames(shortage.stations_impacted)}</td>
+                                        <td style={styles.td}>{getPriorityBadge(shortage.priority)}</td>
+                                        <td style={styles.td}>{getStatusBadge(shortage.status)}</td>
+                                        <td style={styles.td}>
+                                            <button
+                                                onClick={() => setShowDetailModal(shortage)}
+                                                style={{ ...styles.actionButton, background: COLORS.blue, color: COLORS.white }}
+                                            >
+                                                View
+                                            </button>
+                                            {shortage.status === 'open' && (
+                                                <button
+                                                    onClick={() => handleUpdateStatus(shortage.id, 'ordered')}
+                                                    style={{ ...styles.actionButton, background: '#F59E0B', color: COLORS.white }}
+                                                >
+                                                    Mark Ordered
+                                                </button>
+                                            )}
+                                            {shortage.status !== 'resolved' && shortage.status !== 'cancelled' && (
+                                                <button
+                                                    onClick={() => handleUpdateStatus(shortage.id, 'resolved')}
+                                                    style={{ ...styles.actionButton, background: '#10B981', color: COLORS.white }}
+                                                >
+                                                    Resolve
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
+
+            {/* Issues Table */}
+            {activeSection === 'issues' && (
+                <div style={styles.tableContainer}>
+                    {filteredIssues.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: COLORS.darkGray }}>
+                            No issues found. Material/Supply issues logged from production will appear here.
+                        </div>
+                    ) : (
+                        <table style={styles.table}>
+                            <thead>
+                                <tr>
+                                    <th style={styles.th}>ID</th>
+                                    <th style={styles.th}>Type</th>
+                                    <th style={styles.th}>Title</th>
+                                    <th style={styles.th}>Project</th>
+                                    <th style={styles.th}>BLM ID</th>
+                                    <th style={styles.th}>Priority</th>
+                                    <th style={styles.th}>Status</th>
+                                    <th style={styles.th}>Submitted</th>
+                                    <th style={styles.th}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredIssues.map(issue => (
+                                    <tr key={issue.id} style={{ 
+                                        background: issue.priority === 'critical' ? '#fef2f2' : 'transparent'
+                                    }}>
+                                        <td style={styles.td}>
+                                            <strong>{issue.issue_display_id}</strong>
+                                        </td>
+                                        <td style={styles.td}>{getIssueTypeBadge(issue.issue_type)}</td>
+                                        <td style={styles.td}>
+                                            {issue.title || issue.description?.substring(0, 50) || '-'}
+                                            {issue.description?.length > 50 && '...'}
+                                        </td>
+                                        <td style={styles.td}>{issue.project_name || '-'}</td>
+                                        <td style={styles.td}>{issue.blm_id || '-'}</td>
+                                        <td style={styles.td}>{getPriorityBadge(issue.priority)}</td>
+                                        <td style={styles.td}>{getIssueStatusBadge(issue.status)}</td>
+                                        <td style={styles.td}>{formatDate(issue.created_at)}</td>
+                                        <td style={styles.td}>
+                                            <button
+                                                onClick={() => setShowIssueDetailModal(issue)}
+                                                style={{ ...styles.actionButton, background: COLORS.blue, color: COLORS.white }}
+                                            >
+                                                View
+                                            </button>
+                                            {issue.status === 'open' && (
+                                                <button
+                                                    onClick={() => handleUpdateIssueStatus(issue.id, 'in-progress')}
+                                                    style={{ ...styles.actionButton, background: '#F59E0B', color: COLORS.white }}
+                                                >
+                                                    Start
+                                                </button>
+                                            )}
+                                            {issue.status !== 'resolved' && issue.status !== 'closed' && (
+                                                <button
+                                                    onClick={() => handleUpdateIssueStatus(issue.id, 'resolved')}
+                                                    style={{ ...styles.actionButton, background: '#10B981', color: COLORS.white }}
+                                                >
+                                                    Resolve
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
 
             {/* Add Shortage Modal */}
             {showAddModal && (
@@ -587,7 +922,7 @@ const ProcurementBoard = ({ projects = [], auth }) => {
                 />
             )}
 
-            {/* Detail Modal */}
+            {/* Shortage Detail Modal */}
             {showDetailModal && (
                 <ShortageDetailModal
                     shortage={showDetailModal}
@@ -597,6 +932,17 @@ const ProcurementBoard = ({ projects = [], auth }) => {
                     stations={STATIONS}
                     statuses={STATUSES}
                     priorities={PRIORITIES}
+                />
+            )}
+
+            {/* Issue Detail Modal */}
+            {showIssueDetailModal && (
+                <IssueDetailModal
+                    issue={showIssueDetailModal}
+                    onClose={() => setShowIssueDetailModal(null)}
+                    onUpdateStatus={handleUpdateIssueStatus}
+                    priorities={PRIORITIES}
+                    statuses={ISSUE_STATUSES}
                 />
             )}
         </div>
