@@ -1383,6 +1383,17 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         </div>
                                     )}
                                 </div>
+                                {/* Issue Categories Manager */}
+                                <div className="mt-6">
+                                    {window.IssueCategoriesManager ? (
+                                        <window.IssueCategoriesManager auth={auth} />
+                                    ) : (
+                                        <div className="bg-white rounded-lg shadow p-6">
+                                            <h2 className="text-xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Issue Categories</h2>
+                                            <p className="text-gray-500">Issue Categories Manager not loaded.</p>
+                                        </div>
+                                    )}
+                                </div>
                                 {/* Role Manager */}
                                 <div className="mt-6">
                                     {window.DashboardRoleManager ? <window.DashboardRoleManager auth={auth} /> : <div className="p-4 text-gray-500">Loading Role Manager...</div>}

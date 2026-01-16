@@ -6,7 +6,7 @@
  * Supports photo attachments and priority/type selection.
  */
 
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback } = React;
 
 function IssueSubmissionModal({
     context = null,
@@ -49,6 +49,7 @@ function IssueSubmissionModal({
         department: context?.department || '',
         stage: context?.stage || '',
         issue_type: '',
+        issue_category: '',  // New: category within the issue type
         priority: 'medium',
         title: '',
         description: '',
@@ -60,6 +61,8 @@ function IssueSubmissionModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [showProjectSelect, setShowProjectSelect] = useState(!context?.project_id);
+    const [issueCategories, setIssueCategories] = useState([]);
+    const [loadingCategories, setLoadingCategories] = useState(true);
 
     const fileInputRef = useRef(null);
     const modalRef = useRef(null);
@@ -95,9 +98,60 @@ function IssueSubmissionModal({
         };
     }, []);
 
+    // Load issue categories from Supabase
+    useEffect(() => {
+        const loadCategories = async () => {
+            setLoadingCategories(true);
+            try {
+                const supabase = window.MODA_SUPABASE?.client;
+                if (supabase) {
+                    const { data, error: fetchError } = await supabase
+                        .from('issue_categories')
+                        .select('*')
+                        .eq('is_active', true)
+                        .order('issue_type')
+                        .order('sort_order');
+
+                    if (fetchError) throw fetchError;
+                    setIssueCategories(data || []);
+                    localStorage.setItem('moda_issue_categories', JSON.stringify(data || []));
+                } else {
+                    // Fallback to localStorage
+                    const saved = localStorage.getItem('moda_issue_categories');
+                    if (saved) {
+                        setIssueCategories(JSON.parse(saved));
+                    }
+                }
+            } catch (err) {
+                console.error('[IssueSubmissionModal] Error loading categories:', err);
+                // Try localStorage fallback
+                const saved = localStorage.getItem('moda_issue_categories');
+                if (saved) {
+                    setIssueCategories(JSON.parse(saved));
+                }
+            } finally {
+                setLoadingCategories(false);
+            }
+        };
+        loadCategories();
+    }, []);
+
+    // Get categories for the currently selected issue type
+    const getCategoriesForType = useCallback((issueType) => {
+        if (!issueType) return [];
+        return issueCategories.filter(c => c.issue_type === issueType);
+    }, [issueCategories]);
+
     // ===== HANDLERS =====
     const handleChange = (field, value) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData(prev => {
+            const updated = { ...prev, [field]: value };
+            // Clear category when issue type changes
+            if (field === 'issue_type') {
+                updated.issue_category = '';
+            }
+            return updated;
+        });
         setError(null);
     };
 
@@ -359,6 +413,40 @@ function IssueSubmissionModal({
                             })}
                         </div>
                     </div>
+
+                    {/* Issue Category - shown when issue type is selected */}
+                    {formData.issue_type && (
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Issue Category
+                            </label>
+                            {loadingCategories ? (
+                                <div className="text-sm text-gray-500 py-2">Loading categories...</div>
+                            ) : getCategoriesForType(formData.issue_type).length > 0 ? (
+                                <select
+                                    value={formData.issue_category}
+                                    onChange={(e) => handleChange('issue_category', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Select a category...</option>
+                                    {getCategoriesForType(formData.issue_type).map(cat => (
+                                        <option key={cat.id} value={cat.name}>
+                                            {cat.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div className="text-sm text-gray-400 py-2 italic">
+                                    No categories defined for this issue type
+                                </div>
+                            )}
+                            {formData.issue_category && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {getCategoriesForType(formData.issue_type).find(c => c.name === formData.issue_category)?.description}
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Priority */}
                     <div className="mb-4">

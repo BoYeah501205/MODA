@@ -1918,6 +1918,7 @@ function WeeklyBoardTab({
     // ===== SELECTION SYSTEM =====
     const [selectedModules, setSelectedModules] = useState(new Set()); // Set of "moduleId-stationId" keys
     const [showBulkMenu, setShowBulkMenu] = useState(null); // { x, y } position for context menu
+    const [focusedCell, setFocusedCell] = useState(null); // { moduleId, stationId, rowIndex, colIndex } for keyboard nav
     const boardRef = useRef(null);
     const longPressTimer = useRef(null);
     
@@ -3136,22 +3137,116 @@ function WeeklyBoardTab({
         addToast('Detailed report opened - print or save as PDF', 'success');
     };
     
-    // Scroll board horizontally with keyboard
+    // Build navigation grid for keyboard navigation
+    const navigationGrid = useMemo(() => {
+        if (!productionStages?.length) return { rows: [], modules: [] };
+        
+        const firstStation = productionStages[0];
+        const { previous = [], current = [], next = [] } = getModulesForStation(firstStation);
+        const allModules = [...previous, ...current, ...next];
+        
+        // Build grid: rows are modules, columns are stations
+        const grid = allModules.map((module, rowIndex) => ({
+            moduleId: module.id,
+            serialNumber: module.serialNumber,
+            rowIndex,
+            cells: productionStages.map((station, colIndex) => ({
+                stationId: station.id,
+                colIndex
+            }))
+        }));
+        
+        return { rows: grid, stationCount: productionStages.length };
+    }, [productionStages, getModulesForStation]);
+    
+    // Handle keyboard navigation and shortcuts
     const handleBoardKeyDown = useCallback((e) => {
         if (!boardRef.current) return;
         const scrollContainer = boardRef.current.querySelector('.board-scroll-container');
         if (!scrollContainer) return;
         
-        const scrollAmount = 200; // pixels to scroll
+        const { rows, stationCount } = navigationGrid;
+        if (!rows.length || !stationCount) return;
         
-        if (e.key === 'ArrowLeft') {
-            scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-            e.preventDefault();
-        } else if (e.key === 'ArrowRight') {
-            scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-            e.preventDefault();
+        // Progress shortcuts: 0-4 keys when a cell is focused (single selection only)
+        if (focusedCell && selectedModules.size === 1 && canEdit) {
+            const progressMap = { '0': 0, '1': 25, '2': 50, '3': 75, '4': 100 };
+            if (progressMap[e.key] !== undefined) {
+                e.preventDefault();
+                handleProgressUpdate(
+                    { id: focusedCell.moduleId }, 
+                    focusedCell.stationId, 
+                    progressMap[e.key]
+                );
+                return;
+            }
         }
-    }, []);
+        
+        // Arrow key navigation when a cell is focused
+        if (focusedCell && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            
+            let newRowIndex = focusedCell.rowIndex;
+            let newColIndex = focusedCell.colIndex;
+            
+            switch (e.key) {
+                case 'ArrowUp':
+                    newRowIndex = Math.max(0, focusedCell.rowIndex - 1);
+                    break;
+                case 'ArrowDown':
+                    newRowIndex = Math.min(rows.length - 1, focusedCell.rowIndex + 1);
+                    break;
+                case 'ArrowLeft':
+                    newColIndex = Math.max(0, focusedCell.colIndex - 1);
+                    break;
+                case 'ArrowRight':
+                    newColIndex = Math.min(stationCount - 1, focusedCell.colIndex + 1);
+                    break;
+            }
+            
+            // Get the new cell's module and station
+            const newRow = rows[newRowIndex];
+            if (newRow) {
+                const newCell = newRow.cells[newColIndex];
+                if (newCell) {
+                    const newFocusedCell = {
+                        moduleId: newRow.moduleId,
+                        stationId: newCell.stationId,
+                        rowIndex: newRowIndex,
+                        colIndex: newColIndex
+                    };
+                    
+                    setFocusedCell(newFocusedCell);
+                    
+                    // Update selection to the new cell (single selection mode for keyboard nav)
+                    if (!e.ctrlKey && !e.metaKey) {
+                        setSelectedModules(new Set([getSelectionKey(newRow.moduleId, newCell.stationId)]));
+                    }
+                    
+                    // Scroll the cell into view
+                    const cellElement = document.querySelector(
+                        `[data-cell-key="${getSelectionKey(newRow.moduleId, newCell.stationId)}"]`
+                    );
+                    if (cellElement) {
+                        cellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Default scroll behavior when no cell is focused
+        if (!focusedCell) {
+            const scrollAmount = 200;
+            if (e.key === 'ArrowLeft') {
+                scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                e.preventDefault();
+            } else if (e.key === 'ArrowRight') {
+                scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                e.preventDefault();
+            }
+        }
+    }, [navigationGrid, focusedCell, selectedModules.size, canEdit, handleProgressUpdate, getSelectionKey]);
     
     // Card height for alignment between date markers and module cards
     // Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
@@ -3215,6 +3310,7 @@ const getProjectAcronym = (module) => {
                 <div
                     key={`${station.id}-${module.id}`}
                     data-module-serial={module.serialNumber}
+                    data-cell-key={getSelectionKey(module.id, station.id)}
                     className="rounded p-1.5 bg-gray-50 border border-gray-200 opacity-50 hover:opacity-100 transition cursor-pointer"
                     style={{ height: `${CARD_HEIGHT}px` }}
                     onClick={() => updateModuleProgress(module.id, module.projectId, station.id, 25)}
