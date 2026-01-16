@@ -213,7 +213,6 @@
             const newIssue = {
                 issue_number: issueNumber,
                 issue_display_id: formatIssueNumber(issueNumber),
-                routed_to: 'engineering',
                 
                 // Context
                 project_id: projectId,
