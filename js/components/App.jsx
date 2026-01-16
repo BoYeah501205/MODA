@@ -1509,7 +1509,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 setEngineeringIssues(prev => [newIssue, ...prev]);
                 setShowReportIssueModal(false);
                 setReportIssueContext(null);
-                alert(`Issue ${newIssue.issue_display_id} submitted successfully!`);
+                if (window.MODA_TOAST) {
+                    window.MODA_TOAST.success(`Issue ${newIssue.issue_display_id} submitted successfully!`);
+                }
             };
             
             const selectedProject = projects.find(p => p.id === selectedProjectId);
@@ -1940,7 +1942,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if (!formData.title || !formData.category || !formData.reportedBy) {
-                    alert('Please fill in Title, Category, and Your Name');
+                    if (window.MODA_TOAST) {
+                        window.MODA_TOAST.error('Please fill in Title, Category, and Your Name');
+                    }
                     return;
                 }
                 onSubmit(formData);
@@ -2355,7 +2359,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 setEngineeringIssues(prev => [newIssue, ...prev]);
                 setShowReportIssueModal(false);
                 setReportIssueContext(null);
-                alert(`Issue ${newIssue.issue_display_id} submitted successfully!`);
+                if (window.MODA_TOAST) {
+                    window.MODA_TOAST.success(`Issue ${newIssue.issue_display_id} submitted successfully!`);
+                }
             };
             
             // Update project modules
@@ -4508,6 +4514,63 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         // ============================================================================
         // EXTRACTED MODULES:
 
+// Error Boundary for iOS Safari crash recovery
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null, errorInfo: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        this.setState({ errorInfo });
+        console.error('[MODA ErrorBoundary]', error, errorInfo);
+        // Track for iOS diagnostics
+        if (window.MODA_LOAD_ERRORS) {
+            window.MODA_LOAD_ERRORS.push({
+                message: error.message,
+                stack: error.stack,
+                componentStack: errorInfo?.componentStack,
+                time: new Date().toISOString()
+            });
+        }
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{padding: '20px', textAlign: 'center', fontFamily: 'Inter, system-ui, sans-serif'}}>
+                    <h2 style={{color: '#1E3A5F', marginBottom: '16px'}}>Something went wrong</h2>
+                    <p style={{color: '#6b7280', marginBottom: '16px'}}>
+                        {this.state.error?.message || 'An unexpected error occurred'}
+                    </p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        style={{
+                            backgroundColor: '#1E3A5F',
+                            color: 'white',
+                            padding: '12px 24px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '16px'
+                        }}
+                    >
+                        Reload App
+                    </button>
+                    <p style={{color: '#9ca3af', fontSize: '12px', marginTop: '16px'}}>
+                        If this persists, try clearing your browser cache or using a different browser.
+                    </p>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 function App() {
     // useAuth must be called unconditionally - React hooks rule
     // The hook itself handles the case when auth isn't ready
@@ -4522,16 +4585,54 @@ function App() {
     return <Dashboard auth={auth} />;
 }
 
+// Wrap App with ErrorBoundary for crash recovery
+function AppWithErrorBoundary() {
+    return (
+        <ErrorBoundary>
+            <App />
+        </ErrorBoundary>
+    );
+}
+
+// Export Dashboard for external access
+window.Dashboard = Dashboard;
+
 // Only render App after useAuth is available (unless another route already handled rendering)
 if (!window.MODA_ROUTE_HANDLED) {
+    const renderApp = () => {
+        try {
+            ReactDOM.render(<AppWithErrorBoundary />, document.getElementById('root'));
+            console.log('[MODA] App rendered successfully');
+        } catch (err) {
+            console.error('[MODA] Failed to render App:', err);
+            // Show error on iOS loading screen
+            const errorEl = document.getElementById('ios-error-msg');
+            if (errorEl) {
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Render error: ' + (err.message || 'Unknown');
+            }
+        }
+    };
+
     if (window.useAuth) {
-        ReactDOM.render(<App />, document.getElementById('root'));
+        renderApp();
     } else {
-        // Wait for AuthModule to load
+        // Wait for AuthModule to load with timeout
+        let attempts = 0;
+        const maxAttempts = 100; // 5 seconds max
         const checkAuth = setInterval(() => {
+            attempts++;
             if (window.useAuth) {
                 clearInterval(checkAuth);
-                ReactDOM.render(<App />, document.getElementById('root'));
+                renderApp();
+            } else if (attempts >= maxAttempts) {
+                clearInterval(checkAuth);
+                console.error('[MODA] Timeout waiting for useAuth');
+                const errorEl = document.getElementById('ios-error-msg');
+                if (errorEl) {
+                    errorEl.style.display = 'block';
+                    errorEl.textContent = 'Auth module failed to load. Please refresh.';
+                }
             }
         }, 50);
     }

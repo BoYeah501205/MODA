@@ -53,7 +53,79 @@
     <link href="./css/module-import.css" rel="stylesheet">
 </head>
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
-    <div id="root"></div>
+    <div id="root">
+        <!-- iOS Safari fallback loading indicator -->
+        <div id="ios-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,system-ui,sans-serif;">
+            <div style="width:60px;height:60px;border:3px solid #e5e7eb;border-top-color:#1E3A5F;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            <p style="margin-top:16px;color:#6b7280;font-size:14px;">Loading MODA...</p>
+            <p id="ios-error-msg" style="margin-top:8px;color:#dc2626;font-size:12px;max-width:300px;text-align:center;display:none;"></p>
+        </div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </div>
+    
+    <script>
+      // GLOBAL: iOS Safari error tracking and diagnostics
+      (function() {
+        window.MODA_LOAD_ERRORS = [];
+        window.MODA_SCRIPTS_LOADED = [];
+        
+        // Global error handler for iOS Safari
+        window.onerror = function(msg, url, line, col, error) {
+          var errorInfo = {
+            message: msg,
+            url: url,
+            line: line,
+            col: col,
+            stack: error ? error.stack : 'N/A',
+            time: new Date().toISOString()
+          };
+          window.MODA_LOAD_ERRORS.push(errorInfo);
+          console.error('[MODA iOS Error]', errorInfo);
+          
+          // Show error on screen for iOS debugging
+          var errorEl = document.getElementById('ios-error-msg');
+          if (errorEl) {
+            errorEl.style.display = 'block';
+            errorEl.textContent = 'Error: ' + msg.substring(0, 100);
+          }
+          return false;
+        };
+        
+        // Unhandled promise rejection handler
+        window.onunhandledrejection = function(event) {
+          var errorInfo = {
+            message: 'Unhandled Promise: ' + (event.reason ? event.reason.message || event.reason : 'Unknown'),
+            stack: event.reason ? event.reason.stack : 'N/A',
+            time: new Date().toISOString()
+          };
+          window.MODA_LOAD_ERRORS.push(errorInfo);
+          console.error('[MODA iOS Promise Error]', errorInfo);
+        };
+        
+        // Track Babel script compilation
+        window.MODA_BABEL_TRACK = function(scriptName) {
+          window.MODA_SCRIPTS_LOADED.push({ name: scriptName, time: new Date().toISOString() });
+          console.log('[MODA] Loaded:', scriptName);
+        };
+        
+        // Diagnostic function accessible from console
+        window.MODA_DIAGNOSE = function() {
+          console.log('=== MODA iOS Diagnostics ===');
+          console.log('Scripts loaded:', window.MODA_SCRIPTS_LOADED.length);
+          console.log('Errors:', window.MODA_LOAD_ERRORS.length);
+          console.log('useAuth available:', !!window.useAuth);
+          console.log('LoginPage available:', !!window.LoginPage);
+          console.log('Dashboard available:', !!window.Dashboard);
+          console.log('MODA_SUPABASE:', !!window.MODA_SUPABASE);
+          console.log('React:', !!window.React);
+          console.log('ReactDOM:', !!window.ReactDOM);
+          if (window.MODA_LOAD_ERRORS.length > 0) {
+            console.log('Error details:', window.MODA_LOAD_ERRORS);
+          }
+          return { scripts: window.MODA_SCRIPTS_LOADED, errors: window.MODA_LOAD_ERRORS };
+        };
+      })();
+    </script>
     
     <script>
       // GLOBAL: Patch localStorage.setItem to handle Safari/iPad quota errors
@@ -185,9 +257,12 @@
     <script type="text/babel" src="./js/components/ModuleDrawingsViewer.jsx"></script>
     <script type="text/babel" src="./js/components/ModuleMenuPage.jsx"></script>
     
+    <!-- Toast Notification System -->
+    <script type="text/babel" src="./js/components/ToastNotification.jsx?v=1"></script>
+    
     <!-- Engineering Issue Tracker -->
     <script type="text/babel" src="./js/components/IssueCategoriesManager.jsx"></script>
-    <script type="text/babel" src="./js/components/IssueSubmissionModal.jsx?v=3"></script>
+    <script type="text/babel" src="./js/components/IssueSubmissionModal.jsx?v=4"></script>
     <script type="text/babel" src="./js/components/IssueDetailModal.jsx"></script>
     <script type="text/babel" src="./js/components/EngineeringModule.jsx"></script>
     

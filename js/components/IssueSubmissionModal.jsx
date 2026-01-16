@@ -250,7 +250,14 @@ function IssueSubmissionModal({
                 const destination = getRoutingDestination(formData.issue_type);
                 console.log('[IssueSubmissionModal] Issue created:', newIssue);
                 setIsSubmitting(false);
-                alert(`Issue ${newIssue.issue_display_id} submitted successfully!\n\nRouted to: ${destination}`);
+                
+                // Use toast notification instead of alert
+                if (window.MODA_TOAST) {
+                    window.MODA_TOAST.success(
+                        `Issue ${newIssue.issue_display_id} submitted successfully!`,
+                        { subtitle: `Routed to: ${destination}` }
+                    );
+                }
                 onClose();
             } else if (onSubmit) {
                 console.log('[IssueSubmissionModal] Using onSubmit callback');
