@@ -5,105 +5,129 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>Modular Operations Dashboard Application</title>
     
-    <!-- CRITICAL: Mobile localStorage fix - MUST be first script before any libraries -->
+    <!-- CRITICAL: Storage polyfill - MUST be FIRST script before ANY libraries -->
+    <!-- This prevents "QuotaExceededError" on iOS Safari (Private Browsing or full storage) -->
     <script>
-      // Mobile-first storage: Clear and limit localStorage on iOS/mobile BEFORE any libraries load
-      // iOS Safari has 5MB limit that causes "quota exceeded" errors
       (function() {
         'use strict';
+        
+        // Test if localStorage is actually usable (Safari Private Mode fails this)
+        var storageAvailable = false;
+        try {
+          var testKey = '__moda_storage_test__';
+          localStorage.setItem(testKey, testKey);
+          localStorage.removeItem(testKey);
+          storageAvailable = true;
+        } catch (e) {
+          storageAvailable = false;
+        }
+        
+        // If storage is not available, create a memory-based polyfill
+        // This prevents ALL QuotaExceededError crashes from any library (Supabase, etc.)
+        if (!storageAvailable) {
+          console.warn('[MODA] localStorage not available - using memory storage polyfill');
+          
+          // In-memory storage fallback
+          var memoryStorage = {};
+          
+          // Override Storage.prototype to catch ALL storage calls
+          Storage.prototype._setItem = Storage.prototype.setItem;
+          Storage.prototype.setItem = function(key, value) {
+            try {
+              this._setItem(key, value);
+            } catch (e) {
+              // Silently store in memory instead
+              memoryStorage[key] = String(value);
+            }
+          };
+          
+          Storage.prototype._getItem = Storage.prototype.getItem;
+          Storage.prototype.getItem = function(key) {
+            try {
+              var value = this._getItem(key);
+              if (value !== null) return value;
+            } catch (e) {}
+            // Fall back to memory storage
+            return memoryStorage.hasOwnProperty(key) ? memoryStorage[key] : null;
+          };
+          
+          Storage.prototype._removeItem = Storage.prototype.removeItem;
+          Storage.prototype.removeItem = function(key) {
+            try {
+              this._removeItem(key);
+            } catch (e) {}
+            delete memoryStorage[key];
+          };
+          
+          Storage.prototype._clear = Storage.prototype.clear;
+          Storage.prototype.clear = function() {
+            try {
+              this._clear();
+            } catch (e) {}
+            memoryStorage = {};
+          };
+          
+          window.MODA_STORAGE_POLYFILL = true;
+        }
         
         // Detect mobile/tablet devices
         var ua = navigator.userAgent || '';
         var isMobile = /iPhone|iPad|iPod|Android/i.test(ua) ||
                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         
-        if (!isMobile) return; // Only apply fixes on mobile
+        window.MODA_IS_MOBILE = isMobile;
+        window.MODA_STORAGE_AVAILABLE = storageAvailable;
+        window.MODA_STORAGE_MODE = (!storageAvailable || isMobile) ? 'minimal' : 'full';
         
-        console.log('[MODA] Mobile device detected - applying storage limits');
+        console.log('[MODA] Storage mode:', window.MODA_STORAGE_MODE, 
+                    '| Available:', storageAvailable, 
+                    '| Mobile:', isMobile);
         
-        // Store original methods
-        var _setItem = localStorage.setItem.bind(localStorage);
-        var _getItem = localStorage.getItem.bind(localStorage);
-        var _removeItem = localStorage.removeItem.bind(localStorage);
-        
-        // Keys that are absolutely required (auth only)
-        var REQUIRED_KEYS = ['sb-syreuphexagezawjyjgt-auth-token', 'autovol_session'];
-        
-        // STEP 1: Immediately clear ALL localStorage except auth tokens
-        try {
+        // On mobile with working storage, still limit what gets stored
+        if (isMobile && storageAvailable) {
+          console.log('[MODA] Mobile with storage - applying write limits');
+          
+          // Clear non-essential data on mobile to prevent future quota issues
           var keysToRemove = [];
           for (var i = 0; i < localStorage.length; i++) {
             var key = localStorage.key(i);
-            if (key) {
-              var isRequired = REQUIRED_KEYS.some(function(r) { 
-                return key.indexOf(r) > -1; 
-              });
-              if (!isRequired) {
-                keysToRemove.push(key);
-              }
+            if (key && key.indexOf('sb-') !== 0 && key !== 'autovol_session') {
+              keysToRemove.push(key);
             }
           }
           keysToRemove.forEach(function(k) {
-            try { _removeItem(k); } catch(e) {}
+            try { localStorage.removeItem(k); } catch(e) {}
           });
-          console.log('[MODA] Cleared ' + keysToRemove.length + ' cached items on mobile');
-        } catch (e) {
-          console.warn('[MODA] Could not clear storage:', e);
-        }
-        
-        // STEP 2: Override setItem to block non-essential writes
-        localStorage.setItem = function(key, value) {
-          // Only allow Supabase auth token writes
-          if (key && key.indexOf('sb-') === 0 && key.indexOf('-auth-token') > -1) {
-            try {
-              _setItem(key, value);
-            } catch (e) {
-              // If even auth token fails, clear everything and retry
-              console.warn('[MODA] Auth token write failed, clearing all storage');
-              try { localStorage.clear(); } catch(ce) {}
-              try { _setItem(key, value); } catch(re) {
-                console.error('[MODA] Cannot save auth token');
+          if (keysToRemove.length > 0) {
+            console.log('[MODA] Cleared', keysToRemove.length, 'cached items on mobile');
+          }
+          
+          // Wrap setItem to limit writes on mobile
+          var _origSetItem = localStorage.setItem.bind(localStorage);
+          localStorage.setItem = function(key, value) {
+            // Only allow Supabase auth and session on mobile
+            if (key && (key.indexOf('sb-') === 0 || key === 'autovol_session')) {
+              try {
+                _origSetItem(key, value);
+              } catch (e) {
+                // If quota exceeded, clear and retry
+                console.warn('[MODA] Storage quota hit, clearing cache');
+                var toRemove = [];
+                for (var j = 0; j < localStorage.length; j++) {
+                  var k = localStorage.key(j);
+                  if (k && k.indexOf('sb-') !== 0 && k !== 'autovol_session') {
+                    toRemove.push(k);
+                  }
+                }
+                toRemove.forEach(function(k) { 
+                  try { localStorage.removeItem(k); } catch(err) {} 
+                });
+                try { _origSetItem(key, value); } catch(e2) {}
               }
             }
-            return;
-          }
-          
-          // Allow session key (small)
-          if (key === 'autovol_session') {
-            try { _setItem(key, value); } catch(e) {}
-            return;
-          }
-          
-          // Block all other writes on mobile - data comes from Supabase
-          // console.log('[MODA] Blocked localStorage write:', key);
-        };
-        
-        // STEP 3: Override getItem to return null for cached data keys
-        // This forces the app to fetch from Supabase
-        var CACHED_KEYS = [
-          'autovol_projects', 'autovol_employees', 'autovol_users',
-          'autovol_unified_modules', 'autovol_schedule_setup',
-          'autovol_dashboard_roles', 'autovol_trash', 'moda_'
-        ];
-        
-        localStorage.getItem = function(key) {
-          if (!key) return _getItem(key);
-          
-          // Check if this is a cached data key
-          var isCached = CACHED_KEYS.some(function(c) {
-            return key.indexOf(c) > -1;
-          });
-          
-          if (isCached) {
-            return null; // Force Supabase fetch
-          }
-          
-          return _getItem(key);
-        };
-        
-        // Set global flags
-        window.MODA_IS_MOBILE = true;
-        window.MODA_STORAGE_MODE = 'minimal';
+            // Silently ignore other writes on mobile - data comes from Supabase
+          };
+        }
       })();
     </script>
     
