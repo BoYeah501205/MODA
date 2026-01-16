@@ -225,11 +225,11 @@
                 issue_type: issueData.issue_type || 'other',
                 priority: issueData.priority || 'medium',
                 title: issueData.title || '',
-                description: issueData.description || '',
+                description: issueData.description || 'No description provided',
                 photo_urls: issueData.photo_urls || [],
                 
                 // Assignment & Tracking
-                submitted_by: issueData.submitted_by || '',
+                submitted_by: issueData.submitted_by || 'Unknown User',
                 submitted_by_id: issueData.submitted_by_id || null,
                 assigned_to: issueData.assigned_to || null,
                 assigned_to_id: issueData.assigned_to_id || null,
@@ -267,13 +267,18 @@
                 return localIssue;
             }
 
+            console.log('[Issues] Inserting to Supabase:', JSON.stringify(newIssue, null, 2));
+            
             const { data, error } = await getClient()
                 .from('engineering_issues')
                 .insert(newIssue)
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error('[Issues] Supabase insert error:', error.message, error.details, error.hint);
+                throw error;
+            }
             
             console.log('[Issues] Created:', data.issue_display_id);
             

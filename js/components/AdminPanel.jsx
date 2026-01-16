@@ -26,7 +26,8 @@
             title: 'App Configuration',
             description: 'Customize application settings and categories',
             sections: [
-                { id: 'issueCategories', title: 'Issue Categories', description: 'Manage issue types and categories for QA logging' }
+                { id: 'issueTypes', title: 'Issue Types', description: 'Manage issue types, routing, and export issues data' },
+                { id: 'issueCategories', title: 'Issue Categories', description: 'Manage sub-categories within each issue type' }
             ]
         },
         system: {
@@ -130,6 +131,13 @@
                         <window.DashboardRoleManager auth={auth} />
                     ) : (
                         <p className="text-gray-500">Loading Role Manager...</p>
+                    );
+
+                case 'issueTypes':
+                    return window.IssueTypesManager ? (
+                        <window.IssueTypesManager auth={auth} />
+                    ) : (
+                        <p className="text-gray-500">Issue Types Manager not loaded.</p>
                     );
 
                 case 'issueCategories':
