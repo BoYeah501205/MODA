@@ -708,7 +708,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [searchTerm, setSearchTerm] = useState('');
             const [stageFilter, setStageFilter] = useState('all');
             
-            // Keyboard shortcuts
+            // Keyboard shortcuts (minimal - removed tab navigation to avoid conflicts with Weekly Board)
             useEffect(() => {
                 const handleKeyDown = (e) => {
                     // Don't trigger shortcuts when typing in inputs
@@ -724,23 +724,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         setShowProjectModal(false);
                         setShowImportModal(false);
                         setShowDataManagement(false);
-                        return;
-                    }
-                    
-                    // Tab navigation with number keys (1-9)
-                    if (!ctrl && !e.altKey && /^[1-9]$/.test(key)) {
-                        const tabIndex = parseInt(key) - 1;
-                        const visibleTabs = [
-                            'executive', 'production', 'projects', 'people', 'qa', 
-                            'transport', 'equipment', 'precon', 'onsite', 'engineering', 
-                            'automation', 'tracker'
-                        ].filter(tab => auth.visibleTabs.includes(tab));
-                        
-                        if (tabIndex < visibleTabs.length) {
-                            e.preventDefault();
-                            setActiveTab(visibleTabs[tabIndex]);
-                            setSelectedProject(null);
-                        }
                         return;
                     }
                     
@@ -762,7 +745,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 
                 document.addEventListener('keydown', handleKeyDown);
                 return () => document.removeEventListener('keydown', handleKeyDown);
-            }, [activeTab, auth.visibleTabs, auth.isAdmin]);
+            }, [activeTab, auth.isAdmin]);
             
             // People Module State
             const [employees, setEmployees] = useState([]);
