@@ -205,16 +205,22 @@
             
             // For Supabase, don't include 'id' - let the database generate UUID
             // For localStorage fallback, we'll add it after
+            // Note: UUID fields must be null (not empty string) if not provided
+            const projectId = issueData.project_id && issueData.project_id !== '' ? issueData.project_id : null;
+            const submittedById = issueData.submitted_by_id && issueData.submitted_by_id !== '' ? issueData.submitted_by_id : null;
+            const assignedToId = issueData.assigned_to_id && issueData.assigned_to_id !== '' ? issueData.assigned_to_id : null;
+            
             const newIssue = {
                 issue_number: issueNumber,
                 issue_display_id: formatIssueNumber(issueNumber),
+                routed_to: 'engineering',
                 
                 // Context
-                project_id: issueData.project_id || null,
+                project_id: projectId,
                 project_name: issueData.project_name || '',
                 project_abbreviation: issueData.project_abbreviation || '',
                 blm_id: issueData.blm_id || '',
-                build_seq: issueData.build_seq || null,
+                build_seq: issueData.build_seq ? parseInt(issueData.build_seq) : null,
                 unit_type: issueData.unit_type || '',
                 hitch_front: issueData.hitch_front || '',
                 hitch_rear: issueData.hitch_rear || '',
@@ -223,6 +229,7 @@
                 
                 // Issue Details
                 issue_type: issueData.issue_type || 'other',
+                issue_category: issueData.issue_category || null,
                 priority: issueData.priority || 'medium',
                 title: issueData.title || '',
                 description: issueData.description || 'No description provided',
@@ -230,9 +237,9 @@
                 
                 // Assignment & Tracking
                 submitted_by: issueData.submitted_by || 'Unknown User',
-                submitted_by_id: issueData.submitted_by_id || null,
+                submitted_by_id: submittedById,
                 assigned_to: issueData.assigned_to || null,
-                assigned_to_id: issueData.assigned_to_id || null,
+                assigned_to_id: assignedToId,
                 status: 'open',
                 
                 // Activity Log
@@ -240,7 +247,7 @@
                 status_history: [{
                     status: 'open',
                     changed_by: issueData.submitted_by || 'System',
-                    changed_by_id: issueData.submitted_by_id || null,
+                    changed_by_id: submittedById,
                     timestamp: now,
                     note: 'Issue created'
                 }],
