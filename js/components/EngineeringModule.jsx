@@ -132,6 +132,18 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
                 try {
                     const data = await window.MODA_SUPABASE_ISSUES.issues.getAll();
                     console.log('[Engineering] Loaded', data?.length || 0, 'issues from Supabase');
+                    
+                    // If Supabase returns empty, also check localStorage (hybrid mode)
+                    // This handles the case where issues were created when Supabase was unavailable
+                    if (!data || data.length === 0) {
+                        const localIssues = loadFromLocalStorageSync();
+                        if (localIssues.length > 0) {
+                            console.log('[Engineering] Supabase empty, using', localIssues.length, 'issues from localStorage');
+                            setIssues(localIssues);
+                            return;
+                        }
+                    }
+                    
                     setIssues(data || []);
                 } catch (supabaseErr) {
                     console.error('[Engineering] Supabase getAll failed:', supabaseErr);
@@ -153,22 +165,24 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
         }
     };
     
-    const loadFromLocalStorage = () => {
+    // Sync version that returns data instead of setting state (for hybrid mode check)
+    const loadFromLocalStorageSync = () => {
         const stored = localStorage.getItem('moda_engineering_issues');
-        
         if (stored && stored !== 'undefined' && stored !== 'null') {
             try {
-                const parsed = JSON.parse(stored);
-                console.log('[Engineering] Parsed issues from localStorage:', parsed.length, 'issues');
-                setIssues(parsed);
+                return JSON.parse(stored);
             } catch (parseErr) {
                 console.error('[Engineering] Error parsing localStorage:', parseErr);
-                setIssues([]);
+                return [];
             }
-        } else {
-            console.log('[Engineering] No issues in localStorage');
-            setIssues([]);
         }
+        return [];
+    };
+    
+    const loadFromLocalStorage = () => {
+        const issues = loadFromLocalStorageSync();
+        console.log('[Engineering] Loaded', issues.length, 'issues from localStorage');
+        setIssues(issues);
     };
 
     // ===== STATISTICS =====
