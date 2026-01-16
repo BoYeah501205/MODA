@@ -128,124 +128,117 @@
     </script>
     
     <script>
-      // GLOBAL: Aggressive localStorage management for iOS Safari quota limits
+      // GLOBAL: Mobile-first storage strategy - SKIP localStorage on mobile devices
+      // iOS Safari has a strict 5MB limit that causes "quota exceeded" errors
+      // Since Supabase is the source of truth, we don't need localStorage caching on mobile
       (function() {
         var originalSetItem = localStorage.setItem.bind(localStorage);
         var originalGetItem = localStorage.getItem.bind(localStorage);
+        var originalRemoveItem = localStorage.removeItem.bind(localStorage);
         
-        // Keys that are safe to clear (non-essential cached data)
-        var CLEARABLE_KEYS = [
-          '_trash', '_cache', '_temp', '_backup',
-          'autovol_trash_projects', 'autovol_trash_employees',
-          'autovol_projects', 'autovol_employees', 'autovol_users',
-          'autovol_unified_modules', 'autovol_schedule_setup',
-          'autovol_completed_weeks', 'moda_engineering_issues',
-          'autovol_transport_data', 'autovol_yard_data',
-          'autovol_production_weeks', 'autovol_stagger_config',
-          'sb-syreuphexagezawjyjgt-auth-token' // Supabase auth token (large, regenerates on login)
+        // Detect mobile/tablet devices (iOS, Android, iPad)
+        var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+                       window.innerWidth <= 1024;
+        
+        // Essential keys that MUST be stored even on mobile (minimal footprint)
+        var ESSENTIAL_KEYS = [
+          'autovol_session',           // User session (~500 bytes)
+          'autovol_dashboard_roles_version', // Version number (~10 bytes)
+          'sb-syreuphexagezawjyjgt-auth-token' // Supabase auth (required for auth)
         ];
         
-        // Essential keys to preserve if possible
-        var ESSENTIAL_KEYS = ['autovol_session', 'autovol_dashboard_roles', 'autovol_dashboard_roles_version'];
+        // Keys that are OK to cache on desktop but should be skipped on mobile
+        var SKIP_ON_MOBILE = [
+          'autovol_projects',
+          'autovol_employees', 
+          'autovol_users',
+          'autovol_unified_modules',
+          'autovol_schedule_setup',
+          'autovol_completed_weeks',
+          'moda_engineering_issues',
+          'autovol_transport_data',
+          'autovol_yard_data',
+          'autovol_production_weeks',
+          'autovol_stagger_config',
+          'autovol_dashboard_roles',
+          'autovol_trash_projects',
+          'autovol_trash_employees',
+          'autovol_issue_categories'
+        ];
         
-        function clearNonEssentialData() {
-          var cleared = 0;
+        // Set global flag for other scripts to check
+        window.MODA_IS_MOBILE = isMobile;
+        window.MODA_STORAGE_MODE = isMobile ? 'minimal' : 'full';
+        
+        console.log('[Storage] Mode:', window.MODA_STORAGE_MODE, '| Mobile:', isMobile);
+        
+        // On mobile, clear ALL non-essential data immediately on page load
+        if (isMobile) {
+          console.log('[Storage] Mobile device - clearing cached data to prevent quota errors');
           var keysToRemove = [];
-          
           for (var i = 0; i < localStorage.length; i++) {
             var k = localStorage.key(i);
-            if (!k) continue;
-            
-            // Check if it's a clearable key
-            var isClearable = CLEARABLE_KEYS.some(function(pattern) {
-              return k === pattern || k.indexOf(pattern) > -1;
-            });
-            
-            // Check if it's essential
-            var isEssential = ESSENTIAL_KEYS.indexOf(k) > -1;
-            
-            if (isClearable && !isEssential) {
+            if (k && ESSENTIAL_KEYS.indexOf(k) === -1) {
               keysToRemove.push(k);
             }
           }
-          
           keysToRemove.forEach(function(k) {
-            try {
-              localStorage.removeItem(k);
-              cleared++;
-            } catch(err) {}
+            try { originalRemoveItem(k); } catch(e) {}
           });
-          
-          console.log('[Storage] Cleared ' + cleared + ' non-essential keys');
-          return cleared;
+          console.log('[Storage] Cleared ' + keysToRemove.length + ' cached keys on mobile');
         }
         
-        // Detect iOS Safari
-        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        
-        // On iOS, proactively clear old data on page load
-        if (isIOS) {
-          console.log('[Storage] iOS detected, checking storage usage...');
-          try {
-            // Test if we're near quota by trying to write a test value
-            var testKey = '__storage_test__';
-            var testValue = new Array(100000).join('x'); // ~100KB test
-            try {
-              originalSetItem(testKey, testValue);
-              localStorage.removeItem(testKey);
-            } catch (e) {
-              console.warn('[Storage] iOS storage near limit, clearing non-essential data...');
-              clearNonEssentialData();
-            }
-          } catch (e) {
-            console.warn('[Storage] iOS storage check failed:', e);
-          }
-        }
-        
+        // Override localStorage.setItem
         localStorage.setItem = function(key, value) {
+          // On mobile, only allow essential keys
+          if (isMobile) {
+            var isEssential = ESSENTIAL_KEYS.some(function(pattern) {
+              return key === pattern || key.indexOf(pattern) > -1;
+            });
+            
+            if (!isEssential) {
+              // Silently skip non-essential writes on mobile
+              // Data will be fetched from Supabase instead
+              return;
+            }
+          }
+          
+          // Try to write
           try {
             originalSetItem(key, value);
           } catch (e) {
             if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014 || 
-                (e.message && e.message.indexOf('quota') > -1)) {
-              console.warn('[Storage] Quota exceeded for ' + key + ', clearing data...');
+                (e.message && e.message.toLowerCase().indexOf('quota') > -1)) {
+              console.warn('[Storage] Quota exceeded for ' + key);
               
-              // First pass: clear non-essential data
-              clearNonEssentialData();
-              
-              // Retry
-              try {
-                originalSetItem(key, value);
-                return;
-              } catch (retryErr) {
-                console.warn('[Storage] Still full, clearing ALL non-session data...');
-              }
-              
-              // Second pass: clear everything except session
+              // Clear non-essential data and retry once
               for (var i = localStorage.length - 1; i >= 0; i--) {
                 var k = localStorage.key(i);
-                if (k && k !== 'autovol_session') {
-                  try { localStorage.removeItem(k); } catch(err) {}
+                if (k && ESSENTIAL_KEYS.indexOf(k) === -1) {
+                  try { originalRemoveItem(k); } catch(err) {}
                 }
               }
               
-              // Final retry
               try {
                 originalSetItem(key, value);
-              } catch (finalErr) {
-                console.error('[Storage] Cannot save ' + key + ' - storage completely full');
-                // Show user-friendly message on iOS
-                var errorEl = document.getElementById('ios-error-msg');
-                if (errorEl) {
-                  errorEl.style.display = 'block';
-                  errorEl.textContent = 'Storage full. Please clear Safari data in Settings > Safari > Clear History and Website Data';
-                }
+              } catch (retryErr) {
+                console.error('[Storage] Cannot save ' + key + ' even after cleanup');
               }
             } else {
               console.error('[Storage] setItem error:', e);
             }
           }
+        };
+        
+        // Override localStorage.getItem to return null for skipped keys on mobile
+        // This forces the app to fetch from Supabase instead
+        localStorage.getItem = function(key) {
+          if (isMobile && SKIP_ON_MOBILE.indexOf(key) > -1) {
+            // Return null to force Supabase fetch
+            return null;
+          }
+          return originalGetItem(key);
         };
       })();
     </script>
