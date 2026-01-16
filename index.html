@@ -6,95 +6,119 @@
     <title>Modular Operations Dashboard Application</title>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
-    <!-- Unconditionally wraps ALL localStorage calls to prevent QuotaExceededError crashes -->
-    <!-- This is the industry-standard approach for iOS Safari compatibility -->
+    <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
+    <!-- On desktop: normal localStorage behavior -->
     <script>
       (function() {
         'use strict';
         
-        // In-memory fallback storage (used when localStorage fails)
-        var memoryStorage = {};
-        
-        // UNCONDITIONALLY wrap Storage.prototype BEFORE any test
-        // This ensures even the test itself can't crash
-        var _originalSetItem = Storage.prototype.setItem;
-        var _originalGetItem = Storage.prototype.getItem;
-        var _originalRemoveItem = Storage.prototype.removeItem;
-        var _originalClear = Storage.prototype.clear;
-        
-        Storage.prototype.setItem = function(key, value) {
-          try {
-            _originalSetItem.call(this, key, value);
-          } catch (e) {
-            // QuotaExceededError or any other error - use memory fallback
-            memoryStorage[key] = String(value);
-            console.warn('[Storage] Using memory fallback for:', key);
-          }
-        };
-        
-        Storage.prototype.getItem = function(key) {
-          try {
-            var value = _originalGetItem.call(this, key);
-            if (value !== null) return value;
-          } catch (e) {}
-          // Check memory fallback
-          return memoryStorage.hasOwnProperty(key) ? memoryStorage[key] : null;
-        };
-        
-        Storage.prototype.removeItem = function(key) {
-          try {
-            _originalRemoveItem.call(this, key);
-          } catch (e) {}
-          delete memoryStorage[key];
-        };
-        
-        Storage.prototype.clear = function() {
-          try {
-            _originalClear.call(this);
-          } catch (e) {}
-          memoryStorage = {};
-        };
-        
-        // Now safely test if real localStorage works
-        var storageWorks = false;
-        try {
-          localStorage.setItem('__test__', '1');
-          localStorage.removeItem('__test__');
-          storageWorks = true;
-        } catch (e) {
-          storageWorks = false;
-        }
-        
-        // Detect mobile
+        // Detect mobile FIRST
         var ua = navigator.userAgent || '';
         var isMobile = /iPhone|iPad|iPod|Android/i.test(ua) ||
                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         
         window.MODA_IS_MOBILE = isMobile;
-        window.MODA_STORAGE_WORKS = storageWorks;
+        
+        // In-memory storage for mobile (replaces localStorage entirely)
+        var memoryStorage = {};
         window.MODA_MEMORY_STORAGE = memoryStorage;
         
-        console.log('[MODA] Storage wrapped | Works:', storageWorks, '| Mobile:', isMobile);
+        // Store original methods
+        var _originalSetItem = Storage.prototype.setItem;
+        var _originalGetItem = Storage.prototype.getItem;
+        var _originalRemoveItem = Storage.prototype.removeItem;
+        var _originalClear = Storage.prototype.clear;
         
-        // On mobile, proactively clear storage to prevent quota issues
-        if (isMobile && storageWorks) {
+        if (isMobile) {
+          // MOBILE: Use memory storage for everything except Supabase auth
+          console.log('[MODA] Mobile detected - using memory storage to prevent quota errors');
+          
+          // Clear ALL existing localStorage on mobile to free up space
           try {
             var keysToRemove = [];
             for (var i = 0; i < localStorage.length; i++) {
               var key = localStorage.key(i);
-              // Keep only Supabase auth token
               if (key && key.indexOf('sb-') !== 0) {
                 keysToRemove.push(key);
               }
             }
             keysToRemove.forEach(function(k) {
-              try { localStorage.removeItem(k); } catch(e) {}
+              try { _originalRemoveItem.call(localStorage, k); } catch(e) {}
             });
-            if (keysToRemove.length > 0) {
-              console.log('[MODA] Cleared', keysToRemove.length, 'items on mobile');
-            }
+            console.log('[MODA] Cleared', keysToRemove.length, 'cached items');
           } catch (e) {}
+          
+          // Override setItem - only allow Supabase auth tokens to real storage
+          Storage.prototype.setItem = function(key, value) {
+            if (key && key.indexOf('sb-') === 0) {
+              // Supabase auth token - try real storage, fall back to memory
+              try {
+                _originalSetItem.call(this, key, value);
+              } catch (e) {
+                memoryStorage[key] = String(value);
+              }
+            } else {
+              // Everything else goes to memory only (no quota issues)
+              memoryStorage[key] = String(value);
+            }
+          };
+          
+          // Override getItem - check memory first, then real storage
+          Storage.prototype.getItem = function(key) {
+            // Check memory storage first
+            if (memoryStorage.hasOwnProperty(key)) {
+              return memoryStorage[key];
+            }
+            // Then check real storage (for Supabase auth)
+            try {
+              return _originalGetItem.call(this, key);
+            } catch (e) {
+              return null;
+            }
+          };
+          
+          // Override removeItem
+          Storage.prototype.removeItem = function(key) {
+            delete memoryStorage[key];
+            try {
+              _originalRemoveItem.call(this, key);
+            } catch (e) {}
+          };
+          
+          // Override clear
+          Storage.prototype.clear = function() {
+            memoryStorage = {};
+            window.MODA_MEMORY_STORAGE = memoryStorage;
+            try {
+              _originalClear.call(this);
+            } catch (e) {}
+          };
+          
+        } else {
+          // DESKTOP: Normal localStorage with error handling
+          Storage.prototype.setItem = function(key, value) {
+            try {
+              _originalSetItem.call(this, key, value);
+            } catch (e) {
+              // Quota exceeded - use memory fallback
+              memoryStorage[key] = String(value);
+              console.warn('[Storage] Quota exceeded, using memory for:', key);
+            }
+          };
+          
+          Storage.prototype.getItem = function(key) {
+            if (memoryStorage.hasOwnProperty(key)) {
+              return memoryStorage[key];
+            }
+            try {
+              return _originalGetItem.call(this, key);
+            } catch (e) {
+              return null;
+            }
+          };
         }
+        
+        console.log('[MODA] Storage initialized | Mobile:', isMobile);
       })();
     </script>
     

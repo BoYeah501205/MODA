@@ -1,27 +1,8 @@
 // MODA Core - Unified Data Layer and Dashboard Roles
 // Extracted from index.html for optimization
 
-// Safe localStorage wrapper for Safari/iPad quota limits
-(function() {
-    if (window._localStoragePatched) return;
-    window._localStoragePatched = true;
-    var originalSetItem = localStorage.setItem.bind(localStorage);
-    localStorage.setItem = function(key, value) {
-        try {
-            originalSetItem(key, value);
-        } catch (e) {
-            if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
-                console.warn('[Storage] Quota exceeded for ' + key + ', clearing old data...');
-                ['autovol_trash_projects', 'autovol_trash_employees', 'autovol_cache_timestamp', 'autovol_temp', 'autovol_unified_modules'].forEach(function(k) {
-                    try { localStorage.removeItem(k); } catch(err) {}
-                });
-                try { originalSetItem(key, value); } catch (retryErr) {
-                    console.error('[Storage] Still full after cleanup for ' + key);
-                }
-            }
-        }
-    };
-})();
+// NOTE: localStorage wrapper is now in index.html (first script in head)
+// This ensures it runs before any libraries load
 
         // ===== UNIFIED MODULE SYSTEM =====
         // This layer provides a consistent data structure for tracking Modules
