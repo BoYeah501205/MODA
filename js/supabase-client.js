@@ -42,8 +42,31 @@
                 return;
             }
 
-            // Initialize client
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            // Initialize client with custom storage for mobile
+            // On mobile, use memory-only storage to avoid iOS Safari quota errors
+            const isMobile = window.MODA_IS_MOBILE || 
+                             /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+                             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            
+            const clientOptions = {};
+            
+            if (isMobile) {
+                console.log('[Supabase] Mobile detected - using memory storage to avoid quota errors');
+                // Use in-memory storage on mobile instead of localStorage
+                const memoryStorage = {
+                    _data: {},
+                    getItem: function(key) { return this._data[key] || null; },
+                    setItem: function(key, value) { this._data[key] = value; },
+                    removeItem: function(key) { delete this._data[key]; }
+                };
+                clientOptions.auth = {
+                    storage: memoryStorage,
+                    persistSession: true,
+                    autoRefreshToken: true
+                };
+            }
+            
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, clientOptions);
 
             // Listen for auth state changes
             supabase.auth.onAuthStateChange(async (event, session) => {
