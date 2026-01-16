@@ -3370,8 +3370,7 @@ const getProjectAcronym = (module) => {
                 : 'border-b-4 border-b-blue-500'
             : '';
         
-        // Find row/col index for this cell (for keyboard navigation)
-        const rowIndex = navigationGrid.rows.findIndex(r => r.moduleId === module.id);
+        // Find col index for this cell (for keyboard navigation)
         const colIndex = productionStages.findIndex(s => s.id === station.id);
         const isFocused = focusedCell?.moduleId === module.id && focusedCell?.stationId === station.id;
         
@@ -3406,9 +3405,15 @@ const getProjectAcronym = (module) => {
                         onClick={(e) => {
                             e.stopPropagation();
                             toggleSelection(module.id, station.id, e.ctrlKey || e.metaKey);
-                            // Set focused cell for keyboard navigation
+                            // Set focused cell for keyboard navigation (compute rowIndex from all modules)
                             if (!e.ctrlKey && !e.metaKey) {
-                                setFocusedCell({ moduleId: module.id, stationId: station.id, rowIndex, colIndex });
+                                const firstStation = productionStages[0];
+                                if (firstStation) {
+                                    const { previous = [], current = [], next = [] } = getModulesForStation(firstStation);
+                                    const allModules = [...previous, ...current, ...next];
+                                    const rowIndex = allModules.findIndex(m => m.id === module.id);
+                                    setFocusedCell({ moduleId: module.id, stationId: station.id, rowIndex, colIndex });
+                                }
                             }
                         }}
                         title="Click to select, Ctrl+Click for multi-select. Use arrow keys to navigate, 0-4 for progress."
