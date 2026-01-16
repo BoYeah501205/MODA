@@ -33,6 +33,13 @@ body {
     flex-direction: column;
 }
 
+/* Ensure main content area can scroll */
+#root > div {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0; /* Important: allows flex child to shrink and scroll */
+}
+
 /* Ensure proper touch behavior */
 * {
     -webkit-tap-highlight-color: transparent;

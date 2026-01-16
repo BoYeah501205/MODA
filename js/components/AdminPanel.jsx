@@ -170,7 +170,7 @@
         };
 
         return (
-            <div className="space-y-2">
+            <div className="space-y-2 pb-8">
                 {Object.values(ADMIN_SECTIONS).map(category => (
                     <div key={category.id}>
                         <CategoryHeader title={category.title} description={category.description} />

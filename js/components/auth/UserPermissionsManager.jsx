@@ -171,22 +171,14 @@ function UserPermissionsManager({ auth }) {
     }
 
     return (
-        <div className="bg-white rounded-lg shadow p-6">
-            {/* Header */}
+        <div>
+            {/* Header - Refresh button only since title is shown by parent CollapsibleSection */}
             <div style={{ 
                 display: 'flex', 
-                justifyContent: 'space-between', 
+                justifyContent: 'flex-end', 
                 alignItems: 'center',
-                marginBottom: '20px'
+                marginBottom: '16px'
             }}>
-                <div>
-                    <h2 className="text-xl font-bold" style={{ color: 'var(--autovol-navy)', margin: 0 }}>
-                        User Permissions
-                    </h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6B7280' }}>
-                        Manage custom tab permissions for individual users
-                    </p>
-                </div>
                 <button
                     onClick={loadUsers}
                     style={{
