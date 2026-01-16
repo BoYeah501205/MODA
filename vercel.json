@@ -3,6 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/weekly-board-popout.html", "destination": "/weekly-board-popout.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

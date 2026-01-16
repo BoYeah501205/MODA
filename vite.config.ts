@@ -78,6 +78,10 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        popout: path.resolve(__dirname, 'weekly-board-popout.html')
+      },
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom']
