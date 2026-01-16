@@ -128,29 +128,119 @@
     </script>
     
     <script>
-      // GLOBAL: Patch localStorage.setItem to handle Safari/iPad quota errors
+      // GLOBAL: Aggressive localStorage management for iOS Safari quota limits
       (function() {
         var originalSetItem = localStorage.setItem.bind(localStorage);
+        var originalGetItem = localStorage.getItem.bind(localStorage);
+        
+        // Keys that are safe to clear (non-essential cached data)
+        var CLEARABLE_KEYS = [
+          '_trash', '_cache', '_temp', '_backup',
+          'autovol_trash_projects', 'autovol_trash_employees',
+          'autovol_projects', 'autovol_employees', 'autovol_users',
+          'autovol_unified_modules', 'autovol_schedule_setup',
+          'autovol_completed_weeks', 'moda_engineering_issues',
+          'autovol_transport_data', 'autovol_yard_data',
+          'autovol_production_weeks', 'autovol_stagger_config',
+          'sb-syreuphexagezawjyjgt-auth-token' // Supabase auth token (large, regenerates on login)
+        ];
+        
+        // Essential keys to preserve if possible
+        var ESSENTIAL_KEYS = ['autovol_session', 'autovol_dashboard_roles', 'autovol_dashboard_roles_version'];
+        
+        function clearNonEssentialData() {
+          var cleared = 0;
+          var keysToRemove = [];
+          
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (!k) continue;
+            
+            // Check if it's a clearable key
+            var isClearable = CLEARABLE_KEYS.some(function(pattern) {
+              return k === pattern || k.indexOf(pattern) > -1;
+            });
+            
+            // Check if it's essential
+            var isEssential = ESSENTIAL_KEYS.indexOf(k) > -1;
+            
+            if (isClearable && !isEssential) {
+              keysToRemove.push(k);
+            }
+          }
+          
+          keysToRemove.forEach(function(k) {
+            try {
+              localStorage.removeItem(k);
+              cleared++;
+            } catch(err) {}
+          });
+          
+          console.log('[Storage] Cleared ' + cleared + ' non-essential keys');
+          return cleared;
+        }
+        
+        // Detect iOS Safari
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
+        // On iOS, proactively clear old data on page load
+        if (isIOS) {
+          console.log('[Storage] iOS detected, checking storage usage...');
+          try {
+            // Test if we're near quota by trying to write a test value
+            var testKey = '__storage_test__';
+            var testValue = new Array(100000).join('x'); // ~100KB test
+            try {
+              originalSetItem(testKey, testValue);
+              localStorage.removeItem(testKey);
+            } catch (e) {
+              console.warn('[Storage] iOS storage near limit, clearing non-essential data...');
+              clearNonEssentialData();
+            }
+          } catch (e) {
+            console.warn('[Storage] iOS storage check failed:', e);
+          }
+        }
+        
         localStorage.setItem = function(key, value) {
           try {
             originalSetItem(key, value);
           } catch (e) {
-            if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
-              console.warn('[Storage] Quota exceeded for ' + key + ', clearing old data...');
-              // Clear less critical cached data
-              var keysToRemove = [];
-              for (var i = 0; i < localStorage.length; i++) {
-                var k = localStorage.key(i);
-                if (k && (k.indexOf('_trash') > -1 || k.indexOf('_cache') > -1 || k.indexOf('_temp') > -1)) {
-                  keysToRemove.push(k);
-                }
-              }
-              keysToRemove.forEach(function(k) { try { localStorage.removeItem(k); } catch(err) {} });
-              // Retry once
+            if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014 || 
+                (e.message && e.message.indexOf('quota') > -1)) {
+              console.warn('[Storage] Quota exceeded for ' + key + ', clearing data...');
+              
+              // First pass: clear non-essential data
+              clearNonEssentialData();
+              
+              // Retry
               try {
                 originalSetItem(key, value);
+                return;
               } catch (retryErr) {
-                console.error('[Storage] Still full after cleanup for ' + key);
+                console.warn('[Storage] Still full, clearing ALL non-session data...');
+              }
+              
+              // Second pass: clear everything except session
+              for (var i = localStorage.length - 1; i >= 0; i--) {
+                var k = localStorage.key(i);
+                if (k && k !== 'autovol_session') {
+                  try { localStorage.removeItem(k); } catch(err) {}
+                }
+              }
+              
+              // Final retry
+              try {
+                originalSetItem(key, value);
+              } catch (finalErr) {
+                console.error('[Storage] Cannot save ' + key + ' - storage completely full');
+                // Show user-friendly message on iOS
+                var errorEl = document.getElementById('ios-error-msg');
+                if (errorEl) {
+                  errorEl.style.display = 'block';
+                  errorEl.textContent = 'Storage full. Please clear Safari data in Settings > Safari > Clear History and Website Data';
+                }
               }
             } else {
               console.error('[Storage] setItem error:', e);

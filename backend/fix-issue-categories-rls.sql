@@ -1,10 +1,14 @@
 -- Fix RLS policy for issue_categories table
 -- Run this ENTIRE script in Supabase SQL Editor
 
--- First, drop ALL existing policies on the table
+-- First, drop ALL existing policies on the table (including the new ones)
 DROP POLICY IF EXISTS "Admins can manage issue categories" ON issue_categories;
 DROP POLICY IF EXISTS "Anyone can view active issue categories" ON issue_categories;
 DROP POLICY IF EXISTS "Authenticated users can manage issue categories" ON issue_categories;
+DROP POLICY IF EXISTS "select_issue_categories" ON issue_categories;
+DROP POLICY IF EXISTS "insert_issue_categories" ON issue_categories;
+DROP POLICY IF EXISTS "update_issue_categories" ON issue_categories;
+DROP POLICY IF EXISTS "delete_issue_categories" ON issue_categories;
 
 -- Disable RLS temporarily to allow operations
 ALTER TABLE issue_categories DISABLE ROW LEVEL SECURITY;
