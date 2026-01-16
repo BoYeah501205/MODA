@@ -3139,23 +3139,34 @@ function WeeklyBoardTab({
     };
     
     // Build navigation grid for keyboard navigation
+    // Each cell contains the actual module at that station's row position
     const navigationGrid = useMemo(() => {
-        if (!productionStages?.length) return { rows: [], modules: [] };
+        if (!productionStages?.length) return { rows: [], stationCount: 0 };
         
+        // Get row count from first station
         const firstStation = productionStages[0];
         const { previous = [], current = [], next = [] } = getModulesForStation(firstStation);
-        const allModules = [...previous, ...current, ...next];
+        const rowCount = previous.length + current.length + next.length;
         
-        // Build grid: rows are modules, columns are stations
-        const grid = allModules.map((module, rowIndex) => ({
-            moduleId: module.id,
-            serialNumber: module.serialNumber,
-            rowIndex,
-            cells: productionStages.map((station, colIndex) => ({
-                stationId: station.id,
-                colIndex
-            }))
-        }));
+        // Build grid where each cell has the actual module at that position for that station
+        const grid = [];
+        for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+            const row = {
+                rowIndex,
+                cells: productionStages.map((station, colIndex) => {
+                    const stationData = getModulesForStation(station);
+                    const allModules = [...(stationData.previous || []), ...(stationData.current || []), ...(stationData.next || [])];
+                    const module = allModules[rowIndex];
+                    return {
+                        stationId: station.id,
+                        colIndex,
+                        moduleId: module?.id || null,
+                        projectId: module?.projectId || null
+                    };
+                })
+            };
+            grid.push(row);
+        }
         
         return { rows: grid, stationCount: productionStages.length };
     }, [productionStages, getModulesForStation]);
@@ -3174,18 +3185,12 @@ function WeeklyBoardTab({
             const progressMap = { '0': 0, '1': 25, '2': 50, '3': 75, '4': 100 };
             if (progressMap[e.key] !== undefined) {
                 e.preventDefault();
-                // Find the module to get its projectId
-                const focusedRow = rows.find(r => r.moduleId === focusedCell.moduleId);
+                // Get the cell data which now contains moduleId and projectId
+                const focusedRow = rows[focusedCell.rowIndex];
                 if (focusedRow) {
-                    // Get module data from first station to find projectId
-                    const firstStation = productionStages[0];
-                    if (firstStation) {
-                        const { previous = [], current = [], next = [] } = getModulesForStation(firstStation);
-                        const allModules = [...previous, ...current, ...next];
-                        const module = allModules.find(m => m.id === focusedCell.moduleId);
-                        if (module) {
-                            updateModuleProgress(module.id, module.projectId, focusedCell.stationId, progressMap[e.key]);
-                        }
+                    const cell = focusedRow.cells[focusedCell.colIndex];
+                    if (cell && cell.moduleId) {
+                        updateModuleProgress(cell.moduleId, cell.projectId, cell.stationId, progressMap[e.key]);
                     }
                 }
                 return;
@@ -3218,9 +3223,9 @@ function WeeklyBoardTab({
             const newRow = rows[newRowIndex];
             if (newRow) {
                 const newCell = newRow.cells[newColIndex];
-                if (newCell) {
+                if (newCell && newCell.moduleId) {
                     const newFocusedCell = {
-                        moduleId: newRow.moduleId,
+                        moduleId: newCell.moduleId,
                         stationId: newCell.stationId,
                         rowIndex: newRowIndex,
                         colIndex: newColIndex
@@ -3230,12 +3235,12 @@ function WeeklyBoardTab({
                     
                     // Update selection to the new cell (single selection mode for keyboard nav)
                     if (!e.ctrlKey && !e.metaKey) {
-                        setSelectedModules(new Set([getSelectionKey(newRow.moduleId, newCell.stationId)]));
+                        setSelectedModules(new Set([getSelectionKey(newCell.moduleId, newCell.stationId)]));
                     }
                     
                     // Scroll the cell into view
                     const cellElement = document.querySelector(
-                        `[data-cell-key="${getSelectionKey(newRow.moduleId, newCell.stationId)}"]`
+                        `[data-cell-key="${getSelectionKey(newCell.moduleId, newCell.stationId)}"]`
                     );
                     if (cellElement) {
                         cellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
