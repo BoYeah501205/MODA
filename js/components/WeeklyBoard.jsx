@@ -1843,7 +1843,8 @@ function WeeklyBoardTab({
     onLogQAInspection = null, // Callback for QA inspection (module, station) => void
     initialSelectedWeekId = null, // Initial week to display (from Schedule Setup navigation)
     onWeekSelected = null, // Callback when week is selected (to clear initialSelectedWeekId)
-    onEditWeek = null // Callback to edit a week in Schedule Setup: (weekId) => void
+    onEditWeek = null, // Callback to edit a week in Schedule Setup: (weekId) => void
+    isPopout = false // Whether this is rendered in a pop-out window
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
@@ -3976,6 +3977,30 @@ const getProjectAcronym = (module) => {
                     >
                         📊 Week History
                     </button>
+                    {!isPopout && (
+                        <button
+                            onClick={() => {
+                                const popoutUrl = window.location.origin + '/weekly-board-popout.html';
+                                const popoutWindow = window.open(
+                                    popoutUrl,
+                                    'WeeklyBoardPopout',
+                                    'width=1400,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes'
+                                );
+                                if (!popoutWindow) {
+                                    addToast('Please allow popups to open the Weekly Board in a new window', 'error');
+                                }
+                            }}
+                            className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-medium flex items-center gap-1"
+                            title="Open Weekly Board in a separate window"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                <polyline points="15 3 21 3 21 9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                            Pop Out
+                        </button>
+                    )}
                     {canEdit && (
                         <button
                             onClick={() => setShowCompleteModal(true)}
