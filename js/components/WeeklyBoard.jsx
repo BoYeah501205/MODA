@@ -3174,11 +3174,20 @@ function WeeklyBoardTab({
             const progressMap = { '0': 0, '1': 25, '2': 50, '3': 75, '4': 100 };
             if (progressMap[e.key] !== undefined) {
                 e.preventDefault();
-                handleProgressUpdate(
-                    { id: focusedCell.moduleId }, 
-                    focusedCell.stationId, 
-                    progressMap[e.key]
-                );
+                // Find the module to get its projectId
+                const focusedRow = rows.find(r => r.moduleId === focusedCell.moduleId);
+                if (focusedRow) {
+                    // Get module data from first station to find projectId
+                    const firstStation = productionStages[0];
+                    if (firstStation) {
+                        const { previous = [], current = [], next = [] } = getModulesForStation(firstStation);
+                        const allModules = [...previous, ...current, ...next];
+                        const module = allModules.find(m => m.id === focusedCell.moduleId);
+                        if (module) {
+                            updateModuleProgress(module.id, module.projectId, focusedCell.stationId, progressMap[e.key]);
+                        }
+                    }
+                }
                 return;
             }
         }
@@ -3247,7 +3256,7 @@ function WeeklyBoardTab({
                 e.preventDefault();
             }
         }
-    }, [navigationGrid, focusedCell, selectedModules.size, canEdit, handleProgressUpdate, getSelectionKey]);
+    }, [navigationGrid, focusedCell, selectedModules.size, canEdit, productionStages, getModulesForStation, updateModuleProgress, getSelectionKey]);
     
     // Card height for alignment between date markers and module cards
     // Compact = 58px (serial only), Detailed = 120px (full info with BLM, unit type, room type, difficulty dots)
