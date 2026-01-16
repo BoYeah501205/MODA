@@ -1345,77 +1345,14 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         )}
 
                         {activeTab === 'admin' && auth.canAccessAdmin && (
-                            <>
-                                {/* Data Management Button */}
-                                <div className="mb-6">
-                                    <div className="bg-white rounded-lg shadow p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h2 className="text-xl font-bold" style={{color: 'var(--autovol-navy)'}}>Data Management</h2>
-                                                <p className="text-gray-600 text-sm mt-1">Manage trash, backup and restore data</p>
-                                            </div>
-                                            <button 
-                                                onClick={() => setShowDataManagement(true)}
-                                                className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center gap-2"
-                                            >
-                                                <span className="icon-settings" style={{width: '16px', height: '16px', display: 'inline-block'}}></span>
-                                                Open Data Management
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* User Permissions Manager */}
-                                <div className="mb-6">
-                                    {window.UserPermissionsManager ? (
-                                        <window.UserPermissionsManager auth={auth} />
-                                    ) : (
-                                        <div className="bg-white rounded-lg shadow p-6">
-                                            <h2 className="text-xl font-bold mb-4" style={{color: 'var(--autovol-navy)'}}>User Management</h2>
-                                            <p className="text-gray-600 mb-4">Manage users through Supabase Dashboard or the People module.</p>
-                                            <a 
-                                                href="https://supabase.com/dashboard/project/syreuphexagezawjyjgt/auth/users" 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                                            >
-                                                Open Supabase Auth Dashboard
-                                            </a>
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Issue Categories Manager */}
-                                <div className="mt-6">
-                                    {window.IssueCategoriesManager ? (
-                                        <window.IssueCategoriesManager auth={auth} />
-                                    ) : (
-                                        <div className="bg-white rounded-lg shadow p-6">
-                                            <h2 className="text-xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Issue Categories</h2>
-                                            <p className="text-gray-500">Issue Categories Manager not loaded.</p>
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Role Manager */}
-                                <div className="mt-6">
-                                    {window.DashboardRoleManager ? <window.DashboardRoleManager auth={auth} /> : <div className="p-4 text-gray-500">Loading Role Manager...</div>}
-                                </div>
-                                {/* Activity Log */}
-                                <div className="mt-6">
-                                    <div className="bg-white rounded-lg shadow">
-                                        {window.ActivityLogViewer ? (
-                                            <window.ActivityLogViewer 
-                                                showFilters={true}
-                                                showExport={true}
-                                                maxHeight="500px"
-                                            />
-                                        ) : (
-                                            <div className="p-6">
-                                                <h2 className="text-xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Activity Log</h2>
-                                                <p className="text-gray-500">Activity logging module not loaded.</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </>
+                            window.AdminPanel ? (
+                                <window.AdminPanel 
+                                    auth={auth} 
+                                    onOpenDataManagement={() => setShowDataManagement(true)} 
+                                />
+                            ) : (
+                                <div className="p-8 text-center text-gray-500">Loading Admin Panel...</div>
+                            )
                         )}
 
                         {activeTab === 'admin' && !auth.canAccessAdmin && (
