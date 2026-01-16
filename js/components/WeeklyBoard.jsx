@@ -3837,6 +3837,184 @@ const getProjectAcronym = (module) => {
         );
     }
     
+    // Helper function to navigate weeks
+    const navigateWeek = (direction) => {
+        const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+        const currentIndex = sortedWeeks.findIndex(w => w.id === (selectedWeekId || currentWeek?.id));
+        const newIndex = currentIndex + direction;
+        if (newIndex >= 0 && newIndex < sortedWeeks.length) {
+            setSelectedWeekId(sortedWeeks[newIndex].id);
+        }
+    };
+    
+    // Pop-out mode: Show only the grid with week navigation
+    if (isPopout) {
+        return (
+            <div className="h-full flex flex-col p-4 bg-gray-50">
+                {/* Minimal Header with Week Navigation */}
+                <div className="flex items-center justify-between mb-3 px-2">
+                    <button
+                        onClick={() => navigateWeek(-1)}
+                        className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition"
+                        title="Previous Week"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="15 18 9 12 15 6"/>
+                        </svg>
+                    </button>
+                    
+                    <div className="text-center">
+                        <div className="text-sm font-semibold text-autovol-navy">
+                            {displayWeek ? (
+                                <>
+                                    {parseLocalDate(displayWeek.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {' - '}
+                                    {parseLocalDate(displayWeek.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </>
+                            ) : 'No Week Selected'}
+                        </div>
+                        {currentWeek?.id === displayWeek?.id && (
+                            <span className="text-xs text-green-600 font-medium">Current Week</span>
+                        )}
+                    </div>
+                    
+                    <button
+                        onClick={() => navigateWeek(1)}
+                        className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition"
+                        title="Next Week"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                {/* Station Board Grid */}
+                <div 
+                    className="flex-1 relative min-h-0"
+                    ref={boardRef}
+                    tabIndex={0}
+                    onKeyDown={handleBoardKeyDown}
+                >
+                    <div 
+                        className="board-scroll-container overflow-auto h-full scrollbar-visible" 
+                        style={{ 
+                            scrollbarWidth: 'auto', 
+                            scrollbarColor: '#94a3b8 #f1f5f9'
+                        }}
+                    >
+                        <div className="flex gap-1 min-w-max">
+                            {renderDateMarkerColumn()}
+                            {productionStages.map(station => renderStationColumn(station))}
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Status Legend */}
+                <div className="flex items-center gap-4 text-xs text-gray-600 flex-wrap mt-3 pt-3 border-t bg-white rounded-lg px-4 py-2 shadow-sm">
+                    <span className="font-medium">Status:</span>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 border rounded bg-gray-50 border-gray-200"></div>
+                        <span>Pending</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 border rounded bg-white border-autovol-teal"></div>
+                        <span>In Progress</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 border rounded bg-green-50 border-green-300"></div>
+                        <span>Complete</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 border-2 rounded bg-red-50/30 border-red-300"></div>
+                        <span>Previous</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 border-2 rounded bg-green-50/30 border-green-300"></div>
+                        <span>Next</span>
+                    </div>
+                    <span className="font-medium ml-2">Capacity:</span>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-6 h-1.5 rounded-full bg-green-400"></div>
+                        <span>Under</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-6 h-1.5 rounded-full bg-yellow-400"></div>
+                        <span>At Limit</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-6 h-1.5 rounded-full bg-red-400"></div>
+                        <span>Over</span>
+                    </div>
+                </div>
+                
+                {/* Selection Toolbar */}
+                {selectedModules.size > 0 && (
+                    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white rounded-xl shadow-2xl border-2 border-blue-500 p-3 flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">{selectedModules.size}</span>
+                            </div>
+                            <span className="font-medium text-gray-700">selected</span>
+                        </div>
+                        <div className="h-8 w-px bg-gray-300"></div>
+                        <div className="flex items-center gap-0.5">
+                            <span className="text-sm text-gray-500 mr-2">Set to:</span>
+                            {[25, 50, 75, 100].map(value => (
+                                <button
+                                    key={value}
+                                    onClick={() => bulkUpdateProgress(value)}
+                                    className={`flex-1 text-xs py-1.5 px-3 rounded transition ${
+                                        value === 100 
+                                            ? 'bg-gray-200 hover:bg-green-500 hover:text-white' 
+                                            : 'bg-gray-200 hover:bg-autovol-teal hover:text-white'
+                                    }`}
+                                    title={`Set all to ${value}%`}
+                                >
+                                    {value === 100 ? '✓' : ''}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => bulkUpdateProgress(0)}
+                                className="text-xs py-1.5 px-2 rounded bg-gray-200 hover:bg-red-400 hover:text-white transition ml-1"
+                                title="Reset all to 0%"
+                            >
+                                X
+                            </button>
+                        </div>
+                        <div className="h-8 w-px bg-gray-300"></div>
+                        <button
+                            onClick={clearSelection}
+                            className="px-3 py-2 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="Clear selection (Esc)"
+                        >
+                            X Clear
+                        </button>
+                    </div>
+                )}
+                
+                {/* Module Card Prompt */}
+                {activePrompt && (
+                    <ModuleCardPrompt
+                        module={activePrompt.module}
+                        station={activePrompt.station}
+                        position={activePrompt.position}
+                        onClose={() => setActivePrompt(null)}
+                        onUpdateProgress={(progress) => {
+                            handleProgressUpdate(activePrompt.module, activePrompt.station.id, progress);
+                            setActivePrompt(null);
+                        }}
+                        onViewDetails={() => {
+                            onModuleClick?.(activePrompt.module);
+                            setActivePrompt(null);
+                        }}
+                        canEdit={canEdit}
+                    />
+                )}
+            </div>
+        );
+    }
+    
     return (
         <div className="space-y-4">
             {/* View-Only Banner */}
