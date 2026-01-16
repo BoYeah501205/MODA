@@ -229,7 +229,6 @@
                 
                 // Issue Details
                 issue_type: issueData.issue_type || 'other',
-                issue_category: issueData.issue_category || null,
                 priority: issueData.priority || 'medium',
                 title: issueData.title || '',
                 description: issueData.description || 'No description provided',
