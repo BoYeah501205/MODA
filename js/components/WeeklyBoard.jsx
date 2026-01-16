@@ -1946,6 +1946,7 @@ function WeeklyBoardTab({
     const clearSelection = useCallback(() => {
         setSelectedModules(new Set());
         setShowBulkMenu(null);
+        setFocusedCell(null);
     }, []);
     
     // Handle Escape key to clear selection
@@ -3369,13 +3370,21 @@ const getProjectAcronym = (module) => {
                 : 'border-b-4 border-b-blue-500'
             : '';
         
+        // Find row/col index for this cell (for keyboard navigation)
+        const rowIndex = navigationGrid.rows.findIndex(r => r.moduleId === module.id);
+        const colIndex = productionStages.findIndex(s => s.id === station.id);
+        const isFocused = focusedCell?.moduleId === module.id && focusedCell?.stationId === station.id;
+        
         return (
             <div
                 key={`${station.id}-${module.id}`}
                 data-module-serial={module.serialNumber}
+                data-cell-key={getSelectionKey(module.id, station.id)}
                 className={`rounded p-1.5 transition-all hover:shadow-md ${bgClass} ${borderClass} ${dropIndicatorClass} ${
                     reorderMode ? 'cursor-grab active:cursor-grabbing' : ''
-                } ${pendingReorder ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                } ${pendingReorder ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${
+                    isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : ''
+                }`}
                 style={{ height: `${CARD_HEIGHT}px` }}
                 draggable={reorderMode}
                 onDragStart={(e) => handleDragStart(e, module)}
@@ -3397,8 +3406,12 @@ const getProjectAcronym = (module) => {
                         onClick={(e) => {
                             e.stopPropagation();
                             toggleSelection(module.id, station.id, e.ctrlKey || e.metaKey);
+                            // Set focused cell for keyboard navigation
+                            if (!e.ctrlKey && !e.metaKey) {
+                                setFocusedCell({ moduleId: module.id, stationId: station.id, rowIndex, colIndex });
+                            }
                         }}
-                        title="Click to select, Ctrl+Click for multi-select"
+                        title="Click to select, Ctrl+Click for multi-select. Use arrow keys to navigate, 0-4 for progress."
                     >
                         {moduleIsSelected && <span className="text-blue-500 mr-1">✓</span>}
                         {module.serialNumber}
