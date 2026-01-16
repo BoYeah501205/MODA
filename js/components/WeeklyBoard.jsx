@@ -3889,23 +3889,114 @@ const getProjectAcronym = (module) => {
                     </button>
                 </div>
                 
-                {/* Station Board Grid */}
-                <div 
-                    className="flex-1 relative min-h-0"
-                    ref={boardRef}
-                    tabIndex={0}
-                    onKeyDown={handleBoardKeyDown}
-                >
+                {/* Main Board Area with Modules Panel */}
+                <div className="flex gap-1 flex-1 min-h-0">
+                    {/* Modules On-Board Panel (Left Sidebar) */}
+                    <div className="w-[140px] flex-shrink-0">
+                        <div className="bg-white border rounded-lg shadow-sm h-full flex flex-col">
+                            <div className="bg-autovol-navy text-white px-3 py-2 rounded-t-lg">
+                                <div className="font-semibold text-sm">Modules On Board</div>
+                                <div className="text-xs opacity-80">{getModulesOnBoard.length} modules</div>
+                            </div>
+                            
+                            {/* Difficulty Legend */}
+                            <div className="px-2 py-2 border-b bg-gray-50">
+                                <div className="text-xs text-gray-500 font-medium mb-1">Difficulty Indicators:</div>
+                                <div className="flex flex-wrap gap-1">
+                                    {Object.entries(difficultyLabels).map(([key, label]) => (
+                                        <div key={key} className="flex items-center gap-0.5" title={label}>
+                                            <div 
+                                                className="w-2 h-2 rounded-full" 
+                                                style={{ backgroundColor: difficultyColors[key] }}
+                                            />
+                                            <span className="text-[9px] text-gray-500">{label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Module Tiles */}
+                            <div className="overflow-y-auto p-2 space-y-2 flex-1">
+                                {getModulesOnBoard.map((module, idx) => {
+                                    const difficulties = module.difficulties || {};
+                                    const activeDifficulties = Object.entries(difficulties).filter(([_, v]) => v);
+                                    const sectionColor = module.section === 'previous' ? 'border-l-red-400' : 
+                                                        module.section === 'next' ? 'border-l-green-400' : 'border-l-blue-400';
+                                    
+                                    return (
+                                        <div 
+                                            key={module.id || idx}
+                                            className={`bg-white border rounded shadow-sm text-xs cursor-pointer hover:shadow-md transition border-l-4 ${sectionColor}`}
+                                            onClick={() => {
+                                                const moduleCard = document.querySelector(`[data-module-serial="${module.serialNumber}"]`);
+                                                if (moduleCard) {
+                                                    moduleCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                                                    moduleCard.classList.add('ring-2', 'ring-blue-500');
+                                                    setTimeout(() => moduleCard.classList.remove('ring-2', 'ring-blue-500'), 2000);
+                                                }
+                                            }}
+                                            title="Click to highlight on board"
+                                        >
+                                            <div className="bg-gray-100 px-2 py-1 font-mono font-bold text-center border-b">
+                                                {module.serialNumber?.slice(-7) || 'N/A'}
+                                            </div>
+                                            <div className="grid grid-cols-2 divide-x text-center">
+                                                <div className="p-1">
+                                                    <div className="text-[9px] text-gray-400 font-medium">(H)</div>
+                                                    <div className="font-mono text-[10px] font-semibold truncate" title={module.hitchBLM}>
+                                                        {module.hitchBLM || '—'}
+                                                    </div>
+                                                </div>
+                                                <div className="p-1">
+                                                    <div className="text-[9px] text-gray-400 font-medium">(R)</div>
+                                                    <div className="font-mono text-[10px] font-semibold truncate" title={module.rearBLM}>
+                                                        {module.rearBLM || '—'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {activeDifficulties.length > 0 && (
+                                                <div className="flex justify-center gap-1 py-1 border-t bg-gray-50">
+                                                    {activeDifficulties.map(([key]) => (
+                                                        <div 
+                                                            key={key}
+                                                            className="w-3 h-3 rounded-full"
+                                                            style={{ backgroundColor: difficultyColors[key] }}
+                                                            title={difficultyLabels[key]}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                
+                                {getModulesOnBoard.length === 0 && (
+                                    <div className="text-center text-gray-400 py-4 text-xs">
+                                        No modules on board
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Station Board Grid */}
                     <div 
-                        className="board-scroll-container overflow-auto h-full scrollbar-visible" 
-                        style={{ 
-                            scrollbarWidth: 'auto', 
-                            scrollbarColor: '#94a3b8 #f1f5f9'
-                        }}
+                        className="flex-1 relative min-h-0"
+                        ref={boardRef}
+                        tabIndex={0}
+                        onKeyDown={handleBoardKeyDown}
                     >
-                        <div className="flex gap-1 min-w-max">
-                            {renderDateMarkerColumn()}
-                            {productionStages.map(station => renderStationColumn(station))}
+                        <div 
+                            className="board-scroll-container overflow-auto h-full scrollbar-visible" 
+                            style={{ 
+                                scrollbarWidth: 'auto', 
+                                scrollbarColor: '#94a3b8 #f1f5f9'
+                            }}
+                        >
+                            <div className="flex gap-1 min-w-max">
+                                {renderDateMarkerColumn()}
+                                {productionStages.map(station => renderStationColumn(station))}
+                            </div>
                         </div>
                     </div>
                 </div>
