@@ -363,7 +363,7 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
             };
 
             return (
-                <div className="min-h-screen flex items-center justify-center p-4 relative login-background">
+                <div className="min-h-screen flex items-center justify-center py-8 px-4 relative login-background" style={{minHeight: '100vh', overflowY: 'auto'}}>
                     <div className="production-lines"></div>
                     <div className="login-card w-full max-w-md p-8 relative z-10">
                         {isInviteFlow && <SetPasswordForm auth={auth} onComplete={handlePasswordSetComplete} />}
