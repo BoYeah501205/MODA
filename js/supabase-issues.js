@@ -203,8 +203,9 @@
             const issueNumber = getNextIssueNumber();
             const now = new Date().toISOString();
             
+            // For Supabase, don't include 'id' - let the database generate UUID
+            // For localStorage fallback, we'll add it after
             const newIssue = {
-                id: issueData.id || `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 issue_number: issueNumber,
                 issue_display_id: formatIssueNumber(issueNumber),
                 
@@ -254,11 +255,16 @@
             };
 
             if (!isAvailable()) {
+                // For localStorage, add a generated id
+                const localIssue = {
+                    id: `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    ...newIssue
+                };
                 const issues = loadFromLocalStorage();
-                issues.unshift(newIssue);
+                issues.unshift(localIssue);
                 saveToLocalStorage(issues);
-                console.log('[Issues] Created (localStorage):', newIssue.issue_display_id);
-                return newIssue;
+                console.log('[Issues] Created (localStorage):', localIssue.issue_display_id);
+                return localIssue;
             }
 
             const { data, error } = await getClient()
