@@ -304,42 +304,40 @@ textarea {
     flex: 1;
 }
 
-/* Floating Action Button for Mobile Navigation */
+/* Floating Menu Button for Mobile Navigation */
 .mobile-fab-menu {
     display: none;
     position: fixed;
-    bottom: 24px;
-    left: 16px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--autovol-navy, #1E3A5F);
-    color: white;
+    bottom: 20px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--autovol-navy, #1E3A5F);
     border: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     cursor: pointer;
     z-index: 1001;
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 0.2s ease, background 0.2s ease;
+    transition: opacity 0.2s ease;
     /* iOS safe area */
-    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 
 .mobile-fab-menu:active {
-    transform: scale(0.95);
-    background: var(--autovol-teal, #00A19C);
+    opacity: 0.7;
 }
 
 .mobile-fab-menu.active {
-    background: var(--autovol-teal, #00A19C);
+    color: var(--autovol-teal, #00A19C);
 }
 
 .mobile-fab-icon {
-    width: 24px;
-    height: 18px;
+    width: 22px;
+    height: 16px;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -349,10 +347,10 @@ textarea {
 
 .mobile-fab-icon span {
     display: block;
-    height: 3px;
-    width: 24px;
-    background-color: white;
-    border-radius: 2px;
+    height: 2px;
+    width: 22px;
+    background-color: currentColor;
+    border-radius: 1px;
     transition: all 0.3s ease;
 }
 
