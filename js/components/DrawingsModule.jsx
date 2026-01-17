@@ -400,11 +400,33 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, [selectedProject, auth, canManageFolders]);
     
-    // Get drawing count for a discipline
-    const getDrawingCount = useCallback((disciplineId) => {
-        const count = drawingCounts[disciplineId] || 0;
-        console.log('[Drawings] getDrawingCount for', disciplineId, '=', count, 'available keys:', Object.keys(drawingCounts));
-        return count;
+    // Get drawing count for a discipline - checks by ID and also by name-based static ID
+    const getDrawingCount = useCallback((disciplineId, disciplineName) => {
+        // Direct ID match
+        if (drawingCounts[disciplineId]) {
+            return drawingCounts[disciplineId];
+        }
+        
+        // Try matching by static ID pattern based on discipline name
+        // This handles the case where folders have UUID IDs but drawings were uploaded with static IDs
+        if (disciplineName) {
+            const staticIdMap = {
+                'Module Packages': 'shop-module-packages',
+                'Soffits': 'shop-soffits',
+                'Reference Sheets': 'shop-reference',
+                'Prototype Drawings': 'shop-prototype',
+                'Interior Walls': 'shop-interior-walls',
+                'End Walls': 'shop-endwalls',
+                'Corridor Walls': 'shop-corridor-walls',
+                '3HR Walls': 'shop-3hr-walls'
+            };
+            const staticId = staticIdMap[disciplineName];
+            if (staticId && drawingCounts[staticId]) {
+                return drawingCounts[staticId];
+            }
+        }
+        
+        return 0;
     }, [drawingCounts]);
     
     // Check if current discipline is Module Packages
@@ -1607,7 +1629,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 {/* Disciplines Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {disciplines.map(discipline => {
-                        const count = getDrawingCount(discipline.id);
+                        const count = getDrawingCount(discipline.id, discipline.name);
                         
                         return (
                             <div key={discipline.id} className="relative group/card">
