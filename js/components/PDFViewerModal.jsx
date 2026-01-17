@@ -475,9 +475,9 @@ const PDFViewerModal = ({
             
             {/* PDF Content with Overlay */}
             <div className="flex-1 relative overflow-hidden bg-gray-700">
-                {/* PDF displayed in iframe - better cross-origin support */}
+                {/* PDF displayed via Google Docs Viewer - bypasses X-Frame-Options restrictions */}
                 <iframe
-                    src={pdfUrl}
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`}
                     className="w-full h-full border-0 bg-white"
                     style={{ pointerEvents: showMarkupMode ? 'none' : 'auto' }}
                     title={drawingName}
