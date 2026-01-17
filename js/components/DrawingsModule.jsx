@@ -140,8 +140,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
             try {
                 if (isSupabaseAvailable()) {
                     const counts = await window.MODA_SUPABASE_DRAWINGS.drawings.getCountsByProject(selectedProject.id);
+                    console.log('[Drawings] Raw counts from Supabase:', counts);
                     const countsMap = {};
                     counts.forEach(c => { countsMap[c.discipline] = c.count; });
+                    console.log('[Drawings] Counts map:', countsMap);
                     setDrawingCounts(countsMap);
                 } else {
                     // Fallback to localStorage
@@ -400,7 +402,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
     
     // Get drawing count for a discipline
     const getDrawingCount = useCallback((disciplineId) => {
-        return drawingCounts[disciplineId] || 0;
+        const count = drawingCounts[disciplineId] || 0;
+        console.log('[Drawings] getDrawingCount for', disciplineId, '=', count, 'available keys:', Object.keys(drawingCounts));
+        return count;
     }, [drawingCounts]);
     
     // Check if current discipline is Module Packages
