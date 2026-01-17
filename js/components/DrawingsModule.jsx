@@ -48,6 +48,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false); // Toggle advanced filter panel
     const [advancedFilters, setAdvancedFilters] = useState({ unitTypes: [], roomTypes: [], difficulties: [] }); // Multi-select filters
     const [pdfViewerData, setPdfViewerData] = useState(null); // { url, name, drawingId, versionId } for PDF viewer modal
+    const [showDrawingStatusLog, setShowDrawingStatusLog] = useState(false); // Drawing status matrix modal
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -1810,6 +1811,16 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             <span className="icon-arrow-left w-4 h-4"></span>
                             Back
                         </button>
+                        {isModulePackages && (
+                            <button
+                                onClick={() => setShowDrawingStatusLog(true)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-blue-700"
+                                title="View drawing status for all modules"
+                            >
+                                <span className="icon-grid w-4 h-4"></span>
+                                Status Log
+                            </button>
+                        )}
                         {!isMobile && isModulePackages && unlinkedDrawings.length > 0 && (
                             <button
                                 onClick={() => setShowBulkRenameModal(true)}
@@ -2249,6 +2260,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                             <span className="icon-eye w-4 h-4"></span>
                                                         </button>
                                                     )}
+                                                    {/* PDF Viewer with Markup - disabled for now, saved for future development
                                                     {latestVersion && isPdf && (
                                                         <button
                                                             onClick={() => handleOpenInViewer(drawing, latestVersion)}
@@ -2258,6 +2270,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                             <span className="icon-markup w-4 h-4"></span>
                                                         </button>
                                                     )}
+                                                    */}
                                                     <button
                                                         onClick={() => setShowDeleteConfirm(drawing)}
                                                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
@@ -3608,7 +3621,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <FolderModal />
             <DeleteFolderConfirmModal />
             
-            {/* PDF Viewer with Markup */}
+            {/* PDF Viewer with Markup - disabled for now */}
             {pdfViewerData && window.PDFViewerModal && (
                 <window.PDFViewerModal
                     isOpen={true}
@@ -3617,6 +3630,19 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     drawingName={pdfViewerData.name}
                     drawingId={pdfViewerData.drawingId}
                     versionId={pdfViewerData.versionId}
+                />
+            )}
+            
+            {/* Drawing Status Log Matrix */}
+            {showDrawingStatusLog && window.DrawingStatusLog && (
+                <window.DrawingStatusLog
+                    project={selectedProject}
+                    drawings={currentDrawings}
+                    onClose={() => setShowDrawingStatusLog(false)}
+                    onNavigateToDrawing={(drawing) => {
+                        setShowDrawingStatusLog(false);
+                        setDrawingSearchTerm(drawing.name);
+                    }}
                 />
             )}
             

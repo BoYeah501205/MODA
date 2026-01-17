@@ -789,6 +789,7 @@
 .icon-edit,
 .icon-info-circle,
 .icon-markup,
+.icon-grid,
 .icon-history {
     display: inline-block;
     width: 1rem;
@@ -826,6 +827,11 @@
 /* Markup/Annotate Icon (for PDF viewer) */
 .icon-markup {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666666'%3E%3Cpath d='M18.5,1.15C17.97,1.15 17.46,1.34 17.07,1.73L11.26,7.55L16.91,13.2L22.73,7.39C23.5,6.61 23.5,5.35 22.73,4.56L19.89,1.73C19.5,1.34 19,1.15 18.5,1.15M10.3,8.5L4.34,14.46C3.56,15.24 3.56,16.5 4.34,17.27C5.12,18.05 6.38,18.05 7.16,17.27L13.11,11.32L10.3,8.5M2.93,17.94L1,23L6.06,21.07L2.93,17.94Z' /%3E%3C/svg%3E");
+}
+
+/* Grid Icon (for status log matrix) */
+.icon-grid {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M3,3H11V11H3V3M3,13H11V21H3V13M13,3H21V11H13V3M13,13H21V21H13V13M5,5V9H9V5H5M5,15V19H9V15H5M15,5V9H19V5H15M15,15V19H19V15H15Z' /%3E%3C/svg%3E");
 }
 
 /* Drawings Icon */
