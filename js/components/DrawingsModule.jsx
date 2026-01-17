@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // MODA DRAWINGS MODULE
 // Document management for project drawings with version control
 // Uses Supabase for storage with localStorage fallback
@@ -40,8 +40,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showSheetBrowser, setShowSheetBrowser] = useState(false);
     const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
     const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
+    const [showFileInfo, setShowFileInfo] = useState(null); // Drawing object for file info modal
     const [processingDrawing, setProcessingDrawing] = useState(null); // { drawingId, status, progress }
     const [selectedDrawings, setSelectedDrawings] = useState([]); // Array of drawing IDs selected for OCR
+    const [drawingSearchTerm, setDrawingSearchTerm] = useState(''); // Search/filter for drawings list
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -435,11 +437,46 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, [sortColumn]);
     
-    // Sort drawings for Module Packages view
-    const sortedDrawings = useMemo(() => {
-        if (!isModulePackages) return currentDrawings;
+    // Filter drawings by search term
+    const filteredDrawings = useMemo(() => {
+        if (!drawingSearchTerm.trim()) return currentDrawings;
         
-        return [...currentDrawings].sort((a, b) => {
+        const term = drawingSearchTerm.toLowerCase().trim();
+        return currentDrawings.filter(drawing => {
+            if (drawing.name.toLowerCase().includes(term)) return true;
+            
+            if (isModulePackages) {
+                const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
+                const linkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
+                
+                if (linkedModule) {
+                    if (linkedModule.serialNumber?.toLowerCase().includes(term)) return true;
+                    if (linkedModule.hitchBLM?.toLowerCase().includes(term)) return true;
+                    if (linkedModule.rearBLM?.toLowerCase().includes(term)) return true;
+                    if (String(linkedModule.buildSequence).includes(term)) return true;
+                }
+                if (parsedModule?.toLowerCase().includes(term)) return true;
+            }
+            return false;
+        });
+    }, [currentDrawings, drawingSearchTerm, isModulePackages, findModuleByBLM]);
+    
+    // Sort drawings (works for all views)
+    const sortedDrawings = useMemo(() => {
+        const drawingsToSort = [...filteredDrawings];
+        
+        // Sort by filename if that column is selected
+        if (sortColumn === 'fileName') {
+            drawingsToSort.sort((a, b) => {
+                const cmp = a.name.localeCompare(b.name, undefined, { numeric: true });
+                return sortDirection === 'asc' ? cmp : -cmp;
+            });
+            return drawingsToSort;
+        }
+        
+        if (!isModulePackages) return drawingsToSort;
+        
+        return drawingsToSort.sort((a, b) => {
             const parsedA = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(a.name);
             const parsedB = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(b.name);
             const moduleA = parsedA ? findModuleByBLM(parsedA) : null;
@@ -468,16 +505,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     valB = moduleB?.buildSequence ?? 9999;
             }
             
-            // Numeric comparison for buildSequence
             if (sortColumn === 'buildSequence') {
                 return sortDirection === 'asc' ? valA - valB : valB - valA;
             }
             
-            // String comparison for others
             const cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true });
             return sortDirection === 'asc' ? cmp : -cmp;
         });
-    }, [currentDrawings, isModulePackages, sortColumn, sortDirection, findModuleByBLM]);
+    }, [filteredDrawings, isModulePackages, sortColumn, sortDirection, findModuleByBLM]);
     
     // Handle file upload - accepts optional targetDiscipline for uploads from category level
     const handleFileUpload = useCallback(async (files, metadata = {}, targetDiscipline = null) => {
@@ -1447,37 +1482,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 </div>
                 
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4">
                     <div>
                         <h1 className="text-2xl font-bold" style={{ color: 'var(--autovol-navy)' }}>
                             {currentDiscipline?.name}
                         </h1>
-                        <p className="text-gray-600 mt-1">{currentDrawings.length} drawing{currentDrawings.length !== 1 ? 's' : ''}</p>
+                        <p className="text-gray-600 mt-1">
+                            {sortedDrawings.length}{drawingSearchTerm ? ` of ${currentDrawings.length}` : ''} drawing{sortedDrawings.length !== 1 ? 's' : ''}
+                        </p>
                     </div>
                     
                     <div className="flex items-center gap-3">
-                        {window.MODA_DRAWING_SHEETS && (
-                            <button
-                                onClick={() => setShowSheetBrowser(true)}
-                                className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
-                                style={{ backgroundColor: 'var(--autovol-teal)' }}
-                                title="Browse individual sheets with advanced filtering"
-                            >
-                                <span className="icon-layers w-4 h-4"></span>
-                                Browse Sheets
-                            </button>
-                        )}
-                        {(window.MODA_TESSERACT_OCR || window.Tesseract) && (
-                            <button
-                                onClick={handleExtractSheets}
-                                disabled={processingDrawing !== null || selectedDrawings.length === 0}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Run OCR on selected PDF files to extract individual sheets"
-                            >
-                                <span className="icon-file w-4 h-4"></span>
-                                {processingDrawing ? 'Processing...' : `Run OCR${selectedDrawings.length > 0 ? ` (${selectedDrawings.length})` : ''}`}
-                            </button>
-                        )}
                         <button
                             onClick={() => handleBreadcrumbClick('disciplines')}
                             className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
@@ -1485,14 +1500,38 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             <span className="icon-arrow-left w-4 h-4"></span>
                             Back
                         </button>
-                        <button
-                            onClick={() => setShowUploadModal(true)}
-                            className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
-                            style={{ backgroundColor: 'var(--autovol-teal)' }}
-                        >
-                            <span className="icon-upload w-4 h-4"></span>
-                            Upload Drawings
-                        </button>
+                        {!isMobile && (
+                            <button
+                                onClick={() => setShowUploadModal(true)}
+                                className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
+                                style={{ backgroundColor: 'var(--autovol-teal)' }}
+                            >
+                                <span className="icon-upload w-4 h-4"></span>
+                                Upload Drawings
+                            </button>
+                        )}
+                    </div>
+                </div>
+                
+                {/* Search/Filter Bar */}
+                <div className="mb-4">
+                    <div className="relative">
+                        <span className="icon-search w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></span>
+                        <input
+                            type="text"
+                            value={drawingSearchTerm}
+                            onChange={(e) => setDrawingSearchTerm(e.target.value)}
+                            placeholder={isModulePackages ? "Search by filename, serial no., BLM ID, or sequence..." : "Search by filename..."}
+                            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {drawingSearchTerm && (
+                            <button
+                                onClick={() => setDrawingSearchTerm('')}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        )}
                     </div>
                 </div>
                 
@@ -1501,19 +1540,33 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     <div className="text-center py-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                         <span className="icon-file w-16 h-16 mx-auto mb-4 opacity-30" style={{ display: 'block' }}></span>
                         <h3 className="text-lg font-medium text-gray-600">No Drawings Yet</h3>
-                        <p className="text-gray-500 mt-1 mb-4">Upload drawings to get started</p>
+                        <p className="text-gray-500 mt-1 mb-4">{isMobile ? 'No drawings available' : 'Upload drawings to get started'}</p>
+                        {!isMobile && (
+                            <button
+                                onClick={() => setShowUploadModal(true)}
+                                className="px-4 py-2 text-white rounded-lg transition inline-flex items-center gap-2"
+                                style={{ backgroundColor: 'var(--autovol-teal)' }}
+                            >
+                                <span className="icon-upload w-4 h-4"></span>
+                                Upload Drawings
+                            </button>
+                        )}
+                    </div>
+                ) : sortedDrawings.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                        <span className="icon-search w-12 h-12 mx-auto mb-3 opacity-30" style={{ display: 'block' }}></span>
+                        <h3 className="text-lg font-medium text-gray-600">No Results Found</h3>
+                        <p className="text-gray-500 mt-1">No drawings match "{drawingSearchTerm}"</p>
                         <button
-                            onClick={() => setShowUploadModal(true)}
-                            className="px-4 py-2 text-white rounded-lg transition inline-flex items-center gap-2"
-                            style={{ backgroundColor: 'var(--autovol-teal)' }}
+                            onClick={() => setDrawingSearchTerm('')}
+                            className="mt-3 text-blue-600 hover:underline"
                         >
-                            <span className="icon-upload w-4 h-4"></span>
-                            Upload Drawings
+                            Clear search
                         </button>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <table className="w-full">
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                        <table className="w-full min-w-max">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
                                     {(window.MODA_TESSERACT_OCR || window.Tesseract) && (
@@ -1534,7 +1587,12 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             />
                                         </th>
                                     )}
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
+                                    <th 
+                                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                        onClick={() => handleSort('fileName')}
+                                    >
+                                        File Name {sortColumn === 'fileName' && (sortDirection === 'asc' ? '▲' : '▼')}
+                                    </th>
                                     {isModulePackages && (
                                         <>
                                             <th 
@@ -1563,11 +1621,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             </th>
                                         </>
                                     )}
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Version</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded By</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Version</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Updated</th>
+                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -1672,52 +1728,50 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     </td>
                                                 </>
                                             )}
-                                            <td className="px-4 py-4">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <td className="px-3 py-3">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                     v{latestVersion?.version || '1.0'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-gray-500">
-                                                {formatFileSize(latestVersion?.file_size || latestVersion?.fileSize)}
-                                            </td>
-                                            <td className="px-4 py-4 text-sm text-gray-500">
+                                            <td className="px-3 py-3 text-sm text-gray-500">
                                                 {formatDate(latestVersion?.uploaded_at || latestVersion?.uploadedAt || drawing.created_at || drawing.createdAt)}
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-gray-500">
-                                                {latestVersion?.uploaded_by || latestVersion?.uploadedBy || drawing.created_by || drawing.uploadedBy}
-                                            </td>
-                                            <td className="px-4 py-4 text-right">
+                                            <td className="px-3 py-3 text-right">
                                                 <div className="flex items-center justify-end gap-1">
                                                     <button
-                                                        onClick={() => setShowEditDrawing(drawing)}
-                                                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation"
-                                                        title="Edit / Rename"
-                                                    >
-                                                        <span className="icon-edit w-4 h-4"></span>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setShowVersionHistory(drawing)}
+                                                        onClick={() => setShowFileInfo({ drawing, latestVersion, linkedModule, parsedModule })}
                                                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition touch-manipulation"
-                                                        title="Version History"
+                                                        title="File Info"
                                                     >
-                                                        <span className="icon-history w-4 h-4"></span>
+                                                        <span className="icon-info w-4 h-4"></span>
                                                     </button>
+                                                    {!isMobile && (
+                                                        <button
+                                                            onClick={() => setShowEditDrawing(drawing)}
+                                                            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation"
+                                                            title="Edit / Rename"
+                                                        >
+                                                            <span className="icon-edit w-4 h-4"></span>
+                                                        </button>
+                                                    )}
                                                     {latestVersion && (
                                                         <button
                                                             onClick={(e) => handleView(latestVersion, e)}
                                                             className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition touch-manipulation"
-                                                            title="View in Browser"
+                                                            title="View"
                                                         >
                                                             <span className="icon-eye w-4 h-4"></span>
                                                         </button>
                                                     )}
-                                                    <button
-                                                        onClick={() => setShowDeleteConfirm(drawing)}
-                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
-                                                        title="Delete"
-                                                    >
-                                                        <span className="icon-trash w-4 h-4"></span>
-                                                    </button>
+                                                    {!isMobile && (
+                                                        <button
+                                                            onClick={() => setShowDeleteConfirm(drawing)}
+                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
+                                                            title="Delete"
+                                                        >
+                                                            <span className="icon-trash w-4 h-4"></span>
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -2186,21 +2240,6 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             </button>
                             
                             <button
-                                onClick={() => onAction('replace')}
-                                className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-amber-500 hover:bg-amber-50 transition group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center group-hover:bg-amber-200">
-                                        <span className="icon-upload w-5 h-5 text-amber-600"></span>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-gray-900">Replace Existing</p>
-                                        <p className="text-sm text-gray-500">Delete the existing file and upload this one</p>
-                                    </div>
-                                </div>
-                            </button>
-                            
-                            <button
                                 onClick={() => onAction('skip')}
                                 className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition group"
                             >
@@ -2426,6 +2465,124 @@ const DrawingsModule = ({ projects = [], auth }) => {
     };
     
     // =========================================================================
+    // RENDER: File Info Modal
+    // =========================================================================
+    const FileInfoModal = () => {
+        if (!showFileInfo) return null;
+        
+        const { drawing, latestVersion, linkedModule, parsedModule } = showFileInfo;
+        
+        return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                    <div className="p-6 border-b border-gray-200">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                <span className="icon-info w-6 h-6 text-blue-600"></span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h2 className="text-lg font-bold text-gray-900 truncate">{drawing.name}</h2>
+                                <p className="text-sm text-gray-600">File Information</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">File Size</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                    {formatFileSize(latestVersion?.file_size || latestVersion?.fileSize)}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">Version</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                    v{latestVersion?.version || '1.0'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">File Type</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                    {drawing.name.split('.').pop()?.toUpperCase() || 'Unknown'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">Total Versions</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                    {drawing.versions?.length || 1}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="border-t border-gray-200 pt-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Uploaded By</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {latestVersion?.uploaded_by || latestVersion?.uploadedBy || drawing.created_by || 'Unknown'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Last Updated</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {formatDate(latestVersion?.uploaded_at || latestVersion?.uploadedAt || drawing.created_at)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {isModulePackages && (
+                            <div className="border-t border-gray-200 pt-4">
+                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Module Link</p>
+                                {linkedModule ? (
+                                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                                        <div className="grid grid-cols-2 gap-2 text-sm">
+                                            <div>
+                                                <span className="text-emerald-600">Serial No:</span>
+                                                <span className="ml-1 font-medium text-emerald-800">{linkedModule.serialNumber}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-emerald-600">Build Seq:</span>
+                                                <span className="ml-1 font-medium text-emerald-800">#{linkedModule.buildSequence}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-emerald-600">Hitch BLM:</span>
+                                                <span className="ml-1 font-medium text-emerald-800">{linkedModule.hitchBLM || '-'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-emerald-600">Rear BLM:</span>
+                                                <span className="ml-1 font-medium text-emerald-800">{linkedModule.rearBLM || '-'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : parsedModule ? (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                        <p className="text-sm text-amber-800">
+                                            <span className="font-medium">Unlinked:</span> Parsed BLM "{parsedModule}" does not match any module.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500">No module ID detected in filename</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="p-6 border-t border-gray-200 flex justify-end">
+                        <button
+                            onClick={() => setShowFileInfo(null)}
+                            className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // =========================================================================
     // RENDER: Folder Modal (Add/Edit with Color Picker)
     // =========================================================================
     const FolderModal = () => {
@@ -2585,7 +2742,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     // MAIN RENDER
     // =========================================================================
     return (
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className={`bg-white rounded-lg shadow-sm ${isMobile ? 'p-2' : 'p-3'}`}>
             {/* Upload Progress Overlay */}
             {uploadProgress && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -2624,6 +2781,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <DeleteConfirmModal />
             <DuplicatePromptModal />
             <EditDrawingModal />
+            <FileInfoModal />
             <FolderModal />
             <DeleteFolderConfirmModal />
             

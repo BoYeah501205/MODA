@@ -97,7 +97,8 @@
                 const { data: drawings, error: drawingsError } = await getClient()
                     .from('drawings')
                     .select('discipline')
-                    .eq('project_id', projectId);
+                    .eq('project_id', projectId)
+                    .is('deleted_at', null);
                 
                 if (drawingsError) throw drawingsError;
                 
