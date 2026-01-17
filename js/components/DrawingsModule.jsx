@@ -436,13 +436,27 @@ const DrawingsModule = ({ projects = [], auth }) => {
     }, [selectedDiscipline]);
     
     // Find module data from project by BLM ID
+    // Handles partial matches: L6M08 matches B1L6M08, L6M08 matches B2L6M08, etc.
     const findModuleByBLM = useCallback((blmId) => {
         if (!blmId || !selectedProject?.modules) return null;
         const normalizedBLM = blmId.toUpperCase().replace(/[_\-\s]/g, '');
+        
+        // Extract just the L#M## part for partial matching
+        const lmPattern = normalizedBLM.match(/L\d+M\d+/)?.[0];
+        
         return selectedProject.modules.find(m => {
             const hitchBLM = (m.hitchBLM || '').toUpperCase().replace(/[_\-\s]/g, '');
             const rearBLM = (m.rearBLM || '').toUpperCase().replace(/[_\-\s]/g, '');
-            return hitchBLM === normalizedBLM || rearBLM === normalizedBLM;
+            
+            // Exact match first
+            if (hitchBLM === normalizedBLM || rearBLM === normalizedBLM) return true;
+            
+            // Partial match: L6M08 matches B1L6M08 (BLM ends with the pattern)
+            if (lmPattern) {
+                if (hitchBLM.endsWith(lmPattern) || rearBLM.endsWith(lmPattern)) return true;
+            }
+            
+            return false;
         });
     }, [selectedProject]);
     
@@ -2984,15 +2998,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 for (let i = 0; i < itemsToRename.length; i++) {
                     const { drawing, recommendedName, recommendedModule } = itemsToRename[i];
                     
+                    // Only update the name - module linking is done by filename matching, not by ID
                     await window.MODA_SUPABASE_DRAWINGS.drawings.update(drawing.id, {
-                        name: recommendedName,
-                        linked_module_id: recommendedModule?.id || null
+                        name: recommendedName
                     });
                     
                     await logDrawingActivity('rename', drawing.id, {
                         oldName: drawing.name,
                         newName: recommendedName,
-                        linkedModuleId: recommendedModule?.id,
+                        linkedModuleSerial: recommendedModule?.serialNumber,
                         bulkRename: true
                     });
                     
