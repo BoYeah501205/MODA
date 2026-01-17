@@ -1099,7 +1099,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     }, [selectedProject, auth]);
     
     // Handle view - opens file in new browser tab for viewing (not download)
-    // Adds cache-busting timestamp to ensure current version is always loaded
+    // Uses pre-authenticated download URL to avoid Microsoft login requirement
     const handleView = useCallback(async (version, e) => {
         // Prevent default for touch/click events
         if (e) {
@@ -1114,8 +1114,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
             let url = null;
             
             if (isSupabaseAvailable() && storagePath) {
-                // Use getViewUrl for SharePoint files to open in browser
-                url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
+                // Use getDownloadUrl for SharePoint files - returns pre-authenticated URL
+                // that doesn't require Microsoft login (unlike webUrl/getViewUrl)
+                url = await window.MODA_SUPABASE_DRAWINGS.versions.getDownloadUrl(storagePath, sharePointFileId);
             } else {
                 url = version.file_url || version.fileUrl;
             }
