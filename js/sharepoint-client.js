@@ -250,6 +250,17 @@
             const result = await callSharePoint('getViewUrl', { fileId });
             return result.webUrl;
         },
+        
+        /**
+         * Get preview URL for a file (opens in browser without auth for PDFs)
+         * Uses download URL which is pre-authenticated and works for inline PDF viewing
+         * @param {string} fileId - SharePoint file ID
+         */
+        async getPreviewUrl(fileId) {
+            const result = await callSharePoint('download', { fileId });
+            // The downloadUrl is pre-authenticated and browsers will display PDFs inline
+            return result.downloadUrl;
+        },
 
         /**
          * Delete a file from SharePoint

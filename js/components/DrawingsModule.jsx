@@ -1122,9 +1122,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
             let url = null;
             
             if (isSupabaseAvailable() && storagePath) {
-                // Use getDownloadUrl for SharePoint files - returns pre-authenticated URL
-                // that doesn't require Microsoft login (unlike webUrl/getViewUrl)
-                url = await window.MODA_SUPABASE_DRAWINGS.versions.getDownloadUrl(storagePath, sharePointFileId);
+                // Use getPreviewUrl for SharePoint files - returns pre-authenticated URL
+                // that doesn't require Microsoft login and opens PDFs inline in browser
+                url = await window.MODA_SUPABASE_DRAWINGS.versions.getPreviewUrl(storagePath, sharePointFileId);
             } else {
                 url = version.file_url || version.fileUrl;
             }
