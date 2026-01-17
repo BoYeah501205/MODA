@@ -4428,7 +4428,9 @@ const getProjectAcronym = (module) => {
                     {!isPopout && (
                         <button
                             onClick={() => {
-                                const popoutUrl = window.location.origin + '/weekly-board-popout.html';
+                                // Pass the currently displayed week ID to the popout
+                                const weekId = displayWeek?.id || '';
+                                const popoutUrl = window.location.origin + '/weekly-board-popout.html' + (weekId ? `?weekId=${encodeURIComponent(weekId)}` : '');
                                 const popoutWindow = window.open(
                                     popoutUrl,
                                     'WeeklyBoardPopout',

@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.5**
+**Current Version: 1.1.6**
 
 ---
+
+## [1.1.6] - 2025-01-17
+### Weekly Board Popout Week Sync
+- **Week ID Passed via URL**: Popout now receives the currently displayed week ID from main app via URL parameter
+- **Correct Week Display**: Popout shows the exact same week that was being viewed in main app when "Pop Out" was clicked
+- **Fallback to Current Week**: If no week ID in URL, defaults to calendar current week
 
 ## [1.1.5] - 2025-01-17
 ### Weekly Board Popout Fix
