@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.1**
+**Current Version: 1.1.2**
 
 ---
+
+## [1.1.2] - 2025-01-17
+### Drawings Module Fixes
+- **Removed Replace Existing**: Duplicate file prompt now only shows "Add as New Version" and "Skip"
+- **Fixed Drawing Counts**: Soft-deleted drawings no longer counted in folder badges
+- **Removed Browse Sheets**: Button temporarily removed pending feature completion
+- **Removed Size/Uploaded By Columns**: Moved to File Info modal to reduce table width
 
 ## [1.1.1] - 2025-01-17
 ### Drawings Module UX Improvements
