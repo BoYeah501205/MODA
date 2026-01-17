@@ -140,17 +140,6 @@
             const [error, setError] = useState(null);
             const [syncStatus, setSyncStatus] = useState('loading');
             const [currentUser, setCurrentUser] = useState(null);
-            const [initialWeekId, setInitialWeekId] = useState(null);
-            
-            // Read week ID from URL parameter on mount
-            useEffect(() => {
-                const urlParams = new URLSearchParams(window.location.search);
-                const weekIdParam = urlParams.get('weekId');
-                if (weekIdParam) {
-                    setInitialWeekId(weekIdParam);
-                    console.log('[Popout] Week ID from URL:', weekIdParam);
-                }
-            }, []);
             
             // Use the weekly schedule hook from WeeklyBoard.jsx
             const weeklySchedule = window.WeeklyBoardComponents?.useWeeklySchedule?.() || {
@@ -264,18 +253,8 @@
                 return () => clearTimeout(initTimeout);
             }, []);
             
-            // Get current week - prioritize URL parameter, then find by date
+            // Get current week - find by today's date
             const currentWeek = useMemo(() => {
-                // If we have a week ID from URL, use that
-                if (initialWeekId && weeks.length > 0) {
-                    const weekFromUrl = weeks.find(w => w.id === initialWeekId);
-                    if (weekFromUrl) {
-                        console.log('[Popout] Using week from URL:', weekFromUrl.weekStart);
-                        return weekFromUrl;
-                    }
-                }
-                
-                // Otherwise find the week containing today's date
                 const now = new Date();
                 now.setHours(0, 0, 0, 0);
                 return weeks.find(w => {
@@ -285,7 +264,7 @@
                     end.setHours(23, 59, 59, 999);
                     return now >= start && now <= end;
                 }) || weeks[0] || null;
-            }, [weeks, initialWeekId]);
+            }, [weeks]);
             
             // Handle project updates
             const handleSetProjects = useCallback(async (newProjects) => {
@@ -386,7 +365,7 @@
                         setProductionTab={() => {}}
                         setProjects={handleSetProjects}
                         canEdit={canEdit}
-                        initialSelectedWeekId={initialWeekId}
+                        initialSelectedWeekId={null}
                         onWeekSelected={() => {}}
                         onEditWeek={() => {}}
                         onReportIssue={() => {}}

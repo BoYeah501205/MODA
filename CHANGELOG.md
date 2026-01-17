@@ -2,12 +2,18 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.6**
+**Current Version: 1.1.7**
 
 ---
 
+## [1.1.7] - 2025-01-17
+### Revert Popout Changes
+- **Reverted v1.1.6**: URL parameter approach broke popout window opening
+- **Kept Supabase Loading**: Popout still loads weeks/staggers from Supabase (v1.1.5 fix)
+- **Investigation Needed**: Week sync between main app and popout requires different approach
+
 ## [1.1.6] - 2025-01-17
-### Weekly Board Popout Week Sync
+### Weekly Board Popout Week Sync (Reverted)
 - **Week ID Passed via URL**: Popout now receives the currently displayed week ID from main app via URL parameter
 - **Correct Week Display**: Popout shows the exact same week that was being viewed in main app when "Pop Out" was clicked
 - **Fallback to Current Week**: If no week ID in URL, defaults to calendar current week
