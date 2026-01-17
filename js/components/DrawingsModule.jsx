@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // MODA DRAWINGS MODULE
 // Document management for project drawings with version control
 // Uses Supabase for storage with localStorage fallback
@@ -7,6 +7,12 @@
 const { useState, useEffect, useCallback, useMemo } = React;
 
 const DrawingsModule = ({ projects = [], auth }) => {
+    
+    // Mobile detection - view-only mode on mobile devices
+    const isMobile = useMemo(() => {
+        if (typeof window === 'undefined') return false;
+        return window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }, []);
     
     // Navigation state
     const [selectedProject, setSelectedProject] = useState(null);

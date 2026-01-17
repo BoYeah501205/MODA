@@ -2,9 +2,18 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.0**
+**Current Version: 1.1.1**
 
 ---
+
+## [1.1.1] - 2025-01-17
+### Drawings Module UX Improvements
+- **Mobile View-Only Mode**: On mobile devices, upload/edit/delete buttons are hidden - view and search only
+- **Search/Filter**: New search bar to filter drawings by filename, serial no., BLM ID, or build sequence
+- **Sortable File Name**: Click "File Name" column header to sort A-Z or Z-A
+- **File Info Modal**: New info button shows file size, version count, upload details, and module link status
+- **Reduced Padding**: Less side padding on the module for better table display and less text wrapping
+- **Horizontal Scroll**: Table scrolls horizontally on mobile to show all columns
 
 ## [1.1.0] - 2025-01-17
 ### Drawing Management Enhancements
