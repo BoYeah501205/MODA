@@ -107,11 +107,20 @@ textarea {
 
 /* ===== MOBILE HEADER OPTIMIZATIONS ===== */
 @media (max-width: 1024px) {
-    /* Mobile header adjustments */
-    header {
-        position: sticky;
-        top: 0;
-        z-index: 50;
+    /* Mobile header - sticky with safe area for iOS notch/status bar */
+    header,
+    .mobile-header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 1000 !important;
+        /* Add padding for iOS status bar / notch */
+        padding-top: env(safe-area-inset-top, 0px) !important;
+        background: white !important;
+    }
+    
+    /* Ensure header content doesn't overlap status bar */
+    .mobile-header > div {
+        padding-top: 0.5rem;
     }
     
     /* Hide full title on mobile, show only logo and MODA */
@@ -218,6 +227,8 @@ textarea {
 
 .mobile-nav-header {
     padding: 1.5rem;
+    /* Add safe area padding for iOS status bar */
+    padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
     background: linear-gradient(135deg, var(--autovol-navy) 0%, #2a4a6f 100%);
     color: white;
     display: flex;
@@ -298,12 +309,23 @@ textarea {
     display: none;
     background: none;
     border: none;
-    padding: 0.5rem;
+    padding: 0.75rem;
     cursor: pointer;
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 48px;
+    min-height: 48px;
     align-items: center;
     justify-content: center;
+    /* Ensure it's clickable */
+    position: relative;
+    z-index: 1001;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    border-radius: 8px;
+    margin-left: -0.5rem;
+}
+
+.mobile-menu-button:active {
+    background: rgba(0,0,0,0.05);
 }
 
 .mobile-menu-icon {
@@ -1915,6 +1937,94 @@ textarea {
 /* Station pill active state */
 .mobile-weekly-board button.shadow-md {
     transform: scale(1.05);
+}
+
+/* ===== MOBILE CONTENT SPACING FIXES ===== */
+@media (max-width: 640px) {
+    /* Ensure main content has proper spacing below sticky header */
+    main,
+    .main-content,
+    #root > div > div:not(header):not(nav) {
+        padding-top: 0.5rem;
+    }
+    
+    /* Fix cards and containers on mobile */
+    .bg-white.rounded-lg,
+    .bg-white.rounded-xl {
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
+    
+    /* Ensure proper padding inside cards */
+    .p-4 {
+        padding: 0.75rem !important;
+    }
+    
+    .p-6 {
+        padding: 1rem !important;
+    }
+    
+    /* Fix grid gaps on mobile */
+    .gap-4 {
+        gap: 0.75rem !important;
+    }
+    
+    .gap-6 {
+        gap: 1rem !important;
+    }
+    
+    /* Ensure text doesn't get too small */
+    .text-sm {
+        font-size: 0.875rem !important;
+    }
+    
+    .text-xs {
+        font-size: 0.75rem !important;
+    }
+    
+    /* Fix flex containers that might scrunch */
+    .flex.items-center.gap-2 {
+        gap: 0.5rem !important;
+        flex-wrap: wrap;
+    }
+    
+    .flex.items-center.gap-4 {
+        gap: 0.75rem !important;
+        flex-wrap: wrap;
+    }
+    
+    /* Ensure buttons have proper spacing */
+    .flex.gap-2 button,
+    .flex.gap-3 button {
+        padding: 0.5rem 0.75rem;
+        min-height: 40px;
+    }
+    
+    /* Fix stat cards on home page */
+    .grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-4 {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+    
+    /* Quick actions grid - 2 columns on mobile */
+    .grid.grid-cols-2.md\\:grid-cols-3.lg\\:grid-cols-5 {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.75rem !important;
+    }
+}
+
+/* ===== iOS SPECIFIC FIXES ===== */
+@supports (-webkit-touch-callout: none) {
+    /* iOS Safari specific */
+    .mobile-header {
+        /* Prevent content from going under status bar */
+        padding-top: max(env(safe-area-inset-top), 20px) !important;
+    }
+    
+    /* Fix for iOS bottom safe area */
+    .mobile-nav-drawer {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
 }
 
 /* ===== PRINT STYLES ===== */
