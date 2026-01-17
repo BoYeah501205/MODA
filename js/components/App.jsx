@@ -1407,6 +1407,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             importData={importData}
                         />
                     )}
+                    
+                    {/* Version Footer - visible on all devices */}
+                    <footer className="text-center py-3 text-xs text-gray-400 border-t bg-white mt-auto">
+                        <span>MODA v{window.MODA_VERSION || '1.0.0'}</span>
+                        {window.MODA_IS_MOBILE && <span className="ml-2">(Mobile)</span>}
+                    </footer>
                 </div>
             );
         }

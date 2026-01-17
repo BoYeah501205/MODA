@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>Modular Operations Dashboard Application</title>
     
+    <!-- Cache control for development - forces refresh on mobile -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <!-- App Version - Update this when deploying changes -->
+    <meta name="version" content="1.0.5">
+    <script>window.MODA_VERSION = '1.0.5';</script>
+    
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
     <!-- On desktop: normal localStorage behavior -->

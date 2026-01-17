@@ -48,17 +48,22 @@ window.MobileNavigation = function MobileNavigation({
     
     return (
         <>
-            {/* Hamburger Menu Button */}
+            {/* Floating Action Button - Bottom Left for iOS accessibility */}
             <button 
-                className={`mobile-menu-button ${isOpen ? 'active' : ''}`}
+                className={`mobile-fab-menu ${isOpen ? 'active' : ''}`}
                 onClick={() => setIsOpen(!isOpen)}
                 aria-label="Toggle menu"
-                style={{ color: 'var(--autovol-navy, #1E3A5F)' }}
             >
-                <div className="mobile-menu-icon">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+                <div className="mobile-fab-icon">
+                    {isOpen ? (
+                        <span style={{ fontSize: '24px', lineHeight: 1 }}>×</span>
+                    ) : (
+                        <>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </>
+                    )}
                 </div>
             </button>
             
