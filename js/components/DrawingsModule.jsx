@@ -1111,31 +1111,37 @@ const DrawingsModule = ({ projects = [], auth }) => {
             const storagePath = version.storage_path || version.storagePath;
             const sharePointFileId = version.sharepoint_file_id || version.sharepointFileId;
             
+            let url = null;
+            
             if (isSupabaseAvailable() && storagePath) {
                 // Use getViewUrl for SharePoint files to open in browser
-                let url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
-                if (url) {
-                    // Add cache-busting timestamp to prevent browser/mobile caching
-                    const cacheBuster = `_cb=${Date.now()}`;
-                    url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
-                    window.open(url, '_blank', 'noopener,noreferrer');
+                url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
+            } else {
+                url = version.file_url || version.fileUrl;
+            }
+            
+            if (url) {
+                // Add cache-busting timestamp to prevent browser/mobile caching
+                const cacheBuster = `_cb=${Date.now()}`;
+                url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
+                
+                // On mobile, use location.href for better compatibility (avoids popup blockers)
+                // On desktop, use window.open for new tab
+                if (isMobile) {
+                    // For mobile: use window.location to navigate directly
+                    // This avoids popup blocker issues on iOS/Android
+                    window.location.href = url;
                 } else {
-                    throw new Error('Could not generate view URL');
+                    window.open(url, '_blank', 'noopener,noreferrer');
                 }
             } else {
-                let fileUrl = version.file_url || version.fileUrl;
-                if (fileUrl) {
-                    // Add cache-busting timestamp
-                    const cacheBuster = `_cb=${Date.now()}`;
-                    fileUrl = fileUrl.includes('?') ? `${fileUrl}&${cacheBuster}` : `${fileUrl}?${cacheBuster}`;
-                    window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                }
+                throw new Error('Could not generate view URL');
             }
         } catch (error) {
             console.error('[Drawings] View error:', error);
             alert('Error viewing file: ' + error.message);
         }
-    }, []);
+    }, [isMobile]);
     
     // Handle extract sheets - trigger OCR processing for selected PDFs using Tesseract
     const handleExtractSheets = useCallback(async () => {
@@ -2108,16 +2114,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     <span className="icon-file w-5 h-5 text-gray-400"></span>
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <a
-                                                                href="#"
+                                                            <button
+                                                                type="button"
                                                                 onClick={(e) => latestVersion && handleView(latestVersion, e)}
-                                                                onTouchEnd={(e) => latestVersion && handleView(latestVersion, e)}
                                                                 className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition cursor-pointer text-left touch-manipulation"
                                                                 style={{ WebkitTapHighlightColor: 'transparent' }}
                                                                 title="Click to view drawing"
                                                             >
                                                                 {drawing.name}
-                                                            </a>
+                                                            </button>
                                                             {parsedModule && !isModulePackages && (
                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800" title="Parsed module from filename">
                                                                     {parsedModule}
