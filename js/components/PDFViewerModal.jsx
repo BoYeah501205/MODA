@@ -17,6 +17,13 @@ const PDFViewerModal = ({
     drawingId,
     versionId 
 }) => {
+    // Debug: log the PDF URL
+    useEffect(() => {
+        if (isOpen && pdfUrl) {
+            console.log('[PDFViewer] Opening PDF:', pdfUrl);
+        }
+    }, [isOpen, pdfUrl]);
+    
     // Markup state
     const [activeTool, setActiveTool] = useState(null); // 'textbox', 'cloud', 'arrow'
     const [annotations, setAnnotations] = useState([]);
@@ -467,19 +474,14 @@ const PDFViewerModal = ({
             )}
             
             {/* PDF Content with Overlay */}
-            <div className="flex-1 relative overflow-hidden">
-                {/* PDF displayed in object/embed */}
-                <object
-                    data={pdfUrl}
-                    type="application/pdf"
-                    className="w-full h-full"
+            <div className="flex-1 relative overflow-hidden bg-gray-700">
+                {/* PDF displayed in iframe - better cross-origin support */}
+                <iframe
+                    src={pdfUrl}
+                    className="w-full h-full border-0 bg-white"
                     style={{ pointerEvents: showMarkupMode ? 'none' : 'auto' }}
-                >
-                    <embed src={pdfUrl} type="application/pdf" className="w-full h-full" />
-                    <p className="text-white text-center p-8">
-                        Unable to display PDF. <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">Download instead</a>
-                    </p>
-                </object>
+                    title={drawingName}
+                />
                 
                 {/* SVG Overlay for annotations - only interactive in markup mode */}
                 {showMarkupMode && (
