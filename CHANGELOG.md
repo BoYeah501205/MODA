@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.4**
+**Current Version: 1.1.5**
 
 ---
+
+## [1.1.5] - 2025-01-17
+### Weekly Board Popout Fix
+- **Fixed Data Sync**: Popout window now loads weeks and staggers from Supabase instead of stale localStorage data
+- **Consistent Module Display**: Popout now shows same modules and starting positions as main browser window
 
 ## [1.1.4] - 2025-01-17
 ### Shop Drawing Linking & Bulk Rename

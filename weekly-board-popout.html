@@ -171,7 +171,9 @@
                         
                         // Load projects from Supabase
                         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
-                            console.log('[Popout] Loading projects from Supabase...');
+                            console.log('[Popout] Loading data from Supabase...');
+                            
+                            // Load projects
                             const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
                             const mappedProjects = (supabaseProjects || []).map(p => ({
                                 ...p,
@@ -182,16 +184,43 @@
                             setProjects(mappedProjects);
                             console.log('[Popout] Loaded', mappedProjects.length, 'projects');
                             
-                            // Load weeks from localStorage (same as main app)
-                            const savedWeeks = localStorage.getItem('autovol_production_weeks');
-                            if (savedWeeks) {
-                                setWeeks(JSON.parse(savedWeeks));
+                            // Load weeks from Supabase (same as main app)
+                            if (window.MODA_SUPABASE_DATA.productionWeeks) {
+                                try {
+                                    const supabaseWeeks = await window.MODA_SUPABASE_DATA.productionWeeks.getAll();
+                                    if (supabaseWeeks && supabaseWeeks.length > 0) {
+                                        setWeeks(supabaseWeeks);
+                                        console.log('[Popout] Loaded', supabaseWeeks.length, 'production weeks from Supabase');
+                                    } else {
+                                        console.log('[Popout] No production weeks in Supabase');
+                                    }
+                                } catch (weekErr) {
+                                    console.error('[Popout] Error loading weeks from Supabase:', weekErr);
+                                }
                             }
                             
-                            // Load stagger config
-                            const savedStaggers = localStorage.getItem('autovol_stagger_config');
-                            if (savedStaggers) {
-                                setStaggerConfig(JSON.parse(savedStaggers));
+                            // Load stagger config from Supabase
+                            if (window.MODA_SUPABASE_DATA.staggers) {
+                                try {
+                                    const supabaseStaggers = await window.MODA_SUPABASE_DATA.staggers.getAll();
+                                    if (supabaseStaggers && Object.keys(supabaseStaggers).length > 0) {
+                                        setStaggerConfig(supabaseStaggers);
+                                        console.log('[Popout] Loaded staggers from Supabase');
+                                    }
+                                } catch (staggerErr) {
+                                    console.error('[Popout] Error loading staggers from Supabase:', staggerErr);
+                                    // Fallback to localStorage
+                                    const savedStaggers = localStorage.getItem('autovol_stagger_config');
+                                    if (savedStaggers) {
+                                        setStaggerConfig(JSON.parse(savedStaggers));
+                                    }
+                                }
+                            } else {
+                                // Fallback to localStorage for staggers
+                                const savedStaggers = localStorage.getItem('autovol_stagger_config');
+                                if (savedStaggers) {
+                                    setStaggerConfig(JSON.parse(savedStaggers));
+                                }
                             }
                             
                             setSyncStatus('connected');
@@ -203,6 +232,9 @@
                             
                             const savedWeeks = localStorage.getItem('autovol_production_weeks');
                             if (savedWeeks) setWeeks(JSON.parse(savedWeeks));
+                            
+                            const savedStaggers = localStorage.getItem('autovol_stagger_config');
+                            if (savedStaggers) setStaggerConfig(JSON.parse(savedStaggers));
                             
                             setSyncStatus('localStorage');
                         }
