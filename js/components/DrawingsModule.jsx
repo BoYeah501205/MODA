@@ -386,6 +386,23 @@ const DrawingsModule = ({ projects = [], auth }) => {
         return drawingCounts[disciplineId] || 0;
     }, [drawingCounts]);
     
+    // Check if current discipline is Module Packages
+    const isModulePackages = useMemo(() => {
+        return selectedDiscipline === 'shop-module-packages' || 
+               selectedDiscipline === 'Module Packages';
+    }, [selectedDiscipline]);
+    
+    // Find module data from project by BLM ID
+    const findModuleByBLM = useCallback((blmId) => {
+        if (!blmId || !selectedProject?.modules) return null;
+        const normalizedBLM = blmId.toUpperCase().replace(/[_\-\s]/g, '');
+        return selectedProject.modules.find(m => {
+            const hitchBLM = (m.hitchBLM || '').toUpperCase().replace(/[_\-\s]/g, '');
+            const rearBLM = (m.rearBLM || '').toUpperCase().replace(/[_\-\s]/g, '');
+            return hitchBLM === normalizedBLM || rearBLM === normalizedBLM;
+        });
+    }, [selectedProject]);
+    
     // Get latest version of a drawing
     const getLatestVersion = useCallback((drawing) => {
         if (!drawing.versions || drawing.versions.length === 0) return null;
@@ -692,23 +709,36 @@ const DrawingsModule = ({ projects = [], auth }) => {
     }, [selectedProject, selectedDiscipline]);
     
     // Handle view - opens file in new browser tab for viewing (not download)
-    const handleView = useCallback(async (version) => {
+    // Adds cache-busting timestamp to ensure current version is always loaded
+    const handleView = useCallback(async (version, e) => {
+        // Prevent default for touch/click events
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
         try {
             const storagePath = version.storage_path || version.storagePath;
             const sharePointFileId = version.sharepoint_file_id || version.sharepointFileId;
             
             if (isSupabaseAvailable() && storagePath) {
                 // Use getViewUrl for SharePoint files to open in browser
-                const url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
+                let url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
                 if (url) {
-                    window.open(url, '_blank');
+                    // Add cache-busting timestamp to prevent browser/mobile caching
+                    const cacheBuster = `_cb=${Date.now()}`;
+                    url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
+                    window.open(url, '_blank', 'noopener,noreferrer');
                 } else {
                     throw new Error('Could not generate view URL');
                 }
             } else {
-                const fileUrl = version.file_url || version.fileUrl;
+                let fileUrl = version.file_url || version.fileUrl;
                 if (fileUrl) {
-                    window.open(fileUrl, '_blank');
+                    // Add cache-busting timestamp
+                    const cacheBuster = `_cb=${Date.now()}`;
+                    fileUrl = fileUrl.includes('?') ? `${fileUrl}&${cacheBuster}` : `${fileUrl}?${cacheBuster}`;
+                    window.open(fileUrl, '_blank', 'noopener,noreferrer');
                 }
             }
         } catch (error) {
@@ -1414,6 +1444,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                         </th>
                                     )}
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
+                                    {isModulePackages && (
+                                        <>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serial No.</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Build Seq</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hitch BLM</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rear BLM</th>
+                                        </>
+                                    )}
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Version</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
@@ -1426,6 +1464,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     const latestVersion = getLatestVersion(drawing);
                                     // Parse module ID from filename
                                     const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
+                                    // Find linked module data from project
+                                    const linkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
                                     
                                     const isPdf = drawing.name.toLowerCase().endsWith('.pdf');
                                     const isSelected = selectedDrawings.includes(drawing.id);
@@ -1456,15 +1496,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     <span className="icon-file w-5 h-5 text-gray-400"></span>
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => latestVersion && handleView(latestVersion)}
-                                                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition cursor-pointer text-left"
-                                                                disabled={!latestVersion}
+                                                            <a
+                                                                href="#"
+                                                                onClick={(e) => latestVersion && handleView(latestVersion, e)}
+                                                                onTouchEnd={(e) => latestVersion && handleView(latestVersion, e)}
+                                                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition cursor-pointer text-left touch-manipulation"
+                                                                style={{ WebkitTapHighlightColor: 'transparent' }}
                                                                 title="Click to view drawing"
                                                             >
                                                                 {drawing.name}
-                                                            </button>
-                                                            {parsedModule && (
+                                                            </a>
+                                                            {parsedModule && !isModulePackages && (
                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800" title="Parsed module from filename">
                                                                     {parsedModule}
                                                                 </span>
@@ -1476,6 +1518,38 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     </div>
                                                 </div>
                                             </td>
+                                            {isModulePackages && (
+                                                <>
+                                                    <td className="px-4 py-4 text-sm text-gray-700 font-medium">
+                                                        {linkedModule?.serialNumber || <span className="text-gray-400">-</span>}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-sm text-gray-500">
+                                                        {linkedModule?.buildSequence || <span className="text-gray-400">-</span>}
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        {linkedModule?.hitchBLM ? (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+                                                                {linkedModule.hitchBLM}
+                                                            </span>
+                                                        ) : parsedModule ? (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800" title="Parsed from filename">
+                                                                {parsedModule}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400">-</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        {linkedModule?.rearBLM ? (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                                {linkedModule.rearBLM}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400">-</span>
+                                                        )}
+                                                    </td>
+                                                </>
+                                            )}
                                             <td className="px-4 py-4">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                     v{latestVersion?.version || '1.0'}
@@ -1491,45 +1565,26 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                 {latestVersion?.uploaded_by || latestVersion?.uploadedBy || drawing.created_by || drawing.uploadedBy}
                                             </td>
                                             <td className="px-4 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                                <div className="flex items-center justify-end gap-1">
                                                     <button
                                                         onClick={() => setShowVersionHistory(drawing)}
-                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
+                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition touch-manipulation"
                                                         title="Version History"
                                                     >
                                                         <span className="icon-history w-4 h-4"></span>
                                                     </button>
                                                     {latestVersion && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleView(latestVersion)}
-                                                                className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition"
-                                                                title="View in Browser"
-                                                            >
-                                                                <span className="icon-eye w-4 h-4"></span>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDownload(latestVersion)}
-                                                                className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition"
-                                                                title="Download"
-                                                            >
-                                                                <span className="icon-download w-4 h-4"></span>
-                                                            </button>
-                                                            {window.MODA_DRAWING_SHEETS && (
-                                                                <button
-                                                                    onClick={() => handleProcessSheets(drawing)}
-                                                                    className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition"
-                                                                    title="Extract Individual Sheets (OCR)"
-                                                                    disabled={processingDrawing?.drawingId === drawing.id}
-                                                                >
-                                                                    <span className="icon-layers w-4 h-4"></span>
-                                                                </button>
-                                                            )}
-                                                        </>
+                                                        <button
+                                                            onClick={(e) => handleView(latestVersion, e)}
+                                                            className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition touch-manipulation"
+                                                            title="View in Browser"
+                                                        >
+                                                            <span className="icon-eye w-4 h-4"></span>
+                                                        </button>
                                                     )}
                                                     <button
                                                         onClick={() => setShowDeleteConfirm(drawing)}
-                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
                                                         title="Delete"
                                                     >
                                                         <span className="icon-trash w-4 h-4"></span>

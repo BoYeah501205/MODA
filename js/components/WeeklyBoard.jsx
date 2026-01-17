@@ -2532,8 +2532,9 @@ function WeeklyBoardTab({
         });
     };
     
-    // Handle shop drawing click - opens SharePoint link if available
-    const handleShopDrawing = (module) => {
+    // Handle shop drawing click - opens current version of shop drawing package
+    // First tries the new Drawings Module system, then falls back to legacy shopDrawingLinks
+    const handleShopDrawing = async (module) => {
         // Find the project this module belongs to
         const project = projects.find(p => p.id === module.projectId);
         if (!project) {
@@ -2541,29 +2542,74 @@ function WeeklyBoardTab({
             return;
         }
         
-        // Get shop drawing links from project
-        const shopDrawingLinks = project.shopDrawingLinks || {};
+        // First, try the new Drawings Module system with direct file open
+        if (window.MODA_SUPABASE_DRAWINGS?.isAvailable?.()) {
+            try {
+                // Search for drawings in Module Packages folder by BLM
+                const blmToCheck = [module.hitchBLM, module.rearBLM].filter(Boolean);
+                
+                // Get drawings for this project in Module Packages discipline
+                const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                    project.id, 
+                    'shop-module-packages'
+                );
+                
+                // Find drawing that matches this module's BLM
+                let matchedDrawing = null;
+                for (const blm of blmToCheck) {
+                    const normalizedBLM = blm.toUpperCase().replace(/[_\-\s]/g, '');
+                    matchedDrawing = drawings.find(d => {
+                        const parsedBLM = window.MODA_SUPABASE_DRAWINGS.utils.parseModuleFromFilename(d.name);
+                        return parsedBLM && parsedBLM.toUpperCase().replace(/[_\-\s]/g, '') === normalizedBLM;
+                    });
+                    if (matchedDrawing) break;
+                }
+                
+                if (matchedDrawing && matchedDrawing.versions?.length > 0) {
+                    // Get latest version
+                    const latestVersion = [...matchedDrawing.versions].sort((a, b) => 
+                        new Date(b.uploaded_at || b.uploadedAt) - new Date(a.uploaded_at || a.uploadedAt)
+                    )[0];
+                    
+                    // Get view URL with cache-busting
+                    const storagePath = latestVersion.storage_path || latestVersion.storagePath;
+                    const sharePointFileId = latestVersion.sharepoint_file_id || latestVersion.sharepointFileId;
+                    
+                    let url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
+                    if (url) {
+                        // Add cache-busting timestamp to ensure current version loads
+                        const cacheBuster = `_cb=${Date.now()}`;
+                        url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('[WeeklyBoard] Error fetching shop drawing:', error);
+            }
+        }
         
-        // Try to find URL by hitchBLM first, then rearBLM
+        // Fallback to legacy shopDrawingLinks system
+        const shopDrawingLinks = project.shopDrawingLinks || {};
         const blmToCheck = [module.hitchBLM, module.rearBLM].filter(Boolean);
         let foundUrl = null;
-        let matchedBlm = null;
         
         for (const blm of blmToCheck) {
             if (shopDrawingLinks[blm]) {
                 foundUrl = shopDrawingLinks[blm];
-                matchedBlm = blm;
                 break;
             }
         }
         
         if (foundUrl) {
-            // Open the shop drawing in a new tab
-            window.open(foundUrl, '_blank');
+            // Add cache-busting and open in new tab
+            const cacheBuster = `_cb=${Date.now()}`;
+            foundUrl = foundUrl.includes('?') ? `${foundUrl}&${cacheBuster}` : `${foundUrl}?${cacheBuster}`;
+            window.open(foundUrl, '_blank', 'noopener,noreferrer');
         } else {
-            // Show not found message
+            // Show not found message with instructions
             const blmList = blmToCheck.length > 0 ? blmToCheck.join(', ') : 'No BLM';
-            alert(`Shop Drawing Not Found\n\nNo shop drawing link found for module ${module.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawing links, go to Projects → Edit Project → Shop Drawing Links.`);
+            alert(`Shop Drawing Not Found\n\nNo shop drawing found for module ${module.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings → Shop Drawings → Module Packages\n2. Upload a PDF with the BLM in the filename (e.g., "${blmToCheck[0] || 'B1L2M01'} - Shops.pdf")\n\nOr use legacy links: Projects → Edit Project → Shop Drawing Links.`);
         }
     };
     
