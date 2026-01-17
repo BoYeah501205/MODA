@@ -2202,15 +2202,13 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     >
                                                         <span className="icon-info w-4 h-4"></span>
                                                     </button>
-                                                    {!isMobile && (
-                                                        <button
-                                                            onClick={() => setShowEditDrawing(drawing)}
-                                                            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation"
-                                                            title="Edit / Rename"
-                                                        >
-                                                            <span className="icon-edit w-4 h-4"></span>
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        onClick={() => setShowEditDrawing(drawing)}
+                                                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation"
+                                                        title="Edit / Rename"
+                                                    >
+                                                        <span className="icon-edit w-4 h-4"></span>
+                                                    </button>
                                                     {latestVersion && (
                                                         <button
                                                             onClick={(e) => handleView(latestVersion, e)}
@@ -2220,15 +2218,13 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                             <span className="icon-eye w-4 h-4"></span>
                                                         </button>
                                                     )}
-                                                    {!isMobile && (
-                                                        <button
-                                                            onClick={() => setShowDeleteConfirm(drawing)}
-                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
-                                                            title="Delete"
-                                                        >
-                                                            <span className="icon-trash w-4 h-4"></span>
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        onClick={() => setShowDeleteConfirm(drawing)}
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
+                                                        title="Delete"
+                                                    >
+                                                        <span className="icon-trash w-4 h-4"></span>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
