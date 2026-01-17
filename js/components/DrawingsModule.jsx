@@ -47,6 +47,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showBulkRenameModal, setShowBulkRenameModal] = useState(false); // Bulk rename unlinked drawings
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false); // Toggle advanced filter panel
     const [advancedFilters, setAdvancedFilters] = useState({ unitTypes: [], roomTypes: [], difficulties: [] }); // Multi-select filters
+    const [pdfViewerData, setPdfViewerData] = useState(null); // { url, name, drawingId, versionId } for PDF viewer modal
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -1152,6 +1153,36 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, []);
     
+    // Handle open in PDF viewer with markup tools
+    const handleOpenInViewer = useCallback(async (drawing, version) => {
+        try {
+            const storagePath = version.storage_path || version.storagePath;
+            const sharePointFileId = version.sharepoint_file_id || version.sharepointFileId;
+            
+            let url = null;
+            
+            if (isSupabaseAvailable() && storagePath) {
+                url = await window.MODA_SUPABASE_DRAWINGS.versions.getPreviewUrl(storagePath, sharePointFileId);
+            } else {
+                url = version.file_url || version.fileUrl;
+            }
+            
+            if (url) {
+                setPdfViewerData({
+                    url,
+                    name: drawing.name,
+                    drawingId: drawing.id,
+                    versionId: version.id
+                });
+            } else {
+                throw new Error('Could not generate PDF URL');
+            }
+        } catch (error) {
+            console.error('[Drawings] Open in viewer error:', error);
+            alert('Error opening PDF viewer: ' + error.message);
+        }
+    }, []);
+    
     // Handle extract sheets - trigger OCR processing for selected PDFs using Tesseract
     const handleExtractSheets = useCallback(async () => {
         if (!window.MODA_TESSERACT_OCR?.isAvailable()) {
@@ -2213,9 +2244,18 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                         <button
                                                             onClick={(e) => handleView(latestVersion, e)}
                                                             className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition touch-manipulation"
-                                                            title="View"
+                                                            title="View in Browser"
                                                         >
                                                             <span className="icon-eye w-4 h-4"></span>
+                                                        </button>
+                                                    )}
+                                                    {latestVersion && isPdf && (
+                                                        <button
+                                                            onClick={() => handleOpenInViewer(drawing, latestVersion)}
+                                                            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition touch-manipulation"
+                                                            title="Open with Markup Tools"
+                                                        >
+                                                            <span className="icon-markup w-4 h-4"></span>
                                                         </button>
                                                     )}
                                                     <button
@@ -3567,6 +3607,18 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <FileInfoModal />
             <FolderModal />
             <DeleteFolderConfirmModal />
+            
+            {/* PDF Viewer with Markup */}
+            {pdfViewerData && window.PDFViewerModal && (
+                <window.PDFViewerModal
+                    isOpen={true}
+                    onClose={() => setPdfViewerData(null)}
+                    pdfUrl={pdfViewerData.url}
+                    drawingName={pdfViewerData.name}
+                    drawingId={pdfViewerData.drawingId}
+                    versionId={pdfViewerData.versionId}
+                />
+            )}
             
             {/* Sheet Browser */}
             {showSheetBrowser && window.SheetBrowser && (
