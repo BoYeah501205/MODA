@@ -47,7 +47,7 @@
     // ============================================================================
 
     const DrawingsAPI = {
-        // Get all drawings for a project
+        // Get all drawings for a project (excludes soft-deleted)
         async getByProject(projectId) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
@@ -58,13 +58,14 @@
                     versions:drawing_versions(*)
                 `)
                 .eq('project_id', projectId)
+                .is('deleted_at', null)
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
             return data || [];
         },
 
-        // Get drawings for a specific project and discipline
+        // Get drawings for a specific project and discipline (excludes soft-deleted)
         async getByProjectAndDiscipline(projectId, discipline) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
@@ -76,6 +77,7 @@
                 `)
                 .eq('project_id', projectId)
                 .eq('discipline', discipline)
+                .is('deleted_at', null)
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
@@ -134,13 +136,14 @@
         async update(drawingId, updates) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            const updateData = { updated_at: new Date().toISOString() };
+            if (updates.name !== undefined) updateData.name = updates.name;
+            if (updates.description !== undefined) updateData.description = updates.description;
+            if (updates.linked_module_id !== undefined) updateData.linked_module_id = updates.linked_module_id;
+            
             const { data, error } = await getClient()
                 .from('drawings')
-                .update({
-                    name: updates.name,
-                    description: updates.description,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updateData)
                 .eq('id', drawingId)
                 .select()
                 .single();
@@ -149,33 +152,86 @@
             return data;
         },
 
-        // Delete a drawing (cascades to versions)
-        async delete(drawingId) {
+        // Soft delete a drawing (marks as deleted, keeps in SharePoint for recovery)
+        async delete(drawingId, hardDelete = false) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
-            // First, get all versions to delete their files from storage
-            const { data: versions } = await getClient()
-                .from('drawing_versions')
-                .select('storage_path')
-                .eq('drawing_id', drawingId);
-            
-            // Delete files from storage
-            if (versions && versions.length > 0) {
-                const paths = versions.map(v => v.storage_path).filter(Boolean);
-                if (paths.length > 0) {
-                    await getClient().storage.from(STORAGE_BUCKET).remove(paths);
+            if (hardDelete) {
+                // Hard delete - remove from SharePoint and database
+                const { data: versions } = await getClient()
+                    .from('drawing_versions')
+                    .select('storage_path, storage_type, sharepoint_file_id')
+                    .eq('drawing_id', drawingId);
+                
+                // Delete files from storage
+                if (versions && versions.length > 0) {
+                    for (const v of versions) {
+                        if (v.storage_type === 'sharepoint' && v.sharepoint_file_id) {
+                            try {
+                                await window.MODA_SHAREPOINT?.deleteFile(v.sharepoint_file_id);
+                            } catch (e) {
+                                console.warn('[Drawings] SharePoint delete failed:', e.message);
+                            }
+                        } else if (v.storage_path && !v.storage_path.startsWith('sharepoint:')) {
+                            await getClient().storage.from(STORAGE_BUCKET).remove([v.storage_path]);
+                        }
+                    }
                 }
+                
+                // Hard delete from database
+                const { error } = await getClient()
+                    .from('drawings')
+                    .delete()
+                    .eq('id', drawingId);
+                
+                if (error) throw error;
+                console.log('[Drawings] Hard deleted drawing:', drawingId);
+            } else {
+                // Soft delete - mark as deleted but keep files
+                const { error } = await getClient()
+                    .from('drawings')
+                    .update({ 
+                        deleted_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', drawingId);
+                
+                if (error) throw error;
+                console.log('[Drawings] Soft deleted drawing:', drawingId);
             }
+            return true;
+        },
+        
+        // Restore a soft-deleted drawing
+        async restore(drawingId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
             
-            // Delete the drawing (versions cascade)
             const { error } = await getClient()
                 .from('drawings')
-                .delete()
+                .update({ 
+                    deleted_at: null,
+                    updated_at: new Date().toISOString()
+                })
                 .eq('id', drawingId);
             
             if (error) throw error;
-            console.log('[Drawings] Deleted drawing:', drawingId);
+            console.log('[Drawings] Restored drawing:', drawingId);
             return true;
+        },
+        
+        // Get deleted drawings for a project (for recovery UI)
+        async getDeleted(projectId) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const { data, error } = await getClient()
+                .from('drawings')
+                .select(`*, versions:drawing_versions(*)`)
+                .eq('project_id', projectId)
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
         }
     };
 
@@ -917,6 +973,78 @@
     };
 
     // ============================================================================
+    // ACTIVITY LOG API
+    // ============================================================================
+
+    const ActivityAPI = {
+        // Log a drawing activity
+        async log(activityData) {
+            if (!isAvailable()) return null;
+            
+            try {
+                const { data, error } = await getClient()
+                    .from('drawing_activity')
+                    .insert({
+                        action: activityData.action,
+                        drawing_id: activityData.drawing_id,
+                        project_id: activityData.project_id,
+                        user_name: activityData.user_name,
+                        user_id: activityData.user_id,
+                        details: activityData.details,
+                        created_at: activityData.created_at || new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+                
+                if (error) {
+                    console.warn('[Drawings] Activity log insert error:', error);
+                    return null;
+                }
+                return data;
+            } catch (e) {
+                console.warn('[Drawings] Activity log error:', e);
+                return null;
+            }
+        },
+        
+        // Get activity log for a drawing
+        async getByDrawing(drawingId, limit = 50) {
+            if (!isAvailable()) return [];
+            
+            const { data, error } = await getClient()
+                .from('drawing_activity')
+                .select('*')
+                .eq('drawing_id', drawingId)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            
+            if (error) {
+                console.warn('[Drawings] Activity fetch error:', error);
+                return [];
+            }
+            return data || [];
+        },
+        
+        // Get activity log for a project
+        async getByProject(projectId, limit = 100) {
+            if (!isAvailable()) return [];
+            
+            const { data, error } = await getClient()
+                .from('drawing_activity')
+                .select('*')
+                .eq('project_id', projectId)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            
+            if (error) {
+                console.warn('[Drawings] Activity fetch error:', error);
+                return [];
+            }
+            return data || [];
+        }
+    };
+
+    // ============================================================================
     // EXPORT
     // ============================================================================
 
@@ -1046,6 +1174,7 @@
         drawings: DrawingsAPI,
         versions: VersionsAPI,
         folders: FoldersAPI,
+        activity: ActivityAPI,
         utils: Utils,
         admin: AdminUtils
     };

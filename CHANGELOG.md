@@ -2,9 +2,23 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.0.9**
+**Current Version: 1.1.0**
 
 ---
+
+## [1.1.0] - 2025-01-17
+### Drawing Management Enhancements
+- **Unlinked Warning Badge**: Red "Unlinked" badge appears on drawings where parsed BLM doesn't match any project module
+- **Edit Drawing Modal**: New edit button to rename drawings and manually link to modules
+- **Soft Delete with Recovery**: Deleted drawings are hidden but remain in SharePoint for admin recovery
+- **Activity Logging**: All drawing operations (upload, rename, delete, restore) are logged for audit trail
+- **SharePoint Folder Structure**: Module Packages now create subfolders per module with versioned filenames (e.g., `B1L3M18 - Shops/B1L3M18 - Shops_v1.0.pdf`)
+
+### Database Migration Required
+Run `backend/add-drawing-activity-and-soft-delete.sql` in Supabase to add:
+- `deleted_at` column for soft delete
+- `linked_module_id` column for manual module linking
+- `drawing_activity` table for audit logging
 
 ## [1.0.9] - 2025-01-17
 - Fix: App.jsx Shop Drawing button now correctly finds newly uploaded drawings (uses direct query instead of RPC)

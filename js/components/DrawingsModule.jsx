@@ -32,6 +32,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(null);
     const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
     const [showSheetBrowser, setShowSheetBrowser] = useState(false);
+    const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
+    const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
     const [processingDrawing, setProcessingDrawing] = useState(null); // { drawingId, status, progress }
     const [selectedDrawings, setSelectedDrawings] = useState([]); // Array of drawing IDs selected for OCR
     
@@ -771,6 +773,25 @@ const DrawingsModule = ({ projects = [], auth }) => {
             setShowDeleteConfirm(null);
         }
     }, [selectedProject, selectedDiscipline]);
+    
+    // Log drawing activity (upload, rename, delete, version add)
+    const logDrawingActivity = useCallback(async (action, drawingId, details = {}) => {
+        try {
+            if (isSupabaseAvailable() && window.MODA_SUPABASE_DRAWINGS.activity?.log) {
+                await window.MODA_SUPABASE_DRAWINGS.activity.log({
+                    action,
+                    drawing_id: drawingId,
+                    project_id: selectedProject?.id,
+                    user_name: auth?.currentUser?.name || 'Unknown',
+                    user_id: auth?.currentUser?.id,
+                    details: JSON.stringify(details),
+                    created_at: new Date().toISOString()
+                });
+            }
+        } catch (error) {
+            console.warn('[Drawings] Activity log error:', error);
+        }
+    }, [selectedProject, auth]);
     
     // Handle view - opens file in new browser tab for viewing (not download)
     // Adds cache-busting timestamp to ensure current version is always loaded
@@ -1553,6 +1574,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     
                                     const isPdf = drawing.name.toLowerCase().endsWith('.pdf');
                                     const isSelected = selectedDrawings.includes(drawing.id);
+                                    // Check if drawing is unlinked (has parsed BLM but no matching module)
+                                    const isUnlinked = isModulePackages && parsedModule && !linkedModule;
                                     
                                     return (
                                         <tr key={drawing.id} className="hover:bg-gray-50">
@@ -1593,6 +1616,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                             {parsedModule && !isModulePackages && (
                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800" title="Parsed module from filename">
                                                                     {parsedModule}
+                                                                </span>
+                                                            )}
+                                                            {isUnlinked && (
+                                                                <span 
+                                                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 cursor-pointer hover:bg-red-200" 
+                                                                    title="No matching module found in project. Click to link manually."
+                                                                    onClick={() => setShowEditDrawing(drawing)}
+                                                                >
+                                                                    Unlinked
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1650,6 +1682,13 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             </td>
                                             <td className="px-4 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => setShowEditDrawing(drawing)}
+                                                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation"
+                                                        title="Edit / Rename"
+                                                    >
+                                                        <span className="icon-edit w-4 h-4"></span>
+                                                    </button>
                                                     <button
                                                         onClick={() => setShowVersionHistory(drawing)}
                                                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition touch-manipulation"
@@ -2177,7 +2216,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     };
     
     // =========================================================================
-    // RENDER: Delete Confirmation Modal
+    // RENDER: Delete Confirmation Modal (Soft Delete with Recovery Option)
     // =========================================================================
     const DeleteConfirmModal = () => {
         if (!showDeleteConfirm) return null;
@@ -2187,20 +2226,22 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
                     <div className="p-6">
                         <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                                <span className="icon-trash w-6 h-6 text-red-600"></span>
+                            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                                <span className="icon-trash w-6 h-6 text-amber-600"></span>
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900">Delete Drawing?</h2>
-                                <p className="text-sm text-gray-600">This action cannot be undone.</p>
+                                <p className="text-sm text-gray-600">File will be hidden but can be recovered</p>
                             </div>
                         </div>
                         <p className="text-gray-700 mb-2">
                             Are you sure you want to delete <strong>{showDeleteConfirm.name}</strong>?
                         </p>
-                        <p className="text-sm text-gray-500">
-                            All {showDeleteConfirm.versions?.length || 1} version(s) will be permanently removed.
-                        </p>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                            <p className="text-sm text-blue-800">
+                                <strong>Recovery Available:</strong> The file will remain in SharePoint and can be restored by an admin if needed.
+                            </p>
+                        </div>
                     </div>
                     <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
                         <button
@@ -2210,10 +2251,167 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             Cancel
                         </button>
                         <button
-                            onClick={() => handleDeleteDrawing(showDeleteConfirm.id)}
-                            className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition"
+                            onClick={async () => {
+                                await handleDeleteDrawing(showDeleteConfirm.id);
+                                await logDrawingActivity('delete', showDeleteConfirm.id, {
+                                    name: showDeleteConfirm.name,
+                                    versions: showDeleteConfirm.versions?.length || 1
+                                });
+                            }}
+                            className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition"
                         >
                             Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // =========================================================================
+    // RENDER: Edit Drawing Modal (Rename, Link to Module, View Activity)
+    // =========================================================================
+    const EditDrawingModal = () => {
+        const [newName, setNewName] = useState(showEditDrawing?.name || '');
+        const [linkedModuleId, setLinkedModuleId] = useState(showEditDrawing?.linked_module_id || '');
+        const [isSaving, setIsSaving] = useState(false);
+        
+        if (!showEditDrawing) return null;
+        
+        const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(showEditDrawing.name);
+        const currentLinkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
+        const projectModules = selectedProject?.modules || [];
+        
+        const handleSave = async () => {
+            setIsSaving(true);
+            try {
+                // Update drawing name in database
+                if (newName !== showEditDrawing.name) {
+                    await window.MODA_SUPABASE_DRAWINGS.drawings.update(showEditDrawing.id, {
+                        name: newName,
+                        linked_module_id: linkedModuleId || null
+                    });
+                    
+                    // Log activity
+                    await logDrawingActivity('rename', showEditDrawing.id, {
+                        oldName: showEditDrawing.name,
+                        newName: newName,
+                        linkedModuleId: linkedModuleId
+                    });
+                }
+                
+                // Refresh drawings list
+                const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                    selectedProject.id, 
+                    selectedDiscipline
+                );
+                setCurrentDrawings(drawings);
+                setShowEditDrawing(null);
+            } catch (error) {
+                console.error('[Drawings] Error updating drawing:', error);
+                alert('Error updating drawing: ' + error.message);
+            } finally {
+                setIsSaving(false);
+            }
+        };
+        
+        return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+                    <div className="p-6 border-b border-gray-200">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                                <span className="icon-edit w-6 h-6 text-blue-600"></span>
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900">Edit Drawing</h2>
+                                <p className="text-sm text-gray-600">Rename or link to a module</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        {/* Current Status */}
+                        {!currentLinkedModule && parsedModule && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                <div className="flex items-center gap-2 text-amber-800">
+                                    <span className="icon-alert w-5 h-5"></span>
+                                    <span className="font-medium">Unlinked Drawing</span>
+                                </div>
+                                <p className="text-sm text-amber-700 mt-1">
+                                    Parsed BLM "{parsedModule}" does not match any module in this project.
+                                    Rename the file or manually link to a module below.
+                                </p>
+                            </div>
+                        )}
+                        
+                        {/* File Name */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                File Name
+                            </label>
+                            <input
+                                type="text"
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="e.g., B1L3M18 - Shops.pdf"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Include the BLM ID in the filename for automatic linking (e.g., B1L3M18)
+                            </p>
+                        </div>
+                        
+                        {/* Manual Module Link */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Link to Module (Optional)
+                            </label>
+                            <select
+                                value={linkedModuleId}
+                                onChange={(e) => setLinkedModuleId(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">-- Auto-detect from filename --</option>
+                                {projectModules.map(m => (
+                                    <option key={m.id} value={m.id}>
+                                        {m.serialNumber} - Seq #{m.buildSequence} ({m.hitchBLM}/{m.rearBLM})
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Override automatic BLM detection by selecting a specific module
+                            </p>
+                        </div>
+                        
+                        {/* Current Link Status */}
+                        {currentLinkedModule && (
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                                <div className="flex items-center gap-2 text-emerald-800">
+                                    <span className="icon-check w-5 h-5"></span>
+                                    <span className="font-medium">Currently Linked</span>
+                                </div>
+                                <p className="text-sm text-emerald-700 mt-1">
+                                    {currentLinkedModule.serialNumber} - Build Seq #{currentLinkedModule.buildSequence}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+                        <button
+                            onClick={() => setShowEditDrawing(null)}
+                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                            disabled={isSaving}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving || !newName.trim()}
+                            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition disabled:opacity-50"
+                        >
+                            {isSaving ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>
                 </div>
@@ -2419,6 +2617,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <VersionHistoryModal />
             <DeleteConfirmModal />
             <DuplicatePromptModal />
+            <EditDrawingModal />
             <FolderModal />
             <DeleteFolderConfirmModal />
             
