@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.3**
+**Current Version: 1.1.4**
 
 ---
+
+## [1.1.4] - 2025-01-17
+### Shop Drawing Linking & Bulk Rename
+- **Fixed Shop Drawing Button**: WeeklyBoard shop drawing button now correctly finds drawings with partial BLM matches (e.g., L4M08 matches B1L4M08)
+- **Fix Unlinked Button**: New button in Module Packages header shows count of unlinked drawings
+- **Bulk Rename Modal**: Review and apply recommended filename changes to link drawings to modules
+- **Duplicate Detection**: Warns if recommended name would conflict with existing file
+- **Manual Edit Fallback**: Items without recommendations can be edited individually
 
 ## [1.1.3] - 2025-01-17
 ### Drawings Module Layout & Bulk Upload

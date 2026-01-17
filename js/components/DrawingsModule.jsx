@@ -44,6 +44,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [processingDrawing, setProcessingDrawing] = useState(null); // { drawingId, status, progress }
     const [selectedDrawings, setSelectedDrawings] = useState([]); // Array of drawing IDs selected for OCR
     const [drawingSearchTerm, setDrawingSearchTerm] = useState(''); // Search/filter for drawings list
+    const [showBulkRenameModal, setShowBulkRenameModal] = useState(false); // Bulk rename unlinked drawings
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -513,6 +514,70 @@ const DrawingsModule = ({ projects = [], auth }) => {
             return sortDirection === 'asc' ? cmp : -cmp;
         });
     }, [filteredDrawings, isModulePackages, sortColumn, sortDirection, findModuleByBLM]);
+    
+    // Compute unlinked drawings that need attention (only for Module Packages)
+    const unlinkedDrawings = useMemo(() => {
+        if (!isModulePackages || !selectedProject?.modules) return [];
+        
+        const projectModules = selectedProject.modules;
+        const results = [];
+        
+        for (const drawing of currentDrawings) {
+            const parsedBLM = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
+            const linkedModule = parsedBLM ? findModuleByBLM(parsedBLM) : null;
+            
+            if (!linkedModule) {
+                // Drawing is unlinked - try to find a recommended module
+                // Check if filename contains any level-module pattern that partially matches
+                const fileName = drawing.name.toUpperCase().replace(/[_\-\s]/g, '');
+                let recommendedModule = null;
+                let recommendedName = null;
+                
+                // Try to find a module whose BLM appears in the filename
+                for (const mod of projectModules) {
+                    const hitchLM = (mod.hitchBLM || '').match(/L\d+M\d+/)?.[0]?.toUpperCase();
+                    const rearLM = (mod.rearBLM || '').match(/L\d+M\d+/)?.[0]?.toUpperCase();
+                    
+                    if (hitchLM && fileName.includes(hitchLM)) {
+                        recommendedModule = mod;
+                        // Generate recommended filename with full BLM
+                        const ext = drawing.name.split('.').pop();
+                        if (mod.hitchBLM !== mod.rearBLM && mod.rearBLM) {
+                            recommendedName = `${mod.hitchBLM} - ${mod.rearBLM} - Shops.${ext}`;
+                        } else {
+                            recommendedName = `${mod.hitchBLM} - Shops.${ext}`;
+                        }
+                        break;
+                    }
+                    if (rearLM && fileName.includes(rearLM)) {
+                        recommendedModule = mod;
+                        const ext = drawing.name.split('.').pop();
+                        if (mod.hitchBLM !== mod.rearBLM && mod.hitchBLM) {
+                            recommendedName = `${mod.hitchBLM} - ${mod.rearBLM} - Shops.${ext}`;
+                        } else {
+                            recommendedName = `${mod.rearBLM} - Shops.${ext}`;
+                        }
+                        break;
+                    }
+                }
+                
+                // Check if recommended name would conflict with existing drawing
+                const wouldConflict = recommendedName && currentDrawings.some(d => 
+                    d.id !== drawing.id && d.name.toLowerCase() === recommendedName.toLowerCase()
+                );
+                
+                results.push({
+                    drawing,
+                    parsedBLM,
+                    recommendedModule,
+                    recommendedName: wouldConflict ? null : recommendedName,
+                    hasConflict: wouldConflict
+                });
+            }
+        }
+        
+        return results;
+    }, [currentDrawings, isModulePackages, selectedProject, findModuleByBLM]);
     
     // Handle file upload - accepts optional targetDiscipline for uploads from category level
     const handleFileUpload = useCallback(async (files, metadata = {}, targetDiscipline = null) => {
@@ -1500,6 +1565,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             <span className="icon-arrow-left w-4 h-4"></span>
                             Back
                         </button>
+                        {!isMobile && isModulePackages && unlinkedDrawings.length > 0 && (
+                            <button
+                                onClick={() => setShowBulkRenameModal(true)}
+                                className="px-4 py-2 bg-amber-500 text-white rounded-lg transition flex items-center gap-2 hover:bg-amber-600"
+                            >
+                                <span className="icon-alert-triangle w-4 h-4"></span>
+                                Fix Unlinked ({unlinkedDrawings.length})
+                            </button>
+                        )}
                         {!isMobile && (
                             <button
                                 onClick={() => setShowUploadModal(true)}
@@ -2510,6 +2584,230 @@ const DrawingsModule = ({ projects = [], auth }) => {
     };
     
     // =========================================================================
+    // RENDER: Bulk Rename Modal (Fix Unlinked Drawings)
+    // =========================================================================
+    const BulkRenameModal = () => {
+        const [selectedItems, setSelectedItems] = useState(
+            // Pre-select items that have a recommended name
+            unlinkedDrawings.filter(u => u.recommendedName).map(u => u.drawing.id)
+        );
+        const [isProcessing, setIsProcessing] = useState(false);
+        const [processedCount, setProcessedCount] = useState(0);
+        
+        if (!showBulkRenameModal) return null;
+        
+        const itemsWithRecommendation = unlinkedDrawings.filter(u => u.recommendedName);
+        const itemsWithoutRecommendation = unlinkedDrawings.filter(u => !u.recommendedName);
+        
+        const toggleItem = (drawingId) => {
+            setSelectedItems(prev => 
+                prev.includes(drawingId) 
+                    ? prev.filter(id => id !== drawingId)
+                    : [...prev, drawingId]
+            );
+        };
+        
+        const selectAll = () => {
+            setSelectedItems(itemsWithRecommendation.map(u => u.drawing.id));
+        };
+        
+        const selectNone = () => {
+            setSelectedItems([]);
+        };
+        
+        const handleApplyRenames = async () => {
+            const itemsToRename = unlinkedDrawings.filter(u => 
+                selectedItems.includes(u.drawing.id) && u.recommendedName
+            );
+            
+            if (itemsToRename.length === 0) return;
+            
+            setIsProcessing(true);
+            setProcessedCount(0);
+            
+            try {
+                for (let i = 0; i < itemsToRename.length; i++) {
+                    const { drawing, recommendedName, recommendedModule } = itemsToRename[i];
+                    
+                    await window.MODA_SUPABASE_DRAWINGS.drawings.update(drawing.id, {
+                        name: recommendedName,
+                        linked_module_id: recommendedModule?.id || null
+                    });
+                    
+                    await logDrawingActivity('rename', drawing.id, {
+                        oldName: drawing.name,
+                        newName: recommendedName,
+                        linkedModuleId: recommendedModule?.id,
+                        bulkRename: true
+                    });
+                    
+                    setProcessedCount(i + 1);
+                }
+                
+                // Refresh drawings list
+                const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                    selectedProject.id, 
+                    selectedDiscipline
+                );
+                setCurrentDrawings(drawings);
+                setShowBulkRenameModal(false);
+            } catch (error) {
+                console.error('[Drawings] Error in bulk rename:', error);
+                alert('Error renaming files: ' + error.message);
+            } finally {
+                setIsProcessing(false);
+            }
+        };
+        
+        return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+                    <div className="p-6 border-b border-gray-200">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                                <span className="icon-edit w-6 h-6 text-amber-600"></span>
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-lg font-bold text-gray-900">Fix Unlinked Drawings</h2>
+                                <p className="text-sm text-gray-600">
+                                    {unlinkedDrawings.length} drawing{unlinkedDrawings.length !== 1 ? 's' : ''} not linked to project modules
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-6">
+                        {/* Items with recommendations */}
+                        {itemsWithRecommendation.length > 0 && (
+                            <div className="mb-6">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-medium text-gray-900">
+                                        Recommended Renames ({itemsWithRecommendation.length})
+                                    </h3>
+                                    <div className="flex gap-2 text-sm">
+                                        <button onClick={selectAll} className="text-blue-600 hover:underline">Select All</button>
+                                        <span className="text-gray-300">|</span>
+                                        <button onClick={selectNone} className="text-gray-600 hover:underline">Select None</button>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    {itemsWithRecommendation.map(({ drawing, recommendedName, recommendedModule }) => (
+                                        <div 
+                                            key={drawing.id}
+                                            className={`p-3 rounded-lg border transition cursor-pointer ${
+                                                selectedItems.includes(drawing.id) 
+                                                    ? 'border-blue-500 bg-blue-50' 
+                                                    : 'border-gray-200 hover:border-gray-300'
+                                            }`}
+                                            onClick={() => toggleItem(drawing.id)}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedItems.includes(drawing.id)}
+                                                    onChange={() => toggleItem(drawing.id)}
+                                                    className="mt-1 w-4 h-4 rounded"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <span className="text-gray-500 truncate">{drawing.name}</span>
+                                                        <span className="text-gray-400">→</span>
+                                                        <span className="font-medium text-gray-900 truncate">{recommendedName}</span>
+                                                    </div>
+                                                    {recommendedModule && (
+                                                        <div className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                                                            <span className="icon-check w-3 h-3"></span>
+                                                            Links to: {recommendedModule.serialNumber} (Seq #{recommendedModule.buildSequence})
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Items without recommendations */}
+                        {itemsWithoutRecommendation.length > 0 && (
+                            <div>
+                                <h3 className="font-medium text-gray-900 mb-3">
+                                    Manual Review Required ({itemsWithoutRecommendation.length})
+                                </h3>
+                                <div className="space-y-2">
+                                    {itemsWithoutRecommendation.map(({ drawing, parsedBLM, hasConflict }) => (
+                                        <div 
+                                            key={drawing.id}
+                                            className="p-3 rounded-lg border border-gray-200 bg-gray-50"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">{drawing.name}</p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">
+                                                        {hasConflict 
+                                                            ? '⚠️ Recommended name conflicts with existing file'
+                                                            : parsedBLM 
+                                                                ? `Parsed BLM "${parsedBLM}" not found in project`
+                                                                : 'No BLM pattern detected in filename'
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowBulkRenameModal(false);
+                                                        setShowEditDrawing(drawing);
+                                                    }}
+                                                    className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition"
+                                                >
+                                                    Edit
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+                        <div className="text-sm text-gray-600">
+                            {selectedItems.length} of {itemsWithRecommendation.length} selected
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowBulkRenameModal(false)}
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                                disabled={isProcessing}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleApplyRenames}
+                                disabled={isProcessing || selectedItems.length === 0}
+                                className="px-4 py-2 bg-amber-500 text-white hover:bg-amber-600 rounded-lg transition disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <span className="animate-spin">⏳</span>
+                                        Renaming {processedCount}/{selectedItems.length}...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="icon-check w-4 h-4"></span>
+                                        Apply {selectedItems.length} Rename{selectedItems.length !== 1 ? 's' : ''}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // =========================================================================
     // RENDER: File Info Modal
     // =========================================================================
     const FileInfoModal = () => {
@@ -2826,6 +3124,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <DeleteConfirmModal />
             <DuplicatePromptModal />
             <EditDrawingModal />
+            <BulkRenameModal />
             <FileInfoModal />
             <FolderModal />
             <DeleteFolderConfirmModal />
