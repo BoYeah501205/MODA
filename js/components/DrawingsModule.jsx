@@ -3187,16 +3187,21 @@ const DrawingsModule = ({ projects = [], auth }) => {
     };
     
     // =========================================================================
-    // RENDER: File Info Modal
+    // RENDER: File Info Modal (with Version History)
     // =========================================================================
     const FileInfoModal = () => {
         if (!showFileInfo) return null;
         
         const { drawing, latestVersion, linkedModule, parsedModule } = showFileInfo;
         
+        // Sort versions by date descending (newest first)
+        const sortedVersions = [...(drawing.versions || [])].sort((a, b) => 
+            new Date(b.uploaded_at || b.uploadedAt) - new Date(a.uploaded_at || a.uploadedAt)
+        );
+        
         return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
                     <div className="p-6 border-b border-gray-200">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -3204,13 +3209,13 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h2 className="text-lg font-bold text-gray-900 truncate">{drawing.name}</h2>
-                                <p className="text-sm text-gray-600">File Information</p>
+                                <p className="text-sm text-gray-600">File Information & Version History</p>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div>
                                 <p className="text-xs text-gray-500 uppercase tracking-wider">File Size</p>
                                 <p className="text-sm font-medium text-gray-900">
@@ -3218,7 +3223,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wider">Version</p>
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">Current Version</p>
                                 <p className="text-sm font-medium text-gray-900">
                                     v{latestVersion?.version || '1.0'}
                                 </p>
@@ -3289,6 +3294,61 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 )}
                             </div>
                         )}
+                        
+                        {/* Version History Section */}
+                        <div className="border-t border-gray-200 pt-4">
+                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Version History</p>
+                            {sortedVersions.length > 0 ? (
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    {sortedVersions.map((version, index) => {
+                                        const isLatest = index === 0;
+                                        return (
+                                            <div 
+                                                key={version.id || index}
+                                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                                    isLatest ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-medium ${isLatest ? 'text-blue-700' : 'text-gray-700'}`}>
+                                                            v{version.version || '1.0'}
+                                                        </span>
+                                                        {isLatest && (
+                                                            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                                                                Current
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {formatDate(version.uploaded_at || version.uploadedAt)} 
+                                                        {(version.uploaded_by || version.uploadedBy) && (
+                                                            <span> by {version.uploaded_by || version.uploadedBy}</span>
+                                                        )}
+                                                    </div>
+                                                    {version.notes && (
+                                                        <div className="text-xs text-gray-600 mt-1 italic">
+                                                            {version.notes}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1 ml-2">
+                                                    <button
+                                                        onClick={(e) => handleView(version, e)}
+                                                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded transition"
+                                                        title="View this version"
+                                                    >
+                                                        <span className="icon-eye w-4 h-4"></span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">No version history available</p>
+                            )}
+                        </div>
                     </div>
                     
                     <div className="p-6 border-t border-gray-200 flex justify-end">
