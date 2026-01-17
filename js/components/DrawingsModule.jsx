@@ -2200,7 +2200,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition touch-manipulation"
                                                         title="File Info"
                                                     >
-                                                        <span className="icon-info w-4 h-4"></span>
+                                                        <span className="icon-info-circle w-4 h-4"></span>
                                                     </button>
                                                     <button
                                                         onClick={() => setShowEditDrawing(drawing)}
