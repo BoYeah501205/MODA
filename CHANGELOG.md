@@ -2,9 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.8**
+**Current Version: 1.1.9**
 
 ---
+
+## [1.1.9] - 2025-01-17
+### Drawings Module Advanced Filters
+- **Advanced Filters Panel**: Expandable filter section in Module Packages view
+- **Unit Type Filter**: Multi-select dropdown with OR logic (matches hitch OR rear)
+- **Room Type Filter**: Multi-select dropdown with OR logic (matches hitch OR rear)
+- **Difficulty Checkboxes**: Filter by Sidewall, Stair, 3HR Wall, Short, Double Studio, Sawbox
+- **Quick Filter Chips**: Dynamic chips showing top 4 most common unit/room types per project
+- **localStorage Persistence**: Filters saved per project, restored on return
+- **Clear Filters**: One-click reset with localStorage cleanup
+- **Unlinked Handling**: Unlinked drawings hidden when filters active (with count shown)
 
 ## [1.1.8] - 2025-01-17
 ### Weekly Board Popout Week Sync (localStorage)

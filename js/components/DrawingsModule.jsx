@@ -45,6 +45,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [selectedDrawings, setSelectedDrawings] = useState([]); // Array of drawing IDs selected for OCR
     const [drawingSearchTerm, setDrawingSearchTerm] = useState(''); // Search/filter for drawings list
     const [showBulkRenameModal, setShowBulkRenameModal] = useState(false); // Bulk rename unlinked drawings
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false); // Toggle advanced filter panel
+    const [advancedFilters, setAdvancedFilters] = useState({ unitTypes: [], roomTypes: [], difficulties: [] }); // Multi-select filters
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -438,29 +440,186 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, [sortColumn]);
     
-    // Filter drawings by search term
-    const filteredDrawings = useMemo(() => {
-        if (!drawingSearchTerm.trim()) return currentDrawings;
+    // Difficulty filter options
+    const DIFFICULTY_OPTIONS = [
+        { id: 'sidewall', label: 'Sidewall' },
+        { id: 'stair', label: 'Stair' },
+        { id: 'hr3Wall', label: '3HR Wall' },
+        { id: 'short', label: 'Short' },
+        { id: 'doubleStudio', label: 'Double Studio' },
+        { id: 'sawbox', label: 'Sawbox' }
+    ];
+    
+    // Compute available filter options from project modules
+    const filterOptions = useMemo(() => {
+        if (!selectedProject?.modules) return { unitTypes: [], roomTypes: [], topUnitTypes: [], topRoomTypes: [] };
         
-        const term = drawingSearchTerm.toLowerCase().trim();
-        return currentDrawings.filter(drawing => {
-            if (drawing.name.toLowerCase().includes(term)) return true;
-            
-            if (isModulePackages) {
+        const unitTypeCounts = {};
+        const roomTypeCounts = {};
+        
+        selectedProject.modules.forEach(m => {
+            // Collect unit types from both hitch and rear
+            [m.hitchUnit, m.rearUnit].forEach(ut => {
+                if (ut && ut.trim()) {
+                    const key = ut.trim().toUpperCase();
+                    unitTypeCounts[key] = (unitTypeCounts[key] || 0) + 1;
+                }
+            });
+            // Collect room types from both hitch and rear
+            [m.hitchRoomType, m.rearRoomType].forEach(rt => {
+                if (rt && rt.trim()) {
+                    const key = rt.trim().toUpperCase();
+                    roomTypeCounts[key] = (roomTypeCounts[key] || 0) + 1;
+                }
+            });
+        });
+        
+        // Sort by frequency and get all unique values
+        const unitTypes = Object.keys(unitTypeCounts).sort((a, b) => unitTypeCounts[b] - unitTypeCounts[a]);
+        const roomTypes = Object.keys(roomTypeCounts).sort((a, b) => roomTypeCounts[b] - roomTypeCounts[a]);
+        
+        // Top 4 most common for quick chips
+        const topUnitTypes = unitTypes.slice(0, 4);
+        const topRoomTypes = roomTypes.slice(0, 4);
+        
+        return { unitTypes, roomTypes, topUnitTypes, topRoomTypes };
+    }, [selectedProject]);
+    
+    // Load filters from localStorage on project change
+    useEffect(() => {
+        if (selectedProject?.id && isModulePackages) {
+            try {
+                const saved = localStorage.getItem(`moda_drawings_filters_${selectedProject.id}`);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    setAdvancedFilters(parsed);
+                    if (parsed.unitTypes?.length || parsed.roomTypes?.length || parsed.difficulties?.length) {
+                        setShowAdvancedFilters(true);
+                    }
+                }
+            } catch (e) {
+                console.warn('[Drawings] Error loading saved filters:', e);
+            }
+        }
+    }, [selectedProject?.id, isModulePackages]);
+    
+    // Save filters to localStorage when they change
+    useEffect(() => {
+        if (selectedProject?.id && isModulePackages) {
+            try {
+                localStorage.setItem(`moda_drawings_filters_${selectedProject.id}`, JSON.stringify(advancedFilters));
+            } catch (e) {
+                console.warn('[Drawings] Error saving filters:', e);
+            }
+        }
+    }, [advancedFilters, selectedProject?.id, isModulePackages]);
+    
+    // Clear all filters
+    const clearAdvancedFilters = useCallback(() => {
+        setAdvancedFilters({ unitTypes: [], roomTypes: [], difficulties: [] });
+        if (selectedProject?.id) {
+            try {
+                localStorage.removeItem(`moda_drawings_filters_${selectedProject.id}`);
+            } catch (e) {}
+        }
+    }, [selectedProject?.id]);
+    
+    // Toggle a filter value
+    const toggleFilter = useCallback((category, value) => {
+        setAdvancedFilters(prev => {
+            const current = prev[category] || [];
+            const updated = current.includes(value) 
+                ? current.filter(v => v !== value)
+                : [...current, value];
+            return { ...prev, [category]: updated };
+        });
+    }, []);
+    
+    // Check if any advanced filters are active
+    const hasActiveFilters = useMemo(() => {
+        return advancedFilters.unitTypes.length > 0 || 
+               advancedFilters.roomTypes.length > 0 || 
+               advancedFilters.difficulties.length > 0;
+    }, [advancedFilters]);
+    
+    // Filter drawings by search term AND advanced filters
+    const filteredDrawings = useMemo(() => {
+        let results = currentDrawings;
+        
+        // Text search filter
+        if (drawingSearchTerm.trim()) {
+            const term = drawingSearchTerm.toLowerCase().trim();
+            results = results.filter(drawing => {
+                if (drawing.name.toLowerCase().includes(term)) return true;
+                
+                if (isModulePackages) {
+                    const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
+                    const linkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
+                    
+                    if (linkedModule) {
+                        if (linkedModule.serialNumber?.toLowerCase().includes(term)) return true;
+                        if (linkedModule.hitchBLM?.toLowerCase().includes(term)) return true;
+                        if (linkedModule.rearBLM?.toLowerCase().includes(term)) return true;
+                        if (String(linkedModule.buildSequence).includes(term)) return true;
+                    }
+                    if (parsedModule?.toLowerCase().includes(term)) return true;
+                }
+                return false;
+            });
+        }
+        
+        // Advanced filters (only for Module Packages)
+        if (isModulePackages && hasActiveFilters) {
+            results = results.filter(drawing => {
                 const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
                 const linkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
                 
-                if (linkedModule) {
-                    if (linkedModule.serialNumber?.toLowerCase().includes(term)) return true;
-                    if (linkedModule.hitchBLM?.toLowerCase().includes(term)) return true;
-                    if (linkedModule.rearBLM?.toLowerCase().includes(term)) return true;
-                    if (String(linkedModule.buildSequence).includes(term)) return true;
+                // If drawing is unlinked, hide it when filters are active
+                if (!linkedModule) return false;
+                
+                // Unit Type filter (OR within - match if hitch OR rear has any selected type)
+                if (advancedFilters.unitTypes.length > 0) {
+                    const hitchUnit = (linkedModule.hitchUnit || '').trim().toUpperCase();
+                    const rearUnit = (linkedModule.rearUnit || '').trim().toUpperCase();
+                    const matchesUnit = advancedFilters.unitTypes.some(ut => 
+                        hitchUnit === ut || rearUnit === ut
+                    );
+                    if (!matchesUnit) return false;
                 }
-                if (parsedModule?.toLowerCase().includes(term)) return true;
-            }
-            return false;
-        });
-    }, [currentDrawings, drawingSearchTerm, isModulePackages, findModuleByBLM]);
+                
+                // Room Type filter (OR within - match if hitch OR rear has any selected type)
+                if (advancedFilters.roomTypes.length > 0) {
+                    const hitchRoom = (linkedModule.hitchRoomType || '').trim().toUpperCase();
+                    const rearRoom = (linkedModule.rearRoomType || '').trim().toUpperCase();
+                    const matchesRoom = advancedFilters.roomTypes.some(rt => 
+                        hitchRoom === rt || rearRoom === rt
+                    );
+                    if (!matchesRoom) return false;
+                }
+                
+                // Difficulty filter (must have ALL selected difficulties)
+                if (advancedFilters.difficulties.length > 0) {
+                    const matchesDifficulty = advancedFilters.difficulties.every(diff => 
+                        linkedModule[diff] === true
+                    );
+                    if (!matchesDifficulty) return false;
+                }
+                
+                return true;
+            });
+        }
+        
+        return results;
+    }, [currentDrawings, drawingSearchTerm, isModulePackages, findModuleByBLM, hasActiveFilters, advancedFilters]);
+    
+    // Count unlinked drawings hidden by filters
+    const hiddenUnlinkedCount = useMemo(() => {
+        if (!isModulePackages || !hasActiveFilters) return 0;
+        return currentDrawings.filter(drawing => {
+            const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
+            return !parsedModule || !findModuleByBLM(parsedModule);
+        }).length;
+    }, [currentDrawings, isModulePackages, hasActiveFilters, findModuleByBLM]);
     
     // Sort drawings (works for all views)
     const sortedDrawings = useMemo(() => {
@@ -1607,6 +1766,159 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             </button>
                         )}
                     </div>
+                    
+                    {/* Advanced Filters (Module Packages only) */}
+                    {isModulePackages && filterOptions.unitTypes.length > 0 && (
+                        <div className="mt-3">
+                            {/* Toggle Button */}
+                            <button
+                                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
+                            >
+                                <span className={`transform transition-transform ${showAdvancedFilters ? 'rotate-90' : ''}`}>▶</span>
+                                Advanced Filters
+                                {hasActiveFilters && (
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                        {advancedFilters.unitTypes.length + advancedFilters.roomTypes.length + advancedFilters.difficulties.length} active
+                                    </span>
+                                )}
+                            </button>
+                            
+                            {/* Expanded Filter Panel */}
+                            {showAdvancedFilters && (
+                                <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    {/* Quick Filter Chips */}
+                                    <div className="mb-4">
+                                        <div className="flex flex-wrap gap-2">
+                                            {/* Top Unit Types */}
+                                            {filterOptions.topUnitTypes.map(ut => (
+                                                <button
+                                                    key={`chip-ut-${ut}`}
+                                                    onClick={() => toggleFilter('unitTypes', ut)}
+                                                    className={`px-3 py-1 text-sm rounded-full border transition ${
+                                                        advancedFilters.unitTypes.includes(ut)
+                                                            ? 'bg-blue-500 text-white border-blue-500'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                                    }`}
+                                                >
+                                                    {ut}
+                                                </button>
+                                            ))}
+                                            {/* Top Room Types */}
+                                            {filterOptions.topRoomTypes.map(rt => (
+                                                <button
+                                                    key={`chip-rt-${rt}`}
+                                                    onClick={() => toggleFilter('roomTypes', rt)}
+                                                    className={`px-3 py-1 text-sm rounded-full border transition ${
+                                                        advancedFilters.roomTypes.includes(rt)
+                                                            ? 'bg-emerald-500 text-white border-emerald-500'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-emerald-400'
+                                                    }`}
+                                                >
+                                                    {rt}
+                                                </button>
+                                            ))}
+                                            {/* Difficulty chips */}
+                                            {DIFFICULTY_OPTIONS.slice(0, 3).map(diff => (
+                                                <button
+                                                    key={`chip-diff-${diff.id}`}
+                                                    onClick={() => toggleFilter('difficulties', diff.id)}
+                                                    className={`px-3 py-1 text-sm rounded-full border transition ${
+                                                        advancedFilters.difficulties.includes(diff.id)
+                                                            ? 'bg-amber-500 text-white border-amber-500'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-amber-400'
+                                                    }`}
+                                                >
+                                                    {diff.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Dropdowns Row */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        {/* Unit Type Dropdown */}
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Unit Types</label>
+                                            <select
+                                                multiple
+                                                value={advancedFilters.unitTypes}
+                                                onChange={(e) => {
+                                                    const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+                                                    setAdvancedFilters(prev => ({ ...prev, unitTypes: selected }));
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                style={{ minHeight: '80px' }}
+                                            >
+                                                {filterOptions.unitTypes.map(ut => (
+                                                    <option key={ut} value={ut}>{ut}</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">Ctrl+click to select multiple</p>
+                                        </div>
+                                        
+                                        {/* Room Type Dropdown */}
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Room Types</label>
+                                            <select
+                                                multiple
+                                                value={advancedFilters.roomTypes}
+                                                onChange={(e) => {
+                                                    const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+                                                    setAdvancedFilters(prev => ({ ...prev, roomTypes: selected }));
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                style={{ minHeight: '80px' }}
+                                            >
+                                                {filterOptions.roomTypes.map(rt => (
+                                                    <option key={rt} value={rt}>{rt}</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">Ctrl+click to select multiple</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Difficulty Checkboxes */}
+                                    <div className="mb-4">
+                                        <label className="block text-xs font-medium text-gray-600 mb-2">Difficulties</label>
+                                        <div className="flex flex-wrap gap-4">
+                                            {DIFFICULTY_OPTIONS.map(diff => (
+                                                <label key={diff.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={advancedFilters.difficulties.includes(diff.id)}
+                                                        onChange={() => toggleFilter('difficulties', diff.id)}
+                                                        className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                                                    />
+                                                    {diff.label}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Clear Filters Button */}
+                                    {hasActiveFilters && (
+                                        <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                                            <span className="text-sm text-gray-600">
+                                                Showing {sortedDrawings.length} of {currentDrawings.length} drawings
+                                                {hiddenUnlinkedCount > 0 && (
+                                                    <span className="text-amber-600 ml-2">
+                                                        ({hiddenUnlinkedCount} unlinked hidden)
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <button
+                                                onClick={clearAdvancedFilters}
+                                                className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition"
+                                            >
+                                                Clear All Filters
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 
                 {/* Drawings List */}
@@ -1630,13 +1942,30 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
                         <span className="icon-search w-12 h-12 mx-auto mb-3 opacity-30" style={{ display: 'block' }}></span>
                         <h3 className="text-lg font-medium text-gray-600">No Results Found</h3>
-                        <p className="text-gray-500 mt-1">No drawings match "{drawingSearchTerm}"</p>
-                        <button
-                            onClick={() => setDrawingSearchTerm('')}
-                            className="mt-3 text-blue-600 hover:underline"
-                        >
-                            Clear search
-                        </button>
+                        <p className="text-gray-500 mt-1">
+                            {hasActiveFilters 
+                                ? `No drawings match the selected filters${drawingSearchTerm ? ` and "${drawingSearchTerm}"` : ''}`
+                                : `No drawings match "${drawingSearchTerm}"`
+                            }
+                        </p>
+                        <div className="mt-3 flex items-center justify-center gap-3">
+                            {drawingSearchTerm && (
+                                <button
+                                    onClick={() => setDrawingSearchTerm('')}
+                                    className="text-blue-600 hover:underline"
+                                >
+                                    Clear search
+                                </button>
+                            )}
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={clearAdvancedFilters}
+                                    className="text-red-600 hover:underline"
+                                >
+                                    Clear filters
+                                </button>
+                            )}
+                        </div>
                     </div>
                 ) : (
                     <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
