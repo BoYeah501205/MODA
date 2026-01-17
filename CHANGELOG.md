@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.2**
+**Current Version: 1.1.3**
 
 ---
+
+## [1.1.3] - 2025-01-17
+### Drawings Module Layout & Bulk Upload
+- **Full-Width Layout**: Drawings tab now uses full-width layout like Production tab (reduced side padding)
+- **Bulk Upload Warning**: Shows warning when selecting >20 files with option to continue or clear
+- **Clear All Button**: Added "Clear all" button to selected files list
+- **Total Size Display**: Shows total file size when selecting more than 5 files
 
 ## [1.1.2] - 2025-01-17
 ### Drawings Module Fixes

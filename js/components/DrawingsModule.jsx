@@ -1788,6 +1788,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
     // =========================================================================
     // RENDER: Upload Modal
     // =========================================================================
+    const BULK_UPLOAD_WARNING_THRESHOLD = 20; // Show warning when selecting more than this many files
+    
     const UploadModal = () => {
         const [files, setFiles] = useState([]);
         const [description, setDescription] = useState('');
@@ -1795,6 +1797,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
         const [dragActive, setDragActive] = useState(false);
         const [uploadCategory, setUploadCategory] = useState(selectedCategory || '');
         const [uploadDiscipline, setUploadDiscipline] = useState(selectedDiscipline || '');
+        const [bulkWarningAcknowledged, setBulkWarningAcknowledged] = useState(false);
         
         // Get disciplines for selected upload category
         const getUploadDisciplines = () => {
@@ -1903,10 +1906,47 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         </div>
                         )}
                         
+                        {/* Bulk Upload Warning */}
+                        {files.length > BULK_UPLOAD_WARNING_THRESHOLD && !bulkWarningAcknowledged && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <div className="flex items-start gap-3">
+                                    <span className="icon-alert-triangle w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></span>
+                                    <div className="flex-1">
+                                        <h4 className="text-sm font-medium text-amber-800">Large Batch Detected</h4>
+                                        <p className="text-sm text-amber-700 mt-1">
+                                            You've selected {files.length} files. For best reliability, consider uploading in batches of 20 or fewer.
+                                        </p>
+                                        <div className="flex gap-2 mt-3">
+                                            <button
+                                                onClick={() => setBulkWarningAcknowledged(true)}
+                                                className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 transition"
+                                            >
+                                                Continue Anyway
+                                            </button>
+                                            <button
+                                                onClick={() => setFiles([])}
+                                                className="px-3 py-1.5 text-sm bg-white border border-amber-300 text-amber-700 rounded hover:bg-amber-50 transition"
+                                            >
+                                                Clear Selection
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
                         {/* Selected Files */}
-                        {files.length > 0 && (
+                        {files.length > 0 && (files.length <= BULK_UPLOAD_WARNING_THRESHOLD || bulkWarningAcknowledged) && (
                             <div className="bg-gray-50 rounded-lg p-4">
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Files ({files.length})</h4>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-sm font-medium text-gray-700">Selected Files ({files.length})</h4>
+                                    <button
+                                        onClick={() => { setFiles([]); setBulkWarningAcknowledged(false); }}
+                                        className="text-xs text-gray-500 hover:text-red-600"
+                                    >
+                                        Clear all
+                                    </button>
+                                </div>
                                 <div className="space-y-2 max-h-32 overflow-y-auto">
                                     {files.map((file, i) => (
                                         <div key={i} className="flex items-center justify-between text-sm">
@@ -1915,6 +1955,11 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                         </div>
                                     ))}
                                 </div>
+                                {files.length > 5 && (
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Total size: {formatFileSize(files.reduce((sum, f) => sum + f.size, 0))}
+                                    </p>
+                                )}
                             </div>
                         )}
                         
