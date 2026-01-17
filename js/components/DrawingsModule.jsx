@@ -20,6 +20,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [uploadProgress, setUploadProgress] = useState(null); // { current, total, fileName, percent, status }
     
+    // Sorting state for Module Packages view
+    const [sortColumn, setSortColumn] = useState('buildSequence'); // Default sort by Build Seq
+    const [sortDirection, setSortDirection] = useState('asc'); // Default ascending
+    
     // Modal states
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showVersionHistory, setShowVersionHistory] = useState(null);
@@ -413,6 +417,60 @@ const DrawingsModule = ({ projects = [], auth }) => {
         return sorted[0];
     }, []);
     
+    // Handle column sort click
+    const handleSort = useCallback((column) => {
+        if (sortColumn === column) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(column);
+            setSortDirection('asc');
+        }
+    }, [sortColumn]);
+    
+    // Sort drawings for Module Packages view
+    const sortedDrawings = useMemo(() => {
+        if (!isModulePackages) return currentDrawings;
+        
+        return [...currentDrawings].sort((a, b) => {
+            const parsedA = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(a.name);
+            const parsedB = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(b.name);
+            const moduleA = parsedA ? findModuleByBLM(parsedA) : null;
+            const moduleB = parsedB ? findModuleByBLM(parsedB) : null;
+            
+            let valA, valB;
+            switch (sortColumn) {
+                case 'serialNumber':
+                    valA = moduleA?.serialNumber || '';
+                    valB = moduleB?.serialNumber || '';
+                    break;
+                case 'buildSequence':
+                    valA = moduleA?.buildSequence ?? 9999;
+                    valB = moduleB?.buildSequence ?? 9999;
+                    break;
+                case 'hitchBLM':
+                    valA = moduleA?.hitchBLM || parsedA || '';
+                    valB = moduleB?.hitchBLM || parsedB || '';
+                    break;
+                case 'rearBLM':
+                    valA = moduleA?.rearBLM || '';
+                    valB = moduleB?.rearBLM || '';
+                    break;
+                default:
+                    valA = moduleA?.buildSequence ?? 9999;
+                    valB = moduleB?.buildSequence ?? 9999;
+            }
+            
+            // Numeric comparison for buildSequence
+            if (sortColumn === 'buildSequence') {
+                return sortDirection === 'asc' ? valA - valB : valB - valA;
+            }
+            
+            // String comparison for others
+            const cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true });
+            return sortDirection === 'asc' ? cmp : -cmp;
+        });
+    }, [currentDrawings, isModulePackages, sortColumn, sortDirection, findModuleByBLM]);
+    
     // Handle file upload - accepts optional targetDiscipline for uploads from category level
     const handleFileUpload = useCallback(async (files, metadata = {}, targetDiscipline = null) => {
         const disciplineToUse = targetDiscipline || selectedDiscipline;
@@ -432,13 +490,19 @@ const DrawingsModule = ({ projects = [], auth }) => {
         
         try {
             if (isSupabaseAvailable()) {
+                // Fetch fresh drawings list to ensure accurate duplicate detection
+                const freshDrawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                    selectedProject.id, 
+                    disciplineToUse
+                );
+                
                 // Upload to Supabase (which now routes to SharePoint)
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     setUploadProgress({ current: i + 1, total: files.length, fileName: file.name });
                     
-                    // Check for existing drawing with same name
-                    const existingDrawing = currentDrawings.find(d => 
+                    // Check for existing drawing with same name (use fresh data)
+                    const existingDrawing = freshDrawings.find(d => 
                         d.name.toLowerCase() === file.name.toLowerCase()
                     );
                     
@@ -1446,10 +1510,30 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
                                     {isModulePackages && (
                                         <>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serial No.</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Build Seq</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hitch BLM</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rear BLM</th>
+                                            <th 
+                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                                onClick={() => handleSort('serialNumber')}
+                                            >
+                                                Serial No. {sortColumn === 'serialNumber' && (sortDirection === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th 
+                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                                onClick={() => handleSort('buildSequence')}
+                                            >
+                                                Build Seq {sortColumn === 'buildSequence' && (sortDirection === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th 
+                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                                onClick={() => handleSort('hitchBLM')}
+                                            >
+                                                Hitch BLM {sortColumn === 'hitchBLM' && (sortDirection === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th 
+                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                                onClick={() => handleSort('rearBLM')}
+                                            >
+                                                Rear BLM {sortColumn === 'rearBLM' && (sortDirection === 'asc' ? '▲' : '▼')}
+                                            </th>
                                         </>
                                     )}
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Version</th>
@@ -1460,7 +1544,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {currentDrawings.map(drawing => {
+                                {sortedDrawings.map(drawing => {
                                     const latestVersion = getLatestVersion(drawing);
                                     // Parse module ID from filename
                                     const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);

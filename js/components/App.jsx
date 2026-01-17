@@ -3830,56 +3830,52 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const displayModule = editMode ? editingModule : module;
 
             const handleOpenShopDrawing = async () => {
-                // First, try the new Drawings Module system
-                if (window.MODA_MODULE_DRAWINGS?.isAvailable()) {
+                // Try the Drawings Module system - directly query and open file
+                if (window.MODA_SUPABASE_DRAWINGS?.isAvailable?.()) {
                     try {
-                        // Try searching by serial number first
-                        let hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.serialNumber);
-                        let searchTerm = displayModule.serialNumber;
-                        
-                        // If not found, try searching by BLM IDs
-                        if (!hasDrawings && displayModule.hitchBLM) {
-                            hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.hitchBLM);
-                            if (hasDrawings) searchTerm = displayModule.hitchBLM;
+                        const blmToCheck = [displayModule.hitchBLM, displayModule.rearBLM].filter(Boolean);
+                        const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                            project.id, 'shop-module-packages'
+                        );
+                        let matchedDrawing = null;
+                        for (const blm of blmToCheck) {
+                            const normalizedBLM = blm.toUpperCase().replace(/[_\-\s]/g, '');
+                            matchedDrawing = drawings.find(d => {
+                                const parsedBLM = window.MODA_SUPABASE_DRAWINGS.utils.parseModuleFromFilename(d.name);
+                                return parsedBLM && parsedBLM.toUpperCase().replace(/[_\-\s]/g, '') === normalizedBLM;
+                            });
+                            if (matchedDrawing) break;
                         }
-                        if (!hasDrawings && displayModule.rearBLM && displayModule.rearBLM !== displayModule.hitchBLM) {
-                            hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.rearBLM);
-                            if (hasDrawings) searchTerm = displayModule.rearBLM;
-                        }
-                        
-                        if (hasDrawings) {
-                            // Open the Drawings Module filtered to this module
-                            // Navigate to Drawings tab with module filter
-                            if (window.location.hash !== '#drawings') {
-                                window.location.hash = 'drawings';
+                        if (matchedDrawing && matchedDrawing.versions?.length > 0) {
+                            const latestVersion = [...matchedDrawing.versions].sort((a, b) => 
+                                new Date(b.uploaded_at || b.uploadedAt) - new Date(a.uploaded_at || a.uploadedAt)
+                            )[0];
+                            const storagePath = latestVersion.storage_path || latestVersion.storagePath;
+                            const sharePointFileId = latestVersion.sharepoint_file_id || latestVersion.sharepointFileId;
+                            let url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
+                            if (url) {
+                                url = url.includes('?') ? `${url}&_cb=${Date.now()}` : `${url}?_cb=${Date.now()}`;
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                                return;
                             }
-                            // Store the search term for the Drawings Module to pick up
-                            sessionStorage.setItem('moda_drawings_module_filter', searchTerm);
-                            onClose();
-                            return;
                         }
                     } catch (error) {
-                        console.error('[Module Detail] Error checking drawings:', error);
+                        console.error('[Module Detail] Error fetching shop drawing:', error);
                     }
                 }
-                
-                // Fallback to old shopDrawingLinks system
+                // Fallback to legacy shopDrawingLinks
                 const shopDrawingLinks = project?.shopDrawingLinks || {};
                 const blmToCheck = [displayModule.hitchBLM, displayModule.rearBLM].filter(Boolean);
                 let foundUrl = null;
-                
                 for (const blm of blmToCheck) {
-                    if (shopDrawingLinks[blm]) {
-                        foundUrl = shopDrawingLinks[blm];
-                        break;
-                    }
+                    if (shopDrawingLinks[blm]) { foundUrl = shopDrawingLinks[blm]; break; }
                 }
-                
                 if (foundUrl) {
-                    window.open(foundUrl, '_blank');
+                    foundUrl = foundUrl.includes('?') ? `${foundUrl}&_cb=${Date.now()}` : `${foundUrl}?_cb=${Date.now()}`;
+                    window.open(foundUrl, '_blank', 'noopener,noreferrer');
                 } else {
                     const blmList = blmToCheck.length > 0 ? blmToCheck.join(', ') : 'No BLM';
-                    alert(`Shop Drawing Not Found\n\nNo shop drawing link found for module ${displayModule.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings → Shop Drawings → Module Packages\n2. Upload drawings to the folder for this module\n\nOr add legacy links: Projects → Edit Project → Shop Drawing Links.`);
+                    alert(`Shop Drawing Not Found\n\nNo shop drawing found for module ${displayModule.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings > Shop Drawings > Module Packages\n2. Upload a PDF with the BLM in the filename (e.g., "${blmToCheck[0] || 'B1L2M01'} - Shops.pdf")`);
                 }
             };
 

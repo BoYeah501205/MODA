@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.0.8**
+**Current Version: 1.0.9**
 
 ---
+
+## [1.0.9] - 2025-01-17
+- Fix: App.jsx Shop Drawing button now correctly finds newly uploaded drawings (uses direct query instead of RPC)
+- Fix: Duplicate file detection now fetches fresh data before checking (prevents duplicate uploads)
+- Feature: Module Packages columns (Serial No., Build Seq, Hitch BLM, Rear BLM) are now sortable
+- Feature: Default sort by Build Seq ascending when opening Module Packages
+- Feature: SharePoint folder structure for Module Packages - creates subfolder per module with versioned filenames
+- Linked module data automatically updates when project Build Seq changes (live lookup from project data)
 
 ## [1.0.8] - 2025-01-17
 - Drawings Module: Add Serial No., Build Sequence, Hitch BLM, Rear BLM columns to Module Packages folder

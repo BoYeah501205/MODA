@@ -235,13 +235,37 @@
             const categoryName = versionData.categoryName || 'Shop Drawings';
             const disciplineName = versionData.disciplineName || 'General';
             
+            // For Module Packages, create subfolder per module and use versioned filename
+            let uploadOptions = {};
+            const isModulePackages = disciplineName === 'Module Packages' || 
+                                     versionData.disciplineId === 'shop-module-packages';
+            
+            if (isModulePackages) {
+                // Parse module ID from filename for folder name
+                const parsedModule = Utils.parseModuleFromFilename(file.name);
+                if (parsedModule) {
+                    // Create folder name from original filename (without extension)
+                    const baseName = file.name.replace(/\.[^/.]+$/, '');
+                    uploadOptions.moduleFolderName = baseName;
+                    
+                    // Create versioned filename: originalname_v1.0.pdf
+                    const ext = file.name.split('.').pop();
+                    const version = versionData.version || '1.0';
+                    uploadOptions.versionedFileName = `${baseName}_v${version}.${ext}`;
+                    
+                    console.log('[Drawings] Module Packages: Creating folder', uploadOptions.moduleFolderName, 
+                                'with file', uploadOptions.versionedFileName);
+                }
+            }
+            
             // Upload to SharePoint (using chunked upload for large files)
             const spResult = await window.MODA_SHAREPOINT.uploadFile(
                 file,
                 projectName,
                 categoryName,
                 disciplineName,
-                versionData.onProgress
+                versionData.onProgress,
+                uploadOptions
             );
             
             fileUrl = spResult.webUrl || '';

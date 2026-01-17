@@ -71,7 +71,7 @@
     }
 
     // Build folder path for a drawing
-    function buildFolderPath(projectName, categoryName, disciplineName) {
+    function buildFolderPath(projectName, categoryName, disciplineName, moduleFolderName = null) {
         // Sanitize folder names (remove special characters)
         const sanitize = (name) => name.replace(/[<>:"/\\|?*]/g, '-').trim();
         
@@ -79,6 +79,8 @@
         if (projectName) parts.push(sanitize(projectName));
         if (categoryName) parts.push(sanitize(categoryName));
         if (disciplineName) parts.push(sanitize(disciplineName));
+        // For Module Packages, add a subfolder per module
+        if (moduleFolderName) parts.push(sanitize(moduleFolderName));
         
         return parts.join('/');
     }
@@ -111,12 +113,15 @@
          * @param {string} categoryName - Category name (e.g., "Permit Drawings")
          * @param {string} disciplineName - Discipline name (e.g., "Electrical Submittal")
          * @param {function} onProgress - Optional progress callback
+         * @param {object} options - Optional: { moduleFolderName, versionedFileName }
          */
-        async uploadFile(file, projectName, categoryName, disciplineName, onProgress) {
-            const folderPath = buildFolderPath(projectName, categoryName, disciplineName);
+        async uploadFile(file, projectName, categoryName, disciplineName, onProgress, options = {}) {
+            const { moduleFolderName, versionedFileName } = options;
+            const folderPath = buildFolderPath(projectName, categoryName, disciplineName, moduleFolderName);
+            const uploadFileName = versionedFileName || file.name;
             
-            // Ensure folder structure exists
-            await this.ensureFolderExists(projectName, categoryName, disciplineName);
+            // Ensure folder structure exists (including module subfolder if specified)
+            await this.ensureFolderExists(projectName, categoryName, disciplineName, moduleFolderName);
             
             if (onProgress) onProgress({ status: 'preparing', percent: 5 });
             
@@ -132,7 +137,7 @@
                 
                 const result = await callSharePoint('upload', {
                     folderPath,
-                    fileName: file.name,
+                    fileName: uploadFileName,
                     fileContent
                 });
                 
@@ -155,7 +160,7 @@
             
             const sessionResult = await callSharePoint('createUploadSession', {
                 folderPath,
-                fileName: file.name
+                fileName: uploadFileName
             });
             
             const uploadUrl = sessionResult.uploadUrl;
@@ -268,8 +273,9 @@
          * @param {string} projectName - Project name
          * @param {string} categoryName - Category name
          * @param {string} disciplineName - Discipline name
+         * @param {string} moduleFolderName - Optional module subfolder name (for Module Packages)
          */
-        async ensureFolderExists(projectName, categoryName, disciplineName) {
+        async ensureFolderExists(projectName, categoryName, disciplineName, moduleFolderName = null) {
             const sanitize = (name) => name.replace(/[<>:"/\\|?*]/g, '-').trim();
             
             // Create each level of the folder structure
@@ -294,6 +300,16 @@
                     await this.createFolder(
                         `MODA Drawings/${sanitize(projectName)}/${sanitize(categoryName)}`, 
                         sanitize(disciplineName)
+                    );
+                } catch (e) { /* Folder may already exist */ }
+            }
+            
+            // Create module subfolder if specified (for Module Packages versioning)
+            if (projectName && categoryName && disciplineName && moduleFolderName) {
+                try {
+                    await this.createFolder(
+                        `MODA Drawings/${sanitize(projectName)}/${sanitize(categoryName)}/${sanitize(disciplineName)}`, 
+                        sanitize(moduleFolderName)
                     );
                 } catch (e) { /* Folder may already exist */ }
             }
