@@ -1138,7 +1138,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     )}
 
                     {/* Main Content */}
-                    <main className={activeTab === 'production' ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
+                    <main className={(activeTab === 'production' || activeTab === 'drawings') ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
                         {/* Dashboard Home - Feature flagged */}
                         {activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                             window.DashboardHome ? (
