@@ -1126,15 +1126,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 const cacheBuster = `_cb=${Date.now()}`;
                 url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
                 
-                // On mobile, use location.href for better compatibility (avoids popup blockers)
-                // On desktop, use window.open for new tab
-                if (isMobile) {
-                    // For mobile: use window.location to navigate directly
-                    // This avoids popup blocker issues on iOS/Android
-                    window.location.href = url;
-                } else {
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                }
+                // Use anchor element click to open in new tab - works on both mobile and desktop
+                // This avoids popup blockers better than window.open
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             } else {
                 throw new Error('Could not generate view URL');
             }
@@ -1142,7 +1142,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
             console.error('[Drawings] View error:', error);
             alert('Error viewing file: ' + error.message);
         }
-    }, [isMobile]);
+    }, []);
     
     // Handle extract sheets - trigger OCR processing for selected PDFs using Tesseract
     const handleExtractSheets = useCallback(async () => {
