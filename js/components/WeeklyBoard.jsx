@@ -1857,7 +1857,21 @@ function WeeklyBoardTab({
     
     // ===== WEEK SELECTOR =====
     // selectedWeekId: null means "use currentWeek (auto)", otherwise use specific week
-    const [selectedWeekId, setSelectedWeekId] = useState(initialSelectedWeekId);
+    // For popout: read initial week from localStorage if available
+    const getInitialWeekId = () => {
+        if (initialSelectedWeekId) return initialSelectedWeekId;
+        if (isPopout) {
+            try {
+                const saved = localStorage.getItem('autovol_selected_week_id');
+                if (saved && saved !== 'null') {
+                    console.log('[WeeklyBoard] Popout reading selected week from localStorage:', saved);
+                    return saved;
+                }
+            } catch (e) {}
+        }
+        return null;
+    };
+    const [selectedWeekId, setSelectedWeekId] = useState(getInitialWeekId);
     const [showWeekPicker, setShowWeekPicker] = useState(false);
     
     // Handle initialSelectedWeekId from Schedule Setup navigation
@@ -1868,6 +1882,16 @@ function WeeklyBoardTab({
             if (onWeekSelected) onWeekSelected();
         }
     }, [initialSelectedWeekId, onWeekSelected]);
+    
+    // Save selected week to localStorage when it changes (for popout sync)
+    useEffect(() => {
+        if (!isPopout) {
+            try {
+                localStorage.setItem('autovol_selected_week_id', selectedWeekId || '');
+                console.log('[WeeklyBoard] Saved selected week to localStorage:', selectedWeekId);
+            } catch (e) {}
+        }
+    }, [selectedWeekId, isPopout]);
     
     // Determine which week to display
     const displayWeek = useMemo(() => {

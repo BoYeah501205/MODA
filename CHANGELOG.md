@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.7**
+**Current Version: 1.1.8**
 
 ---
+
+## [1.1.8] - 2025-01-17
+### Weekly Board Popout Week Sync (localStorage)
+- **localStorage Sync**: Main app saves selected week ID to localStorage when navigating weeks
+- **Popout Reads localStorage**: Popout reads the saved week ID on load to display same week as main app
+- **No URL Parameters**: Avoids the routing issues from v1.1.6
 
 ## [1.1.7] - 2025-01-17
 ### Revert Popout Changes
