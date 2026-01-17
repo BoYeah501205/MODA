@@ -2555,12 +2555,17 @@ function WeeklyBoardTab({
                 );
                 
                 // Find drawing that matches this module's BLM
+                // Handles partial matches (L4M08 matches B1L4M08) and multi-BLM filenames
                 let matchedDrawing = null;
                 for (const blm of blmToCheck) {
                     const normalizedBLM = blm.toUpperCase().replace(/[_\-\s]/g, '');
+                    // Extract just the level-module part (e.g., L4M08 from B1L4M08)
+                    const levelModulePart = normalizedBLM.match(/L\d+M\d+/)?.[0] || normalizedBLM;
+                    
                     matchedDrawing = drawings.find(d => {
-                        const parsedBLM = window.MODA_SUPABASE_DRAWINGS.utils.parseModuleFromFilename(d.name);
-                        return parsedBLM && parsedBLM.toUpperCase().replace(/[_\-\s]/g, '') === normalizedBLM;
+                        const fileName = d.name.toUpperCase().replace(/[_\-\s]/g, '');
+                        // Check if filename contains the BLM (full or partial match)
+                        return fileName.includes(normalizedBLM) || fileName.includes(levelModulePart);
                     });
                     if (matchedDrawing) break;
                 }

@@ -3840,9 +3840,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         let matchedDrawing = null;
                         for (const blm of blmToCheck) {
                             const normalizedBLM = blm.toUpperCase().replace(/[_\-\s]/g, '');
+                            const levelModulePart = normalizedBLM.match(/L\d+M\d+/)?.[0] || normalizedBLM;
                             matchedDrawing = drawings.find(d => {
-                                const parsedBLM = window.MODA_SUPABASE_DRAWINGS.utils.parseModuleFromFilename(d.name);
-                                return parsedBLM && parsedBLM.toUpperCase().replace(/[_\-\s]/g, '') === normalizedBLM;
+                                const fileName = d.name.toUpperCase().replace(/[_\-\s]/g, '');
+                                return fileName.includes(normalizedBLM) || fileName.includes(levelModulePart);
                             });
                             if (matchedDrawing) break;
                         }
