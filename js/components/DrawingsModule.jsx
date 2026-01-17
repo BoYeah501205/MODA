@@ -1107,6 +1107,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
             e.stopPropagation();
         }
         
+        // IMPORTANT: Open window SYNCHRONOUSLY before any async calls
+        // Mobile browsers block window.open if called after await
+        // Open with loading page first, then redirect to actual URL
+        const newWindow = window.open('about:blank', '_blank');
+        
+        // If popup was blocked, fall back to same-window navigation
+        const popupBlocked = !newWindow || newWindow.closed;
+        
         try {
             const storagePath = version.storage_path || version.storagePath;
             const sharePointFileId = version.sharepoint_file_id || version.sharepointFileId;
@@ -1126,20 +1134,20 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 const cacheBuster = `_cb=${Date.now()}`;
                 url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
                 
-                // Use anchor element click to open in new tab - works on both mobile and desktop
-                // This avoids popup blockers better than window.open
-                const link = document.createElement('a');
-                link.href = url;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                if (popupBlocked) {
+                    // Popup was blocked - navigate in same window as fallback
+                    window.location.href = url;
+                } else {
+                    // Redirect the pre-opened window to the actual URL
+                    newWindow.location.href = url;
+                }
             } else {
+                if (!popupBlocked) newWindow.close();
                 throw new Error('Could not generate view URL');
             }
         } catch (error) {
             console.error('[Drawings] View error:', error);
+            if (!popupBlocked && newWindow) newWindow.close();
             alert('Error viewing file: ' + error.message);
         }
     }, []);
