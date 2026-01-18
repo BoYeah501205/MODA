@@ -2424,6 +2424,11 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                         {uploadProgress.speed && <span className="ml-2">({uploadProgress.speed})</span>}
                                     </p>
                                 )}
+                                {uploadProgress.timeRemaining && uploadProgress.timeRemaining > 1000 && (
+                                    <p className="text-xs text-blue-600 mt-1">
+                                        Est. time remaining: {Math.ceil(uploadProgress.timeRemaining / 60000)} min {Math.ceil((uploadProgress.timeRemaining % 60000) / 1000)} sec
+                                    </p>
+                                )}
                             </div>
                         )}
                         

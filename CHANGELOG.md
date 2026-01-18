@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.2.1**
+**Current Version: 1.2.2**
 
 ---
+
+## [1.2.2] - 2025-01-18
+### Bug Fixes
+- **Time Estimate Display**: Added estimated time remaining to the UploadModal progress bar (was only showing in overlay)
 
 ## [1.2.1] - 2025-01-18
 ### Bug Fixes
