@@ -24,7 +24,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [currentDrawings, setCurrentDrawings] = useState([]);
     const [drawingCounts, setDrawingCounts] = useState({});
     const [isLoading, setIsLoading] = useState(true);
-    const [uploadProgress, setUploadProgress] = useState(null); // { current, total, fileName, percent, status }
+    const [uploadProgress, setUploadProgress] = useState(null); // { current, total, fileName, percent, status, timeRemaining }
     
     // Sorting state for Module Packages view
     const [sortColumn, setSortColumn] = useState('buildSequence'); // Default sort by Build Seq
@@ -37,6 +37,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showFolderModal, setShowFolderModal] = useState(null); // { mode: 'add'|'edit', type: 'category'|'discipline', folder?: existing }
     const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(null);
     const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
+    const [bulkDuplicateAction, setBulkDuplicateAction] = useState(null); // 'skipAll' | 'newVersionAll' - for Apply to All
+    const [uploadCancelled, setUploadCancelled] = useState(false); // Track if upload was cancelled
+    const [uploadStartTime, setUploadStartTime] = useState(null); // Track upload start time for estimates
     const [showSheetBrowser, setShowSheetBrowser] = useState(false);
     const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
     const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
@@ -785,6 +788,12 @@ const DrawingsModule = ({ projects = [], auth }) => {
         const disciplineToUse = targetDiscipline || selectedDiscipline;
         if (!selectedProject || !disciplineToUse || !files.length) return;
         
+        // Reset bulk action and cancellation state at start
+        setBulkDuplicateAction(null);
+        setUploadCancelled(false);
+        const startTime = Date.now();
+        setUploadStartTime(startTime);
+        
         setUploadProgress({ current: 0, total: files.length });
         
         // Get category and discipline names for SharePoint folder path
@@ -807,8 +816,26 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 
                 // Upload to Supabase (which now routes to SharePoint)
                 for (let i = 0; i < files.length; i++) {
+                    // Check if upload was cancelled
+                    if (uploadCancelled) {
+                        console.log('[Drawings] Upload cancelled by user');
+                        break;
+                    }
+                    
                     const file = files[i];
-                    setUploadProgress({ current: i + 1, total: files.length, fileName: file.name });
+                    
+                    // Calculate time estimate
+                    const elapsed = Date.now() - startTime;
+                    const avgTimePerFile = i > 0 ? elapsed / i : 0;
+                    const remainingFiles = files.length - i;
+                    const estimatedRemaining = avgTimePerFile * remainingFiles;
+                    
+                    setUploadProgress({ 
+                        current: i + 1, 
+                        total: files.length, 
+                        fileName: file.name,
+                        timeRemaining: estimatedRemaining > 0 ? estimatedRemaining : null
+                    });
                     
                     // Check for existing drawing with same name (use fresh data)
                     const existingDrawing = freshDrawings.find(d => 
@@ -816,19 +843,33 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     );
                     
                     if (existingDrawing) {
-                        // Show duplicate prompt and wait for user decision
-                        const userAction = await new Promise((resolve) => {
-                            setShowDuplicatePrompt({
-                                file,
-                                existingDrawing,
-                                metadata,
-                                disciplineToUse,
-                                categoryName,
-                                disciplineName,
-                                onAction: resolve
+                        let userAction = bulkDuplicateAction; // Use bulk action if set
+                        
+                        if (!userAction) {
+                            // Show duplicate prompt and wait for user decision
+                            userAction = await new Promise((resolve) => {
+                                setShowDuplicatePrompt({
+                                    file,
+                                    existingDrawing,
+                                    metadata,
+                                    disciplineToUse,
+                                    categoryName,
+                                    disciplineName,
+                                    remainingDuplicates: files.length - i - 1,
+                                    onAction: resolve
+                                });
                             });
-                        });
-                        setShowDuplicatePrompt(null);
+                            setShowDuplicatePrompt(null);
+                        }
+                        
+                        // Handle "Apply to All" actions
+                        if (userAction === 'skipAll') {
+                            setBulkDuplicateAction('skip');
+                            continue;
+                        } else if (userAction === 'newVersionAll') {
+                            setBulkDuplicateAction('newVersion');
+                            userAction = 'newVersion';
+                        }
                         
                         if (userAction === 'skip') {
                             continue; // Skip this file
@@ -955,8 +996,11 @@ const DrawingsModule = ({ projects = [], auth }) => {
         } finally {
             setUploadProgress(null);
             setShowUploadModal(false);
+            setBulkDuplicateAction(null);
+            setUploadCancelled(false);
+            setUploadStartTime(null);
         }
-    }, [selectedProject, selectedDiscipline, auth]);
+    }, [selectedProject, selectedDiscipline, auth, bulkDuplicateAction, uploadCancelled]);
     
     // Handle new version upload
     const handleVersionUpload = useCallback(async (drawingId, file, notes) => {
@@ -2737,8 +2781,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const DuplicatePromptModal = () => {
         if (!showDuplicatePrompt) return null;
         
-        const { file, existingDrawing, onAction } = showDuplicatePrompt;
+        const { file, existingDrawing, onAction, remainingDuplicates } = showDuplicatePrompt;
         const existingVersion = existingDrawing.versions?.[0];
+        const hasMoreFiles = remainingDuplicates > 0;
         
         return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2775,36 +2820,66 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         <p className="text-gray-700 mb-4">What would you like to do?</p>
                         
                         <div className="space-y-3">
-                            <button
-                                onClick={() => onAction('newVersion')}
-                                className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center group-hover:bg-blue-200">
-                                        <span className="icon-history w-5 h-5 text-blue-600"></span>
+                            {/* Add as New Version */}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => onAction('newVersion')}
+                                    className="flex-1 p-4 text-left border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center group-hover:bg-blue-200">
+                                            <span className="icon-history w-5 h-5 text-blue-600"></span>
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900">Add as New Version</p>
+                                            <p className="text-sm text-gray-500">Keep existing and add as new version</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-medium text-gray-900">Add as New Version</p>
-                                        <p className="text-sm text-gray-500">Keep existing file and add this as a new version</p>
-                                    </div>
-                                </div>
-                            </button>
+                                </button>
+                                {hasMoreFiles && (
+                                    <button
+                                        onClick={() => onAction('newVersionAll')}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium whitespace-nowrap"
+                                        title="Apply to all remaining duplicates"
+                                    >
+                                        Apply to All
+                                    </button>
+                                )}
+                            </div>
                             
-                            <button
-                                onClick={() => onAction('skip')}
-                                className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200">
-                                        <span className="icon-close w-5 h-5 text-gray-600"></span>
+                            {/* Skip This File */}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => onAction('skip')}
+                                    className="flex-1 p-4 text-left border-2 border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200">
+                                            <span className="icon-close w-5 h-5 text-gray-600"></span>
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900">Skip This File</p>
+                                            <p className="text-sm text-gray-500">Don't upload, keep existing</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-medium text-gray-900">Skip This File</p>
-                                        <p className="text-sm text-gray-500">Don't upload this file, keep the existing one</p>
-                                    </div>
-                                </div>
-                            </button>
+                                </button>
+                                {hasMoreFiles && (
+                                    <button
+                                        onClick={() => onAction('skipAll')}
+                                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm font-medium whitespace-nowrap"
+                                        title="Skip all remaining duplicates"
+                                    >
+                                        Skip All
+                                    </button>
+                                )}
+                            </div>
                         </div>
+                        
+                        {hasMoreFiles && (
+                            <p className="text-xs text-gray-500 mt-4 text-center">
+                                {remainingDuplicates} more duplicate{remainingDuplicates > 1 ? 's' : ''} remaining
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -3590,6 +3665,22 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         {uploadProgress.fileName && (
                             <p className="text-xs text-gray-400 mt-2 truncate">{uploadProgress.fileName}</p>
                         )}
+                        {uploadProgress.timeRemaining && uploadProgress.timeRemaining > 1000 && (
+                            <p className="text-xs text-blue-600 mt-2">
+                                Est. time remaining: {Math.ceil(uploadProgress.timeRemaining / 60000)} min {Math.ceil((uploadProgress.timeRemaining % 60000) / 1000)} sec
+                            </p>
+                        )}
+                        <button
+                            onClick={() => {
+                                setUploadCancelled(true);
+                                setUploadProgress(null);
+                                setShowUploadModal(false);
+                                setBulkDuplicateAction(null);
+                            }}
+                            className="mt-4 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200"
+                        >
+                            Cancel Upload
+                        </button>
                     </div>
                 </div>
             )}

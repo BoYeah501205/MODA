@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.1.9**
+**Current Version: 1.2.0**
 
 ---
+
+## [1.2.0] - 2025-01-18
+### Bulk Upload Improvements
+- **Apply to All**: When duplicate files detected during bulk upload, "Apply to All" and "Skip All" buttons appear to handle all remaining duplicates with one click
+- **Time Estimates**: Upload progress overlay now shows estimated time remaining based on average upload speed
+- **Cancel Upload**: Added "Cancel Upload" button to stop bulk uploads mid-process without leaving stuck modals
+- **Duplicate Count**: Shows how many more duplicates remain when prompting for action
 
 ## [1.1.9] - 2025-01-17
 ### Drawings Module Advanced Filters
