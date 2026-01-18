@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.2.0**
+**Current Version: 1.2.1**
 
 ---
+
+## [1.2.1] - 2025-01-18
+### Bug Fixes
+- **Skip All Fix**: "Skip All" now properly skips all remaining duplicate files (was only skipping one)
+- **Cancel Upload Fix**: Cancel button now immediately stops the upload loop (was continuing to upload)
+- **Technical**: Changed from React state to useRef for cancel flag - refs update synchronously within async loops
 
 ## [1.2.0] - 2025-01-18
 ### Bulk Upload Improvements

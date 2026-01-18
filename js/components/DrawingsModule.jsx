@@ -4,7 +4,7 @@
 // Uses Supabase for storage with localStorage fallback
 // ============================================================================
 
-const { useState, useEffect, useCallback, useMemo } = React;
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
 const DrawingsModule = ({ projects = [], auth }) => {
     
@@ -37,9 +37,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showFolderModal, setShowFolderModal] = useState(null); // { mode: 'add'|'edit', type: 'category'|'discipline', folder?: existing }
     const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(null);
     const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
-    const [bulkDuplicateAction, setBulkDuplicateAction] = useState(null); // 'skipAll' | 'newVersionAll' - for Apply to All
-    const [uploadCancelled, setUploadCancelled] = useState(false); // Track if upload was cancelled
     const [uploadStartTime, setUploadStartTime] = useState(null); // Track upload start time for estimates
+    const uploadCancelledRef = useRef(false); // Ref for cancel flag (refs update synchronously, unlike state)
     const [showSheetBrowser, setShowSheetBrowser] = useState(false);
     const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
     const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
@@ -788,9 +787,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
         const disciplineToUse = targetDiscipline || selectedDiscipline;
         if (!selectedProject || !disciplineToUse || !files.length) return;
         
-        // Reset bulk action and cancellation state at start
-        setBulkDuplicateAction(null);
-        setUploadCancelled(false);
+        // Reset cancellation ref at start
+        uploadCancelledRef.current = false;
         const startTime = Date.now();
         setUploadStartTime(startTime);
         
@@ -814,10 +812,13 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     disciplineToUse
                 );
                 
+                // Local variable for bulk action (React state won't update mid-loop)
+                let localBulkAction = null;
+                
                 // Upload to Supabase (which now routes to SharePoint)
                 for (let i = 0; i < files.length; i++) {
-                    // Check if upload was cancelled
-                    if (uploadCancelled) {
+                    // Check if upload was cancelled (using ref for synchronous check)
+                    if (uploadCancelledRef.current) {
                         console.log('[Drawings] Upload cancelled by user');
                         break;
                     }
@@ -843,7 +844,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     );
                     
                     if (existingDrawing) {
-                        let userAction = bulkDuplicateAction; // Use bulk action if set
+                        let userAction = localBulkAction; // Use local bulk action if set
                         
                         if (!userAction) {
                             // Show duplicate prompt and wait for user decision
@@ -862,12 +863,12 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             setShowDuplicatePrompt(null);
                         }
                         
-                        // Handle "Apply to All" actions
+                        // Handle "Apply to All" actions - set local variable for subsequent iterations
                         if (userAction === 'skipAll') {
-                            setBulkDuplicateAction('skip');
-                            continue;
+                            localBulkAction = 'skip';
+                            continue; // Skip this file too
                         } else if (userAction === 'newVersionAll') {
-                            setBulkDuplicateAction('newVersion');
+                            localBulkAction = 'newVersion';
                             userAction = 'newVersion';
                         }
                         
@@ -996,11 +997,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
         } finally {
             setUploadProgress(null);
             setShowUploadModal(false);
-            setBulkDuplicateAction(null);
-            setUploadCancelled(false);
+            uploadCancelledRef.current = false;
             setUploadStartTime(null);
         }
-    }, [selectedProject, selectedDiscipline, auth, bulkDuplicateAction, uploadCancelled]);
+    }, [selectedProject, selectedDiscipline, auth]);
     
     // Handle new version upload
     const handleVersionUpload = useCallback(async (drawingId, file, notes) => {
@@ -3672,10 +3672,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         )}
                         <button
                             onClick={() => {
-                                setUploadCancelled(true);
+                                uploadCancelledRef.current = true;
                                 setUploadProgress(null);
                                 setShowUploadModal(false);
-                                setBulkDuplicateAction(null);
                             }}
                             className="mt-4 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200"
                         >
