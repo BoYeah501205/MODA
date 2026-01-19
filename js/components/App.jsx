@@ -1138,7 +1138,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     )}
 
                     {/* Main Content */}
-                    <main className={(activeTab === 'production' || activeTab === 'drawings') ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
+                    <main className={(activeTab === 'production' || activeTab === 'drawings' || activeTab === 'projects') ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
                         {/* Dashboard Home - Feature flagged */}
                         {activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                             window.DashboardHome ? (
@@ -2179,6 +2179,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [goOnlineNotification, setGoOnlineNotification] = useState(null);
             const [importNotification, setImportNotification] = useState(null);
             const [showHeatMapMatrix, setShowHeatMapMatrix] = useState(false);
+            const [showSequenceHistory, setShowSequenceHistory] = useState(false);
             const [editingAbbreviation, setEditingAbbreviation] = useState(false);
             const [abbreviationValue, setAbbreviationValue] = useState(project.abbreviation || '');
 
@@ -2209,6 +2210,56 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // Get fresh project data from projects array to ensure we have latest modules
             const currentProject = projects.find(p => p.id === project.id) || project;
             const modules = currentProject.modules || [];
+            
+            // Detect duplicate values in modules (Serial, BuildSequence, BLM)
+            const duplicateWarnings = useMemo(() => {
+                const warnings = { serial: [], buildSequence: [], hitchBLM: [], rearBLM: [] };
+                const serialCounts = {};
+                const seqCounts = {};
+                const hitchBLMCounts = {};
+                const rearBLMCounts = {};
+                
+                modules.forEach(m => {
+                    // Count serials
+                    if (m.serialNumber) {
+                        serialCounts[m.serialNumber] = (serialCounts[m.serialNumber] || 0) + 1;
+                    }
+                    // Count build sequences (only integers, skip decimals from prototype insertion)
+                    if (m.buildSequence && Number.isInteger(m.buildSequence)) {
+                        seqCounts[m.buildSequence] = (seqCounts[m.buildSequence] || 0) + 1;
+                    }
+                    // Count hitch BLMs
+                    if (m.hitchBLM) {
+                        hitchBLMCounts[m.hitchBLM] = (hitchBLMCounts[m.hitchBLM] || 0) + 1;
+                    }
+                    // Count rear BLMs
+                    if (m.rearBLM) {
+                        rearBLMCounts[m.rearBLM] = (rearBLMCounts[m.rearBLM] || 0) + 1;
+                    }
+                });
+                
+                // Find duplicates
+                Object.entries(serialCounts).forEach(([val, count]) => {
+                    if (count > 1) warnings.serial.push({ value: val, count });
+                });
+                Object.entries(seqCounts).forEach(([val, count]) => {
+                    if (count > 1) warnings.buildSequence.push({ value: val, count });
+                });
+                Object.entries(hitchBLMCounts).forEach(([val, count]) => {
+                    if (count > 1) warnings.hitchBLM.push({ value: val, count });
+                });
+                Object.entries(rearBLMCounts).forEach(([val, count]) => {
+                    if (count > 1) warnings.rearBLM.push({ value: val, count });
+                });
+                
+                return warnings;
+            }, [modules]);
+            
+            // Check if there are any duplicate warnings
+            const hasDuplicateWarnings = duplicateWarnings.serial.length > 0 || 
+                                         duplicateWarnings.buildSequence.length > 0 || 
+                                         duplicateWarnings.hitchBLM.length > 0 ||
+                                         duplicateWarnings.rearBLM.length > 0;
             
             // Toggle difficulty filter
             const toggleDifficultyFilter = (key) => {
@@ -2526,6 +2577,15 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 </button>
                             )}
                             {canManageImports && (
+                                <button
+                                    onClick={() => setShowSequenceHistory(true)}
+                                    className="px-4 py-2 btn-secondary rounded-lg transition flex items-center gap-2"
+                                    title="View build sequence change history"
+                                >
+                                    Sequence History
+                                </button>
+                            )}
+                            {canManageImports && (
                                 <>
                                     <button
                                         onClick={() => {
@@ -2666,6 +2726,56 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             Showing {filteredModules.length} of {modules.length} modules
                         </p>
                     </div>
+                    
+                    {/* Duplicate Warnings Banner */}
+                    {hasDuplicateWarnings && (
+                        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="text-amber-500 text-xl">&#9888;</span>
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-amber-800">Duplicate Values Detected</h4>
+                                    <p className="text-sm text-amber-700 mb-2">The following duplicate values were found in this project's modules:</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                        {duplicateWarnings.serial.length > 0 && (
+                                            <div className="bg-white rounded p-2 border border-amber-200">
+                                                <span className="font-medium text-red-700">Serial Numbers:</span>
+                                                <span className="ml-2 text-gray-700">
+                                                    {duplicateWarnings.serial.map(d => `${d.value} (${d.count}x)`).join(', ')}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {duplicateWarnings.buildSequence.length > 0 && (
+                                            <div className="bg-white rounded p-2 border border-amber-200">
+                                                <span className="font-medium text-red-700">Build Sequences:</span>
+                                                <span className="ml-2 text-gray-700">
+                                                    {duplicateWarnings.buildSequence.map(d => `#${d.value} (${d.count}x)`).join(', ')}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {duplicateWarnings.hitchBLM.length > 0 && (
+                                            <div className="bg-white rounded p-2 border border-amber-200">
+                                                <span className="font-medium text-orange-700">Hitch BLMs:</span>
+                                                <span className="ml-2 text-gray-700">
+                                                    {duplicateWarnings.hitchBLM.map(d => `${d.value} (${d.count}x)`).join(', ')}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {duplicateWarnings.rearBLM.length > 0 && (
+                                            <div className="bg-white rounded p-2 border border-amber-200">
+                                                <span className="font-medium text-orange-700">Rear BLMs:</span>
+                                                <span className="ml-2 text-gray-700">
+                                                    {duplicateWarnings.rearBLM.map(d => `${d.value} (${d.count}x)`).join(', ')}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-amber-600 mt-2">
+                                        Use "Import Modules" with corrected data to fix these issues. Drawings are linked by module ID, not sequence number.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Module Grid/List */}
                     <div className="bg-white rounded-lg shadow">
@@ -3081,6 +3191,18 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             <span className="font-medium">{importNotification.message}</span>
                             <button onClick={() => setImportNotification(null)} className="text-blue-600 hover:text-blue-800 ml-2">×</button>
                         </div>
+                    )}
+                    
+                    {/* Build Sequence History Modal */}
+                    {showSequenceHistory && window.BuildSequenceHistory && (
+                        <window.BuildSequenceHistory
+                            projectId={project.id}
+                            projectName={project.name}
+                            modules={modules}
+                            setProjects={setProjects}
+                            auth={auth}
+                            onClose={() => setShowSequenceHistory(false)}
+                        />
                     )}
                 </div>
             );

@@ -6,6 +6,7 @@ export function ModuleImportModal({ projectId, onClose, onImportComplete }) {
     const [csvFile, setCsvFile] = useState(null);
     const [analysis, setAnalysis] = useState(null);
     const [forceOverwrite, setForceOverwrite] = useState(false);
+    const [sequenceOnlyMode, setSequenceOnlyMode] = useState(false); // Only update build sequences
     const [importing, setImporting] = useState(false);
     const [error, setError] = useState(null);
     const [expandedUpdates, setExpandedUpdates] = useState(new Set());
@@ -58,7 +59,8 @@ export function ModuleImportModal({ projectId, onClose, onImportComplete }) {
             const text = await csvFile.text();
             const { modules } = parseModuleCSV(text);
 
-            const result = await executeModuleImport(projectId, modules, forceOverwrite);
+            // Pass sequenceOnlyMode to the import function
+            const result = await executeModuleImport(projectId, modules, forceOverwrite, sequenceOnlyMode);
 
             if (result.errors.length > 0) {
                 setError(`Import completed with errors:\n${result.errors.map(e => `${e.serial_number}: ${e.error}`).join('\n')}`);
@@ -67,7 +69,8 @@ export function ModuleImportModal({ projectId, onClose, onImportComplete }) {
             onImportComplete({
                 inserted: result.inserted,
                 updated: result.updated,
-                errors: result.errors
+                errors: result.errors,
+                sequenceOnlyMode: sequenceOnlyMode
             });
         } catch (err) {
             setError(err.message);
@@ -109,6 +112,10 @@ export function ModuleImportModal({ projectId, onClose, onImportComplete }) {
                                 <p className="import-note">
                                     <strong>Smart Import:</strong> Existing modules will only have empty fields updated. 
                                     Check "Force Overwrite" to replace all data.
+                                </p>
+                                <p className="import-note" style={{ marginTop: '8px', padding: '8px', backgroundColor: '#fef3c7', borderRadius: '4px' }}>
+                                    <strong>Update Sequences Only:</strong> Check this option to ONLY update Build Sequence numbers 
+                                    without changing any other module data. Useful for correcting sequence errors.
                                 </p>
                             </div>
 
@@ -195,12 +202,29 @@ export function ModuleImportModal({ projectId, onClose, onImportComplete }) {
                                         <label>
                                             <input
                                                 type="checkbox"
-                                                checked={forceOverwrite}
-                                                onChange={(e) => setForceOverwrite(e.target.checked)}
+                                                checked={sequenceOnlyMode}
+                                                onChange={(e) => {
+                                                    setSequenceOnlyMode(e.target.checked);
+                                                    if (e.target.checked) setForceOverwrite(false);
+                                                }}
                                             />
-                                            <span>Force Overwrite (replace existing data instead of filling blanks)</span>
+                                            <span style={{ fontWeight: sequenceOnlyMode ? 'bold' : 'normal', color: sequenceOnlyMode ? '#b45309' : 'inherit' }}>
+                                                Update Build Sequences Only (ignore all other fields)
+                                            </span>
                                         </label>
                                     </div>
+                                    {!sequenceOnlyMode && (
+                                        <div className="import-option">
+                                            <label>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={forceOverwrite}
+                                                    onChange={(e) => setForceOverwrite(e.target.checked)}
+                                                />
+                                                <span>Force Overwrite (replace existing data instead of filling blanks)</span>
+                                            </label>
+                                        </div>
+                                    )}
 
                                     <div className="updates-list">
                                         {analysis.updates.slice(0, 10).map((update) => (

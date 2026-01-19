@@ -29,7 +29,7 @@
         return data;
     }
 
-    async function executeModuleImport(projectId, modules, forceOverwrite = false) {
+    async function executeModuleImport(projectId, modules, forceOverwrite = false, sequenceOnlyMode = false) {
         const client = getClient();
         if (!client) {
             throw new Error('Supabase client not available');
@@ -40,7 +40,8 @@
                 action: 'execute',
                 project_id: projectId,
                 modules: modules,
-                force_overwrite: forceOverwrite
+                force_overwrite: forceOverwrite,
+                sequence_only: sequenceOnlyMode
             }
         });
 

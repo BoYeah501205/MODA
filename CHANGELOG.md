@@ -2,9 +2,22 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.2.2**
+**Current Version: 1.3.0**
 
 ---
+
+## [1.3.0] - 2025-01-19
+### Build Sequence Management
+- **Duplicate Detection**: Project Detail now shows warnings for duplicate Serial Numbers, Build Sequences, and BLM IDs within a project
+- **Sequence History**: New "Sequence History" button in Project Detail to view and restore previous build sequence configurations
+- **Confirmation Required**: WeeklyBoard now saves sequence history before reordering modules (drag-and-drop or move modal)
+- **Prototype Preservation**: Prototype modules now store their original build sequence when inserted into schedule, allowing restoration
+- **Update Sequences Only**: New import mode to update ONLY build sequence numbers without changing other module data
+
+### Technical
+- Created `build_sequence_history` table schema for Supabase
+- Added `supabase-sequence-history.js` data layer for history operations
+- Added `BuildSequenceHistory.jsx` component for viewing/restoring sequences
 
 ## [1.2.2] - 2025-01-18
 ### Bug Fixes

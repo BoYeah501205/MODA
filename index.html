@@ -11,8 +11,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.2.2">
-    <script>window.MODA_VERSION = '1.2.2'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.3.0">
+    <script>window.MODA_VERSION = '1.3.0'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -276,6 +276,7 @@
     <script src="./js/qr-code-generator.js"></script>
     <script src="./js/supabase-module-drawings.js"></script>
     <script src="./js/supabase-module-import.js"></script>
+    <script src="./js/supabase-sequence-history.js"></script>
     <script src="./js/sharepoint-client.js"></script>
     <script src="./js/issue-routing.js?v=1"></script>
     
@@ -382,6 +383,9 @@
     
     <!-- Activity Log Viewer -->
     <script type="text/babel" src="./js/components/ActivityLogViewer.jsx"></script>
+    
+    <!-- Build Sequence History -->
+    <script type="text/babel" src="./js/components/BuildSequenceHistory.jsx"></script>
     
     <!-- Router: Load appropriate component based on URL -->
     <script type="text/babel">

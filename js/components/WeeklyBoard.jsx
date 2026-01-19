@@ -829,6 +829,7 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
     };
     
     // Update a prototype's buildSequence based on "Insert After" selection
+    // Stores original build sequence so it can be restored later
     const handleInsertAfter = (protoModule, afterModuleSerial) => {
         if (!afterModuleSerial || !setProjects) return;
         
@@ -837,14 +838,21 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
         
         const newBuildSeq = getNextDecimalSlot(afterModule.buildSequence);
         
-        // Update the module in projects
+        // Update the module in projects - store original sequence for restoration
         setProjects(prev => prev.map(project => {
             if (project.id !== protoModule.projectId) return project;
             return {
                 ...project,
                 modules: (project.modules || []).map(m => {
                     if (m.id !== protoModule.id) return m;
-                    return { ...m, buildSequence: newBuildSeq, insertedAfter: afterModuleSerial };
+                    // Store original build sequence if not already stored
+                    const originalSeq = m.originalBuildSequence || m.buildSequence;
+                    return { 
+                        ...m, 
+                        buildSequence: newBuildSeq, 
+                        insertedAfter: afterModuleSerial,
+                        originalBuildSequence: originalSeq
+                    };
                 })
             };
         }));
@@ -853,26 +861,26 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
     };
     
     // Clear insertion (reset to original project sequence)
+    // Restores the prototype's original build sequence from its source project
     const handleClearInsertion = (protoModule) => {
         if (!setProjects) return;
         
-        // Find original position in project
+        // Use the stored original build sequence if available, otherwise use module's index in project
         const project = projects?.find(p => p.id === protoModule.projectId);
         const projectModules = project?.modules || [];
         const protoIndex = projectModules.findIndex(m => m.id === protoModule.id);
         
-        // Calculate a high buildSequence to put it at the end (or use original if available)
-        const maxSeq = Math.max(...sortedModules.map(m => Math.floor(m.buildSequence || 0)), 0);
-        const newBuildSeq = maxSeq + protoIndex + 1;
+        // Restore to original sequence (stored when first inserted) or calculate from project position
+        const originalSeq = protoModule.originalBuildSequence || (protoIndex + 1);
         
-        setProjects(prev => prev.map(project => {
-            if (project.id !== protoModule.projectId) return project;
+        setProjects(prev => prev.map(proj => {
+            if (proj.id !== protoModule.projectId) return proj;
             return {
-                ...project,
-                modules: (project.modules || []).map(m => {
+                ...proj,
+                modules: (proj.modules || []).map(m => {
                     if (m.id !== protoModule.id) return m;
                     const { insertedAfter, ...rest } = m;
-                    return { ...rest, buildSequence: newBuildSeq };
+                    return { ...rest, buildSequence: originalSeq };
                 })
             };
         }));
@@ -1923,6 +1931,7 @@ function WeeklyBoardTab({
     // ===== MODULE REORDERING SYSTEM =====
     const [showMoveModal, setShowMoveModal] = useState(null); // { module, currentPosition }
     const [showMoveConfirm, setShowMoveConfirm] = useState(null); // { module, fromPosition, toPosition, applyToAll }
+    const [showSequenceHistory, setShowSequenceHistory] = useState(null); // { projectId, projectName, modules }
     
     // ===== REORDER MODE (Drag-and-Drop) =====
     const [reorderMode, setReorderMode] = useState(false);
@@ -2380,19 +2389,32 @@ function WeeklyBoardTab({
     };
     
     // Apply module move with confirmation
-    const applyModuleMove = (module, newPosition, applyToAll = true) => {
+    // Now requires explicit confirmation before renumbering sequences
+    const applyModuleMove = async (module, newPosition, applyToAll = true, skipHistory = false) => {
         if (!setProjects) return;
         
         const oldPosition = module.buildSequence || 0;
+        const project = projects.find(p => p.id === module.projectId);
+        
+        // Save snapshot BEFORE making changes (unless skipping)
+        if (!skipHistory && project && window.MODA_SEQUENCE_HISTORY?.saveSnapshot) {
+            await window.MODA_SEQUENCE_HISTORY.saveSnapshot(
+                project.id,
+                project.modules || [],
+                'reorder',
+                `Moved ${module.serialNumber} from #${oldPosition} to #${newPosition}`,
+                auth?.currentUser
+            );
+        }
         
         // Update the module's build sequence
-        setProjects(prevProjects => prevProjects.map(project => {
-            if (project.id !== module.projectId) return project;
+        setProjects(prevProjects => prevProjects.map(proj => {
+            if (proj.id !== module.projectId) return proj;
             
             // Get all modules sorted by current sequence
-            const modules = [...(project.modules || [])];
+            const modules = [...(proj.modules || [])];
             const moduleIndex = modules.findIndex(m => m.id === module.id);
-            if (moduleIndex === -1) return project;
+            if (moduleIndex === -1) return proj;
             
             // Remove the module from its current position
             const [movedModule] = modules.splice(moduleIndex, 1);
@@ -2411,7 +2433,7 @@ function WeeklyBoardTab({
                 });
             }
             
-            return { ...project, modules };
+            return { ...proj, modules };
         }));
         
         // Show success toast
@@ -2419,7 +2441,7 @@ function WeeklyBoardTab({
             `${module.serialNumber} moved from #${oldPosition} to #${newPosition}`,
             'success',
             module.serialNumber,
-            applyToAll ? 'All stations' : 'This view only'
+            applyToAll ? 'Sequences renumbered' : 'Position updated'
         );
         
         setShowMoveModal(null);
@@ -2487,8 +2509,37 @@ function WeeklyBoardTab({
     };
     
     // Apply all pending reorders
-    const applyPendingReorders = (applyToAll = true) => {
+    // Now saves sequence history before applying changes
+    const applyPendingReorders = async (applyToAll = true) => {
         if (!setProjects || pendingReorders.length === 0) return;
+        
+        // Find affected projects and save snapshots BEFORE changes
+        const affectedProjectIds = new Set();
+        pendingReorders.forEach(r => {
+            const project = projects.find(p => p.modules?.some(m => m.id === r.moduleId));
+            if (project) affectedProjectIds.add(project.id);
+        });
+        
+        // Save snapshots for each affected project
+        if (window.MODA_SEQUENCE_HISTORY?.saveSnapshot) {
+            for (const projectId of affectedProjectIds) {
+                const project = projects.find(p => p.id === projectId);
+                if (project) {
+                    const reorderDescriptions = pendingReorders
+                        .filter(r => project.modules?.some(m => m.id === r.moduleId))
+                        .map(r => `${r.moduleSerial}: #${r.fromSeq} → #${Math.floor(r.toSeq)}`)
+                        .join(', ');
+                    
+                    await window.MODA_SEQUENCE_HISTORY.saveSnapshot(
+                        project.id,
+                        project.modules || [],
+                        'reorder',
+                        `Reordered ${pendingReorders.length} module(s): ${reorderDescriptions}`,
+                        auth?.currentUser
+                    );
+                }
+            }
+        }
         
         setProjects(prevProjects => prevProjects.map(project => {
             // Get modules that have pending reorders
@@ -2525,7 +2576,7 @@ function WeeklyBoardTab({
             `Reordered ${pendingReorders.length} module${pendingReorders.length > 1 ? 's' : ''}`,
             'success',
             '',
-            applyToAll ? 'Applied to all stations' : 'This view only'
+            applyToAll ? 'Sequences renumbered (history saved)' : 'Positions updated'
         );
         
         // Reset reorder mode
