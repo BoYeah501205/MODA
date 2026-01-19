@@ -1,7 +1,7 @@
 // ModuleImportModal - Uses global React and window.MODA_MODULE_IMPORT
-const { useState } = React;
 
 function ModuleImportModal({ projectId, onClose, onImportComplete }) {
+    const { useState } = React;
     // Get import functions from global
     const { analyzeModuleImport, executeModuleImport, parseModuleCSV } = window.MODA_MODULE_IMPORT || {};
     
