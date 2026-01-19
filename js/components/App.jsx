@@ -3053,8 +3053,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     </div>
 
                     {/* Import Modal */}
-                    {showImportModal && (
-                        <ModuleImportModal 
+                    {showImportModal && window.ModuleImportModal && (
+                        <window.ModuleImportModal 
                             projectId={project.id}
                             onClose={() => setShowImportModal(false)}
                             onImportComplete={(result) => {

@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { analyzeModuleImport, executeModuleImport, parseModuleCSV } from '../supabase-module-import.js';
+// ModuleImportModal - Uses global React and window.MODA_MODULE_IMPORT
+const { useState } = React;
 
-export function ModuleImportModal({ projectId, onClose, onImportComplete }) {
+function ModuleImportModal({ projectId, onClose, onImportComplete }) {
+    // Get import functions from global
+    const { analyzeModuleImport, executeModuleImport, parseModuleCSV } = window.MODA_MODULE_IMPORT || {};
+    
     const [step, setStep] = useState('upload');
     const [csvFile, setCsvFile] = useState(null);
     const [analysis, setAnalysis] = useState(null);
@@ -326,3 +329,6 @@ export function ModuleImportModal({ projectId, onClose, onImportComplete }) {
         </div>
     );
 }
+
+// Expose globally for use in App.jsx
+window.ModuleImportModal = ModuleImportModal;
