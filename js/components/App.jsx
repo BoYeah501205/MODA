@@ -708,7 +708,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [searchTerm, setSearchTerm] = useState('');
             const [stageFilter, setStageFilter] = useState('all');
             
-            // Keyboard shortcuts (minimal - removed tab navigation to avoid conflicts with Weekly Board)
+            // Keyboard shortcuts
             useEffect(() => {
                 const handleKeyDown = (e) => {
                     // Don't trigger shortcuts when typing in inputs
@@ -724,6 +724,23 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         setShowProjectModal(false);
                         setShowImportModal(false);
                         setShowDataManagement(false);
+                        return;
+                    }
+                    
+                    // Tab navigation with number keys (1-9)
+                    if (!ctrl && !e.altKey && /^[1-9]$/.test(key)) {
+                        const tabIndex = parseInt(key) - 1;
+                        const visibleTabs = [
+                            'executive', 'production', 'projects', 'people', 'qa', 
+                            'transport', 'equipment', 'precon', 'onsite', 'engineering', 
+                            'automation', 'tracker'
+                        ].filter(tab => auth.visibleTabs.includes(tab));
+                        
+                        if (tabIndex < visibleTabs.length) {
+                            e.preventDefault();
+                            setActiveTab(visibleTabs[tabIndex]);
+                            setSelectedProject(null);
+                        }
                         return;
                     }
                     
@@ -745,7 +762,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 
                 document.addEventListener('keydown', handleKeyDown);
                 return () => document.removeEventListener('keydown', handleKeyDown);
-            }, [activeTab, auth.isAdmin]);
+            }, [activeTab, auth.visibleTabs, auth.isAdmin]);
             
             // People Module State
             const [employees, setEmployees] = useState([]);
@@ -1138,7 +1155,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     )}
 
                     {/* Main Content */}
-                    <main className={(activeTab === 'production' || activeTab === 'drawings' || activeTab === 'projects') ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
+                    <main className="max-w-7xl mx-auto px-4 py-6">
                         {/* Dashboard Home - Feature flagged */}
                         {activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                             window.DashboardHome ? (
@@ -1239,23 +1256,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                         )}
 
-                        {activeTab === 'supplychain' && (
-                            window.ProcurementBoard ? (
-                                <window.ProcurementBoard 
-                                    projects={projects}
-                                    auth={auth}
-                                />
-                            ) : (
-                                <div className="text-center py-20">
-                                    <div className="text-6xl mb-4">
-                                        <span className="icon-supply-chain" style={{ width: '64px', height: '64px', display: 'inline-block' }}></span>
-                                    </div>
-                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Supply Chain</h2>
-                                    <p className="text-gray-600">Loading Supply Chain Module...</p>
-                                </div>
-                            )
-                        )}
-
                         {activeTab === 'equipment' && (
                             <div className="bg-white rounded-lg shadow-sm">
                                 {window.EquipmentApp ? <window.EquipmentApp /> : <div className="p-8 text-center text-gray-500">Loading Equipment Module...</div>}
@@ -1328,14 +1328,66 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         )}
 
                         {activeTab === 'admin' && auth.canAccessAdmin && (
-                            window.AdminPanel ? (
-                                <window.AdminPanel 
-                                    auth={auth} 
-                                    onOpenDataManagement={() => setShowDataManagement(true)} 
-                                />
-                            ) : (
-                                <div className="p-8 text-center text-gray-500">Loading Admin Panel...</div>
-                            )
+                            <>
+                                {/* Data Management Button */}
+                                <div className="mb-6">
+                                    <div className="bg-white rounded-lg shadow p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h2 className="text-xl font-bold" style={{color: 'var(--autovol-navy)'}}>Data Management</h2>
+                                                <p className="text-gray-600 text-sm mt-1">Manage trash, backup and restore data</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => setShowDataManagement(true)}
+                                                className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center gap-2"
+                                            >
+                                                <span className="icon-settings" style={{width: '16px', height: '16px', display: 'inline-block'}}></span>
+                                                Open Data Management
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* User Permissions Manager */}
+                                <div className="mb-6">
+                                    {window.UserPermissionsManager ? (
+                                        <window.UserPermissionsManager auth={auth} />
+                                    ) : (
+                                        <div className="bg-white rounded-lg shadow p-6">
+                                            <h2 className="text-xl font-bold mb-4" style={{color: 'var(--autovol-navy)'}}>User Management</h2>
+                                            <p className="text-gray-600 mb-4">Manage users through Supabase Dashboard or the People module.</p>
+                                            <a 
+                                                href="https://supabase.com/dashboard/project/syreuphexagezawjyjgt/auth/users" 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                                            >
+                                                Open Supabase Auth Dashboard
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Role Manager */}
+                                <div className="mt-6">
+                                    {window.DashboardRoleManager ? <window.DashboardRoleManager auth={auth} /> : <div className="p-4 text-gray-500">Loading Role Manager...</div>}
+                                </div>
+                                {/* Activity Log */}
+                                <div className="mt-6">
+                                    <div className="bg-white rounded-lg shadow">
+                                        {window.ActivityLogViewer ? (
+                                            <window.ActivityLogViewer 
+                                                showFilters={true}
+                                                showExport={true}
+                                                maxHeight="500px"
+                                            />
+                                        ) : (
+                                            <div className="p-6">
+                                                <h2 className="text-xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Activity Log</h2>
+                                                <p className="text-gray-500">Activity logging module not loaded.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
                         )}
 
                         {activeTab === 'admin' && !auth.canAccessAdmin && (
@@ -1407,12 +1459,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             importData={importData}
                         />
                     )}
-                    
-                    {/* Version Footer - visible on all devices */}
-                    <footer className="text-center py-3 text-xs text-gray-400 border-t bg-white mt-auto">
-                        <span>MODA v{window.MODA_VERSION || '1.0.0'}</span>
-                        {window.MODA_IS_MOBILE && <span className="ml-2">(Mobile)</span>}
-                    </footer>
                 </div>
             );
         }
@@ -1515,9 +1561,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 setEngineeringIssues(prev => [newIssue, ...prev]);
                 setShowReportIssueModal(false);
                 setReportIssueContext(null);
-                if (window.MODA_TOAST) {
-                    window.MODA_TOAST.success(`Issue ${newIssue.issue_display_id} submitted successfully!`);
-                }
+                alert(`Issue ${newIssue.issue_display_id} submitted successfully!`);
             };
             
             const selectedProject = projects.find(p => p.id === selectedProjectId);
@@ -1948,9 +1992,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if (!formData.title || !formData.category || !formData.reportedBy) {
-                    if (window.MODA_TOAST) {
-                        window.MODA_TOAST.error('Please fill in Title, Category, and Your Name');
-                    }
+                    alert('Please fill in Title, Category, and Your Name');
                     return;
                 }
                 onSubmit(formData);
@@ -2179,7 +2221,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [goOnlineNotification, setGoOnlineNotification] = useState(null);
             const [importNotification, setImportNotification] = useState(null);
             const [showHeatMapMatrix, setShowHeatMapMatrix] = useState(false);
-            const [showSequenceHistory, setShowSequenceHistory] = useState(false);
             const [editingAbbreviation, setEditingAbbreviation] = useState(false);
             const [abbreviationValue, setAbbreviationValue] = useState(project.abbreviation || '');
 
@@ -2210,56 +2251,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // Get fresh project data from projects array to ensure we have latest modules
             const currentProject = projects.find(p => p.id === project.id) || project;
             const modules = currentProject.modules || [];
-            
-            // Detect duplicate values in modules (Serial, BuildSequence, BLM)
-            const duplicateWarnings = useMemo(() => {
-                const warnings = { serial: [], buildSequence: [], hitchBLM: [], rearBLM: [] };
-                const serialCounts = {};
-                const seqCounts = {};
-                const hitchBLMCounts = {};
-                const rearBLMCounts = {};
-                
-                modules.forEach(m => {
-                    // Count serials
-                    if (m.serialNumber) {
-                        serialCounts[m.serialNumber] = (serialCounts[m.serialNumber] || 0) + 1;
-                    }
-                    // Count build sequences (only integers, skip decimals from prototype insertion)
-                    if (m.buildSequence && Number.isInteger(m.buildSequence)) {
-                        seqCounts[m.buildSequence] = (seqCounts[m.buildSequence] || 0) + 1;
-                    }
-                    // Count hitch BLMs
-                    if (m.hitchBLM) {
-                        hitchBLMCounts[m.hitchBLM] = (hitchBLMCounts[m.hitchBLM] || 0) + 1;
-                    }
-                    // Count rear BLMs
-                    if (m.rearBLM) {
-                        rearBLMCounts[m.rearBLM] = (rearBLMCounts[m.rearBLM] || 0) + 1;
-                    }
-                });
-                
-                // Find duplicates
-                Object.entries(serialCounts).forEach(([val, count]) => {
-                    if (count > 1) warnings.serial.push({ value: val, count });
-                });
-                Object.entries(seqCounts).forEach(([val, count]) => {
-                    if (count > 1) warnings.buildSequence.push({ value: val, count });
-                });
-                Object.entries(hitchBLMCounts).forEach(([val, count]) => {
-                    if (count > 1) warnings.hitchBLM.push({ value: val, count });
-                });
-                Object.entries(rearBLMCounts).forEach(([val, count]) => {
-                    if (count > 1) warnings.rearBLM.push({ value: val, count });
-                });
-                
-                return warnings;
-            }, [modules]);
-            
-            // Check if there are any duplicate warnings
-            const hasDuplicateWarnings = duplicateWarnings.serial.length > 0 || 
-                                         duplicateWarnings.buildSequence.length > 0 || 
-                                         duplicateWarnings.hitchBLM.length > 0 ||
-                                         duplicateWarnings.rearBLM.length > 0;
             
             // Toggle difficulty filter
             const toggleDifficultyFilter = (key) => {
@@ -2416,9 +2407,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 setEngineeringIssues(prev => [newIssue, ...prev]);
                 setShowReportIssueModal(false);
                 setReportIssueContext(null);
-                if (window.MODA_TOAST) {
-                    window.MODA_TOAST.success(`Issue ${newIssue.issue_display_id} submitted successfully!`);
-                }
+                alert(`Issue ${newIssue.issue_display_id} submitted successfully!`);
             };
             
             // Update project modules
@@ -2577,15 +2566,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 </button>
                             )}
                             {canManageImports && (
-                                <button
-                                    onClick={() => setShowSequenceHistory(true)}
-                                    className="px-4 py-2 btn-secondary rounded-lg transition flex items-center gap-2"
-                                    title="View build sequence change history"
-                                >
-                                    Sequence History
-                                </button>
-                            )}
-                            {canManageImports && (
                                 <>
                                     <button
                                         onClick={() => {
@@ -2726,56 +2706,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             Showing {filteredModules.length} of {modules.length} modules
                         </p>
                     </div>
-                    
-                    {/* Duplicate Warnings Banner */}
-                    {hasDuplicateWarnings && (
-                        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
-                            <div className="flex items-start gap-3">
-                                <span className="text-amber-500 text-xl">&#9888;</span>
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-amber-800">Duplicate Values Detected</h4>
-                                    <p className="text-sm text-amber-700 mb-2">The following duplicate values were found in this project's modules:</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                        {duplicateWarnings.serial.length > 0 && (
-                                            <div className="bg-white rounded p-2 border border-amber-200">
-                                                <span className="font-medium text-red-700">Serial Numbers:</span>
-                                                <span className="ml-2 text-gray-700">
-                                                    {duplicateWarnings.serial.map(d => `${d.value} (${d.count}x)`).join(', ')}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {duplicateWarnings.buildSequence.length > 0 && (
-                                            <div className="bg-white rounded p-2 border border-amber-200">
-                                                <span className="font-medium text-red-700">Build Sequences:</span>
-                                                <span className="ml-2 text-gray-700">
-                                                    {duplicateWarnings.buildSequence.map(d => `#${d.value} (${d.count}x)`).join(', ')}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {duplicateWarnings.hitchBLM.length > 0 && (
-                                            <div className="bg-white rounded p-2 border border-amber-200">
-                                                <span className="font-medium text-orange-700">Hitch BLMs:</span>
-                                                <span className="ml-2 text-gray-700">
-                                                    {duplicateWarnings.hitchBLM.map(d => `${d.value} (${d.count}x)`).join(', ')}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {duplicateWarnings.rearBLM.length > 0 && (
-                                            <div className="bg-white rounded p-2 border border-amber-200">
-                                                <span className="font-medium text-orange-700">Rear BLMs:</span>
-                                                <span className="ml-2 text-gray-700">
-                                                    {duplicateWarnings.rearBLM.map(d => `${d.value} (${d.count}x)`).join(', ')}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-amber-600 mt-2">
-                                        Use "Import Modules" with corrected data to fix these issues. Drawings are linked by module ID, not sequence number.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Module Grid/List */}
                     <div className="bg-white rounded-lg shadow">
@@ -3054,14 +2984,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
 
                     {/* Import Modal */}
                     {showImportModal && (
-                        <ModuleImportModal 
-                            projectId={project.id}
+                        <ImportModal 
                             onClose={() => setShowImportModal(false)}
-                            onImportComplete={(result) => {
-                                setShowImportModal(false);
-                                loadModules();
-                                alert(`Import complete!\n${result.inserted} modules added\n${result.updated} modules updated${result.errors.length > 0 ? `\n${result.errors.length} errors` : ''}`);
-                            }}
+                            onImport={handleImport}
                         />
                     )}
 
@@ -3191,18 +3116,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             <span className="font-medium">{importNotification.message}</span>
                             <button onClick={() => setImportNotification(null)} className="text-blue-600 hover:text-blue-800 ml-2">×</button>
                         </div>
-                    )}
-                    
-                    {/* Build Sequence History Modal */}
-                    {showSequenceHistory && window.BuildSequenceHistory && (
-                        <window.BuildSequenceHistory
-                            projectId={project.id}
-                            projectName={project.name}
-                            modules={modules}
-                            setProjects={setProjects}
-                            auth={auth}
-                            onClose={() => setShowSequenceHistory(false)}
-                        />
                     )}
                 </div>
             );
@@ -3952,53 +3865,56 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const displayModule = editMode ? editingModule : module;
 
             const handleOpenShopDrawing = async () => {
-                // Try the Drawings Module system - directly query and open file
-                if (window.MODA_SUPABASE_DRAWINGS?.isAvailable?.()) {
+                // First, try the new Drawings Module system
+                if (window.MODA_MODULE_DRAWINGS?.isAvailable()) {
                     try {
-                        const blmToCheck = [displayModule.hitchBLM, displayModule.rearBLM].filter(Boolean);
-                        const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
-                            project.id, 'shop-module-packages'
-                        );
-                        let matchedDrawing = null;
-                        for (const blm of blmToCheck) {
-                            const normalizedBLM = blm.toUpperCase().replace(/[_\-\s]/g, '');
-                            const levelModulePart = normalizedBLM.match(/L\d+M\d+/)?.[0] || normalizedBLM;
-                            matchedDrawing = drawings.find(d => {
-                                const fileName = d.name.toUpperCase().replace(/[_\-\s]/g, '');
-                                return fileName.includes(normalizedBLM) || fileName.includes(levelModulePart);
-                            });
-                            if (matchedDrawing) break;
+                        // Try searching by serial number first
+                        let hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.serialNumber);
+                        let searchTerm = displayModule.serialNumber;
+                        
+                        // If not found, try searching by BLM IDs
+                        if (!hasDrawings && displayModule.hitchBLM) {
+                            hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.hitchBLM);
+                            if (hasDrawings) searchTerm = displayModule.hitchBLM;
                         }
-                        if (matchedDrawing && matchedDrawing.versions?.length > 0) {
-                            const latestVersion = [...matchedDrawing.versions].sort((a, b) => 
-                                new Date(b.uploaded_at || b.uploadedAt) - new Date(a.uploaded_at || a.uploadedAt)
-                            )[0];
-                            const storagePath = latestVersion.storage_path || latestVersion.storagePath;
-                            const sharePointFileId = latestVersion.sharepoint_file_id || latestVersion.sharepointFileId;
-                            let url = await window.MODA_SUPABASE_DRAWINGS.versions.getViewUrl(storagePath, sharePointFileId);
-                            if (url) {
-                                url = url.includes('?') ? `${url}&_cb=${Date.now()}` : `${url}?_cb=${Date.now()}`;
-                                window.open(url, '_blank', 'noopener,noreferrer');
-                                return;
+                        if (!hasDrawings && displayModule.rearBLM && displayModule.rearBLM !== displayModule.hitchBLM) {
+                            hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.rearBLM);
+                            if (hasDrawings) searchTerm = displayModule.rearBLM;
+                        }
+                        
+                        if (hasDrawings) {
+                            // Open the Drawings Module filtered to this module
+                            // Navigate to Drawings tab with module filter
+                            if (window.location.hash !== '#drawings') {
+                                window.location.hash = 'drawings';
                             }
+                            // Store the search term for the Drawings Module to pick up
+                            sessionStorage.setItem('moda_drawings_module_filter', searchTerm);
+                            onClose();
+                            return;
                         }
                     } catch (error) {
-                        console.error('[Module Detail] Error fetching shop drawing:', error);
+                        console.error('[Module Detail] Error checking drawings:', error);
                     }
                 }
-                // Fallback to legacy shopDrawingLinks
+                
+                // Fallback to old shopDrawingLinks system
                 const shopDrawingLinks = project?.shopDrawingLinks || {};
                 const blmToCheck = [displayModule.hitchBLM, displayModule.rearBLM].filter(Boolean);
                 let foundUrl = null;
+                
                 for (const blm of blmToCheck) {
-                    if (shopDrawingLinks[blm]) { foundUrl = shopDrawingLinks[blm]; break; }
+                    if (shopDrawingLinks[blm]) {
+                        foundUrl = shopDrawingLinks[blm];
+                        break;
+                    }
                 }
+                
                 if (foundUrl) {
-                    foundUrl = foundUrl.includes('?') ? `${foundUrl}&_cb=${Date.now()}` : `${foundUrl}?_cb=${Date.now()}`;
-                    window.open(foundUrl, '_blank', 'noopener,noreferrer');
+                    window.open(foundUrl, '_blank');
                 } else {
                     const blmList = blmToCheck.length > 0 ? blmToCheck.join(', ') : 'No BLM';
-                    alert(`Shop Drawing Not Found\n\nNo shop drawing found for module ${displayModule.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings > Shop Drawings > Module Packages\n2. Upload a PDF with the BLM in the filename (e.g., "${blmToCheck[0] || 'B1L2M01'} - Shops.pdf")`);
+                    alert(`Shop Drawing Not Found\n\nNo shop drawing link found for module ${displayModule.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings → Shop Drawings → Module Packages\n2. Upload drawings to the folder for this module\n\nOr add legacy links: Projects → Edit Project → Shop Drawing Links.`);
                 }
             };
 
@@ -4639,63 +4555,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         // ============================================================================
         // EXTRACTED MODULES:
 
-// Error Boundary for iOS Safari crash recovery
-class ErrorBoundary extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { hasError: false, error: null, errorInfo: null };
-    }
-
-    static getDerivedStateFromError(error) {
-        return { hasError: true, error };
-    }
-
-    componentDidCatch(error, errorInfo) {
-        this.setState({ errorInfo });
-        console.error('[MODA ErrorBoundary]', error, errorInfo);
-        // Track for iOS diagnostics
-        if (window.MODA_LOAD_ERRORS) {
-            window.MODA_LOAD_ERRORS.push({
-                message: error.message,
-                stack: error.stack,
-                componentStack: errorInfo?.componentStack,
-                time: new Date().toISOString()
-            });
-        }
-    }
-
-    render() {
-        if (this.state.hasError) {
-            return (
-                <div style={{padding: '20px', textAlign: 'center', fontFamily: 'Inter, system-ui, sans-serif'}}>
-                    <h2 style={{color: '#1E3A5F', marginBottom: '16px'}}>Something went wrong</h2>
-                    <p style={{color: '#6b7280', marginBottom: '16px'}}>
-                        {this.state.error?.message || 'An unexpected error occurred'}
-                    </p>
-                    <button 
-                        onClick={() => window.location.reload()}
-                        style={{
-                            backgroundColor: '#1E3A5F',
-                            color: 'white',
-                            padding: '12px 24px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '16px'
-                        }}
-                    >
-                        Reload App
-                    </button>
-                    <p style={{color: '#9ca3af', fontSize: '12px', marginTop: '16px'}}>
-                        If this persists, try clearing your browser cache or using a different browser.
-                    </p>
-                </div>
-            );
-        }
-        return this.props.children;
-    }
-}
-
 function App() {
     // useAuth must be called unconditionally - React hooks rule
     // The hook itself handles the case when auth isn't ready
@@ -4710,54 +4569,16 @@ function App() {
     return <Dashboard auth={auth} />;
 }
 
-// Wrap App with ErrorBoundary for crash recovery
-function AppWithErrorBoundary() {
-    return (
-        <ErrorBoundary>
-            <App />
-        </ErrorBoundary>
-    );
-}
-
-// Export Dashboard for external access
-window.Dashboard = Dashboard;
-
 // Only render App after useAuth is available (unless another route already handled rendering)
 if (!window.MODA_ROUTE_HANDLED) {
-    const renderApp = () => {
-        try {
-            ReactDOM.render(<AppWithErrorBoundary />, document.getElementById('root'));
-            console.log('[MODA] App rendered successfully');
-        } catch (err) {
-            console.error('[MODA] Failed to render App:', err);
-            // Show error on iOS loading screen
-            const errorEl = document.getElementById('ios-error-msg');
-            if (errorEl) {
-                errorEl.style.display = 'block';
-                errorEl.textContent = 'Render error: ' + (err.message || 'Unknown');
-            }
-        }
-    };
-
     if (window.useAuth) {
-        renderApp();
+        ReactDOM.render(<App />, document.getElementById('root'));
     } else {
-        // Wait for AuthModule to load with timeout
-        let attempts = 0;
-        const maxAttempts = 100; // 5 seconds max
+        // Wait for AuthModule to load
         const checkAuth = setInterval(() => {
-            attempts++;
             if (window.useAuth) {
                 clearInterval(checkAuth);
-                renderApp();
-            } else if (attempts >= maxAttempts) {
-                clearInterval(checkAuth);
-                console.error('[MODA] Timeout waiting for useAuth');
-                const errorEl = document.getElementById('ios-error-msg');
-                if (errorEl) {
-                    errorEl.style.display = 'block';
-                    errorEl.textContent = 'Auth module failed to load. Please refresh.';
-                }
+                ReactDOM.render(<App />, document.getElementById('root'));
             }
         }, 50);
     }
