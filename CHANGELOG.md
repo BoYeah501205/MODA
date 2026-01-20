@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.1**
+**Current Version: 1.3.2**
 
 ---
+
+## [1.3.2] - 2025-01-20
+### Drawing Viewer Fix
+- **Inline PDF Viewing**: Clicking drawing filenames now opens PDFs inline in browser instead of triggering download
+- **SharePoint Preview Endpoint**: Uses Microsoft Graph preview API for proper browser display
 
 ## [1.3.1] - 2025-01-19
 ### Project Directory Enhancements

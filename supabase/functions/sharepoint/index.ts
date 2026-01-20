@@ -80,6 +80,18 @@ serve(async (req) => {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       result = { webUrl: data.webUrl };
+    }
+    else if (action === "preview") {
+      // Get preview URL that opens file inline in browser (not download)
+      // Uses SharePoint's preview endpoint which displays PDFs in browser
+      const url = "https://graph.microsoft.com/v1.0/sites/" + SITE_ID + "/drive/items/" + body.fileId + "/preview";
+      const res = await fetch(url, { 
+        method: "POST",
+        headers: { "Authorization": "Bearer " + accessToken }
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      result = { previewUrl: data.getUrl };
     } 
     else if (action === "createFolder") {
       const parentPath = body.parentPath || "";

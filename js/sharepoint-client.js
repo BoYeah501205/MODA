@@ -252,14 +252,15 @@
         },
         
         /**
-         * Get preview URL for a file (opens in browser without auth for PDFs)
-         * Uses download URL which is pre-authenticated and works for inline PDF viewing
+         * Get preview URL for a file (opens inline in browser, not download)
+         * Uses SharePoint's preview endpoint which displays PDFs in browser
          * @param {string} fileId - SharePoint file ID
          */
         async getPreviewUrl(fileId) {
-            const result = await callSharePoint('download', { fileId });
-            // The downloadUrl is pre-authenticated and browsers will display PDFs inline
-            return result.downloadUrl;
+            console.log('[SharePoint] Getting preview URL for fileId:', fileId);
+            const result = await callSharePoint('preview', { fileId });
+            console.log('[SharePoint] Preview result:', result);
+            return result.previewUrl;
         },
 
         /**
