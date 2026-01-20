@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.4**
+**Current Version: 1.3.5**
 
 ---
+
+## [1.3.5] - 2025-01-20
+### Project Drawings
+- **Project Number Sorting**: Project folder tiles now sorted by project number (highest first)
+- **Project Number Badge**: Displays project number badge on folder tiles
 
 ## [1.3.4] - 2025-01-20
 ### Bug Fixes

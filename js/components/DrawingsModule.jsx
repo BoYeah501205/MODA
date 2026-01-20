@@ -1467,14 +1467,23 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, []);
     
-    // Filter projects by search
+    // Filter and sort projects by search and project_number
     const filteredProjects = useMemo(() => {
-        if (!searchTerm) return projects;
-        const term = searchTerm.toLowerCase();
-        return projects.filter(p => 
-            p.name?.toLowerCase().includes(term) ||
-            p.location?.toLowerCase().includes(term)
-        );
+        // First filter by search term
+        let filtered = projects;
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            filtered = projects.filter(p => 
+                p.name?.toLowerCase().includes(term) ||
+                p.location?.toLowerCase().includes(term)
+            );
+        }
+        // Then sort by project_number (highest first, nulls at end)
+        return [...filtered].sort((a, b) => {
+            const aNum = parseInt(a.project_number) || 0;
+            const bNum = parseInt(b.project_number) || 0;
+            return bNum - aNum; // Descending order
+        });
     }, [projects, searchTerm]);
     
     // Breadcrumb navigation
@@ -1533,8 +1542,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         <button
                             key={project.id}
                             onClick={() => setSelectedProject(project)}
-                            className="bg-white rounded-lg border-2 border-gray-200 p-6 text-left hover:border-blue-400 hover:shadow-lg transition-all group"
+                            className="bg-white rounded-lg border-2 border-gray-200 p-6 text-left hover:border-blue-400 hover:shadow-lg transition-all group relative"
                         >
+                            {/* Project Number Badge */}
+                            {project.project_number && (
+                                <div className="absolute top-2 right-2 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">
+                                    #{project.project_number}
+                                </div>
+                            )}
                             <div className="flex items-start gap-4">
                                 <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-200 transition">
                                     <span className="icon-folder w-6 h-6" style={{ filter: 'invert(50%) sepia(90%) saturate(500%) hue-rotate(5deg)' }}></span>
