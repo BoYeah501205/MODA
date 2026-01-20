@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.0**
+**Current Version: 1.3.1**
 
 ---
+
+## [1.3.1] - 2025-01-19
+### Project Directory Enhancements
+- **Project Number Field**: Added new "Project #" column to Project Directory representing build-order for projects
+- **Default Sort**: Projects now sort by Project Number descending by default (newest/current projects at top)
+- **Edit/Create Support**: Project Number field added to both New Project and Edit Project modals
 
 ## [1.3.0] - 2025-01-19
 ### Build Sequence Management

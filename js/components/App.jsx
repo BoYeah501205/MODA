@@ -4354,6 +4354,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
 
         // New Project Modal
         function NewProjectModal({ onClose, onSave }) {
+            const [projectNumber, setProjectNumber] = useState('');
             const [name, setName] = useState('');
             const [abbreviation, setAbbreviation] = useState('');
             const [address, setAddress] = useState('');
@@ -4382,7 +4383,18 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                             
                             <div className="space-y-4">
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Project #</label>
+                                        <input
+                                            type="number"
+                                            value={projectNumber}
+                                            onChange={(e) => setProjectNumber(e.target.value)}
+                                            placeholder="e.g., 15"
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                                            min="1"
+                                        />
+                                    </div>
                                     <div className="col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
                                         <input
@@ -4529,6 +4541,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
                                 <button 
                                     onClick={() => onSave({ 
+                                        project_number: projectNumber ? parseInt(projectNumber) : null,
                                         name,
                                         abbreviation: abbreviation || undefined,
                                         address,

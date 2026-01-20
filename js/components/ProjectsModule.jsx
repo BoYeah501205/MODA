@@ -10,7 +10,7 @@
             const [editingProject, setEditingProject] = useState(null);
             const [deleteConfirm, setDeleteConfirm] = useState(null);
             const [searchQuery, setSearchQuery] = useState('');
-            const [sortField, setSortField] = useState('newest');
+            const [sortField, setSortField] = useState('project_number');
             const [sortDirection, setSortDirection] = useState('desc');
 
             // Multi-field search filter
@@ -46,7 +46,11 @@
             const sortedProjects = [...statusFilteredProjects].sort((a, b) => {
                 let aVal, bVal;
                 
-                if (sortField === 'newest') {
+                if (sortField === 'project_number') {
+                    // Sort by project number (numeric)
+                    aVal = parseInt(a.project_number) || 0;
+                    bVal = parseInt(b.project_number) || 0;
+                } else if (sortField === 'newest') {
                     // Projects with 0 modules go first (to remind user to add data)
                     const aHasModules = (a.modules?.length || 0) > 0;
                     const bHasModules = (b.modules?.length || 0) > 0;
@@ -216,6 +220,12 @@
                                     <thead className="bg-gray-50 border-b">
                                         <tr>
                                             <th 
+                                                className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none w-20"
+                                                onClick={() => handleSort('project_number')}
+                                            >
+                                                <span className="flex items-center"># <SortArrow field="project_number" /></span>
+                                            </th>
+                                            <th 
                                                 className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                                 onClick={() => handleSort('name')}
                                             >
@@ -259,6 +269,9 @@
                                                 className={`${!editMode ? 'hover:bg-blue-50 cursor-pointer' : 'hover:bg-gray-50'} transition-colors`}
                                                 onClick={() => !editMode && onSelectProject(project)}
                                             >
+                                                <td className="px-4 py-3 text-sm text-gray-600 font-medium">
+                                                    {project.project_number || <span className="text-gray-300">-</span>}
+                                                </td>
                                                 <td className="px-4 py-3">
                                                     <div className="font-medium text-gray-900">{project.name}</div>
                                                     {project.description && (
@@ -367,6 +380,7 @@
 
         // Edit Project Modal
         function EditProjectModal({ project, onClose, onSave }) {
+            const [projectNumber, setProjectNumber] = useState(project.project_number || '');
             const [name, setName] = useState(project.name || '');
             const [abbreviation, setAbbreviation] = useState(project.abbreviation || '');
             const [address, setAddress] = useState(project.address || '');
@@ -385,6 +399,7 @@
                 if (!name.trim()) return;
                 onSave({ 
                     ...project, 
+                    project_number: projectNumber ? parseInt(projectNumber) : null,
                     name: name.trim(),
                     abbreviation: abbreviation.trim(),
                     address: address.trim(),
@@ -408,7 +423,18 @@
                             </div>
                             
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Project #</label>
+                                        <input
+                                            type="number"
+                                            value={projectNumber}
+                                            onChange={(e) => setProjectNumber(e.target.value)}
+                                            placeholder="e.g., 15"
+                                            className="w-full px-3 py-2 border rounded-lg text-center"
+                                            min="1"
+                                        />
+                                    </div>
                                     <div className="col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
                                         <input
@@ -421,13 +447,13 @@
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Abbreviation</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Abbrev.</label>
                                         <input
                                             type="text"
                                             value={abbreviation}
                                             onChange={(e) => setAbbreviation(e.target.value.toUpperCase())}
-                                            placeholder="e.g., AC"
-                                            className="w-full px-3 py-2 border rounded-lg"
+                                            placeholder="AC"
+                                            className="w-full px-3 py-2 border rounded-lg text-center"
                                             maxLength={6}
                                         />
                                     </div>
