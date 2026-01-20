@@ -78,6 +78,15 @@
                     location: projectData.location || '',
                     modules: projectData.modules || [],
                     client: projectData.client || '',
+                    customer: projectData.customer || '',
+                    address: projectData.address || '',
+                    city: projectData.city || '',
+                    state: projectData.state || '',
+                    country: projectData.country || 'US',
+                    zip_code: projectData.zipCode || '',
+                    abbreviation: projectData.abbreviation || '',
+                    description: projectData.description || '',
+                    project_number: projectData.project_number || null,
                     start_date: projectData.startDate || null,
                     end_date: projectData.endDate || null
                 })

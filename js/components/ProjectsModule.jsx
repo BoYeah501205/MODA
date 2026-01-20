@@ -120,9 +120,20 @@
                 setDeleteConfirm(null);
             };
 
-            const handleUpdateProject = (updatedProject) => {
+            const handleUpdateProject = async (updatedProject) => {
+                // Optimistic update to local state
                 setProjects(projects.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p));
                 setEditingProject(null);
+                
+                // Save to Supabase if available
+                if (window.MODA_SUPABASE_DATA?.isAvailable?.() && window.MODA_SUPABASE_DATA?.projects?.update) {
+                    try {
+                        await window.MODA_SUPABASE_DATA.projects.update(updatedProject.id, updatedProject);
+                        console.log('[ProjectsDirectory] Project updated in Supabase:', updatedProject.id);
+                    } catch (err) {
+                        console.error('[ProjectsDirectory] Error saving to Supabase:', err);
+                    }
+                }
             };
 
             return (

@@ -11,6 +11,10 @@ All notable changes to MODA are documented in this file.
 - **Inline PDF Viewing**: Clicking drawing filenames now opens PDFs inline in browser instead of triggering download
 - **SharePoint Preview Endpoint**: Uses Microsoft Graph preview API for proper browser display
 
+### Bug Fixes
+- **Project Number Supabase Persistence**: Fixed project_number and other fields not saving to Supabase database
+- **Edit Project Supabase Sync**: Project edits now properly persist to Supabase (was only updating local state)
+
 ## [1.3.1] - 2025-01-19
 ### Project Directory Enhancements
 - **Project Number Field**: Added new "Project #" column to Project Directory representing build-order for projects
