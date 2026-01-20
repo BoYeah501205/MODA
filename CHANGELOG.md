@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.6**
+**Current Version: 1.3.7**
 
 ---
+
+## [1.3.7] - 2025-01-20
+### Drawing Links Fix
+- **Folder Navigation**: Replaced dropdown with folder/tile navigation for selecting drawing packages
+- **Direct Data Fetch**: Modals now fetch drawings directly from Supabase instead of relying on passed props
+- **Step-by-Step Flow**: Configure link: Select Discipline -> Select Drawing -> Set Page Number
 
 ## [1.3.6] - 2025-01-20
 ### Drawing Links Feature (Permit Drawings)

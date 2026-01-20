@@ -212,7 +212,7 @@ const DrawingLinksPanel = ({
             {showConfigureModal && (
                 <ConfigureLinkModal
                     link={showConfigureModal}
-                    drawings={drawings}
+                    projectId={projectId}
                     onSave={handleSaveLink}
                     onClose={() => setShowConfigureModal(null)}
                 />
@@ -221,7 +221,7 @@ const DrawingLinksPanel = ({
             {/* Add Link Modal */}
             {showAddModal && (
                 <AddLinkModal
-                    drawings={drawings}
+                    projectId={projectId}
                     onAdd={handleAddLink}
                     onClose={() => setShowAddModal(false)}
                 />
@@ -308,41 +308,105 @@ const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelet
 
 /**
  * Modal for configuring a link (selecting package and page)
+ * Uses folder/tile navigation to browse disciplines and select drawings
  */
-const ConfigureLinkModal = ({ link, drawings, onSave, onClose }) => {
-    const { useState, useMemo } = React;
+const ConfigureLinkModal = ({ link, projectId, onSave, onClose }) => {
+    const { useState, useEffect } = React;
     
-    const [selectedDrawing, setSelectedDrawing] = useState(
-        link.sharepoint_file_id ? drawings.find(d => {
-            const latestVersion = d.versions?.sort((a, b) => 
-                new Date(b.uploaded_at) - new Date(a.uploaded_at)
-            )[0];
-            return latestVersion?.sharepoint_file_id === link.sharepoint_file_id;
-        })?.id : ''
-    );
+    // Navigation state: 'disciplines' -> 'drawings' -> 'configure'
+    const [step, setStep] = useState('disciplines');
+    const [disciplines, setDisciplines] = useState([]);
+    const [selectedDiscipline, setSelectedDiscipline] = useState(null);
+    const [drawings, setDrawings] = useState([]);
+    const [selectedDrawing, setSelectedDrawing] = useState(null);
     const [pageNumber, setPageNumber] = useState(link.page_number || 1);
     const [description, setDescription] = useState(link.description || '');
+    const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
-    // Get permit drawings only (filter by discipline containing 'permit' or in permit category)
-    const permitDrawings = useMemo(() => {
-        return drawings.filter(d => {
-            const discipline = (d.discipline || '').toLowerCase();
-            return !discipline.includes('shop') && !discipline.includes('module');
-        });
-    }, [drawings]);
+    // Load disciplines (folders) for Permit Drawings category
+    useEffect(() => {
+        const loadDisciplines = async () => {
+            if (!projectId || !window.MODA_SUPABASE_DRAWINGS) {
+                setIsLoading(false);
+                return;
+            }
+            
+            setIsLoading(true);
+            try {
+                // Get custom folders for this project
+                const folders = await window.MODA_SUPABASE_DRAWINGS.folders.getByProject(projectId);
+                
+                // Filter to only Permit Drawings disciplines
+                const permitCategory = folders.find(f => 
+                    f.folder_type === 'category' && 
+                    (f.name === 'Permit Drawings' || f.name.toLowerCase().includes('permit'))
+                );
+                
+                if (permitCategory) {
+                    const permitDisciplines = folders.filter(f => 
+                        f.folder_type === 'discipline' && f.parent_id === permitCategory.id
+                    );
+                    setDisciplines(permitDisciplines);
+                } else {
+                    // Use default permit disciplines
+                    const defaultDisciplines = [
+                        { id: 'modular-architecture', name: 'Modular Architect Submittal', isDefault: true },
+                        { id: 'structural-plans', name: 'Structural Plans Submittal', isDefault: true },
+                        { id: 'mechanical', name: 'Mechanical Submittal', isDefault: true },
+                        { id: 'electrical', name: 'Electrical Submittal', isDefault: true },
+                        { id: 'fire-alarm', name: 'Fire Alarm Data Submittal', isDefault: true },
+                        { id: 'title-24', name: 'Title 24', isDefault: true },
+                    ];
+                    setDisciplines(defaultDisciplines);
+                }
+            } catch (error) {
+                console.error('[ConfigureLinkModal] Error loading disciplines:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        
+        loadDisciplines();
+    }, [projectId]);
     
+    // Load drawings when a discipline is selected
+    const handleSelectDiscipline = async (discipline) => {
+        setSelectedDiscipline(discipline);
+        setIsLoading(true);
+        
+        try {
+            // Fetch drawings for this discipline
+            const disciplineName = discipline.name || discipline.id;
+            const drawingsData = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                projectId,
+                disciplineName
+            );
+            setDrawings(drawingsData || []);
+            setStep('drawings');
+        } catch (error) {
+            console.error('[ConfigureLinkModal] Error loading drawings:', error);
+            setDrawings([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    // Handle selecting a drawing
+    const handleSelectDrawing = (drawing) => {
+        setSelectedDrawing(drawing);
+        setStep('configure');
+    };
+    
+    // Handle save
     const handleSave = async () => {
         if (!selectedDrawing) {
             alert('Please select a drawing package');
             return;
         }
         
-        const drawing = drawings.find(d => d.id === selectedDrawing);
-        if (!drawing) return;
-        
         // Get the latest version's SharePoint file ID
-        const latestVersion = drawing.versions?.sort((a, b) => 
+        const latestVersion = selectedDrawing.versions?.sort((a, b) => 
             new Date(b.uploaded_at) - new Date(a.uploaded_at)
         )[0];
         
@@ -359,73 +423,155 @@ const ConfigureLinkModal = ({ link, drawings, onSave, onClose }) => {
         }
     };
     
+    // Go back one step
+    const handleBack = () => {
+        if (step === 'configure') {
+            setStep('drawings');
+            setSelectedDrawing(null);
+        } else if (step === 'drawings') {
+            setStep('disciplines');
+            setSelectedDiscipline(null);
+            setDrawings([]);
+        }
+    };
+    
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                        Configure: {link.label}
-                    </h3>
-                </div>
-                
-                <div className="p-6 space-y-4">
-                    {/* Drawing Package Selection */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Drawing Package
-                        </label>
-                        <select
-                            value={selectedDrawing}
-                            onChange={(e) => setSelectedDrawing(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="">Select a drawing package...</option>
-                            {permitDrawings.map(d => (
-                                <option key={d.id} value={d.id}>
-                                    {d.name}
-                                </option>
-                            ))}
-                        </select>
-                        {permitDrawings.length === 0 && (
-                            <p className="text-xs text-amber-600 mt-1">
-                                No permit drawings uploaded yet. Upload drawings first.
-                            </p>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        {step !== 'disciplines' && (
+                            <button
+                                onClick={handleBack}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                            >
+                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
                         )}
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800">
+                                Configure: {link.label}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                                {step === 'disciplines' && 'Select a discipline folder'}
+                                {step === 'drawings' && `${selectedDiscipline?.name} - Select a drawing`}
+                                {step === 'configure' && `${selectedDrawing?.name} - Set page number`}
+                            </p>
+                        </div>
                     </div>
-                    
-                    {/* Page Number */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Page Number
-                        </label>
-                        <input
-                            type="number"
-                            min="1"
-                            value={pageNumber}
-                            onChange={(e) => setPageNumber(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Enter page number"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                            The specific page within the PDF to link to
-                        </p>
-                    </div>
-                    
-                    {/* Description (optional) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Description (optional)
-                        </label>
-                        <input
-                            type="text"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Additional notes about this link"
-                        />
-                    </div>
+                    <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
                 
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span className="ml-3 text-gray-500">Loading...</span>
+                        </div>
+                    ) : step === 'disciplines' ? (
+                        /* Discipline Tiles */
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {disciplines.map(discipline => (
+                                <button
+                                    key={discipline.id}
+                                    onClick={() => handleSelectDiscipline(discipline)}
+                                    className="p-4 bg-amber-50 border-2 border-amber-200 rounded-lg hover:border-amber-400 hover:bg-amber-100 transition-all text-left"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-amber-200 flex items-center justify-center">
+                                            <span className="icon-folder w-5 h-5 text-amber-700"></span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-gray-800 text-sm truncate">{discipline.name}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                            {disciplines.length === 0 && (
+                                <div className="col-span-full text-center py-8 text-gray-500">
+                                    No discipline folders found
+                                </div>
+                            )}
+                        </div>
+                    ) : step === 'drawings' ? (
+                        /* Drawing Tiles */
+                        <div className="space-y-2">
+                            {drawings.map(drawing => (
+                                <button
+                                    key={drawing.id}
+                                    onClick={() => handleSelectDrawing(drawing)}
+                                    className="w-full p-3 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-left flex items-center gap-3"
+                                >
+                                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-800 truncate">{drawing.name}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {drawing.versions?.length || 0} version(s)
+                                        </p>
+                                    </div>
+                                </button>
+                            ))}
+                            {drawings.length === 0 && (
+                                <div className="text-center py-8 text-gray-500">
+                                    <p>No drawings in this folder</p>
+                                    <p className="text-sm mt-1">Upload drawings to this discipline first</p>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        /* Configure Page Number */
+                        <div className="space-y-4">
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="font-medium text-blue-800">{selectedDrawing?.name}</p>
+                                <p className="text-sm text-blue-600 mt-1">from {selectedDiscipline?.name}</p>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Page Number *
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={pageNumber}
+                                    onChange={(e) => setPageNumber(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter page number"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    The specific page within the PDF to link to
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Description (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Additional notes about this link"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+                
+                {/* Footer */}
                 <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
                     <button
                         onClick={onClose}
@@ -433,13 +579,15 @@ const ConfigureLinkModal = ({ link, drawings, onSave, onClose }) => {
                     >
                         Cancel
                     </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving || !selectedDrawing}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {isSaving ? 'Saving...' : 'Save'}
-                    </button>
+                    {step === 'configure' && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving || !selectedDrawing}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {isSaving ? 'Saving...' : 'Save Link'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -448,39 +596,100 @@ const ConfigureLinkModal = ({ link, drawings, onSave, onClose }) => {
 
 /**
  * Modal for adding a new custom link
+ * Uses folder/tile navigation to browse disciplines and select drawings
  */
-const AddLinkModal = ({ drawings, onAdd, onClose }) => {
-    const { useState, useMemo } = React;
+const AddLinkModal = ({ projectId, onAdd, onClose }) => {
+    const { useState, useEffect } = React;
     
+    // Navigation state: 'label' -> 'disciplines' -> 'drawings' -> 'configure'
+    const [step, setStep] = useState('label');
     const [label, setLabel] = useState('');
-    const [selectedDrawing, setSelectedDrawing] = useState('');
+    const [disciplines, setDisciplines] = useState([]);
+    const [selectedDiscipline, setSelectedDiscipline] = useState(null);
+    const [drawings, setDrawings] = useState([]);
+    const [selectedDrawing, setSelectedDrawing] = useState(null);
     const [pageNumber, setPageNumber] = useState(1);
     const [description, setDescription] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
-    // Get permit drawings only
-    const permitDrawings = useMemo(() => {
-        return drawings.filter(d => {
-            const discipline = (d.discipline || '').toLowerCase();
-            return !discipline.includes('shop') && !discipline.includes('module');
-        });
-    }, [drawings]);
+    // Load disciplines when moving to that step
+    const loadDisciplines = async () => {
+        if (!projectId || !window.MODA_SUPABASE_DRAWINGS) return;
+        
+        setIsLoading(true);
+        try {
+            const folders = await window.MODA_SUPABASE_DRAWINGS.folders.getByProject(projectId);
+            const permitCategory = folders.find(f => 
+                f.folder_type === 'category' && 
+                (f.name === 'Permit Drawings' || f.name.toLowerCase().includes('permit'))
+            );
+            
+            if (permitCategory) {
+                const permitDisciplines = folders.filter(f => 
+                    f.folder_type === 'discipline' && f.parent_id === permitCategory.id
+                );
+                setDisciplines(permitDisciplines);
+            } else {
+                const defaultDisciplines = [
+                    { id: 'modular-architecture', name: 'Modular Architect Submittal', isDefault: true },
+                    { id: 'structural-plans', name: 'Structural Plans Submittal', isDefault: true },
+                    { id: 'mechanical', name: 'Mechanical Submittal', isDefault: true },
+                    { id: 'electrical', name: 'Electrical Submittal', isDefault: true },
+                    { id: 'fire-alarm', name: 'Fire Alarm Data Submittal', isDefault: true },
+                    { id: 'title-24', name: 'Title 24', isDefault: true },
+                ];
+                setDisciplines(defaultDisciplines);
+            }
+        } catch (error) {
+            console.error('[AddLinkModal] Error loading disciplines:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
     
-    const handleAdd = async () => {
+    // Handle proceeding from label step
+    const handleLabelNext = () => {
         if (!label.trim()) {
             alert('Please enter a label for the link');
             return;
         }
-        if (!selectedDrawing) {
-            alert('Please select a drawing package');
-            return;
+        setStep('disciplines');
+        loadDisciplines();
+    };
+    
+    // Load drawings when a discipline is selected
+    const handleSelectDiscipline = async (discipline) => {
+        setSelectedDiscipline(discipline);
+        setIsLoading(true);
+        
+        try {
+            const disciplineName = discipline.name || discipline.id;
+            const drawingsData = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                projectId,
+                disciplineName
+            );
+            setDrawings(drawingsData || []);
+            setStep('drawings');
+        } catch (error) {
+            console.error('[AddLinkModal] Error loading drawings:', error);
+            setDrawings([]);
+        } finally {
+            setIsLoading(false);
         }
+    };
+    
+    // Handle selecting a drawing
+    const handleSelectDrawing = (drawing) => {
+        setSelectedDrawing(drawing);
+        setStep('configure');
+    };
+    
+    // Handle add
+    const handleAdd = async () => {
+        if (!selectedDrawing) return;
         
-        const drawing = drawings.find(d => d.id === selectedDrawing);
-        if (!drawing) return;
-        
-        // Get the latest version's SharePoint file ID
-        const latestVersion = drawing.versions?.sort((a, b) => 
+        const latestVersion = selectedDrawing.versions?.sort((a, b) => 
             new Date(b.uploaded_at) - new Date(a.uploaded_at)
         )[0];
         
@@ -499,79 +708,168 @@ const AddLinkModal = ({ drawings, onAdd, onClose }) => {
         }
     };
     
+    // Go back one step
+    const handleBack = () => {
+        if (step === 'configure') {
+            setStep('drawings');
+            setSelectedDrawing(null);
+        } else if (step === 'drawings') {
+            setStep('disciplines');
+            setSelectedDiscipline(null);
+            setDrawings([]);
+        } else if (step === 'disciplines') {
+            setStep('label');
+        }
+    };
+    
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                        Add Custom Link
-                    </h3>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        {step !== 'label' && (
+                            <button
+                                onClick={handleBack}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                            >
+                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                        )}
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800">
+                                Add Custom Link
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                                {step === 'label' && 'Enter a label for the link'}
+                                {step === 'disciplines' && 'Select a discipline folder'}
+                                {step === 'drawings' && `${selectedDiscipline?.name} - Select a drawing`}
+                                {step === 'configure' && `${selectedDrawing?.name} - Set page number`}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
                 
-                <div className="p-6 space-y-4">
-                    {/* Link Label */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Link Label *
-                        </label>
-                        <input
-                            type="text"
-                            value={label}
-                            onChange={(e) => setLabel(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="e.g., Foundation Plan, Roof Framing"
-                        />
-                    </div>
-                    
-                    {/* Drawing Package Selection */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Drawing Package *
-                        </label>
-                        <select
-                            value={selectedDrawing}
-                            onChange={(e) => setSelectedDrawing(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="">Select a drawing package...</option>
-                            {permitDrawings.map(d => (
-                                <option key={d.id} value={d.id}>
-                                    {d.name}
-                                </option>
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span className="ml-3 text-gray-500">Loading...</span>
+                        </div>
+                    ) : step === 'label' ? (
+                        /* Label Input */
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Link Label *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={label}
+                                    onChange={(e) => setLabel(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="e.g., Foundation Plan, Roof Framing"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                    ) : step === 'disciplines' ? (
+                        /* Discipline Tiles */
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {disciplines.map(discipline => (
+                                <button
+                                    key={discipline.id}
+                                    onClick={() => handleSelectDiscipline(discipline)}
+                                    className="p-4 bg-amber-50 border-2 border-amber-200 rounded-lg hover:border-amber-400 hover:bg-amber-100 transition-all text-left"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-amber-200 flex items-center justify-center">
+                                            <span className="icon-folder w-5 h-5 text-amber-700"></span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-gray-800 text-sm truncate">{discipline.name}</p>
+                                        </div>
+                                    </div>
+                                </button>
                             ))}
-                        </select>
-                    </div>
-                    
-                    {/* Page Number */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Page Number
-                        </label>
-                        <input
-                            type="number"
-                            min="1"
-                            value={pageNumber}
-                            onChange={(e) => setPageNumber(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Enter page number"
-                        />
-                    </div>
-                    
-                    {/* Description (optional) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Description (optional)
-                        </label>
-                        <input
-                            type="text"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Additional notes"
-                        />
-                    </div>
+                        </div>
+                    ) : step === 'drawings' ? (
+                        /* Drawing Tiles */
+                        <div className="space-y-2">
+                            {drawings.map(drawing => (
+                                <button
+                                    key={drawing.id}
+                                    onClick={() => handleSelectDrawing(drawing)}
+                                    className="w-full p-3 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-left flex items-center gap-3"
+                                >
+                                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-800 truncate">{drawing.name}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {drawing.versions?.length || 0} version(s)
+                                        </p>
+                                    </div>
+                                </button>
+                            ))}
+                            {drawings.length === 0 && (
+                                <div className="text-center py-8 text-gray-500">
+                                    <p>No drawings in this folder</p>
+                                    <p className="text-sm mt-1">Upload drawings to this discipline first</p>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        /* Configure Page Number */
+                        <div className="space-y-4">
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-sm text-gray-600">Creating link:</p>
+                                <p className="font-semibold text-blue-800">{label}</p>
+                                <p className="text-sm text-blue-600 mt-1">{selectedDrawing?.name}</p>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Page Number *
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={pageNumber}
+                                    onChange={(e) => setPageNumber(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter page number"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Description (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Additional notes"
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
                 
+                {/* Footer */}
                 <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
                     <button
                         onClick={onClose}
@@ -579,13 +877,24 @@ const AddLinkModal = ({ drawings, onAdd, onClose }) => {
                     >
                         Cancel
                     </button>
-                    <button
-                        onClick={handleAdd}
-                        disabled={isSaving || !label.trim() || !selectedDrawing}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {isSaving ? 'Adding...' : 'Add Link'}
-                    </button>
+                    {step === 'label' && (
+                        <button
+                            onClick={handleLabelNext}
+                            disabled={!label.trim()}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Next
+                        </button>
+                    )}
+                    {step === 'configure' && (
+                        <button
+                            onClick={handleAdd}
+                            disabled={isSaving || !selectedDrawing}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {isSaving ? 'Adding...' : 'Add Link'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

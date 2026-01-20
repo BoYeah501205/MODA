@@ -3,29 +3,40 @@
 -- Stores quick-access links to specific pages within permit drawing packages
 -- ============================================================================
 
+-- Drop existing table if needed (comment out if you want to preserve data)
+-- DROP TABLE IF EXISTS drawing_links CASCADE;
+
 -- Create drawing_links table
 CREATE TABLE IF NOT EXISTS drawing_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     
     -- Link target information
-    package_path TEXT NOT NULL,              -- SharePoint path or storage path to PDF
-    sharepoint_file_id TEXT,                 -- SharePoint file ID for direct access
+    package_path TEXT NOT NULL DEFAULT '',   -- SharePoint path or storage path to PDF
+    sharepoint_file_id TEXT DEFAULT NULL,    -- SharePoint file ID for direct access
     page_number INTEGER NOT NULL DEFAULT 1,  -- 1-indexed page number
     
     -- Link metadata
     label TEXT NOT NULL,                     -- Display label (e.g., "Shear Schedule")
-    description TEXT,                        -- Optional detailed description
+    description TEXT DEFAULT NULL,           -- Optional detailed description
     is_preset BOOLEAN DEFAULT false,         -- True for default preset links
     
     -- Region coordinates for future Phase 2 (nullable for now)
-    region JSONB,                            -- {x, y, width, height} for zoom-to-region
+    region JSONB DEFAULT NULL,               -- {x, y, width, height} for zoom-to-region
     
     -- Audit fields
     created_by TEXT NOT NULL DEFAULT 'System',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add missing columns if table already exists (safe to run multiple times)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'drawing_links' AND column_name = 'sharepoint_file_id') THEN
+        ALTER TABLE drawing_links ADD COLUMN sharepoint_file_id TEXT DEFAULT NULL;
+    END IF;
+END $$;
 
 -- Create indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_drawing_links_project ON drawing_links(project_id);
