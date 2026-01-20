@@ -319,14 +319,26 @@
                 let pdfUrl;
                 
                 if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.isAvailable()) {
-                    // Get preview URL from SharePoint (this is a direct download URL)
-                    pdfUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
+                    // Get download URL from SharePoint (need actual file bytes for pdf-lib)
+                    console.log('[Drawing Links] Getting download URL for:', link.sharepoint_file_id);
+                    pdfUrl = await window.MODA_SHAREPOINT.getDownloadUrl(link.sharepoint_file_id);
+                    console.log('[Drawing Links] Download URL:', pdfUrl);
                 } else if (link.package_path) {
                     // Use package_path directly if it's a URL
                     pdfUrl = link.package_path;
                 }
 
                 if (!pdfUrl) {
+                    // Fallback: try to open via SharePoint preview with page number
+                    if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
+                        const previewUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
+                        if (previewUrl) {
+                            // Open preview URL with page fragment
+                            const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
+                            window.open(`${previewUrl}#page=${pageNum}`, '_blank');
+                            return true;
+                        }
+                    }
                     throw new Error('Could not get PDF URL');
                 }
 
@@ -335,6 +347,19 @@
                 return await this.extractAndOpenPage(pdfUrl, link.page_number, fileName);
             } catch (error) {
                 console.error('[Drawing Links] Error opening link:', error);
+                // Final fallback: open SharePoint preview
+                if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
+                    try {
+                        const previewUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
+                        if (previewUrl) {
+                            const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
+                            window.open(`${previewUrl}#page=${pageNum}`, '_blank');
+                            return true;
+                        }
+                    } catch (e) {
+                        console.error('[Drawing Links] Fallback also failed:', e);
+                    }
+                }
                 alert('Error opening drawing link: ' + error.message);
                 return false;
             }

@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.9**
+**Current Version: 1.3.10**
 
 ---
+
+## [1.3.10] - 2025-01-20
+### Drawing Links Fix - Page Extraction
+- **Fixed PDF URL**: Use getDownloadUrl instead of getPreviewUrl for pdf-lib extraction
+- **Fallback Support**: Falls back to SharePoint preview with #page=N fragment if extraction fails
 
 ## [1.3.9] - 2025-01-20
 ### Drawing Links Enhancements
