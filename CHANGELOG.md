@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.2**
+**Current Version: 1.3.3**
 
 ---
+
+## [1.3.3] - 2025-01-20
+### Keyboard Shortcuts
+- **Removed Tab Navigation Shortcuts**: Disabled number keys (1-9) from switching tabs to prevent accidental navigation
 
 ## [1.3.2] - 2025-01-20
 ### Drawing Viewer Fix

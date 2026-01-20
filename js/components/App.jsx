@@ -727,23 +727,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         return;
                     }
                     
-                    // Tab navigation with number keys (1-9)
-                    if (!ctrl && !e.altKey && /^[1-9]$/.test(key)) {
-                        const tabIndex = parseInt(key) - 1;
-                        const visibleTabs = [
-                            'executive', 'production', 'projects', 'people', 'qa', 
-                            'transport', 'equipment', 'precon', 'onsite', 'engineering', 
-                            'automation', 'tracker'
-                        ].filter(tab => auth.visibleTabs.includes(tab));
-                        
-                        if (tabIndex < visibleTabs.length) {
-                            e.preventDefault();
-                            setActiveTab(visibleTabs[tabIndex]);
-                            setSelectedProject(null);
-                        }
-                        return;
-                    }
-                    
                     // Ctrl+E: Export data (admin only)
                     if (ctrl && key === 'e' && auth.isAdmin) {
                         e.preventDefault();
