@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.7**
+**Current Version: 1.3.8**
 
 ---
+
+## [1.3.8] - 2025-01-20
+### Drawing Links Fix - Discipline Matching
+- **Flexible Discipline Matching**: Fetch all project drawings and filter client-side to handle discipline ID/name mismatches
+- **Improved Search**: Match drawings by discipline ID, name, or partial match
 
 ## [1.3.7] - 2025-01-20
 ### Drawing Links Fix

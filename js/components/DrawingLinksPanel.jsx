@@ -376,13 +376,23 @@ const ConfigureLinkModal = ({ link, projectId, onSave, onClose }) => {
         setIsLoading(true);
         
         try {
-            // Fetch drawings for this discipline
-            const disciplineName = discipline.name || discipline.id;
-            const drawingsData = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
-                projectId,
-                disciplineName
-            );
-            setDrawings(drawingsData || []);
+            // Fetch ALL drawings for this project, then filter by discipline
+            // This handles cases where discipline is stored as ID or name
+            const allDrawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProject(projectId);
+            
+            // Filter by discipline - match by ID, name, or partial match
+            const disciplineId = discipline.id || '';
+            const disciplineName = discipline.name || '';
+            
+            const filteredDrawings = allDrawings.filter(d => {
+                const drawingDiscipline = (d.discipline || '').toLowerCase();
+                return drawingDiscipline === disciplineId.toLowerCase() ||
+                       drawingDiscipline === disciplineName.toLowerCase() ||
+                       disciplineName.toLowerCase().includes(drawingDiscipline) ||
+                       drawingDiscipline.includes(disciplineName.toLowerCase().split(' ')[0]);
+            });
+            
+            setDrawings(filteredDrawings);
             setStep('drawings');
         } catch (error) {
             console.error('[ConfigureLinkModal] Error loading drawings:', error);
@@ -664,12 +674,21 @@ const AddLinkModal = ({ projectId, onAdd, onClose }) => {
         setIsLoading(true);
         
         try {
-            const disciplineName = discipline.name || discipline.id;
-            const drawingsData = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
-                projectId,
-                disciplineName
-            );
-            setDrawings(drawingsData || []);
+            // Fetch ALL drawings for this project, then filter by discipline
+            const allDrawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProject(projectId);
+            
+            const disciplineId = discipline.id || '';
+            const disciplineName = discipline.name || '';
+            
+            const filteredDrawings = allDrawings.filter(d => {
+                const drawingDiscipline = (d.discipline || '').toLowerCase();
+                return drawingDiscipline === disciplineId.toLowerCase() ||
+                       drawingDiscipline === disciplineName.toLowerCase() ||
+                       disciplineName.toLowerCase().includes(drawingDiscipline) ||
+                       drawingDiscipline.includes(disciplineName.toLowerCase().split(' ')[0]);
+            });
+            
+            setDrawings(filteredDrawings);
             setStep('drawings');
         } catch (error) {
             console.error('[AddLinkModal] Error loading drawings:', error);
