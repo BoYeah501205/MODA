@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.3**
+**Current Version: 1.3.4**
 
 ---
+
+## [1.3.4] - 2025-01-20
+### Bug Fixes
+- **Project Update Field Mapping**: Fixed Supabase update method to properly map frontend field names (camelCase) to database column names (snake_case)
+- **Project Number Persistence**: project_number now correctly saves to database on edit
 
 ## [1.3.3] - 2025-01-20
 ### Keyboard Shortcuts

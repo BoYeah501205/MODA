@@ -106,12 +106,37 @@
         async update(projectId, updates) {
             if (!isAvailable()) throw new Error('Supabase not available');
             
+            // Map frontend field names to database column names
+            const dbUpdates = {
+                updated_at: new Date().toISOString()
+            };
+            
+            // Only include fields that have values and map to correct column names
+            if (updates.name !== undefined) dbUpdates.name = updates.name;
+            if (updates.status !== undefined) dbUpdates.status = updates.status;
+            if (updates.location !== undefined) dbUpdates.location = updates.location;
+            if (updates.modules !== undefined) dbUpdates.modules = updates.modules;
+            if (updates.client !== undefined) dbUpdates.client = updates.client;
+            if (updates.customer !== undefined) dbUpdates.customer = updates.customer;
+            if (updates.address !== undefined) dbUpdates.address = updates.address;
+            if (updates.city !== undefined) dbUpdates.city = updates.city;
+            if (updates.state !== undefined) dbUpdates.state = updates.state;
+            if (updates.country !== undefined) dbUpdates.country = updates.country;
+            if (updates.zipCode !== undefined) dbUpdates.zip_code = updates.zipCode;
+            if (updates.zip_code !== undefined) dbUpdates.zip_code = updates.zip_code;
+            if (updates.abbreviation !== undefined) dbUpdates.abbreviation = updates.abbreviation;
+            if (updates.description !== undefined) dbUpdates.description = updates.description;
+            if (updates.project_number !== undefined) dbUpdates.project_number = updates.project_number;
+            if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+            if (updates.start_date !== undefined) dbUpdates.start_date = updates.start_date;
+            if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+            if (updates.end_date !== undefined) dbUpdates.end_date = updates.end_date;
+            
+            console.log('[Projects] Updating with:', dbUpdates);
+            
             const { data, error } = await getClient()
                 .from('projects')
-                .update({
-                    ...updates,
-                    updated_at: new Date().toISOString()
-                })
+                .update(dbUpdates)
                 .eq('id', projectId)
                 .select()
                 .single();
