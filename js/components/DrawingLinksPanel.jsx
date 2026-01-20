@@ -260,7 +260,9 @@ const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelet
                     <span className="font-medium">{link.label}</span>
                     {isConfigured && link.page_number && (
                         <span className="text-xs bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded">
-                            Page {link.page_number}
+                            {String(link.page_number).includes(',') || String(link.page_number).includes('-') 
+                                ? `Pages ${link.page_number}` 
+                                : `Page ${link.page_number}`}
                         </span>
                     )}
                 </div>
@@ -546,22 +548,41 @@ const ConfigureLinkModal = ({ link, projectId, onSave, onClose }) => {
                             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                 <p className="font-medium text-blue-800">{selectedDrawing?.name}</p>
                                 <p className="text-sm text-blue-600 mt-1">from {selectedDiscipline?.name}</p>
+                                {/* Preview link to browse the PDF */}
+                                <button
+                                    onClick={async () => {
+                                        const latestVersion = selectedDrawing.versions?.sort((a, b) => 
+                                            new Date(b.uploaded_at) - new Date(a.uploaded_at)
+                                        )[0];
+                                        if (latestVersion?.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
+                                            const url = await window.MODA_SHAREPOINT.getPreviewUrl(latestVersion.sharepoint_file_id);
+                                            window.open(url, '_blank');
+                                        } else if (latestVersion?.file_url) {
+                                            window.open(latestVersion.file_url, '_blank');
+                                        }
+                                    }}
+                                    className="mt-2 text-sm text-blue-700 hover:text-blue-900 underline flex items-center gap-1"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                    Open PDF to find page numbers
+                                </button>
                             </div>
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Page Number *
+                                    Page Number(s) *
                                 </label>
                                 <input
-                                    type="number"
-                                    min="1"
+                                    type="text"
                                     value={pageNumber}
                                     onChange={(e) => setPageNumber(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter page number"
+                                    placeholder="e.g., 5 or 3,7,12 or 1-5"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
-                                    The specific page within the PDF to link to
+                                    Single page (5), multiple pages (3,7,12), or range (1-5)
                                 </p>
                             </div>
                             
@@ -856,20 +877,42 @@ const AddLinkModal = ({ projectId, onAdd, onClose }) => {
                                 <p className="text-sm text-gray-600">Creating link:</p>
                                 <p className="font-semibold text-blue-800">{label}</p>
                                 <p className="text-sm text-blue-600 mt-1">{selectedDrawing?.name}</p>
+                                {/* Preview link to browse the PDF */}
+                                <button
+                                    onClick={async () => {
+                                        const latestVersion = selectedDrawing.versions?.sort((a, b) => 
+                                            new Date(b.uploaded_at) - new Date(a.uploaded_at)
+                                        )[0];
+                                        if (latestVersion?.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
+                                            const url = await window.MODA_SHAREPOINT.getPreviewUrl(latestVersion.sharepoint_file_id);
+                                            window.open(url, '_blank');
+                                        } else if (latestVersion?.file_url) {
+                                            window.open(latestVersion.file_url, '_blank');
+                                        }
+                                    }}
+                                    className="mt-2 text-sm text-blue-700 hover:text-blue-900 underline flex items-center gap-1"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                    Open PDF to find page numbers
+                                </button>
                             </div>
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Page Number *
+                                    Page Number(s) *
                                 </label>
                                 <input
-                                    type="number"
-                                    min="1"
+                                    type="text"
                                     value={pageNumber}
                                     onChange={(e) => setPageNumber(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter page number"
+                                    placeholder="e.g., 5 or 3,7,12 or 1-5"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Single page (5), multiple pages (3,7,12), or range (1-5)
+                                </p>
                             </div>
                             
                             <div>

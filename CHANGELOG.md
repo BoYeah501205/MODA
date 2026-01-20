@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.8**
+**Current Version: 1.3.9**
 
 ---
+
+## [1.3.9] - 2025-01-20
+### Drawing Links Enhancements
+- **PDF Preview Link**: Added "Open PDF to find page numbers" hyperlink to browse the drawing package
+- **Multiple Page Support**: Now supports single page (5), comma-separated (3,7,12), or ranges (1-5)
+- **Smart Page Display**: Shows "Page X" for single pages, "Pages X,Y,Z" for multiple
 
 ## [1.3.8] - 2025-01-20
 ### Drawing Links Fix - Discipline Matching

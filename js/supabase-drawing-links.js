@@ -199,20 +199,58 @@
 
     const PDFUtils = {
         /**
-         * Extract a single page from a PDF and open it in a new tab
+         * Parse page number string into array of page numbers
+         * Supports: single (5), comma-separated (3,7,12), ranges (1-5), or mixed (1-3,7,10-12)
+         * @param {string|number} pageInput - Page number input
+         * @returns {number[]} Array of 1-indexed page numbers
+         */
+        parsePageNumbers(pageInput) {
+            if (typeof pageInput === 'number') return [pageInput];
+            if (!pageInput) return [1];
+            
+            const pageStr = String(pageInput).trim();
+            const pages = [];
+            
+            // Split by comma
+            const parts = pageStr.split(',').map(p => p.trim()).filter(p => p);
+            
+            for (const part of parts) {
+                if (part.includes('-')) {
+                    // Range: "1-5"
+                    const [start, end] = part.split('-').map(n => parseInt(n.trim(), 10));
+                    if (!isNaN(start) && !isNaN(end) && start <= end) {
+                        for (let i = start; i <= end; i++) {
+                            if (!pages.includes(i)) pages.push(i);
+                        }
+                    }
+                } else {
+                    // Single number
+                    const num = parseInt(part, 10);
+                    if (!isNaN(num) && !pages.includes(num)) {
+                        pages.push(num);
+                    }
+                }
+            }
+            
+            return pages.sort((a, b) => a - b);
+        },
+
+        /**
+         * Extract pages from a PDF and open in a new tab
          * Uses pdf-lib for extraction
          * @param {string} pdfUrl - URL to the source PDF
-         * @param {number} pageNumber - 1-indexed page number to extract
+         * @param {string|number} pageInput - Page number(s): single (5), multiple (3,7,12), or range (1-5)
          * @param {string} fileName - Optional filename for the extracted page
          */
-        async extractAndOpenPage(pdfUrl, pageNumber, fileName = 'extracted-page.pdf') {
-            console.log('[Drawing Links] Extracting page', pageNumber, 'from:', pdfUrl);
+        async extractAndOpenPage(pdfUrl, pageInput, fileName = 'extracted-page.pdf') {
+            const pageNumbers = this.parsePageNumbers(pageInput);
+            console.log('[Drawing Links] Extracting pages', pageNumbers, 'from:', pdfUrl);
 
             // Check if pdf-lib is available
             if (typeof PDFLib === 'undefined') {
                 console.error('[Drawing Links] pdf-lib not loaded');
-                // Fallback: open full PDF with page fragment
-                window.open(`${pdfUrl}#page=${pageNumber}`, '_blank');
+                // Fallback: open full PDF with page fragment (first page only)
+                window.open(`${pdfUrl}#page=${pageNumbers[0]}`, '_blank');
                 return;
             }
 
@@ -228,14 +266,17 @@
                 const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
                 const totalPages = pdfDoc.getPageCount();
 
-                if (pageNumber < 1 || pageNumber > totalPages) {
-                    throw new Error(`Page ${pageNumber} out of range (1-${totalPages})`);
+                // Validate page numbers
+                const validPages = pageNumbers.filter(p => p >= 1 && p <= totalPages);
+                if (validPages.length === 0) {
+                    throw new Error(`No valid pages in range 1-${totalPages}`);
                 }
 
-                // Create a new PDF with just the requested page
+                // Create a new PDF with the requested pages
                 const newPdfDoc = await PDFLib.PDFDocument.create();
-                const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [pageNumber - 1]); // 0-indexed
-                newPdfDoc.addPage(copiedPage);
+                const pageIndices = validPages.map(p => p - 1); // Convert to 0-indexed
+                const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+                copiedPages.forEach(page => newPdfDoc.addPage(page));
 
                 // Save the new PDF
                 const newPdfBytes = await newPdfDoc.save();
@@ -252,12 +293,12 @@
                     URL.revokeObjectURL(blobUrl);
                 }, 60000); // 1 minute
 
-                console.log('[Drawing Links] Extracted page opened in new tab');
+                console.log('[Drawing Links] Extracted', validPages.length, 'page(s) opened in new tab');
                 return true;
             } catch (error) {
                 console.error('[Drawing Links] Page extraction failed:', error);
                 // Fallback: open full PDF with page fragment
-                window.open(`${pdfUrl}#page=${pageNumber}`, '_blank');
+                window.open(`${pdfUrl}#page=${pageNumbers[0]}`, '_blank');
                 return false;
             }
         },
