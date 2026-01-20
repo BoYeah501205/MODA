@@ -1746,6 +1746,16 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     </div>
                 </div>
                 
+                {/* Drawing Links Panel - Only show for Permit Drawings category */}
+                {(currentCategory?.name === 'Permit Drawings' || selectedCategory === 'permit-drawings') && window.DrawingLinksPanel && (
+                    <DrawingLinksPanel
+                        projectId={selectedProject?.id}
+                        projectName={selectedProject?.name}
+                        drawings={currentDrawings}
+                        auth={auth}
+                    />
+                )}
+                
                 {/* Disciplines Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {disciplines.map(discipline => {

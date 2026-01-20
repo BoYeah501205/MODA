@@ -2,9 +2,23 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.5**
+**Current Version: 1.3.6**
 
 ---
+
+## [1.3.6] - 2025-01-20
+### Drawing Links Feature (Permit Drawings)
+- **Linked Details Panel**: New collapsible panel in Permit Drawings view for quick-access links to specific pages
+- **Preset Links**: Default links for Shear Schedule, Window Schedule, Door Schedule, Set Sequence
+- **Custom Links**: Add custom links with label, drawing package, and page number
+- **Page Extraction**: Clicking a link extracts the specific page and opens it in a new browser tab
+- **Permission Control**: Only Admin and Production Management roles can configure/add links
+- **pdf-lib Integration**: Added pdf-lib library for client-side PDF page extraction
+
+### Files Added
+- `backend/create-drawing-links-table.sql` - Supabase migration for drawing_links table
+- `js/supabase-drawing-links.js` - Data access layer for drawing links CRUD
+- `js/components/DrawingLinksPanel.jsx` - UI component for linked details
 
 ## [1.3.5] - 2025-01-20
 ### Project Drawings

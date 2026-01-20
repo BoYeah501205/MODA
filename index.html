@@ -11,8 +11,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.3.5">
-    <script>window.MODA_VERSION = '1.3.5'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.3.6">
+    <script>window.MODA_VERSION = '1.3.6'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -161,6 +161,9 @@
     <!-- PDF.js for Yard Map - deferred, worker configured on first use -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';"></script>
     
+    <!-- pdf-lib for PDF page extraction (Drawing Links feature) -->
+    <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    
     <!-- Tesseract.js for OCR - REMOVED: Not currently needed, ~2MB library
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     -->
@@ -270,6 +273,7 @@
     <script src="./js/supabase-procurement.js"></script>
     <script src="./js/supabase-drawings.js"></script>
     <script src="./js/supabase-drawing-sheets.js"></script>
+    <script src="./js/supabase-drawing-links.js"></script>
     <!-- Tesseract OCR module - disabled until needed
     <script src="./js/tesseract-ocr.js"></script>
     -->
@@ -345,6 +349,7 @@
     <script type="text/babel" src="./js/components/ReportsHub.jsx"></script>
     
     <!-- Drawings Module -->
+    <script type="text/babel" src="./js/components/DrawingLinksPanel.jsx"></script>
     <script type="text/babel" src="./js/components/DrawingsModule.jsx"></script>
     <script type="text/babel" src="./js/components/PDFViewerModal.jsx"></script>
     <script type="text/babel" src="./js/components/DrawingStatusLog.jsx"></script>
