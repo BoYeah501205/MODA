@@ -867,7 +867,16 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
     // Update a prototype's buildSequence based on "Insert After" selection
     // Stores original build sequence so it can be restored later
     const handleInsertAfter = (protoModule, afterModuleSerial) => {
-        if (!afterModuleSerial || !setProjects) return;
+        console.log('[PrototypeScheduling] handleInsertAfter called:', {
+            protoSerial: protoModule.serialNumber,
+            afterSerial: afterModuleSerial,
+            hasSetProjects: !!setProjects
+        });
+        
+        if (!afterModuleSerial || !setProjects) {
+            console.warn('[PrototypeScheduling] Missing afterModuleSerial or setProjects');
+            return;
+        }
         
         // Search in both regular modules and scheduled prototypes
         let afterModule = sortedModules.find(m => m.serialNumber === afterModuleSerial);
@@ -875,28 +884,36 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
             // Check if it's a scheduled prototype
             afterModule = prototypeModules.find(m => m.serialNumber === afterModuleSerial);
         }
-        if (!afterModule) return;
+        if (!afterModule) {
+            console.warn('[PrototypeScheduling] Could not find afterModule:', afterModuleSerial);
+            return;
+        }
         
         const newBuildSeq = getNextDecimalSlot(afterModule.buildSequence);
+        console.log('[PrototypeScheduling] Calculated newBuildSeq:', newBuildSeq, 'after:', afterModule.buildSequence);
         
         // Update the module in projects - store original sequence for restoration
-        setProjects(prev => prev.map(project => {
-            if (project.id !== protoModule.projectId) return project;
-            return {
-                ...project,
-                modules: (project.modules || []).map(m => {
-                    if (m.id !== protoModule.id) return m;
-                    // Store original build sequence if not already stored
-                    const originalSeq = m.originalBuildSequence || m.buildSequence;
-                    return { 
-                        ...m, 
-                        buildSequence: newBuildSeq, 
-                        insertedAfter: afterModuleSerial,
-                        originalBuildSequence: originalSeq
-                    };
-                })
-            };
-        }));
+        setProjects(prev => {
+            const updated = prev.map(project => {
+                if (project.id !== protoModule.projectId) return project;
+                return {
+                    ...project,
+                    modules: (project.modules || []).map(m => {
+                        if (m.id !== protoModule.id) return m;
+                        // Store original build sequence if not already stored
+                        const originalSeq = m.originalBuildSequence || m.buildSequence;
+                        console.log('[PrototypeScheduling] Updating module:', m.serialNumber, 'with insertedAfter:', afterModuleSerial);
+                        return { 
+                            ...m, 
+                            buildSequence: newBuildSeq, 
+                            insertedAfter: afterModuleSerial,
+                            originalBuildSequence: originalSeq
+                        };
+                    })
+                };
+            });
+            return updated;
+        });
         
         setExpandedProto(null);
     };
@@ -2045,6 +2062,12 @@ function WeeklyBoardTab({
     
     // Handle prototype placement - insert after target module
     const handlePlacePrototypeLocal = useCallback((prototype, afterModule, position) => {
+        console.log('[WeeklyBoard] handlePlacePrototypeLocal called:', {
+            prototype: prototype.serialNumber,
+            afterModule: afterModule.serialNumber,
+            position,
+            hasSetProjects: !!setProjects
+        });
         if (!setProjects || !prototype) return;
         
         // Calculate the new decimal build sequence
@@ -2072,22 +2095,30 @@ function WeeklyBoardTab({
         newBuildSeq = Math.round(newBuildSeq * 100) / 100; // Round to 2 decimals
         
         // Update the prototype module with new build sequence
-        setProjects(prev => prev.map(project => {
-            if (project.id !== prototype.projectId) return project;
-            return {
-                ...project,
-                modules: (project.modules || []).map(m => {
-                    if (m.id !== prototype.id) return m;
-                    const originalSeq = m.originalBuildSequence || m.buildSequence;
-                    return { 
-                        ...m, 
-                        buildSequence: newBuildSeq, 
-                        insertedAfter: afterModule.serialNumber,
-                        originalBuildSequence: originalSeq
-                    };
-                })
-            };
-        }));
+        console.log('[WeeklyBoard] Updating prototype with:', { newBuildSeq, insertedAfter: afterModule.serialNumber, prototypeProjectId: prototype.projectId });
+        setProjects(prev => {
+            const targetProject = prev.find(p => p.id === prototype.projectId);
+            console.log('[WeeklyBoard] Found target project:', targetProject?.name, 'with', targetProject?.modules?.length, 'modules');
+            
+            const updated = prev.map(project => {
+                if (project.id !== prototype.projectId) return project;
+                return {
+                    ...project,
+                    modules: (project.modules || []).map(m => {
+                        if (m.id !== prototype.id) return m;
+                        const originalSeq = m.originalBuildSequence || m.buildSequence;
+                        console.log('[WeeklyBoard] Updating module:', m.serialNumber, 'insertedAfter:', afterModule.serialNumber);
+                        return { 
+                            ...m, 
+                            buildSequence: newBuildSeq, 
+                            insertedAfter: afterModule.serialNumber,
+                            originalBuildSequence: originalSeq
+                        };
+                    })
+                };
+            });
+            return updated;
+        });
         
         // Exit placement mode
         setLocalPlacementMode(null);

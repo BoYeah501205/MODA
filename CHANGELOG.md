@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.19**
+**Current Version: 1.3.20**
 
 ---
+
+## [1.3.20] - 2025-01-21
+### Debug Logging for Prototype Placement
+- **Console Logging**: Added detailed logging to trace prototype placement flow
+- **Troubleshooting**: Logs show prototype update calls and project/module matching
 
 ## [1.3.19] - 2025-01-21
 ### Prototype Board Placement Fix
