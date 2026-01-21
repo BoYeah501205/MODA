@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.14**
+**Current Version: 1.3.15**
 
 ---
+
+## [1.3.15] - 2025-01-21
+### Prototype Scheduling UX Improvements
+- **Place on Board Button**: Added green "Place on Board" button in Schedule Setup prototype section
+- **Visual Placement Mode**: Click button to enter placement mode on Weekly Board with green line indicator
+- **Green Line Indicator**: Hover over modules to see green placement line (similar to blue reorder line)
+- **Week Navigation Arrows**: Added left/right arrows next to week dropdown for quick navigation between populated weeks
+- **Placement Banner**: Shows active prototype being placed with cancel option
 
 ## [1.3.14] - 2025-01-21
 ### iPad PDF Viewer Fix

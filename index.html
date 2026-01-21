@@ -11,8 +11,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.3.14">
-    <script>window.MODA_VERSION = '1.3.14'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.3.15">
+    <script>window.MODA_VERSION = '1.3.15'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -255,6 +255,9 @@
     
     <!-- Feature Flags (Dashboard Migration) -->
     <script src="./js/config/featureFlags.js"></script>
+    
+    <!-- Mobile Feature Configuration -->
+    <script src="./js/config/mobileFeatures.js"></script>
     
     <!-- MODA Core (Data Layer + Roles) -->
     <script src="./js/core/moda-core.js"></script>

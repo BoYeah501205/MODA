@@ -1022,7 +1022,17 @@ function ScheduleSetupTab({
     initialEditWeekId = null, // Week ID to open edit modal for (from WeeklyBoard Edit Week button)
     onEditWeekHandled = null // Callback when edit week has been handled
 }) {
-    const { useState } = React;
+    const { useState, useCallback } = React;
+    
+    // Handle "Place on Board" button click - stores prototype in localStorage and navigates to Weekly Board
+    const handlePlaceOnBoard = useCallback((prototype) => {
+        // Store prototype in localStorage for WeeklyBoardTab to pick up
+        localStorage.setItem('moda_prototype_placement', JSON.stringify(prototype));
+        // Navigate to Weekly Board tab if callback provided
+        if (onViewWeek) {
+            onViewWeek(null); // null means current week
+        }
+    }, [onViewWeek]);
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
     const shift2Days = ['friday', 'saturday', 'sunday'];
     const dayLabels = {
@@ -1634,7 +1644,7 @@ function ScheduleSetupTab({
                 sortedModules={sortedModules}
                 projects={projects}
                 setProjects={setProjects}
-                onPlaceOnBoard={onPlacePrototype}
+                onPlaceOnBoard={handlePlaceOnBoard}
             />
             
             {/* Info Note */}
@@ -1873,6 +1883,11 @@ function WeeklyBoardTab({
     // Mobile detection
     const isMobile = window.useIsMobile ? window.useIsMobile(768) : false;
     
+    // Check if a feature should be hidden on mobile
+    const isFeatureHiddenOnMobile = (featureId) => {
+        return isMobile && window.MODA_MOBILE_CONFIG?.isFeatureHidden('production', featureId);
+    };
+    
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
@@ -1956,6 +1971,85 @@ function WeeklyBoardTab({
     
     // ===== PROTOTYPE PLACEMENT MODE =====
     const [placementTarget, setPlacementTarget] = useState(null); // { moduleId, position: 'before' | 'after' }
+    const [localPlacementMode, setLocalPlacementMode] = useState(null); // Prototype module being placed (from localStorage)
+    
+    // Check localStorage for prototype placement on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('moda_prototype_placement');
+            if (saved) {
+                const prototype = JSON.parse(saved);
+                setLocalPlacementMode(prototype);
+                // Clear localStorage after reading
+                localStorage.removeItem('moda_prototype_placement');
+                console.log('[WeeklyBoard] Entering placement mode for prototype:', prototype.serialNumber);
+            }
+        } catch (e) {
+            console.error('[WeeklyBoard] Error reading prototype placement from localStorage:', e);
+        }
+    }, []);
+    
+    // Use either prop-based or localStorage-based placement mode
+    const activePlacementMode = prototypePlacementMode || localPlacementMode;
+    
+    // Cancel placement mode handler
+    const handleCancelPlacement = useCallback(() => {
+        setLocalPlacementMode(null);
+        setPlacementTarget(null);
+        if (onCancelPlacement) onCancelPlacement();
+    }, [onCancelPlacement]);
+    
+    // Handle prototype placement - insert after target module
+    const handlePlacePrototypeLocal = useCallback((prototype, afterModule, position) => {
+        if (!setProjects || !prototype) return;
+        
+        // Calculate the new decimal build sequence
+        const afterSeq = afterModule.buildSequence || 0;
+        const baseSeq = position === 'before' ? Math.floor(afterSeq) - 1 : Math.floor(afterSeq);
+        
+        // Find existing decimals in this range to avoid conflicts
+        const allModules = (projects || []).flatMap(p => p.modules || []);
+        const existingDecimals = allModules
+            .filter(m => m.buildSequence > baseSeq && m.buildSequence < baseSeq + 1)
+            .map(m => m.buildSequence);
+        
+        let newBuildSeq;
+        if (position === 'before') {
+            // Insert before: use afterSeq - 0.1 or find available slot
+            newBuildSeq = existingDecimals.length === 0 
+                ? afterSeq - 0.1 
+                : Math.min(...existingDecimals) - 0.1;
+        } else {
+            // Insert after: use afterSeq + 0.1 or next available
+            newBuildSeq = existingDecimals.length === 0 
+                ? afterSeq + 0.1 
+                : Math.max(...existingDecimals) + 0.1;
+        }
+        newBuildSeq = Math.round(newBuildSeq * 100) / 100; // Round to 2 decimals
+        
+        // Update the prototype module with new build sequence
+        setProjects(prev => prev.map(project => {
+            if (project.id !== prototype.projectId) return project;
+            return {
+                ...project,
+                modules: (project.modules || []).map(m => {
+                    if (m.id !== prototype.id) return m;
+                    const originalSeq = m.originalBuildSequence || m.buildSequence;
+                    return { 
+                        ...m, 
+                        buildSequence: newBuildSeq, 
+                        insertedAfter: afterModule.serialNumber,
+                        originalBuildSequence: originalSeq
+                    };
+                })
+            };
+        }));
+        
+        // Exit placement mode
+        setLocalPlacementMode(null);
+        setPlacementTarget(null);
+        addToast(`Prototype ${prototype.serialNumber} placed after ${afterModule.serialNumber} (Seq: ${newBuildSeq})`, 'success');
+    }, [projects, setProjects, addToast]);
     
     // ===== PDF EXPORT =====
     const [showPDFExport, setShowPDFExport] = useState(false);
@@ -3521,7 +3615,7 @@ const getProjectAcronym = (module) => {
         // Check if this module has a pending reorder
         const pendingReorder = pendingReorders.find(r => r.moduleId === module.id);
         const isDragTarget = dragOverTarget?.moduleId === module.id;
-        const isPlacementTarget = prototypePlacementMode && placementTarget?.moduleId === module.id;
+        const isPlacementTarget = activePlacementMode && placementTarget?.moduleId === module.id;
         
         // Determine indicator class: green for placement mode, blue for reorder mode
         let dropIndicatorClass = '';
@@ -3546,19 +3640,19 @@ const getProjectAcronym = (module) => {
                 data-cell-key={getSelectionKey(module.id, station.id)}
                 className={`rounded p-1.5 transition-all hover:shadow-md ${bgClass} ${borderClass} ${dropIndicatorClass} ${
                     reorderMode ? 'cursor-grab active:cursor-grabbing' : ''
-                } ${prototypePlacementMode ? 'cursor-pointer hover:ring-2 hover:ring-green-400' : ''
+                } ${activePlacementMode ? 'cursor-pointer hover:ring-2 hover:ring-green-400' : ''
                 } ${pendingReorder ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${
                     isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : ''
                 }`}
                 style={{ height: `${CARD_HEIGHT}px` }}
-                draggable={reorderMode && !prototypePlacementMode}
+                draggable={reorderMode && !activePlacementMode}
                 onDragStart={(e) => handleDragStart(e, module)}
                 onDragEnd={handleDragEnd}
                 onDragOver={(e) => handleDragOver(e, module)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, module)}
                 onMouseMove={(e) => {
-                    if (!prototypePlacementMode) return;
+                    if (!activePlacementMode) return;
                     const rect = e.currentTarget.getBoundingClientRect();
                     const midY = rect.top + rect.height / 2;
                     const position = e.clientY < midY ? 'before' : 'after';
@@ -3567,15 +3661,14 @@ const getProjectAcronym = (module) => {
                     }
                 }}
                 onMouseLeave={() => {
-                    if (prototypePlacementMode && placementTarget?.moduleId === module.id) {
+                    if (activePlacementMode && placementTarget?.moduleId === module.id) {
                         setPlacementTarget(null);
                     }
                 }}
                 onClick={(e) => {
-                    if (prototypePlacementMode && onPlacePrototype) {
+                    if (activePlacementMode) {
                         e.stopPropagation();
-                        onPlacePrototype(prototypePlacementMode, module, placementTarget?.position || 'after');
-                        setPlacementTarget(null);
+                        handlePlacePrototypeLocal(activePlacementMode, module, placementTarget?.position || 'after');
                     }
                 }}
                 onContextMenu={(e) => handleContextMenu(e, module.id, station.id)}
@@ -4340,8 +4433,8 @@ const getProjectAcronym = (module) => {
                     </div>
                 </div>
                 
-                {/* Selection Toolbar */}
-                {selectedModules.size > 0 && (
+                {/* Selection Toolbar - hidden on mobile */}
+                {selectedModules.size > 0 && !isFeatureHiddenOnMobile('bulkOperations') && (
                     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white rounded-xl shadow-2xl border-2 border-blue-500 p-3 flex items-center gap-4">
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -4409,18 +4502,18 @@ const getProjectAcronym = (module) => {
     
     return (
         <div className="space-y-4">
-            {/* Prototype Placement Mode Banner */}
-            {prototypePlacementMode && (
+            {/* Prototype Placement Mode Banner - hidden on mobile */}
+            {activePlacementMode && !isFeatureHiddenOnMobile('prototypePlacement') && (
                 <div className="bg-green-50 border-2 border-green-400 rounded-lg px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <span className="text-yellow-500 text-xl">★</span>
                         <div>
-                            <div className="font-semibold text-green-800">Placement Mode: {prototypePlacementMode.serialNumber}</div>
+                            <div className="font-semibold text-green-800">Placement Mode: {activePlacementMode.serialNumber}</div>
                             <div className="text-sm text-green-700">Click on a module to insert the prototype after it. The green line shows where it will be placed.</div>
                         </div>
                     </div>
                     <button
-                        onClick={onCancelPlacement}
+                        onClick={handleCancelPlacement}
                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium"
                     >
                         Cancel
@@ -4429,7 +4522,7 @@ const getProjectAcronym = (module) => {
             )}
             
             {/* View-Only Banner */}
-            {!canEdit && !prototypePlacementMode && (
+            {!canEdit && !activePlacementMode && (
                 <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 flex items-center gap-3">
                     <span className="text-xl">👁️</span>
                     <div>
@@ -4451,21 +4544,23 @@ const getProjectAcronym = (module) => {
                     
                     {/* Week Selector with Navigation Arrows */}
                     <div className="relative flex items-center gap-1">
-                        {/* Previous Week Arrow */}
-                        <button
-                            onClick={() => navigateWeek(-1)}
-                            disabled={(() => {
-                                const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
-                                const currentIndex = sortedWeeks.findIndex(w => w.id === (selectedWeekId || currentWeek?.id));
-                                return currentIndex <= 0;
-                            })()}
-                            className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Previous Week"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="15 18 9 12 15 6"/>
-                            </svg>
-                        </button>
+                        {/* Previous Week Arrow - hidden on mobile */}
+                        {!isFeatureHiddenOnMobile('weekNavArrows') && (
+                            <button
+                                onClick={() => navigateWeek(-1)}
+                                disabled={(() => {
+                                    const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+                                    const currentIndex = sortedWeeks.findIndex(w => w.id === (selectedWeekId || currentWeek?.id));
+                                    return currentIndex <= 0;
+                                })()}
+                                className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Previous Week"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="15 18 9 12 15 6"/>
+                                </svg>
+                            </button>
+                        )}
                         
                         {/* Week Dropdown */}
                         <button
@@ -4488,21 +4583,23 @@ const getProjectAcronym = (module) => {
                             <span className="text-gray-400">&#9662;</span>
                         </button>
                         
-                        {/* Next Week Arrow */}
-                        <button
-                            onClick={() => navigateWeek(1)}
-                            disabled={(() => {
-                                const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
-                                const currentIndex = sortedWeeks.findIndex(w => w.id === (selectedWeekId || currentWeek?.id));
-                                return currentIndex >= sortedWeeks.length - 1;
-                            })()}
-                            className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Next Week"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="9 18 15 12 9 6"/>
-                            </svg>
-                        </button>
+                        {/* Next Week Arrow - hidden on mobile */}
+                        {!isFeatureHiddenOnMobile('weekNavArrows') && (
+                            <button
+                                onClick={() => navigateWeek(1)}
+                                disabled={(() => {
+                                    const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+                                    const currentIndex = sortedWeeks.findIndex(w => w.id === (selectedWeekId || currentWeek?.id));
+                                    return currentIndex >= sortedWeeks.length - 1;
+                                })()}
+                                className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Next Week"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
+                            </button>
+                        )}
                         
                         {showWeekPicker && (
                             <CalendarWeekPicker
@@ -4551,14 +4648,14 @@ const getProjectAcronym = (module) => {
                         </button>
                     </div>
                     
-                    {/* Reorder Mode Toggle - only show if canEdit */}
-                    {canEdit && !reorderMode && (
+                    {/* Reorder Mode Toggle - only show if canEdit, hidden on mobile */}
+                    {canEdit && !reorderMode && !isFeatureHiddenOnMobile('reorderMode') && (
                         <button
                             onClick={() => setReorderMode(true)}
                             className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium"
                             title="Enter reorder mode to drag and drop modules"
                         >
-                            📋 Reorder
+                            Reorder
                         </button>
                     )}
                     {canEdit && reorderMode && (
@@ -4578,7 +4675,8 @@ const getProjectAcronym = (module) => {
                             </button>
                         </div>
                     )}
-                    {canEdit && (
+                    {/* Edit Week - hidden on mobile */}
+                    {canEdit && !isFeatureHiddenOnMobile('editWeekButton') && (
                         <button
                             onClick={() => {
                                 if (onEditWeek && displayWeek?.id) {
@@ -4590,7 +4688,7 @@ const getProjectAcronym = (module) => {
                             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
                             title="Change week configuration"
                         >
-                            ⚙️ Edit Week
+                            Edit Week
                         </button>
                     )}
                     <button
@@ -4599,7 +4697,8 @@ const getProjectAcronym = (module) => {
                     >
                         📊 Week History
                     </button>
-                    {!isPopout && (
+                    {/* Pop Out - hidden on mobile */}
+                    {!isPopout && !isFeatureHiddenOnMobile('popoutWindow') && (
                         <button
                             onClick={() => {
                                 const popoutUrl = window.location.origin + '/weekly-board-popout.html';
@@ -4623,12 +4722,13 @@ const getProjectAcronym = (module) => {
                             Pop Out
                         </button>
                     )}
-                    {canEdit && (
+                    {/* Complete Week - hidden on mobile */}
+                    {canEdit && !isFeatureHiddenOnMobile('completeWeekButton') && (
                         <button
                             onClick={() => setShowCompleteModal(true)}
                             className="px-4 py-2 btn-primary rounded-lg text-sm font-medium"
                         >
-                            ✓ Week Complete
+                            Week Complete
                         </button>
                     )}
                 </div>
