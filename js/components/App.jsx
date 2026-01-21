@@ -1015,13 +1015,18 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                             {id: 'executive', label: 'Executive', icon: 'icon-executive'},
                                             {id: 'production', label: 'Production', icon: 'icon-production'},
                                             {id: 'projects', label: 'Projects', icon: 'icon-projects'},
+                                            {id: 'people', label: 'People', icon: 'icon-people'},
                                             {id: 'qa', label: 'QA', icon: 'icon-qa'},
                                             {id: 'transport', label: 'Transport', icon: 'icon-transport'},
+                                            {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
+                                            {id: 'precon', label: 'Precon', icon: 'icon-precon'},
                                             {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'},
                                             {id: 'drawings', label: 'Drawings', icon: 'icon-drawings'},
-                                            {id: 'onsite', label: 'On-Site', icon: 'icon-building'}
-                                        ].filter(tab => auth.visibleTabs.includes(tab.id))
-                                         .filter(tab => !window.MODA_MOBILE_CONFIG?.isTabHidden(tab.id))}
+                                            {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
+                                            {id: 'onsite', label: 'On-Site', icon: 'icon-building'},
+                                            {id: 'reports', label: 'Reports', icon: 'icon-reports'},
+                                            {id: 'automation', label: 'Automation', icon: 'icon-automation'}
+                                        ].filter(tab => auth.visibleTabs.includes(tab.id))}
                                         activeTab={activeTab}
                                         onTabChange={(tabId) => { setActiveTab(tabId); setSelectedProject(null); }}
                                         currentUser={auth.currentUser}
@@ -1457,43 +1462,18 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         ];
 
         // Production Dashboard Component - Vertical Department Workflow
+        function ProductionDashboard({ projects, setProjects, departmentStatus, onSelectProject, auth }) {
+            const activeProjects = projects.filter(p => p.status === 'Active');
+            const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || null);
+            const [productionTab, setProductionTab] = useState('weekly-board');
+            const [selectedWeekId, setSelectedWeekId] = useState(null); // For viewing specific weeks from Schedule Setup
+            const [editWeekId, setEditWeekId] = useState(null); // For editing specific weeks from WeeklyBoard
             
-            if (closeUpProgress === 100) {
-                // Include close-up completion timestamp if available
-                const completedAt = module.stationCompletedAt?.['close-up'] || 0;
-                allComplete.push({ ...module, completedAt });
-            } else if (autoProgress > 0) {
-                inProduction.push(module);
-            } else {
-                scheduled.push(module);
-            }
-        });
-        
-        // Limit to 5 most recently completed (by completion timestamp)
-        // For modules without timestamps (legacy), use build sequence as fallback
-        const complete = allComplete
-            .sort((a, b) => {
-                if (a.completedAt && b.completedAt) return b.completedAt - a.completedAt;
-                if (a.completedAt && !b.completedAt) return -1;
-                if (!a.completedAt && b.completedAt) return 1;
-                return (b.buildSequence || 0) - (a.buildSequence || 0);
-            })
-            .slice(0, 5)
-            .reverse();  // Oldest at top, newest at bottom
-        
-        return { scheduled, inProduction, complete };
-    };
-    
-
-    // Update module progress for a specific station
-    const updateModuleProgress = (moduleId, stationId, newProgress) => {
-        setProjects(prevProjects => prevProjects.map(project => {
-            if (project.id !== selectedProjectId) return project;
+            // Module Detail State (for Station Board "View Details" button)
+            const [selectedModuleDetail, setSelectedModuleDetail] = useState(null);
+            const [editMode, setEditMode] = useState(false);
             
-            return {
-                ...project,
-                modules: project.modules.map(module => {
-                    if (module.id !== moduleId) return module;
+            // Report Issue State
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
             const [reportIssueContext, setReportIssueContext] = useState(null);
             const [engineeringIssues, setEngineeringIssues] = useState(() => {

@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.15**
+**Current Version: 1.3.16**
 
 ---
+
+## [1.3.16] - 2025-01-21
+### Critical Fix
+- **App.jsx Restoration**: Fixed corrupted ProductionDashboard function structure that caused script error on load
 
 ## [1.3.15] - 2025-01-21
 ### Mobile Simplification & Prototype Scheduling
