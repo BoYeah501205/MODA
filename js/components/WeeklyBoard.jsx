@@ -4987,6 +4987,43 @@ const getProjectAcronym = (module) => {
                             Pop Out
                         </button>
                     )}
+                    {/* TEMPORARY: Mark All Complete button */}
+                    {canEdit && (
+                        <button
+                            onClick={() => {
+                                if (!confirm('Mark ALL modules on the board as 100% complete at ALL stations?')) return;
+                                
+                                const ALL_STAGES = [
+                                    'auto-c', 'auto-f', 'auto-walls', 'mezzanine', 'elec-ceiling',
+                                    'wall-set', 'ceiling-set', 'soffits', 'mech-rough', 'elec-rough',
+                                    'plumb-rough', 'exteriors', 'drywall-bp', 'drywall-ttp', 'roofing',
+                                    'pre-finish', 'mech-trim', 'elec-trim', 'plumb-trim', 'final-finish',
+                                    'sign-off', 'close-up'
+                                ];
+                                const fullProgress = {};
+                                ALL_STAGES.forEach(stage => fullProgress[stage] = 100);
+                                
+                                // Get all module IDs currently on the board
+                                const boardModuleIds = new Set(allModules.map(m => m.id));
+                                
+                                // Update all projects that have modules on the board
+                                setProjects(prev => prev.map(project => ({
+                                    ...project,
+                                    modules: (project.modules || []).map(m => 
+                                        boardModuleIds.has(m.id) 
+                                            ? { ...m, stageProgress: fullProgress }
+                                            : m
+                                    )
+                                })));
+                                
+                                addToast(`Marked ${boardModuleIds.size} modules as 100% complete`, 'success');
+                            }}
+                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium"
+                            title="TEMPORARY: Mark all board modules complete"
+                        >
+                            Mark All Complete
+                        </button>
+                    )}
                     {/* Complete Week - hidden on mobile */}
                     {canEdit && !isFeatureHiddenOnMobile('completeWeekButton') && (
                         <button

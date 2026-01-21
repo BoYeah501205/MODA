@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.24**
+**Current Version: 1.3.25**
 
 ---
+
+## [1.3.25] - 2025-01-21
+### Temporary Admin Tool
+- **Mark All Complete Button**: Added temporary red button on Weekly Board to mark all visible modules as 100% complete at all stations
 
 ## [1.3.24] - 2025-01-21
 ### UI Cleanup
