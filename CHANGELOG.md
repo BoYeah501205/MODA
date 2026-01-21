@@ -7,12 +7,14 @@ All notable changes to MODA are documented in this file.
 ---
 
 ## [1.3.15] - 2025-01-21
-### Prototype Scheduling UX Improvements
+### Mobile Simplification & Prototype Scheduling
+- **Mobile Tab Filtering**: Hidden 8 desktop-only tabs on mobile (People, Supply Chain, Equipment, Precon, RFI, Engineering, Automation, Admin)
+- **Mobile Feature Config**: Added `js/config/mobileFeatures.js` for centralized mobile feature control
+- **Weekly Board Mobile**: Hidden complex controls on mobile (Reorder, Edit Week, Pop Out, Complete Week, bulk operations)
+- **Mobile Documentation**: Created `docs/MOBILE_FEATURES.md` tracking all mobile-excluded features
 - **Place on Board Button**: Added green "Place on Board" button in Schedule Setup prototype section
 - **Visual Placement Mode**: Click button to enter placement mode on Weekly Board with green line indicator
-- **Green Line Indicator**: Hover over modules to see green placement line (similar to blue reorder line)
-- **Week Navigation Arrows**: Added left/right arrows next to week dropdown for quick navigation between populated weeks
-- **Placement Banner**: Shows active prototype being placed with cancel option
+- **Week Navigation Arrows**: Added left/right arrows next to week dropdown for quick navigation
 
 ## [1.3.14] - 2025-01-21
 ### iPad PDF Viewer Fix
