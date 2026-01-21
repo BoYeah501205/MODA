@@ -2,9 +2,18 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.13**
+**Current Version: 1.3.14**
 
 ---
+
+## [1.3.14] - 2025-01-21
+### iPad PDF Viewer Fix
+- **PDF.js Canvas Rendering**: On iPad/mobile, PDFs now render using PDF.js canvas instead of Google Docs Viewer iframe
+- **Pinch-to-Zoom**: Added touch gesture support for pinch-to-zoom on mobile PDF viewer
+- **Page Navigation**: Added page navigation controls (prev/next) for mobile PDF viewing
+- **Zoom Controls**: Added zoom in/out buttons with percentage display
+- **Memory Optimization**: Drawing Links on mobile now opens PDFs directly with page fragment instead of extracting pages (prevents Safari freezing)
+- **Open in Browser**: Added fallback button to open PDF in Safari's native viewer
 
 ## [1.3.13] - 2025-01-20
 ### Project Modules Sort By Feature

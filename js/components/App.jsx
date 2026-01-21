@@ -1462,18 +1462,43 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         ];
 
         // Production Dashboard Component - Vertical Department Workflow
-        function ProductionDashboard({ projects, setProjects, departmentStatus, onSelectProject, auth }) {
-            const activeProjects = projects.filter(p => p.status === 'Active');
-            const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || null);
-            const [productionTab, setProductionTab] = useState('weekly-board');
-            const [selectedWeekId, setSelectedWeekId] = useState(null); // For viewing specific weeks from Schedule Setup
-            const [editWeekId, setEditWeekId] = useState(null); // For editing specific weeks from WeeklyBoard
             
-            // Module Detail State (for Station Board "View Details" button)
-            const [selectedModuleDetail, setSelectedModuleDetail] = useState(null);
-            const [editMode, setEditMode] = useState(false);
+            if (closeUpProgress === 100) {
+                // Include close-up completion timestamp if available
+                const completedAt = module.stationCompletedAt?.['close-up'] || 0;
+                allComplete.push({ ...module, completedAt });
+            } else if (autoProgress > 0) {
+                inProduction.push(module);
+            } else {
+                scheduled.push(module);
+            }
+        });
+        
+        // Limit to 5 most recently completed (by completion timestamp)
+        // For modules without timestamps (legacy), use build sequence as fallback
+        const complete = allComplete
+            .sort((a, b) => {
+                if (a.completedAt && b.completedAt) return b.completedAt - a.completedAt;
+                if (a.completedAt && !b.completedAt) return -1;
+                if (!a.completedAt && b.completedAt) return 1;
+                return (b.buildSequence || 0) - (a.buildSequence || 0);
+            })
+            .slice(0, 5)
+            .reverse();  // Oldest at top, newest at bottom
+        
+        return { scheduled, inProduction, complete };
+    };
+    
+
+    // Update module progress for a specific station
+    const updateModuleProgress = (moduleId, stationId, newProgress) => {
+        setProjects(prevProjects => prevProjects.map(project => {
+            if (project.id !== selectedProjectId) return project;
             
-            // Report Issue State
+            return {
+                ...project,
+                modules: project.modules.map(module => {
+                    if (module.id !== moduleId) return module;
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
             const [reportIssueContext, setReportIssueContext] = useState(null);
             const [engineeringIssues, setEngineeringIssues] = useState(() => {

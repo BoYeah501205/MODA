@@ -7,7 +7,7 @@
  * - SVG overlay for annotations (better than canvas for this use case)
  */
 
-const { useState, useRef, useEffect, useCallback } = React;
+const { useState, useRef, useEffect, useCallback, useMemo } = React;
 
 const PDFViewerModal = ({ 
     isOpen, 
@@ -17,12 +17,37 @@ const PDFViewerModal = ({
     drawingId,
     versionId 
 }) => {
+    // Detect mobile/iPad
+    const isMobile = useMemo(() => {
+        if (typeof window === 'undefined') return false;
+        const ua = navigator.userAgent || '';
+        return /iPhone|iPad|iPod|Android/i.test(ua) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }, []);
+    
+    // PDF.js state for mobile rendering
+    const [pdfDoc, setPdfDoc] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+    const [scale, setScale] = useState(1);
+    const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+    const [pdfError, setPdfError] = useState(null);
+    const canvasRef = useRef(null);
+    const containerRef = useRef(null);
+    
+    // Touch gesture state
+    const [touchState, setTouchState] = useState({
+        initialDistance: null,
+        initialScale: 1,
+        isPinching: false
+    });
+    
     // Debug: log the PDF URL
     useEffect(() => {
         if (isOpen && pdfUrl) {
-            console.log('[PDFViewer] Opening PDF:', pdfUrl);
+            console.log('[PDFViewer] Opening PDF:', pdfUrl, 'Mobile:', isMobile);
         }
-    }, [isOpen, pdfUrl]);
+    }, [isOpen, pdfUrl, isMobile]);
     
     // Markup state
     const [activeTool, setActiveTool] = useState(null); // 'textbox', 'cloud', 'arrow'
@@ -197,6 +222,127 @@ const PDFViewerModal = ({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, textInputVisible, activeTool, selectedAnnotation, showMarkupMode, handleTextCancel, deleteSelectedAnnotation, onClose]);
+    
+    // Load PDF with PDF.js for mobile
+    useEffect(() => {
+        if (!isOpen || !pdfUrl || !isMobile) return;
+        
+        const loadPdf = async () => {
+            if (!window.pdfjsLib) {
+                setPdfError('PDF viewer not loaded. Please refresh the page.');
+                return;
+            }
+            
+            setIsLoadingPdf(true);
+            setPdfError(null);
+            
+            try {
+                console.log('[PDFViewer] Loading PDF with PDF.js:', pdfUrl);
+                const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
+                const pdf = await loadingTask.promise;
+                setPdfDoc(pdf);
+                setTotalPages(pdf.numPages);
+                setCurrentPage(1);
+                setScale(1);
+                console.log('[PDFViewer] PDF loaded, pages:', pdf.numPages);
+            } catch (error) {
+                console.error('[PDFViewer] Error loading PDF:', error);
+                setPdfError('Failed to load PDF: ' + error.message);
+            } finally {
+                setIsLoadingPdf(false);
+            }
+        };
+        
+        loadPdf();
+        
+        return () => {
+            if (pdfDoc) {
+                pdfDoc.destroy();
+                setPdfDoc(null);
+            }
+        };
+    }, [isOpen, pdfUrl, isMobile]);
+    
+    // Render current page to canvas
+    useEffect(() => {
+        if (!pdfDoc || !canvasRef.current || !isMobile) return;
+        
+        const renderPage = async () => {
+            try {
+                const page = await pdfDoc.getPage(currentPage);
+                const canvas = canvasRef.current;
+                const context = canvas.getContext('2d');
+                
+                // Calculate scale to fit width
+                const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+                const viewport = page.getViewport({ scale: 1 });
+                const fitScale = (containerWidth - 20) / viewport.width;
+                const finalScale = fitScale * scale;
+                const scaledViewport = page.getViewport({ scale: finalScale });
+                
+                // Set canvas dimensions
+                canvas.width = scaledViewport.width;
+                canvas.height = scaledViewport.height;
+                
+                // Render page
+                await page.render({
+                    canvasContext: context,
+                    viewport: scaledViewport
+                }).promise;
+                
+                console.log('[PDFViewer] Rendered page', currentPage, 'at scale', finalScale.toFixed(2));
+            } catch (error) {
+                console.error('[PDFViewer] Error rendering page:', error);
+            }
+        };
+        
+        renderPage();
+    }, [pdfDoc, currentPage, scale, isMobile]);
+    
+    // Touch handlers for pinch-to-zoom
+    const handleTouchStart = useCallback((e) => {
+        if (e.touches.length === 2) {
+            const distance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            setTouchState({
+                initialDistance: distance,
+                initialScale: scale,
+                isPinching: true
+            });
+        }
+    }, [scale]);
+    
+    const handleTouchMove = useCallback((e) => {
+        if (touchState.isPinching && e.touches.length === 2) {
+            e.preventDefault();
+            const distance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const newScale = Math.min(4, Math.max(0.5, 
+                touchState.initialScale * (distance / touchState.initialDistance)
+            ));
+            setScale(newScale);
+        }
+    }, [touchState]);
+    
+    const handleTouchEnd = useCallback(() => {
+        setTouchState(prev => ({ ...prev, isPinching: false, initialDistance: null }));
+    }, []);
+    
+    // Page navigation for mobile
+    const goToPage = useCallback((pageNum) => {
+        if (pageNum >= 1 && pageNum <= totalPages) {
+            setCurrentPage(pageNum);
+        }
+    }, [totalPages]);
+    
+    // Zoom controls for mobile
+    const zoomIn = useCallback(() => setScale(s => Math.min(4, s + 0.25)), []);
+    const zoomOut = useCallback(() => setScale(s => Math.max(0.5, s - 0.25)), []);
+    const resetZoom = useCallback(() => setScale(1), []);
     
     // Render arrow SVG path
     const renderArrow = (startX, startY, endX, endY, isSelected) => {
@@ -474,14 +620,59 @@ const PDFViewerModal = ({
             )}
             
             {/* PDF Content with Overlay */}
-            <div className="flex-1 relative overflow-hidden bg-gray-700">
-                {/* PDF displayed via Google Docs Viewer - bypasses X-Frame-Options restrictions */}
-                <iframe
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`}
-                    className="w-full h-full border-0 bg-white"
-                    style={{ pointerEvents: showMarkupMode ? 'none' : 'auto' }}
-                    title={drawingName}
-                />
+            <div className="flex-1 relative overflow-hidden bg-gray-700" ref={containerRef}>
+                {/* Mobile: Use PDF.js canvas rendering with touch support */}
+                {isMobile ? (
+                    <div 
+                        className="w-full h-full overflow-auto bg-gray-200"
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                    >
+                        {isLoadingPdf ? (
+                            <div className="flex items-center justify-center h-full">
+                                <div className="text-center">
+                                    <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-gray-600">Loading PDF...</p>
+                                </div>
+                            </div>
+                        ) : pdfError ? (
+                            <div className="flex items-center justify-center h-full p-4">
+                                <div className="text-center bg-white rounded-lg p-6 shadow-lg max-w-sm">
+                                    <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <p className="text-red-600 font-medium mb-2">Error Loading PDF</p>
+                                    <p className="text-gray-500 text-sm mb-4">{pdfError}</p>
+                                    <a 
+                                        href={pdfUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                    >
+                                        Open in Browser
+                                    </a>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center py-4">
+                                <canvas 
+                                    ref={canvasRef}
+                                    className="shadow-lg bg-white"
+                                    style={{ touchAction: 'pan-x pan-y' }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    /* Desktop: Use Google Docs Viewer - bypasses X-Frame-Options restrictions */
+                    <iframe
+                        src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`}
+                        className="w-full h-full border-0 bg-white"
+                        style={{ pointerEvents: showMarkupMode ? 'none' : 'auto' }}
+                        title={drawingName}
+                    />
+                )}
                 
                 {/* SVG Overlay for annotations - only interactive in markup mode */}
                 {showMarkupMode && (
@@ -552,6 +743,77 @@ const PDFViewerModal = ({
             {showMarkupMode && annotations.length > 0 && (
                 <div className="bg-gray-800 text-white px-4 py-2 text-sm text-center border-t border-gray-700 flex-shrink-0">
                     {annotations.length} annotation{annotations.length !== 1 ? 's' : ''} on this drawing
+                </div>
+            )}
+            
+            {/* Mobile: Page navigation and zoom controls */}
+            {isMobile && pdfDoc && !showMarkupMode && (
+                <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between border-t border-gray-700 flex-shrink-0">
+                    {/* Page navigation */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage <= 1}
+                            className="p-2 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <span className="text-sm min-w-[80px] text-center">
+                            {currentPage} / {totalPages}
+                        </span>
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage >= totalPages}
+                            className="p-2 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    {/* Zoom controls */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={zoomOut}
+                            disabled={scale <= 0.5}
+                            className="p-2 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={resetZoom}
+                            className="text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 min-w-[50px]"
+                        >
+                            {Math.round(scale * 100)}%
+                        </button>
+                        <button
+                            onClick={zoomIn}
+                            disabled={scale >= 4}
+                            className="p-2 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    {/* Open in browser fallback */}
+                    <a
+                        href={pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded bg-gray-700 hover:bg-gray-600"
+                        title="Open in browser"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                    </a>
                 </div>
             )}
         </div>

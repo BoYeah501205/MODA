@@ -317,8 +317,18 @@
         },
 
         /**
+         * Detect if running on mobile/iPad
+         */
+        isMobile() {
+            const ua = navigator.userAgent || '';
+            return /iPhone|iPad|iPod|Android/i.test(ua) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        },
+
+        /**
          * Open a drawing link - extracts the page and opens in new tab
          * Opens window immediately to avoid popup blocker, shows loading state
+         * On mobile/iPad: Opens PDF directly with page fragment (avoids memory issues)
          * @param {Object} link - Drawing link object
          * @returns {Promise<boolean>} Success
          */
@@ -328,6 +338,40 @@
                 return false;
             }
 
+            const isMobile = this.isMobile();
+            const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
+            
+            // On mobile: Skip page extraction (causes memory issues on iPad)
+            // Instead, open PDF directly with page fragment - Safari handles this well
+            if (isMobile) {
+                console.log('[Drawing Links] Mobile detected - opening PDF directly');
+                
+                try {
+                    let pdfUrl;
+                    
+                    // Try to get preview URL first (works better on mobile)
+                    if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
+                        pdfUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
+                    } else if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getDownloadUrl) {
+                        pdfUrl = await window.MODA_SHAREPOINT.getDownloadUrl(link.sharepoint_file_id);
+                    } else if (link.package_path) {
+                        pdfUrl = link.package_path;
+                    }
+                    
+                    if (pdfUrl) {
+                        // Open with page fragment - Safari's native PDF viewer supports this
+                        window.open(`${pdfUrl}#page=${pageNum}`, '_blank');
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('[Drawing Links] Mobile open failed:', error);
+                }
+                
+                alert('Could not open drawing. Please try again.');
+                return false;
+            }
+
+            // Desktop: Use page extraction for better UX
             // Open window immediately to avoid popup blocker
             // Show a loading page while we fetch and extract
             const newWindow = window.open('about:blank', '_blank');
@@ -367,7 +411,6 @@
                         const previewUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
                         if (previewUrl) {
                             // Navigate the pre-opened window
-                            const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
                             if (newWindow) {
                                 newWindow.location.href = `${previewUrl}#page=${pageNum}`;
                             } else {
@@ -389,7 +432,6 @@
                     try {
                         const previewUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
                         if (previewUrl) {
-                            const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
                             if (newWindow) {
                                 newWindow.location.href = `${previewUrl}#page=${pageNum}`;
                             } else {
