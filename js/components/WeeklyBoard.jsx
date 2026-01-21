@@ -799,7 +799,8 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
     // Get modules for "Insert After" dropdown (sorted by buildSequence)
     // Include: non-prototypes with integer buildSequence, AND scheduled prototypes (with decimal buildSequence)
     // This allows consecutive prototype scheduling (e.g., Proto 2 after Proto 1)
-    const insertTargets = useMemo(() => {
+    // Group by project for better UX in the dropdown
+    const insertTargetsByProject = useMemo(() => {
         // Combine sortedModules with already-scheduled prototypes from prototypeModules
         const scheduledPrototypes = prototypeModules
             .filter(m => m.buildSequence && !Number.isInteger(m.buildSequence))
@@ -808,9 +809,34 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
         const regularModules = sortedModules
             .filter(m => !m.isPrototype && Number.isInteger(m.buildSequence));
         
-        // Merge and sort by buildSequence
-        return [...regularModules, ...scheduledPrototypes]
-            .sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+        // Merge all modules
+        const allModules = [...regularModules, ...scheduledPrototypes];
+        
+        // Group by project, then sort each group by buildSequence
+        const grouped = {};
+        allModules.forEach(m => {
+            const projectKey = m.projectId || 'unknown';
+            if (!grouped[projectKey]) {
+                grouped[projectKey] = {
+                    projectId: m.projectId,
+                    projectName: m.projectName || 'Unknown Project',
+                    modules: []
+                };
+            }
+            grouped[projectKey].modules.push(m);
+        });
+        
+        // Sort modules within each project by buildSequence
+        Object.values(grouped).forEach(group => {
+            group.modules.sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+        });
+        
+        // Return as array of project groups, sorted by first module's buildSequence
+        return Object.values(grouped).sort((a, b) => {
+            const aFirst = a.modules[0]?.buildSequence || 0;
+            const bFirst = b.modules[0]?.buildSequence || 0;
+            return aFirst - bFirst;
+        });
     }, [sortedModules, prototypeModules]);
     
     // Calculate the next available decimal slot after a given module
@@ -975,15 +1001,18 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
                                             onChange={(e) => handleInsertAfter(proto, e.target.value)}
                                         >
                                             <option value="">Select a module...</option>
-                                            {insertTargets.map(m => (
-                                                <option key={m.id} value={m.serialNumber}>
-                                                    {m.isScheduledPrototype ? '★ ' : ''}{m.serialNumber} (#{m.buildSequence}) - {m.projectName}
-                                                </option>
+                                            {insertTargetsByProject.map(group => (
+                                                <optgroup key={group.projectId} label={group.projectName}>
+                                                    {group.modules.map(m => (
+                                                        <option key={m.id} value={m.serialNumber}>
+                                                            {m.isScheduledPrototype ? '★ ' : ''}{m.serialNumber} (#{m.buildSequence})
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
                                             ))}
                                         </select>
                                         <p className="text-xs text-gray-500 mt-1">
-                                            The prototype will be assigned sequence #{insertTargets.length > 0 ? 
-                                                `${insertTargets[0]?.buildSequence}.1` : '?.1'} (decimal) to slot after the selected module.
+                                            The prototype will be assigned a decimal sequence to slot after the selected module.
                                         </p>
                                     </div>
                                 )}

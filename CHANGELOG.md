@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.16**
+**Current Version: 1.3.17**
 
 ---
+
+## [1.3.17] - 2025-01-21
+### Prototype Insertion Dropdown Fix
+- **Project Grouping**: Prototype insertion dropdown now groups modules by project using optgroup headers
+- **Cleaner UX**: Modules within each project sorted by build sequence, no more blended list
 
 ## [1.3.16] - 2025-01-21
 ### Critical Fix
