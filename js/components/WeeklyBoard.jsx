@@ -841,13 +841,23 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
     
     // Calculate the next available decimal slot after a given module
     const getNextDecimalSlot = (afterBuildSeq) => {
-        // Find all modules with buildSequence between afterBuildSeq and afterBuildSeq + 1
-        const existingDecimals = sortedModules
-            .filter(m => m.buildSequence > afterBuildSeq && m.buildSequence < Math.floor(afterBuildSeq) + 1)
+        // Combine regular modules and prototype modules to check for existing decimals
+        const allModulesForCheck = [...sortedModules, ...prototypeModules];
+        
+        // Find all modules with buildSequence between afterBuildSeq and the next integer
+        // For decimal afterBuildSeq (e.g., 28.1), look between 28.1 and 29
+        const baseInt = Math.floor(afterBuildSeq);
+        const existingDecimals = allModulesForCheck
+            .filter(m => m.buildSequence > afterBuildSeq && m.buildSequence < baseInt + 1)
             .map(m => m.buildSequence);
         
         if (existingDecimals.length === 0) {
-            return afterBuildSeq + 0.1;
+            // If afterBuildSeq is already decimal, add 0.1 to it
+            // If it's an integer, start at .1
+            const newSeq = Number.isInteger(afterBuildSeq) 
+                ? afterBuildSeq + 0.1 
+                : Math.round((afterBuildSeq + 0.1) * 100) / 100;
+            return newSeq;
         }
         // Find the max and add 0.1
         const maxDecimal = Math.max(...existingDecimals);
@@ -859,7 +869,12 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
     const handleInsertAfter = (protoModule, afterModuleSerial) => {
         if (!afterModuleSerial || !setProjects) return;
         
-        const afterModule = sortedModules.find(m => m.serialNumber === afterModuleSerial);
+        // Search in both regular modules and scheduled prototypes
+        let afterModule = sortedModules.find(m => m.serialNumber === afterModuleSerial);
+        if (!afterModule) {
+            // Check if it's a scheduled prototype
+            afterModule = prototypeModules.find(m => m.serialNumber === afterModuleSerial);
+        }
         if (!afterModule) return;
         
         const newBuildSeq = getNextDecimalSlot(afterModule.buildSequence);
@@ -2234,14 +2249,22 @@ function WeeklyBoardTab({
     // Get all modules from all active projects, sorted by productionOrder then buildSequence
     // Filter out modules with excludeFromSchedule flag
     // IMPORTANT: Projects are kept grouped together - buildSequence is project-specific, not global
-    const allModules = activeProjects
-        .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
-        .flatMap(p => 
-            (p.modules || [])
-                .filter(m => !m.excludeFromSchedule)
-                .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 }))
-        )
-        .sort((a, b) => {
+    // EXCEPTION: Scheduled prototypes (with insertedAfter) are sorted by their decimal buildSequence globally
+    const allModules = (() => {
+        const rawModules = activeProjects
+            .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
+            .flatMap(p => 
+                (p.modules || [])
+                    .filter(m => !m.excludeFromSchedule)
+                    .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 }))
+            );
+        
+        // Separate scheduled prototypes (have insertedAfter) from regular modules
+        const scheduledPrototypes = rawModules.filter(m => m.isPrototype && m.insertedAfter);
+        const regularModules = rawModules.filter(m => !(m.isPrototype && m.insertedAfter));
+        
+        // Sort regular modules by project grouping
+        const sortedRegular = regularModules.sort((a, b) => {
             // First sort by project production order
             if (a.projectProductionOrder !== b.projectProductionOrder) {
                 return a.projectProductionOrder - b.projectProductionOrder;
@@ -2253,6 +2276,23 @@ function WeeklyBoardTab({
             // Then by build sequence within project
             return (a.buildSequence || 0) - (b.buildSequence || 0);
         });
+        
+        // Insert scheduled prototypes at their correct positions based on buildSequence
+        // They should appear after the module they were inserted after
+        const result = [...sortedRegular];
+        scheduledPrototypes.forEach(proto => {
+            // Find the index where this prototype should be inserted
+            // It should go after the module with the matching integer part of its buildSequence
+            const targetSeq = Math.floor(proto.buildSequence);
+            let insertIdx = result.findIndex(m => 
+                (m.buildSequence || 0) > proto.buildSequence
+            );
+            if (insertIdx === -1) insertIdx = result.length;
+            result.splice(insertIdx, 0, proto);
+        });
+        
+        return result;
+    })();
     
     // Debug: Log module count and first/last modules
     console.log('[WeeklyBoard] allModules count:', allModules.length, 

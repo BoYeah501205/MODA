@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.17**
+**Current Version: 1.3.18**
 
 ---
+
+## [1.3.18] - 2025-01-21
+### Prototype Scheduling Fixes
+- **Prototypes Now Appear on Board**: Scheduled prototypes with decimal buildSequence now correctly appear at their insertion point on the WeeklyBoard
+- **Prototype-After-Prototype**: Can now schedule prototypes after other already-scheduled prototypes (e.g., 26-0102 after 26-0101)
+- **Decimal Sequence Handling**: Fixed decimal sequence calculation to properly handle consecutive prototype insertions
 
 ## [1.3.17] - 2025-01-21
 ### Prototype Insertion Dropdown Fix
