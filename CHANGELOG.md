@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.12**
+**Current Version: 1.3.13**
 
 ---
+
+## [1.3.13] - 2025-01-20
+### Project Modules Sort By Feature
+- **Sort Dropdown**: Added "Sort By" dropdown in Project Detail view filters
+- **Sort Options**: Build Sequence, Serial #, Unit Type, Hitch BLM, Rear BLM, Size, Stage, Progress
+- **Bidirectional**: Each field supports ascending and descending sort
+- **Grid & List**: Sorting now applies to both Grid and List views
 
 ## [1.3.12] - 2025-01-20
 ### iPad Mobile Fixes

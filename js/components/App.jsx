@@ -2625,6 +2625,34 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     <option key={stage.id} value={stage.id}>{stage.name}</option>
                                 ))}
                             </select>
+                            <select
+                                value={`${moduleSortField}-${moduleSortDirection}`}
+                                onChange={(e) => {
+                                    const [field, dir] = e.target.value.split('-');
+                                    setModuleSortField(field);
+                                    setModuleSortDirection(dir);
+                                }}
+                                className="px-3 py-2 border rounded-lg"
+                            >
+                                <optgroup label="Sort By">
+                                    <option value="buildSequence-asc">Build Seq (Low to High)</option>
+                                    <option value="buildSequence-desc">Build Seq (High to Low)</option>
+                                    <option value="serialNumber-asc">Serial # (A-Z)</option>
+                                    <option value="serialNumber-desc">Serial # (Z-A)</option>
+                                    <option value="hitchUnit-asc">Unit Type (A-Z)</option>
+                                    <option value="hitchUnit-desc">Unit Type (Z-A)</option>
+                                    <option value="hitchBLM-asc">Hitch BLM (A-Z)</option>
+                                    <option value="hitchBLM-desc">Hitch BLM (Z-A)</option>
+                                    <option value="rearBLM-asc">Rear BLM (A-Z)</option>
+                                    <option value="rearBLM-desc">Rear BLM (Z-A)</option>
+                                    <option value="dimensions-asc">Size (Small to Large)</option>
+                                    <option value="dimensions-desc">Size (Large to Small)</option>
+                                    <option value="stage-asc">Stage (A-Z)</option>
+                                    <option value="stage-desc">Stage (Z-A)</option>
+                                    <option value="progress-asc">Progress (Low to High)</option>
+                                    <option value="progress-desc">Progress (High to Low)</option>
+                                </optgroup>
+                            </select>
                             <div className="flex gap-1 border rounded-lg p-1">
                                 <button
                                     onClick={() => setViewMode('grid')}
@@ -2707,7 +2735,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             </div>
                         ) : viewMode === 'grid' ? (
                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {filteredModules.map(module => {
+                                {sortedModules.map(module => {
                                     const { stage: currentStage, progress } = getCurrentStage(module);
                                     const hasDifficulties = Object.values(module.difficulties || {}).some(v => v);
                                     
