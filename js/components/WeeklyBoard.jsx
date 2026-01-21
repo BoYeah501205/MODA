@@ -782,7 +782,7 @@ function CalendarWeekPicker({ weeks, currentWeek, selectedWeekId, onSelectWeek, 
 }
 
 // ===== PROTOTYPE SCHEDULING SECTION COMPONENT =====
-function PrototypeSchedulingSection({ allModules, sortedModules, projects, setProjects }) {
+function PrototypeSchedulingSection({ allModules, sortedModules, projects, setProjects, onPlaceOnBoard }) {
     const { useState, useMemo } = React;
     const [expandedProto, setExpandedProto] = useState(null);
     
@@ -947,6 +947,14 @@ function PrototypeSchedulingSection({ allModules, sortedModules, projects, setPr
                                                 Clear
                                             </button>
                                         )}
+                                        {onPlaceOnBoard && (
+                                            <button
+                                                onClick={() => onPlaceOnBoard(proto)}
+                                                className="px-3 py-1 text-sm bg-green-500 hover:bg-green-600 text-white rounded font-medium"
+                                            >
+                                                Place on Board
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => setExpandedProto(isExpanded ? null : proto.id)}
                                             className="px-3 py-1 text-sm bg-yellow-200 hover:bg-yellow-300 text-yellow-800 rounded font-medium"
@@ -1010,6 +1018,7 @@ function ScheduleSetupTab({
     userEmail = '', // User email passed from Dashboard auth
     // Navigation props
     onViewWeek = null, // Callback to view a week in WeeklyBoard: (weekId) => void
+    onPlacePrototype = null, // Callback to place a prototype on the board: (prototype) => void
     initialEditWeekId = null, // Week ID to open edit modal for (from WeeklyBoard Edit Week button)
     onEditWeekHandled = null // Callback when edit week has been handled
 }) {
@@ -1625,6 +1634,7 @@ function ScheduleSetupTab({
                 sortedModules={sortedModules}
                 projects={projects}
                 setProjects={setProjects}
+                onPlaceOnBoard={onPlacePrototype}
             />
             
             {/* Info Note */}
@@ -1852,7 +1862,11 @@ function WeeklyBoardTab({
     initialSelectedWeekId = null, // Initial week to display (from Schedule Setup navigation)
     onWeekSelected = null, // Callback when week is selected (to clear initialSelectedWeekId)
     onEditWeek = null, // Callback to edit a week in Schedule Setup: (weekId) => void
-    isPopout = false // Whether this is rendered in a pop-out window
+    isPopout = false, // Whether this is rendered in a pop-out window
+    // Prototype placement props
+    prototypePlacementMode = null, // { prototype: module } when placing a prototype
+    onCancelPlacement = null, // Callback to cancel placement mode
+    onPlacePrototype = null // Callback when prototype is placed: (prototype, afterModule) => void
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
@@ -1939,6 +1953,9 @@ function WeeklyBoardTab({
     const [draggedModule, setDraggedModule] = useState(null);
     const [dragOverTarget, setDragOverTarget] = useState(null); // { moduleId, position: 'before' | 'after' }
     const [showReorderConfirm, setShowReorderConfirm] = useState(false);
+    
+    // ===== PROTOTYPE PLACEMENT MODE =====
+    const [placementTarget, setPlacementTarget] = useState(null); // { moduleId, position: 'before' | 'after' }
     
     // ===== PDF EXPORT =====
     const [showPDFExport, setShowPDFExport] = useState(false);
@@ -3504,11 +3521,19 @@ const getProjectAcronym = (module) => {
         // Check if this module has a pending reorder
         const pendingReorder = pendingReorders.find(r => r.moduleId === module.id);
         const isDragTarget = dragOverTarget?.moduleId === module.id;
-        const dropIndicatorClass = isDragTarget 
-            ? dragOverTarget.position === 'before' 
+        const isPlacementTarget = prototypePlacementMode && placementTarget?.moduleId === module.id;
+        
+        // Determine indicator class: green for placement mode, blue for reorder mode
+        let dropIndicatorClass = '';
+        if (isPlacementTarget) {
+            dropIndicatorClass = placementTarget.position === 'before' 
+                ? 'border-t-4 border-t-green-500' 
+                : 'border-b-4 border-b-green-500';
+        } else if (isDragTarget) {
+            dropIndicatorClass = dragOverTarget.position === 'before' 
                 ? 'border-t-4 border-t-blue-500' 
-                : 'border-b-4 border-b-blue-500'
-            : '';
+                : 'border-b-4 border-b-blue-500';
+        }
         
         // Find col index for this cell (for keyboard navigation)
         const colIndex = productionStages.findIndex(s => s.id === station.id);
@@ -3521,16 +3546,38 @@ const getProjectAcronym = (module) => {
                 data-cell-key={getSelectionKey(module.id, station.id)}
                 className={`rounded p-1.5 transition-all hover:shadow-md ${bgClass} ${borderClass} ${dropIndicatorClass} ${
                     reorderMode ? 'cursor-grab active:cursor-grabbing' : ''
+                } ${prototypePlacementMode ? 'cursor-pointer hover:ring-2 hover:ring-green-400' : ''
                 } ${pendingReorder ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${
                     isFocused ? 'ring-2 ring-blue-600 ring-offset-1' : ''
                 }`}
                 style={{ height: `${CARD_HEIGHT}px` }}
-                draggable={reorderMode}
+                draggable={reorderMode && !prototypePlacementMode}
                 onDragStart={(e) => handleDragStart(e, module)}
                 onDragEnd={handleDragEnd}
                 onDragOver={(e) => handleDragOver(e, module)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, module)}
+                onMouseMove={(e) => {
+                    if (!prototypePlacementMode) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    const position = e.clientY < midY ? 'before' : 'after';
+                    if (placementTarget?.moduleId !== module.id || placementTarget?.position !== position) {
+                        setPlacementTarget({ moduleId: module.id, position });
+                    }
+                }}
+                onMouseLeave={() => {
+                    if (prototypePlacementMode && placementTarget?.moduleId === module.id) {
+                        setPlacementTarget(null);
+                    }
+                }}
+                onClick={(e) => {
+                    if (prototypePlacementMode && onPlacePrototype) {
+                        e.stopPropagation();
+                        onPlacePrototype(prototypePlacementMode, module, placementTarget?.position || 'after');
+                        setPlacementTarget(null);
+                    }
+                }}
                 onContextMenu={(e) => handleContextMenu(e, module.id, station.id)}
                 onTouchStart={() => handleTouchStart(module.id, station.id)}
                 onTouchEnd={handleTouchEnd}
@@ -4362,8 +4409,27 @@ const getProjectAcronym = (module) => {
     
     return (
         <div className="space-y-4">
+            {/* Prototype Placement Mode Banner */}
+            {prototypePlacementMode && (
+                <div className="bg-green-50 border-2 border-green-400 rounded-lg px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-yellow-500 text-xl">★</span>
+                        <div>
+                            <div className="font-semibold text-green-800">Placement Mode: {prototypePlacementMode.serialNumber}</div>
+                            <div className="text-sm text-green-700">Click on a module to insert the prototype after it. The green line shows where it will be placed.</div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onCancelPlacement}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            )}
+            
             {/* View-Only Banner */}
-            {!canEdit && (
+            {!canEdit && !prototypePlacementMode && (
                 <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 flex items-center gap-3">
                     <span className="text-xl">👁️</span>
                     <div>
@@ -4383,8 +4449,25 @@ const getProjectAcronym = (module) => {
                         </p>
                     </div>
                     
-                    {/* Week Selector - Calendar Style */}
-                    <div className="relative flex items-center gap-2">
+                    {/* Week Selector with Navigation Arrows */}
+                    <div className="relative flex items-center gap-1">
+                        {/* Previous Week Arrow */}
+                        <button
+                            onClick={() => navigateWeek(-1)}
+                            disabled={(() => {
+                                const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+                                const currentIndex = sortedWeeks.findIndex(w => w.id === (selectedWeekId || currentWeek?.id));
+                                return currentIndex <= 0;
+                            })()}
+                            className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Previous Week"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="15 18 9 12 15 6"/>
+                            </svg>
+                        </button>
+                        
+                        {/* Week Dropdown */}
                         <button
                             onClick={() => setShowWeekPicker(!showWeekPicker)}
                             className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm font-medium bg-white hover:bg-gray-50 transition"
@@ -4405,6 +4488,22 @@ const getProjectAcronym = (module) => {
                             <span className="text-gray-400">&#9662;</span>
                         </button>
                         
+                        {/* Next Week Arrow */}
+                        <button
+                            onClick={() => navigateWeek(1)}
+                            disabled={(() => {
+                                const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+                                const currentIndex = sortedWeeks.findIndex(w => w.id === (selectedWeekId || currentWeek?.id));
+                                return currentIndex >= sortedWeeks.length - 1;
+                            })()}
+                            className="p-2 bg-white hover:bg-gray-100 rounded-lg border shadow-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Next Week"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+                        
                         {showWeekPicker && (
                             <CalendarWeekPicker
                                 weeks={weeks}
@@ -4418,7 +4517,7 @@ const getProjectAcronym = (module) => {
                         {selectedWeekId && selectedWeekId !== currentWeek?.id && (
                             <button
                                 onClick={() => setSelectedWeekId(null)}
-                                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                className="text-xs text-blue-600 hover:text-blue-800 underline ml-2"
                             >
                                 Back to Current
                             </button>
