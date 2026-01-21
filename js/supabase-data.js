@@ -896,6 +896,8 @@
                     plannedModules: week.planned_modules,
                     startingModule: week.starting_module,
                     status: week.status,
+                    shift1: week.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+                    shift2: week.shift2 || { friday: 0, saturday: 0, sunday: 0 },
                     createdAt: week.created_at
                 }));
             } catch (error) {
@@ -918,7 +920,9 @@
                 end_date: weekData.weekEnd,
                 planned_modules: weekData.plannedModules || 20,
                 starting_module: weekData.startingModule || null,
-                status: weekData.status || 'Planned'
+                status: weekData.status || 'Planned',
+                shift1: weekData.shift1 || { monday: 5, tuesday: 5, wednesday: 5, thursday: 5 },
+                shift2: weekData.shift2 || { friday: 0, saturday: 0, sunday: 0 }
             };
             
             const { data, error } = await client
@@ -944,6 +948,8 @@
             if (updates.weekNumber !== undefined) dbUpdates.week_number = updates.weekNumber;
             if (updates.year !== undefined) dbUpdates.year = updates.year;
             if (updates.quarter !== undefined) dbUpdates.quarter = updates.quarter;
+            if (updates.shift1 !== undefined) dbUpdates.shift1 = updates.shift1;
+            if (updates.shift2 !== undefined) dbUpdates.shift2 = updates.shift2;
             
             const { data, error } = await client
                 .from('production_weeks')

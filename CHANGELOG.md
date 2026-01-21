@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.22**
+**Current Version: 1.3.23**
 
 ---
+
+## [1.3.23] - 2025-01-21
+### Weekly Goal Persistence Fix
+- **Shift Data Saved**: Daily targets (shift1/shift2) now persist to Supabase
+- **Database Migration**: Added shift1 and shift2 JSONB columns to production_weeks table
+- **Full Week Config**: All week settings (daily goals, starting module, etc.) now save correctly
 
 ## [1.3.22] - 2025-01-21
 ### Starting Module Dropdown Improvements
