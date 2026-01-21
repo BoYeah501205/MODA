@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.18**
+**Current Version: 1.3.19**
 
 ---
+
+## [1.3.19] - 2025-01-21
+### Prototype Board Placement Fix
+- **InsertedAfter Lookup**: Prototypes now find their position using the `insertedAfter` serial number instead of buildSequence comparison
+- **Debug Logging**: Added console logging to show scheduled prototypes for troubleshooting
 
 ## [1.3.18] - 2025-01-21
 ### Prototype Scheduling Fixes

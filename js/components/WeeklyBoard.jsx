@@ -2277,27 +2277,46 @@ function WeeklyBoardTab({
             return (a.buildSequence || 0) - (b.buildSequence || 0);
         });
         
-        // Insert scheduled prototypes at their correct positions based on buildSequence
-        // They should appear after the module they were inserted after
+        // Insert scheduled prototypes at their correct positions
+        // Use the insertedAfter field to find the target module, then insert right after it
         const result = [...sortedRegular];
-        scheduledPrototypes.forEach(proto => {
-            // Find the index where this prototype should be inserted
-            // It should go after the module with the matching integer part of its buildSequence
-            const targetSeq = Math.floor(proto.buildSequence);
-            let insertIdx = result.findIndex(m => 
-                (m.buildSequence || 0) > proto.buildSequence
-            );
-            if (insertIdx === -1) insertIdx = result.length;
+        
+        // Sort prototypes by their buildSequence to insert them in order
+        const sortedPrototypes = [...scheduledPrototypes].sort((a, b) => 
+            (a.buildSequence || 0) - (b.buildSequence || 0)
+        );
+        
+        sortedPrototypes.forEach(proto => {
+            // Find the module this prototype was inserted after using serialNumber
+            let insertIdx = -1;
+            
+            if (proto.insertedAfter) {
+                // Find the target module by serial number
+                const targetIdx = result.findIndex(m => m.serialNumber === proto.insertedAfter);
+                if (targetIdx !== -1) {
+                    // Insert right after the target module
+                    insertIdx = targetIdx + 1;
+                }
+            }
+            
+            // Fallback: if insertedAfter not found, try to find position by buildSequence
+            if (insertIdx === -1) {
+                insertIdx = result.findIndex(m => 
+                    (m.buildSequence || 0) > proto.buildSequence
+                );
+                if (insertIdx === -1) insertIdx = result.length;
+            }
+            
             result.splice(insertIdx, 0, proto);
         });
         
         return result;
     })();
     
-    // Debug: Log module count and first/last modules
+    // Debug: Log module count and scheduled prototypes
+    const scheduledProtos = allModules.filter(m => m.isPrototype && m.insertedAfter);
     console.log('[WeeklyBoard] allModules count:', allModules.length, 
-                'first:', allModules[0]?.serialNumber, 
-                'last:', allModules[allModules.length-1]?.serialNumber);
+                'scheduledPrototypes:', scheduledProtos.map(p => `${p.serialNumber} after ${p.insertedAfter}`));
     
     // Auto-calculate starting module index for the current week
     // Based on cumulative line balance from all previous weeks
