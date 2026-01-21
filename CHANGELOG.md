@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.11**
+**Current Version: 1.3.12**
 
 ---
+
+## [1.3.12] - 2025-01-20
+### iPad Mobile Fixes
+- **Hamburger Menu**: Fixed menu not showing on iPad Gen 5 (1024px width) by adjusting breakpoint from 1024px to 1025px
+- **Version Footer**: Added version number display at bottom of every page (MODA vX.Y.Z)
+- **Breakpoint Fix**: Updated CSS and JavaScript hooks to include devices exactly 1024px wide
 
 ## [1.3.11] - 2025-01-20
 ### Drawing Links - Loading Indicator

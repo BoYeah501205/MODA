@@ -1442,6 +1442,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             importData={importData}
                         />
                     )}
+
+                    {/* Version Footer */}
+                    <footer className="text-center py-3 text-xs text-gray-400 border-t bg-white" style={{ marginTop: 'auto' }}>
+                        MODA v{window.MODA_VERSION || '1.0.0'}
+                    </footer>
                 </div>
             );
         }

@@ -15,7 +15,7 @@ window.MobileNavigation = function MobileNavigation({
     onLogout 
 }) {
     const [isOpen, setIsOpen] = React.useState(false);
-    const isMobile = window.useIsMobile ? window.useIsMobile(1024) : true;
+    const isMobile = window.useIsMobile ? window.useIsMobile(1025) : true;
     
     // Close drawer when clicking overlay
     const handleOverlayClick = () => {
@@ -187,7 +187,7 @@ window.ResponsiveTabBar = function ResponsiveTabBar({
     onLogout,
     children
 }) {
-    const isMobile = window.useIsMobile ? window.useIsMobile(1024) : true;
+    const isMobile = window.useIsMobile ? window.useIsMobile(1025) : true;
     
     return (
         <div style={{ 
