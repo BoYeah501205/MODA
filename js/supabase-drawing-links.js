@@ -241,8 +241,9 @@
          * @param {string} pdfUrl - URL to the source PDF
          * @param {string|number} pageInput - Page number(s): single (5), multiple (3,7,12), or range (1-5)
          * @param {string} fileName - Optional filename for the extracted page
+         * @param {Window} preOpenedWindow - Optional pre-opened window to avoid popup blocker
          */
-        async extractAndOpenPage(pdfUrl, pageInput, fileName = 'extracted-page.pdf') {
+        async extractAndOpenPage(pdfUrl, pageInput, fileName = 'extracted-page.pdf', preOpenedWindow = null) {
             const pageNumbers = this.parsePageNumbers(pageInput);
             console.log('[Drawing Links] Extracting pages', pageNumbers, 'from:', pdfUrl);
 
@@ -250,7 +251,11 @@
             if (typeof PDFLib === 'undefined') {
                 console.error('[Drawing Links] pdf-lib not loaded');
                 // Fallback: open full PDF with page fragment (first page only)
-                window.open(`${pdfUrl}#page=${pageNumbers[0]}`, '_blank');
+                if (preOpenedWindow) {
+                    preOpenedWindow.location.href = `${pdfUrl}#page=${pageNumbers[0]}`;
+                } else {
+                    window.open(`${pdfUrl}#page=${pageNumbers[0]}`, '_blank');
+                }
                 return;
             }
 
@@ -285,8 +290,12 @@
                 const blob = new Blob([newPdfBytes], { type: 'application/pdf' });
                 const blobUrl = URL.createObjectURL(blob);
                 
-                // Open in new tab
-                const newTab = window.open(blobUrl, '_blank');
+                // Navigate the pre-opened window or open new one
+                if (preOpenedWindow) {
+                    preOpenedWindow.location.href = blobUrl;
+                } else {
+                    window.open(blobUrl, '_blank');
+                }
                 
                 // Clean up blob URL after a delay (give browser time to load)
                 setTimeout(() => {
@@ -298,13 +307,18 @@
             } catch (error) {
                 console.error('[Drawing Links] Page extraction failed:', error);
                 // Fallback: open full PDF with page fragment
-                window.open(`${pdfUrl}#page=${pageNumbers[0]}`, '_blank');
+                if (preOpenedWindow) {
+                    preOpenedWindow.location.href = `${pdfUrl}#page=${pageNumbers[0]}`;
+                } else {
+                    window.open(`${pdfUrl}#page=${pageNumbers[0]}`, '_blank');
+                }
                 return false;
             }
         },
 
         /**
          * Open a drawing link - extracts the page and opens in new tab
+         * Opens window immediately to avoid popup blocker, shows loading state
          * @param {Object} link - Drawing link object
          * @returns {Promise<boolean>} Success
          */
@@ -312,6 +326,25 @@
             if (!link.package_path && !link.sharepoint_file_id) {
                 console.warn('[Drawing Links] Link not configured:', link.label);
                 return false;
+            }
+
+            // Open window immediately to avoid popup blocker
+            // Show a loading page while we fetch and extract
+            const newWindow = window.open('about:blank', '_blank');
+            if (newWindow) {
+                newWindow.document.write(`
+                    <html>
+                    <head><title>Loading ${link.label}...</title></head>
+                    <body style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f3f4f6;">
+                        <div style="text-align: center;">
+                            <div style="width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+                            <p style="color: #374151; font-size: 16px; margin: 0;">Extracting page ${link.page_number}...</p>
+                            <p style="color: #6b7280; font-size: 14px; margin-top: 8px;">This may take a moment for large drawings</p>
+                        </div>
+                        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+                    </body>
+                    </html>
+                `);
             }
 
             try {
@@ -333,9 +366,13 @@
                     if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
                         const previewUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
                         if (previewUrl) {
-                            // Open preview URL with page fragment
+                            // Navigate the pre-opened window
                             const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
-                            window.open(`${previewUrl}#page=${pageNum}`, '_blank');
+                            if (newWindow) {
+                                newWindow.location.href = `${previewUrl}#page=${pageNum}`;
+                            } else {
+                                window.open(`${previewUrl}#page=${pageNum}`, '_blank');
+                            }
                             return true;
                         }
                     }
@@ -344,7 +381,7 @@
 
                 // Extract and open the specific page
                 const fileName = `${link.label.replace(/[^a-zA-Z0-9]/g, '_')}_page${link.page_number}.pdf`;
-                return await this.extractAndOpenPage(pdfUrl, link.page_number, fileName);
+                return await this.extractAndOpenPage(pdfUrl, link.page_number, fileName, newWindow);
             } catch (error) {
                 console.error('[Drawing Links] Error opening link:', error);
                 // Final fallback: open SharePoint preview
@@ -353,13 +390,19 @@
                         const previewUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
                         if (previewUrl) {
                             const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
-                            window.open(`${previewUrl}#page=${pageNum}`, '_blank');
+                            if (newWindow) {
+                                newWindow.location.href = `${previewUrl}#page=${pageNum}`;
+                            } else {
+                                window.open(`${previewUrl}#page=${pageNum}`, '_blank');
+                            }
                             return true;
                         }
                     } catch (e) {
                         console.error('[Drawing Links] Fallback also failed:', e);
                     }
                 }
+                // Close the loading window and show error
+                if (newWindow) newWindow.close();
                 alert('Error opening drawing link: ' + error.message);
                 return false;
             }

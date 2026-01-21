@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.10**
+**Current Version: 1.3.11**
 
 ---
+
+## [1.3.11] - 2025-01-20
+### Drawing Links - Loading Indicator
+- **Loading Spinner**: Opens new tab immediately with loading spinner while extracting pages
+- **Popup Blocker Fix**: Pre-opens window to avoid browser popup blocking
+- **User Feedback**: Shows "Extracting page X..." message during processing
 
 ## [1.3.10] - 2025-01-20
 ### Drawing Links Fix - Page Extraction
