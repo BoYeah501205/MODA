@@ -2743,15 +2743,15 @@ function WeeklyBoardTab({
             };
         }));
         
-        // Show toast notification for completions
-        if (newProgress === 100 && !wasComplete && module && station) {
-            addToast(
-                `${module.serialNumber} completed at ${station.dept}!`,
-                'success',
-                module.serialNumber,
-                station.dept
-            );
-        }
+        // Toast notifications for completions disabled for now
+        // if (newProgress === 100 && !wasComplete && module && station) {
+        //     addToast(
+        //         `${module.serialNumber} completed at ${station.dept}!`,
+        //         'success',
+        //         module.serialNumber,
+        //         station.dept
+        //     );
+        // }
     };
     
     // ===== MODULE MOVE FUNCTIONS =====

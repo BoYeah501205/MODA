@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.23**
+**Current Version: 1.3.24**
 
 ---
+
+## [1.3.24] - 2025-01-21
+### UI Cleanup
+- **Disabled Completion Toasts**: Removed popup notifications when modules are marked complete at stations
 
 ## [1.3.23] - 2025-01-21
 ### Weekly Goal Persistence Fix
