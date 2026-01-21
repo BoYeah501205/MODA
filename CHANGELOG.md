@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.25**
+**Current Version: 1.3.26**
 
 ---
+
+## [1.3.26] - 2025-01-21
+### Edit Week Modal Enhancement
+- **Date Display**: Shows selected week date range (MM/DD/YY - MM/DD/YY) below modal title
 
 ## [1.3.25] - 2025-01-21
 ### Temporary Admin Tool

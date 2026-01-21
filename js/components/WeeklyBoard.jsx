@@ -1697,9 +1697,23 @@ function ScheduleSetupTab({
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
                         <div className="p-4 border-b flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-autovol-navy">
-                                {editingWeek ? 'Edit Production Week' : 'Add Production Week'}
-                            </h3>
+                            <div>
+                                <h3 className="text-lg font-bold text-autovol-navy">
+                                    {editingWeek ? 'Edit Production Week' : 'Add Production Week'}
+                                </h3>
+                                {formData.weekStart && (
+                                    <p className="text-sm text-gray-500">
+                                        {(() => {
+                                            const date = parseLocalDate(formData.weekStart);
+                                            return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                                        })()}
+                                        {formData.weekEnd && ` - ${(() => {
+                                            const date = parseLocalDate(formData.weekEnd);
+                                            return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                                        })()}`}
+                                    </p>
+                                )}
+                            </div>
                             <button onClick={() => { setShowAddWeek(false); resetForm(); }} className="p-2 hover:bg-gray-100 rounded-lg">✕</button>
                         </div>
                         <div className="p-6 space-y-4">
