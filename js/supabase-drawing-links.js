@@ -157,12 +157,19 @@
         },
 
         /**
-         * Delete a drawing link
+         * Delete a drawing link (archives extracted file first if exists)
          * @param {string} linkId - Link UUID
+         * @param {string} archivedBy - User performing deletion
          * @returns {Promise<boolean>} Success
          */
-        async delete(linkId) {
+        async delete(linkId, archivedBy = 'System') {
             if (!isAvailable()) throw new Error('Supabase not available');
+
+            // Get the link first to archive extracted file
+            const link = await this.getById(linkId);
+            if (link && link.extracted_file_id) {
+                await this.archiveExtractedFile(link, 'deleted', archivedBy);
+            }
 
             const { error } = await getClient()
                 .from('drawing_links')
@@ -172,6 +179,77 @@
             if (error) throw error;
             console.log('[Drawing Links] Deleted link:', linkId);
             return true;
+        },
+        
+        /**
+         * Archive an extracted file before update/delete
+         * @param {Object} link - The link being modified
+         * @param {string} reason - 'updated', 'deleted', 'source_changed'
+         * @param {string} archivedBy - User performing the action
+         */
+        async archiveExtractedFile(link, reason, archivedBy = 'System') {
+            if (!link.extracted_file_id) return;
+            
+            try {
+                // Insert archive record
+                const { error } = await getClient()
+                    .from('drawing_links_archive')
+                    .insert({
+                        original_link_id: link.id,
+                        project_id: link.project_id,
+                        label: link.label,
+                        page_number: link.page_number,
+                        extracted_file_id: link.extracted_file_id,
+                        archive_reason: reason,
+                        archived_by: archivedBy,
+                        original_created_at: link.created_at,
+                        original_extracted_at: link.extracted_at
+                    });
+                
+                if (error) {
+                    console.warn('[Drawing Links] Failed to archive:', error);
+                } else {
+                    console.log('[Drawing Links] Archived extracted file for:', link.label);
+                }
+                
+                // TODO: Move file in SharePoint to _Archive folder
+                // This would require SharePoint move/rename API
+            } catch (e) {
+                console.warn('[Drawing Links] Archive error:', e);
+            }
+        },
+        
+        /**
+         * Update extraction status for a link
+         * @param {string} linkId - Link UUID
+         * @param {string} status - 'pending', 'extracting', 'ready', 'failed', 'stale'
+         * @param {Object} extractionData - Optional extraction result data
+         */
+        async updateExtractionStatus(linkId, status, extractionData = {}) {
+            if (!isAvailable()) throw new Error('Supabase not available');
+            
+            const updateData = {
+                extraction_status: status,
+                updated_at: new Date().toISOString()
+            };
+            
+            if (extractionData.extractedFileId) {
+                updateData.extracted_file_id = extractionData.extractedFileId;
+                updateData.extracted_at = new Date().toISOString();
+            }
+            if (extractionData.sourceVersionId) {
+                updateData.source_version_id = extractionData.sourceVersionId;
+            }
+            
+            const { data, error } = await getClient()
+                .from('drawing_links')
+                .update(updateData)
+                .eq('id', linkId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
         },
 
         /**
@@ -194,10 +272,96 @@
     };
 
     // ============================================================================
-    // PDF PAGE EXTRACTION
+    // PDF PAGE EXTRACTION & PRE-EXTRACTION
     // ============================================================================
 
     const PDFUtils = {
+        /**
+         * Pre-extract pages from a PDF and upload to SharePoint _Linked Details folder
+         * Called when a link is created or updated
+         * @param {Object} link - The drawing link object
+         * @param {string} projectName - Project name for folder path
+         * @param {function} onProgress - Optional progress callback
+         * @returns {Promise<Object>} { extractedFileId, extractedAt }
+         */
+        async preExtractAndUpload(link, projectName, onProgress = null) {
+            if (!link.sharepoint_file_id) {
+                throw new Error('No source file ID for extraction');
+            }
+            
+            console.log('[Drawing Links] Pre-extracting pages for:', link.label);
+            if (onProgress) onProgress({ status: 'starting', percent: 5 });
+            
+            // Get download URL for source PDF
+            const pdfUrl = await window.MODA_SHAREPOINT.getDownloadUrl(link.sharepoint_file_id);
+            if (!pdfUrl) throw new Error('Could not get source PDF URL');
+            
+            if (onProgress) onProgress({ status: 'downloading', percent: 15 });
+            
+            // Fetch the PDF
+            const response = await fetch(pdfUrl);
+            if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
+            const pdfBytes = await response.arrayBuffer();
+            
+            if (onProgress) onProgress({ status: 'extracting', percent: 40 });
+            
+            // Load and extract pages
+            const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+            const totalPages = pdfDoc.getPageCount();
+            const pageNumbers = this.parsePageNumbers(link.page_number);
+            const validPages = pageNumbers.filter(p => p >= 1 && p <= totalPages);
+            
+            if (validPages.length === 0) {
+                throw new Error(`No valid pages in range 1-${totalPages}`);
+            }
+            
+            // Create new PDF with extracted pages
+            const newPdfDoc = await PDFLib.PDFDocument.create();
+            const pageIndices = validPages.map(p => p - 1);
+            const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+            copiedPages.forEach(page => newPdfDoc.addPage(page));
+            
+            if (onProgress) onProgress({ status: 'saving', percent: 60 });
+            
+            const newPdfBytes = await newPdfDoc.save();
+            
+            // Create file for upload
+            const sanitizedLabel = link.label.replace(/[^a-zA-Z0-9]/g, '_');
+            const pageStr = validPages.length === 1 ? `p${validPages[0]}` : `p${validPages.join('-')}`;
+            const fileName = `${sanitizedLabel}_${pageStr}.pdf`;
+            const file = new File([newPdfBytes], fileName, { type: 'application/pdf' });
+            
+            if (onProgress) onProgress({ status: 'uploading', percent: 70 });
+            
+            // Upload to SharePoint _Linked Details folder
+            const folderPath = `MODA Drawings/${projectName}/Permit Drawings/_Linked Details`;
+            
+            // Ensure folder exists
+            try {
+                await window.MODA_SHAREPOINT.ensureFolderExists(projectName, 'Permit Drawings', '_Linked Details');
+            } catch (e) {
+                console.warn('[Drawing Links] Could not ensure folder exists:', e);
+            }
+            
+            // Upload the extracted PDF
+            const uploadResult = await window.MODA_SHAREPOINT.uploadFileToFolder(file, folderPath, (progress) => {
+                if (onProgress) {
+                    const uploadPercent = 70 + (progress.percent * 0.25);
+                    onProgress({ status: 'uploading', percent: uploadPercent });
+                }
+            });
+            
+            if (onProgress) onProgress({ status: 'complete', percent: 100 });
+            
+            console.log('[Drawing Links] Pre-extracted and uploaded:', fileName, 'FileId:', uploadResult.fileId);
+            
+            return {
+                extractedFileId: uploadResult.fileId,
+                extractedAt: new Date().toISOString(),
+                fileName: fileName
+            };
+        },
+        
         /**
          * Parse page number string into array of page numbers
          * Supports: single (5), comma-separated (3,7,12), ranges (1-5), or mixed (1-3,7,10-12)
@@ -326,20 +490,34 @@
         },
 
         /**
-         * Open a drawing link - extracts the page and opens in new tab
+         * Open a drawing link - uses pre-extracted file if available, otherwise extracts on-demand
          * Opens window immediately to avoid popup blocker, shows loading state
          * On mobile/iPad: Opens PDF directly with page fragment (avoids memory issues)
          * @param {Object} link - Drawing link object
          * @returns {Promise<boolean>} Success
          */
         async openLink(link) {
-            if (!link.package_path && !link.sharepoint_file_id) {
+            if (!link.package_path && !link.sharepoint_file_id && !link.extracted_file_id) {
                 console.warn('[Drawing Links] Link not configured:', link.label);
                 return false;
             }
 
             const isMobile = this.isMobile();
             const pageNum = this.parsePageNumbers(link.page_number)[0] || 1;
+            
+            // FAST PATH: If pre-extracted file exists, open it directly (instant!)
+            if (link.extracted_file_id && link.extraction_status === 'ready') {
+                console.log('[Drawing Links] Opening pre-extracted file:', link.extracted_file_id);
+                try {
+                    const previewUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.extracted_file_id);
+                    if (previewUrl) {
+                        window.open(previewUrl, '_blank');
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('[Drawing Links] Pre-extracted file open failed, falling back:', e);
+                }
+            }
             
             // On mobile: Skip page extraction (causes memory issues on iPad)
             // Instead, open PDF directly with page fragment - Safari handles this well
@@ -349,13 +527,20 @@
                 try {
                     let pdfUrl;
                     
-                    // Try to get preview URL first (works better on mobile)
-                    if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
-                        pdfUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
-                    } else if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getDownloadUrl) {
-                        pdfUrl = await window.MODA_SHAREPOINT.getDownloadUrl(link.sharepoint_file_id);
-                    } else if (link.package_path) {
-                        pdfUrl = link.package_path;
+                    // If pre-extracted exists but failed above, try download URL
+                    if (link.extracted_file_id) {
+                        pdfUrl = await window.MODA_SHAREPOINT.getDownloadUrl(link.extracted_file_id);
+                    }
+                    
+                    // Otherwise use source file
+                    if (!pdfUrl) {
+                        if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getPreviewUrl) {
+                            pdfUrl = await window.MODA_SHAREPOINT.getPreviewUrl(link.sharepoint_file_id);
+                        } else if (link.sharepoint_file_id && window.MODA_SHAREPOINT?.getDownloadUrl) {
+                            pdfUrl = await window.MODA_SHAREPOINT.getDownloadUrl(link.sharepoint_file_id);
+                        } else if (link.package_path) {
+                            pdfUrl = link.package_path;
+                        }
                     }
                     
                     if (pdfUrl) {
@@ -447,6 +632,55 @@
                 if (newWindow) newWindow.close();
                 alert('Error opening drawing link: ' + error.message);
                 return false;
+            }
+        },
+        
+        /**
+         * Create or update a link with pre-extraction
+         * This is the main entry point for link configuration
+         * @param {Object} linkData - Link data from modal
+         * @param {string} projectName - Project name for folder path
+         * @param {function} onProgress - Progress callback
+         * @returns {Promise<Object>} Updated link with extraction info
+         */
+        async createLinkWithExtraction(linkData, projectName, onProgress = null) {
+            // First create/update the link in database
+            let link;
+            if (linkData.id) {
+                // Update existing link
+                const existingLink = await DrawingLinksAPI.getById(linkData.id);
+                if (existingLink && existingLink.extracted_file_id) {
+                    // Archive old extraction before updating
+                    await DrawingLinksAPI.archiveExtractedFile(existingLink, 'updated', linkData.createdBy);
+                }
+                link = await DrawingLinksAPI.update(linkData.id, linkData);
+            } else {
+                link = await DrawingLinksAPI.create(linkData);
+            }
+            
+            // Set status to extracting
+            await DrawingLinksAPI.updateExtractionStatus(link.id, 'extracting');
+            
+            try {
+                // Pre-extract and upload
+                const extractionResult = await this.preExtractAndUpload(
+                    { ...link, ...linkData },
+                    projectName,
+                    onProgress
+                );
+                
+                // Update link with extraction info
+                const updatedLink = await DrawingLinksAPI.updateExtractionStatus(link.id, 'ready', {
+                    extractedFileId: extractionResult.extractedFileId,
+                    sourceVersionId: linkData.sharepointFileId
+                });
+                
+                return updatedLink;
+            } catch (error) {
+                console.error('[Drawing Links] Pre-extraction failed:', error);
+                // Mark as failed but keep the link (will use on-demand extraction)
+                await DrawingLinksAPI.updateExtractionStatus(link.id, 'failed');
+                throw error;
             }
         }
     };

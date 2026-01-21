@@ -75,37 +75,69 @@ const DrawingLinksPanel = ({
         await window.MODA_DRAWING_LINKS.pdf.openLink(link);
     }, [canEdit]);
     
-    // Handle saving link configuration
-    const handleSaveLink = useCallback(async (linkId, updates) => {
+    // Handle saving link configuration (with pre-extraction)
+    const handleSaveLink = useCallback(async (linkId, updates, onProgress = null) => {
         try {
-            await window.MODA_DRAWING_LINKS.update(linkId, updates);
+            // Use pre-extraction if SharePoint file is specified
+            if (updates.sharepointFileId && window.MODA_DRAWING_LINKS.pdf?.createLinkWithExtraction) {
+                await window.MODA_DRAWING_LINKS.pdf.createLinkWithExtraction(
+                    { id: linkId, ...updates, createdBy: auth?.currentUser?.name || 'Unknown' },
+                    projectName,
+                    onProgress
+                );
+            } else {
+                await window.MODA_DRAWING_LINKS.update(linkId, updates);
+            }
             // Refresh links
             const data = await window.MODA_DRAWING_LINKS.getByProject(projectId);
             setLinks(data);
             setShowConfigureModal(null);
         } catch (error) {
             console.error('[DrawingLinksPanel] Error saving link:', error);
-            alert('Error saving link: ' + error.message);
+            // Don't show error for extraction failures - link is still saved
+            if (!error.message?.includes('extraction')) {
+                alert('Error saving link: ' + error.message);
+            }
+            // Refresh anyway - link was created, just extraction failed
+            const data = await window.MODA_DRAWING_LINKS.getByProject(projectId);
+            setLinks(data);
+            setShowConfigureModal(null);
         }
-    }, [projectId]);
+    }, [projectId, projectName, auth]);
     
-    // Handle adding a new custom link
-    const handleAddLink = useCallback(async (linkData) => {
+    // Handle adding a new custom link (with pre-extraction)
+    const handleAddLink = useCallback(async (linkData, onProgress = null) => {
         try {
-            await window.MODA_DRAWING_LINKS.create({
-                projectId,
-                ...linkData,
-                createdBy: auth?.currentUser?.name || 'Unknown'
-            });
+            // Use pre-extraction if SharePoint file is specified
+            if (linkData.sharepointFileId && window.MODA_DRAWING_LINKS.pdf?.createLinkWithExtraction) {
+                await window.MODA_DRAWING_LINKS.pdf.createLinkWithExtraction(
+                    { projectId, ...linkData, createdBy: auth?.currentUser?.name || 'Unknown' },
+                    projectName,
+                    onProgress
+                );
+            } else {
+                await window.MODA_DRAWING_LINKS.create({
+                    projectId,
+                    ...linkData,
+                    createdBy: auth?.currentUser?.name || 'Unknown'
+                });
+            }
             // Refresh links
             const data = await window.MODA_DRAWING_LINKS.getByProject(projectId);
             setLinks(data);
             setShowAddModal(false);
         } catch (error) {
             console.error('[DrawingLinksPanel] Error adding link:', error);
-            alert('Error adding link: ' + error.message);
+            // Don't show error for extraction failures - link is still saved
+            if (!error.message?.includes('extraction')) {
+                alert('Error adding link: ' + error.message);
+            }
+            // Refresh anyway - link was created, just extraction failed
+            const data = await window.MODA_DRAWING_LINKS.getByProject(projectId);
+            setLinks(data);
+            setShowAddModal(false);
         }
-    }, [projectId, auth]);
+    }, [projectId, projectName, auth]);
     
     // Handle deleting a link
     const handleDeleteLink = useCallback(async (linkId) => {
@@ -265,6 +297,22 @@ const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelet
                                 : `Page ${link.page_number}`}
                         </span>
                     )}
+                    {/* Extraction status indicator */}
+                    {isConfigured && link.extraction_status === 'ready' && (
+                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded" title="Pre-extracted for instant access">
+                            Fast
+                        </span>
+                    )}
+                    {isConfigured && link.extraction_status === 'extracting' && (
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded animate-pulse">
+                            Extracting...
+                        </span>
+                    )}
+                    {isConfigured && link.extraction_status === 'failed' && (
+                        <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded" title="Will extract on-demand">
+                            Slow
+                        </span>
+                    )}
                 </div>
                 
                 {!isConfigured && canEdit && (
@@ -410,7 +458,10 @@ const ConfigureLinkModal = ({ link, projectId, onSave, onClose }) => {
         setStep('configure');
     };
     
-    // Handle save
+    // Extraction progress state
+    const [extractionProgress, setExtractionProgress] = useState(null);
+    
+    // Handle save with extraction progress
     const handleSave = async () => {
         if (!selectedDrawing) {
             alert('Please select a drawing package');
@@ -423,15 +474,20 @@ const ConfigureLinkModal = ({ link, projectId, onSave, onClose }) => {
         )[0];
         
         setIsSaving(true);
+        setExtractionProgress({ status: 'starting', percent: 0 });
+        
         try {
             await onSave(link.id, {
                 packagePath: latestVersion?.storage_path || '',
                 sharepointFileId: latestVersion?.sharepoint_file_id || null,
-                pageNumber: parseInt(pageNumber) || 1,
+                pageNumber: pageNumber || '1',
                 description: description || null
+            }, (progress) => {
+                setExtractionProgress(progress);
             });
         } finally {
             setIsSaving(false);
+            setExtractionProgress(null);
         }
     };
     
@@ -614,9 +670,20 @@ const ConfigureLinkModal = ({ link, projectId, onSave, onClose }) => {
                         <button
                             onClick={handleSave}
                             disabled={isSaving || !selectedDrawing}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[140px]"
                         >
-                            {isSaving ? 'Saving...' : 'Save Link'}
+                            {isSaving ? (
+                                <span className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    {extractionProgress?.status === 'downloading' && 'Downloading...'}
+                                    {extractionProgress?.status === 'extracting' && 'Extracting...'}
+                                    {extractionProgress?.status === 'uploading' && 'Uploading...'}
+                                    {(!extractionProgress?.status || extractionProgress?.status === 'starting') && 'Saving...'}
+                                </span>
+                            ) : 'Save Link'}
                         </button>
                     )}
                 </div>
@@ -725,7 +792,10 @@ const AddLinkModal = ({ projectId, onAdd, onClose }) => {
         setStep('configure');
     };
     
-    // Handle add
+    // Extraction progress state
+    const [extractionProgress, setExtractionProgress] = useState(null);
+    
+    // Handle add with extraction progress
     const handleAdd = async () => {
         if (!selectedDrawing) return;
         
@@ -734,17 +804,22 @@ const AddLinkModal = ({ projectId, onAdd, onClose }) => {
         )[0];
         
         setIsSaving(true);
+        setExtractionProgress({ status: 'starting', percent: 0 });
+        
         try {
             await onAdd({
                 label: label.trim(),
                 packagePath: latestVersion?.storage_path || '',
                 sharepointFileId: latestVersion?.sharepoint_file_id || null,
-                pageNumber: parseInt(pageNumber) || 1,
+                pageNumber: pageNumber || '1',
                 description: description || null,
                 isPreset: false
+            }, (progress) => {
+                setExtractionProgress(progress);
             });
         } finally {
             setIsSaving(false);
+            setExtractionProgress(null);
         }
     };
     
@@ -952,9 +1027,20 @@ const AddLinkModal = ({ projectId, onAdd, onClose }) => {
                         <button
                             onClick={handleAdd}
                             disabled={isSaving || !selectedDrawing}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[140px]"
                         >
-                            {isSaving ? 'Adding...' : 'Add Link'}
+                            {isSaving ? (
+                                <span className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    {extractionProgress?.status === 'downloading' && 'Downloading...'}
+                                    {extractionProgress?.status === 'extracting' && 'Extracting...'}
+                                    {extractionProgress?.status === 'uploading' && 'Uploading...'}
+                                    {(!extractionProgress?.status || extractionProgress?.status === 'starting') && 'Adding...'}
+                                </span>
+                            ) : 'Add Link'}
                         </button>
                     )}
                 </div>

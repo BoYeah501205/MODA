@@ -2,9 +2,19 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.26**
+**Current Version: 1.3.27**
 
 ---
+
+## [1.3.27] - 2025-01-21
+### Drawing Links Pre-Extraction (Instant Access)
+- **Pre-Extract on Save**: When configuring a drawing link, pages are extracted and uploaded to SharePoint `_Linked Details` folder
+- **Instant Open**: Clicking a pre-extracted link opens immediately (no download/extraction delay)
+- **Status Indicators**: Links show "Fast" (pre-extracted), "Extracting...", or "Slow" (on-demand) badges
+- **Progress Feedback**: Save button shows "Downloading...", "Extracting...", "Uploading..." during extraction
+- **Archive System**: Old extracted files are archived when links are updated or deleted
+- **Fallback Support**: If pre-extraction fails, links still work via on-demand extraction
+- **Database Migration**: Run `backend/add-drawing-links-extraction.sql` in Supabase
 
 ## [1.3.26] - 2025-01-21
 ### Edit Week Modal Enhancement
