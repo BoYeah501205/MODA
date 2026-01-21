@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.20**
+**Current Version: 1.3.21**
 
 ---
+
+## [1.3.21] - 2025-01-21
+### Prototype Visibility Fix
+- **All Projects Search**: Scheduled prototypes are now pulled from ALL projects, not just active ones
+- **Cross-Project Prototypes**: Prototypes from non-active projects now appear on the WeeklyBoard when scheduled
 
 ## [1.3.20] - 2025-01-21
 ### Debug Logging for Prototype Placement

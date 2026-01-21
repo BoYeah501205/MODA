@@ -2282,6 +2282,7 @@ function WeeklyBoardTab({
     // IMPORTANT: Projects are kept grouped together - buildSequence is project-specific, not global
     // EXCEPTION: Scheduled prototypes (with insertedAfter) are sorted by their decimal buildSequence globally
     const allModules = (() => {
+        // Get regular modules from active projects only
         const rawModules = activeProjects
             .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
             .flatMap(p => 
@@ -2290,9 +2291,20 @@ function WeeklyBoardTab({
                     .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 }))
             );
         
-        // Separate scheduled prototypes (have insertedAfter) from regular modules
-        const scheduledPrototypes = rawModules.filter(m => m.isPrototype && m.insertedAfter);
+        // Get scheduled prototypes from ALL projects (not just active)
+        // This allows prototypes from non-active projects to appear on the board
+        const allScheduledPrototypes = (projects || [])
+            .flatMap(p => 
+                (p.modules || [])
+                    .filter(m => m.isPrototype && m.insertedAfter)
+                    .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 }))
+            );
+        
+        console.log('[WeeklyBoard] Found scheduled prototypes from all projects:', allScheduledPrototypes.map(p => `${p.serialNumber} after ${p.insertedAfter}`));
+        
+        // Regular modules exclude prototypes with insertedAfter (they'll be added separately)
         const regularModules = rawModules.filter(m => !(m.isPrototype && m.insertedAfter));
+        const scheduledPrototypes = allScheduledPrototypes;
         
         // Sort regular modules by project grouping
         const sortedRegular = regularModules.sort((a, b) => {
