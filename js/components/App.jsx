@@ -1822,13 +1822,26 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                 updateWeek={updateWeek}
                                                 deleteWeek={deleteWeek}
                                                 validateWeek={validateWeek}
-                                                allModules={activeProjects
-                                                    .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
-                                                    .flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 })))
-                                                    .sort((a, b) => {
+                                                allModules={(() => {
+                                                    // Get regular modules from active projects
+                                                    const regularModules = activeProjects
+                                                        .sort((a, b) => (a.productionOrder || 999) - (b.productionOrder || 999))
+                                                        .flatMap(p => (p.modules || []).map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 })));
+                                                    
+                                                    // Get scheduled prototypes from ALL projects (not just active)
+                                                    const scheduledPrototypes = (projects || [])
+                                                        .flatMap(p => (p.modules || [])
+                                                            .filter(m => m.isPrototype && m.insertedAfter)
+                                                            .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 }))
+                                                        );
+                                                    
+                                                    // Combine and sort
+                                                    const combined = [...regularModules.filter(m => !(m.isPrototype && m.insertedAfter)), ...scheduledPrototypes];
+                                                    return combined.sort((a, b) => {
                                                         if (a.projectProductionOrder !== b.projectProductionOrder) return a.projectProductionOrder - b.projectProductionOrder;
                                                         return (a.buildSequence || 0) - (b.buildSequence || 0);
-                                                    })}
+                                                    });
+                                                })()}
                                                 projects={projects}
                                                 setProjects={setProjects}
                                                 canEdit={auth.isAdmin || (auth.currentUser?.email && ['trevor@autovol.com', 'stephanie@autovol.com'].includes(auth.currentUser.email.toLowerCase()))}

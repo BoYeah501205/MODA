@@ -781,6 +781,146 @@ function CalendarWeekPicker({ weeks, currentWeek, selectedWeekId, onSelectWeek, 
     );
 }
 
+// ===== COLLAPSIBLE MODULE DROPDOWN COMPONENT =====
+// Custom dropdown that groups modules by project with collapsible sections
+// Default order: newest projects first (by production order descending)
+function CollapsibleModuleDropdown({ modules, value, onChange, placeholder = "Select a module..." }) {
+    const { useState, useMemo, useRef, useEffect } = React;
+    const [isOpen, setIsOpen] = useState(false);
+    const [collapsedProjects, setCollapsedProjects] = useState({});
+    const dropdownRef = useRef(null);
+    
+    // Group modules by project, sorted newest first (highest production order first, then by name)
+    const groupedModules = useMemo(() => {
+        const groups = {};
+        (modules || []).forEach(m => {
+            const projectKey = m.projectId || 'unknown';
+            if (!groups[projectKey]) {
+                groups[projectKey] = {
+                    projectId: m.projectId,
+                    projectName: m.projectName || 'Unknown Project',
+                    productionOrder: m.projectProductionOrder || 999,
+                    modules: []
+                };
+            }
+            groups[projectKey].modules.push(m);
+        });
+        
+        // Sort modules within each project by buildSequence
+        Object.values(groups).forEach(group => {
+            group.modules.sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+        });
+        
+        // Return as array sorted by production order (newest/highest first)
+        return Object.values(groups).sort((a, b) => b.productionOrder - a.productionOrder);
+    }, [modules]);
+    
+    // Find selected module for display
+    const selectedModule = useMemo(() => {
+        return (modules || []).find(m => m.serialNumber === value);
+    }, [modules, value]);
+    
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+    
+    const toggleProject = (projectId) => {
+        setCollapsedProjects(prev => ({
+            ...prev,
+            [projectId]: !prev[projectId]
+        }));
+    };
+    
+    const handleSelect = (module) => {
+        onChange(module.serialNumber);
+        setIsOpen(false);
+    };
+    
+    return (
+        <div ref={dropdownRef} className="relative">
+            {/* Selected value display / trigger button */}
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full border rounded-lg px-3 py-2 text-left bg-white flex items-center justify-between hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+                <span className={selectedModule ? 'text-gray-900' : 'text-gray-500'}>
+                    {selectedModule 
+                        ? `${selectedModule.serialNumber} (#${selectedModule.buildSequence}) - ${selectedModule.projectName}`
+                        : placeholder
+                    }
+                </span>
+                <svg className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            
+            {/* Dropdown panel */}
+            {isOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-80 overflow-y-auto">
+                    {/* Clear option */}
+                    <button
+                        type="button"
+                        onClick={() => { onChange(''); setIsOpen(false); }}
+                        className="w-full px-3 py-2 text-left text-gray-500 hover:bg-gray-100 border-b"
+                    >
+                        {placeholder}
+                    </button>
+                    
+                    {/* Project groups */}
+                    {groupedModules.map(group => (
+                        <div key={group.projectId} className="border-b last:border-b-0">
+                            {/* Project header (collapsible) */}
+                            <button
+                                type="button"
+                                onClick={() => toggleProject(group.projectId)}
+                                className="w-full px-3 py-2 text-left bg-gray-50 hover:bg-gray-100 flex items-center justify-between font-medium text-sm"
+                            >
+                                <span className="text-gray-700">
+                                    {group.projectName} ({group.modules.length})
+                                </span>
+                                <svg 
+                                    className={`w-4 h-4 text-gray-500 transition-transform ${collapsedProjects[group.projectId] ? '' : 'rotate-180'}`} 
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            
+                            {/* Module list (collapsible) */}
+                            {!collapsedProjects[group.projectId] && (
+                                <div className="max-h-48 overflow-y-auto">
+                                    {group.modules.map(m => (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            onClick={() => handleSelect(m)}
+                                            className={`w-full px-4 py-1.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 ${
+                                                value === m.serialNumber ? 'bg-blue-100 text-blue-800' : 'text-gray-700'
+                                            }`}
+                                        >
+                                            {m.isPrototype && <span className="text-yellow-500" title="Prototype">★</span>}
+                                            <span className="font-mono">{m.serialNumber}</span>
+                                            <span className="text-gray-400">(#{m.buildSequence})</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ===== PROTOTYPE SCHEDULING SECTION COMPONENT =====
 function PrototypeSchedulingSection({ allModules, sortedModules, projects, setProjects, onPlaceOnBoard }) {
     const { useState, useMemo } = React;
@@ -1585,18 +1725,12 @@ function ScheduleSetupTab({
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Starting Module (AUTO-C / AUTO-F / AUTO-W)
                                 </label>
-                                <select 
-                                    value={formData.startingModule} 
-                                    onChange={(e) => setFormData(prev => ({ ...prev, startingModule: e.target.value }))} 
-                                    className="w-full border rounded-lg px-3 py-2"
-                                >
-                                    <option value="">Select starting module...</option>
-                                    {sortedModules.map(m => (
-                                        <option key={m.id} value={m.serialNumber}>
-                                            {m.serialNumber} (#{m.buildSequence}) - {m.projectName || 'Unknown Project'}
-                                        </option>
-                                    ))}
-                                </select>
+                                <CollapsibleModuleDropdown
+                                    modules={sortedModules}
+                                    value={formData.startingModule}
+                                    onChange={(serialNumber) => setFormData(prev => ({ ...prev, startingModule: serialNumber }))}
+                                    placeholder="Select starting module..."
+                                />
                                 <p className="text-xs text-gray-500 mt-1">
                                     This module will appear at AUTO-C/AUTO-F/AUTO-W. Other stations offset by their stagger.
                                 </p>

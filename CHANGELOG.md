@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.21**
+**Current Version: 1.3.22**
 
 ---
+
+## [1.3.22] - 2025-01-21
+### Starting Module Dropdown Improvements
+- **Prototypes as Starting Module**: Scheduled prototypes can now be selected as the starting module for a week
+- **Collapsible Project Groups**: Starting module dropdown now groups modules by project with collapsible sections
+- **Newest First Order**: Projects sorted newest-to-oldest (by production order descending)
+- **Prototype Indicator**: Prototypes marked with star icon in dropdown
 
 ## [1.3.21] - 2025-01-21
 ### Prototype Visibility Fix
