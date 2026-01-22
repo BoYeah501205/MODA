@@ -2156,6 +2156,11 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             />
                                         </th>
                                     )}
+                                    {isModulePackages && (
+                                        <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                                            Status
+                                        </th>
+                                    )}
                                     <th 
                                         className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                         onClick={() => handleSort('fileName')}
@@ -2227,6 +2232,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                             title="Select for OCR processing"
                                                         />
                                                     )}
+                                                </td>
+                                            )}
+                                            {isModulePackages && (
+                                                <td className="px-2 py-4 text-center">
+                                                    <span 
+                                                        className="inline-block w-3 h-3 rounded-full bg-green-300/50 border border-green-400/30"
+                                                        title="No issues reported"
+                                                    ></span>
                                                 </td>
                                             )}
                                             <td className="px-4 py-4">

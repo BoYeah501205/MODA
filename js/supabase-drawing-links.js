@@ -333,23 +333,20 @@
             
             if (onProgress) onProgress({ status: 'uploading', percent: 70 });
             
-            // Upload to SharePoint _Linked Details folder
-            const folderPath = `MODA Drawings/${projectName}/Permit Drawings/_Linked Details`;
-            
-            // Ensure folder exists
-            try {
-                await window.MODA_SHAREPOINT.ensureFolderExists(projectName, 'Permit Drawings', '_Linked Details');
-            } catch (e) {
-                console.warn('[Drawing Links] Could not ensure folder exists:', e);
-            }
-            
-            // Upload the extracted PDF
-            const uploadResult = await window.MODA_SHAREPOINT.uploadFileToFolder(file, folderPath, (progress) => {
-                if (onProgress) {
-                    const uploadPercent = 70 + (progress.percent * 0.25);
-                    onProgress({ status: 'uploading', percent: uploadPercent });
+            // Upload to SharePoint using existing uploadFile API
+            // Uses _Linked Details as a "discipline" subfolder under Permit Drawings
+            const uploadResult = await window.MODA_SHAREPOINT.uploadFile(
+                file,
+                projectName,
+                'Permit Drawings',
+                '_Linked Details',
+                (progress) => {
+                    if (onProgress) {
+                        const uploadPercent = 70 + (progress.percent * 0.25);
+                        onProgress({ status: 'uploading', percent: uploadPercent });
+                    }
                 }
-            });
+            );
             
             if (onProgress) onProgress({ status: 'complete', percent: 100 });
             

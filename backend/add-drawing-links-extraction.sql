@@ -32,6 +32,9 @@ BEGIN
     END IF;
 END $$;
 
+-- Drop old function first (signature changed)
+DROP FUNCTION IF EXISTS get_drawing_links(UUID);
+
 -- Update the get_drawing_links function to include new columns
 CREATE OR REPLACE FUNCTION get_drawing_links(p_project_id UUID)
 RETURNS TABLE (

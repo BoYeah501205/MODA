@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.27**
+**Current Version: 1.3.28**
 
 ---
+
+## [1.3.28] - 2025-01-21
+### Drawing Links Pre-Extraction Fix
+- **Fixed SharePoint Upload**: Use correct `uploadFile` API for pre-extracted PDFs
+- **Folder Structure**: Extracted files stored in `Permit Drawings/_Linked Details/`
 
 ## [1.3.27] - 2025-01-21
 ### Drawing Links Pre-Extraction (Instant Access)
