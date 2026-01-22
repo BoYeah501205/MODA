@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.28**
+**Current Version: 1.3.29**
 
 ---
+
+## [1.3.29] - 2025-01-22
+### Drawing Links Management
+- **Reset Link**: Added ability to reset/clear a configured link (hover → menu → Reset Link)
+- **Edit/Delete**: Confirmed edit (Configure) and delete functionality for custom links
+- **Add Custom Link**: "Add Link" button available for creating custom drawing links
 
 ## [1.3.28] - 2025-01-21
 ### Drawing Links Pre-Extraction Fix

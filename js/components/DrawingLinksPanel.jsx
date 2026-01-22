@@ -154,6 +154,28 @@ const DrawingLinksPanel = ({
         }
     }, [projectId]);
     
+    // Handle resetting a link (clear configuration)
+    const handleResetLink = useCallback(async (linkId) => {
+        if (!confirm('Reset this link? This will clear the drawing and page configuration.')) return;
+        
+        try {
+            await window.MODA_DRAWING_LINKS.update(linkId, {
+                packagePath: null,
+                sharepointFileId: null,
+                pageNumber: null,
+                extractedFileId: null,
+                extractionStatus: null,
+                extractedAt: null
+            });
+            // Refresh links
+            const data = await window.MODA_DRAWING_LINKS.getByProject(projectId);
+            setLinks(data);
+        } catch (error) {
+            console.error('[DrawingLinksPanel] Error resetting link:', error);
+            alert('Error resetting link: ' + error.message);
+        }
+    }, [projectId]);
+    
     // Separate preset and custom links
     const presetLinks = useMemo(() => links.filter(l => l.is_preset), [links]);
     const customLinks = useMemo(() => links.filter(l => !l.is_preset), [links]);
@@ -206,6 +228,7 @@ const DrawingLinksPanel = ({
                                     canEdit={canEdit}
                                     onClick={() => handleLinkClick(link)}
                                     onConfigure={() => setShowConfigureModal(link)}
+                                    onReset={() => handleResetLink(link.id)}
                                 />
                             ))}
                             
@@ -219,6 +242,7 @@ const DrawingLinksPanel = ({
                                     onClick={() => handleLinkClick(link)}
                                     onConfigure={() => setShowConfigureModal(link)}
                                     onDelete={() => handleDeleteLink(link.id)}
+                                    onReset={() => handleResetLink(link.id)}
                                     isCustom={true}
                                 />
                             ))}
@@ -265,7 +289,7 @@ const DrawingLinksPanel = ({
 /**
  * Individual link button component
  */
-const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelete, isCustom }) => {
+const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelete, onReset, isCustom }) => {
     const { useState } = React;
     const [showMenu, setShowMenu] = useState(false);
     
@@ -340,6 +364,14 @@ const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelet
                             >
                                 Configure
                             </button>
+                            {isConfigured && onReset && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); onReset(); }}
+                                    className="w-full px-3 py-1.5 text-left text-sm text-orange-600 hover:bg-orange-50"
+                                >
+                                    Reset Link
+                                </button>
+                            )}
                             {isCustom && onDelete && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(); }}
