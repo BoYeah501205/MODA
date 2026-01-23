@@ -159,8 +159,9 @@ const DrawingLinksPanel = ({
         if (!confirm('Reset this link? This will clear the drawing and page configuration.')) return;
         
         try {
+            // Use empty string for package_path since it has NOT NULL constraint
             await window.MODA_DRAWING_LINKS.update(linkId, {
-                packagePath: null,
+                packagePath: '',
                 sharepointFileId: null,
                 pageNumber: null,
                 extractedFileId: null,
@@ -321,8 +322,8 @@ const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelet
                                 : `Page ${link.page_number}`}
                         </span>
                     )}
-                    {/* Extraction status indicator */}
-                    {isConfigured && link.extraction_status === 'ready' && (
+                    {/* Extraction status indicator - only show "Fast" for pre-extracted links */}
+                    {isConfigured && link.extraction_status === 'ready' && link.extracted_file_id && (
                         <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded" title="Pre-extracted for instant access">
                             Fast
                         </span>
@@ -330,11 +331,6 @@ const LinkButton = ({ link, isConfigured, canEdit, onClick, onConfigure, onDelet
                     {isConfigured && link.extraction_status === 'extracting' && (
                         <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded animate-pulse">
                             Extracting...
-                        </span>
-                    )}
-                    {isConfigured && link.extraction_status === 'failed' && (
-                        <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded" title="Will extract on-demand">
-                            Slow
                         </span>
                     )}
                 </div>

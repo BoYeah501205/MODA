@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.29**
+**Current Version: 1.3.30**
 
 ---
+
+## [1.3.30] - 2025-01-22
+### Drawing Links Fixes
+- **Fixed Reset Link**: Use empty string for package_path (NOT NULL constraint)
+- **Removed "Slow" Tag**: Only show "Fast" badge for successfully pre-extracted links
 
 ## [1.3.29] - 2025-01-22
 ### Drawing Links Management
