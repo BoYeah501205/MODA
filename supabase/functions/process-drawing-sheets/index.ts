@@ -171,27 +171,35 @@ serve(async (req) => {
                   },
                   {
                     type: 'text',
-                    text: `Analyze this shop drawing sheet and extract the title block information. Focus on these key fields:
+                    text: `Extract title block information from this shop drawing sheet. Look for a title block table (usually bottom-right) with these fields:
 
-PRIORITY FIELDS (most important):
-- SHEET NUMBER: The sheet identifier (e.g., 'XS-B1L2M15-01', 'M-101', 'E-202')
-- SHEET TITLE: The sheet title/description (e.g., 'FLOOR FRAMING PLAN', 'MECHANICAL LAYOUT')
-- DATE: The drawing date in YYYY-MM-DD format
+EXPECTED TITLE BLOCK FORMAT:
+┌─────────────────┬──────────────────────────┐
+│ SHEET NUMBER:   │ XE-B1L6M17-01            │  ← Format: XX-B#L#M##-## (discipline-building-level-module-sheet)
+├─────────────────┼──────────────────────────┤
+│ SHEET TITLE:    │ ELEC ENLG PLAN           │  ← Description of the sheet content
+├─────────────────┼──────────────────────────┤
+│ BLM (TYP):      │ B1L6M17                  │  ← Building-Level-Module identifier
+├─────────────────┼──────────────────────────┤
+│ SCALE:          │ As indicated             │  ← Drawing scale
+├─────────────────┼──────────────────────────┤
+│ DATE:           │ 01/08/2026               │  ← Drawing date
+└─────────────────┴──────────────────────────┘
 
-OPTIONAL FIELDS:
-- SCALE: Drawing scale (e.g., 'As indicated', '1/4"=1\'-0"')
-- DISCIPLINE: Discipline (Mechanical, Electrical, Plumbing, Structural, Architectural, Fire Protection)
-- REVISION: Revision number/letter
+DISCIPLINE CODES (first 2 chars of sheet number):
+- XE = Electrical, XP = Plumbing, XM = Mechanical
+- XS = Structural, XA = Architectural, XF = Fire Protection
 
-Return a JSON object with these fields:
+Return a JSON object with these exact fields:
 {
-  "sheet_number": "Complete sheet number from title block",
-  "sheet_title": "Sheet title/description",
-  "date": "Date in YYYY-MM-DD format if present",
-  "scale": "Drawing scale",
-  "discipline": "Discipline if identifiable",
-  "revision": "Revision number/letter",
-  "confidence": "Your confidence in the extraction (0-100)"
+  "sheet_number": "Full sheet number (e.g., XE-B1L6M17-01)",
+  "sheet_title": "Sheet title/description (e.g., ELEC ENLG PLAN)",
+  "blm_type": "BLM identifier (e.g., B1L6M17)",
+  "scale": "Scale value (e.g., As indicated)",
+  "date": "Date in YYYY-MM-DD format (convert from MM/DD/YYYY if needed)",
+  "discipline": "Full discipline name based on code (Electrical, Plumbing, Mechanical, Structural, Architectural, Fire Protection)",
+  "revision": "Revision if present, otherwise null",
+  "confidence": 0-100
 }
 
 Return ONLY the JSON object, no other text.`,
@@ -215,7 +223,7 @@ Return ONLY the JSON object, no other text.`,
             parsedFields = {
               sheet_name: extracted.sheet_number || null,
               sheet_title: extracted.sheet_title || null,
-              blm_type: null, // Excluded - often erroneous
+              blm_type: extracted.blm_type || null,
               discipline: extracted.discipline || null,
               scale: extracted.scale || null,
               drawing_date: extracted.date || null,

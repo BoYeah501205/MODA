@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.32**
+**Current Version: 1.3.33**
 
 ---
+
+## [1.3.33] - 2025-01-22
+### Claude Vision OCR for Shop Drawings
+- **Claude Vision Integration**: Replaced Tesseract.js with Claude Vision API for title block extraction
+- **Enhanced OCR Prompt**: Optimized for Autovol title block format (Sheet Number, Sheet Title, BLM TYP, Scale, Date)
+- **Run OCR Button**: Added purple "Run OCR" button in Shop Drawings when PDFs are selected
+- **Cost Transparency**: Shows estimated cost before processing (~$0.015/page)
+- **BLM Type Extraction**: Now extracts BLM (TYP) field for module linking
 
 ## [1.3.32] - 2025-01-22
 ### Drawing Links Pre-Extraction Fix

@@ -1228,10 +1228,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, []);
     
-    // Handle extract sheets - trigger OCR processing for selected PDFs using Tesseract
+    // Handle extract sheets - trigger OCR processing for selected PDFs using Claude Vision API
     const handleExtractSheets = useCallback(async () => {
-        if (!window.MODA_TESSERACT_OCR?.isAvailable()) {
-            alert('Tesseract OCR not loaded. Please refresh the page.');
+        if (!window.MODA_SUPABASE?.client) {
+            alert('Supabase not available. Please refresh the page.');
             return;
         }
         
@@ -1250,22 +1250,30 @@ const DrawingsModule = ({ projects = [], auth }) => {
             return;
         }
         
-        const confirmed = confirm(`Run OCR on ${drawingsToProcess.length} PDF file(s)?\n\nThis will process each PDF using Tesseract.js (free, client-side OCR).\n\nProcessing may take 2-5 seconds per page.`);
+        // Estimate cost based on typical page counts
+        const estimatedCost = (drawingsToProcess.length * 15 * 0.015).toFixed(2); // ~15 pages avg, ~$0.015/page
+        
+        const confirmed = confirm(
+            `Run OCR on ${drawingsToProcess.length} PDF file(s)?\n\n` +
+            `This will use Claude Vision AI to extract title block metadata:\n` +
+            `- Sheet Number (e.g., XE-B1L6M17-01)\n` +
+            `- Sheet Title (e.g., ELEC ENLG PLAN)\n` +
+            `- BLM Type (e.g., B1L6M17)\n` +
+            `- Scale, Date, Discipline\n\n` +
+            `Estimated cost: ~$${estimatedCost} (based on ~15 pages/PDF)\n\n` +
+            `Processing may take 1-2 minutes per PDF.`
+        );
         if (!confirmed) return;
         
         try {
             setProcessingDrawing({ status: 'processing', progress: 0, stage: 'starting' });
             
+            let totalProcessed = 0;
+            let totalSheets = 0;
+            
             for (let i = 0; i < drawingsToProcess.length; i++) {
                 const drawing = drawingsToProcess[i];
                 console.log(`[Drawings] Processing ${i + 1}/${drawingsToProcess.length}: ${drawing.name}`);
-                
-                // Download PDF file
-                const latestVersion = getLatestVersion(drawing);
-                if (!latestVersion) {
-                    console.error(`[Drawings] No version found for ${drawing.name}`);
-                    continue;
-                }
                 
                 setProcessingDrawing({ 
                     status: 'processing', 
@@ -1273,98 +1281,61 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     current: i + 1,
                     total: drawingsToProcess.length,
                     fileName: drawing.name,
-                    stage: 'downloading'
+                    stage: 'Sending to Claude Vision API...'
                 });
                 
-                // Download PDF from Supabase Storage
-                const storagePath = latestVersion.storage_path || latestVersion.storagePath;
-                const { data: pdfBlob, error: downloadError } = await window.MODA_SUPABASE?.client
-                    ?.storage
-                    .from('drawings')
-                    .download(storagePath);
-                
-                if (downloadError || !pdfBlob) {
-                    console.error(`[Drawings] Download error for ${drawing.name}:`, downloadError);
-                    continue;
-                }
-                
-                // Convert blob to File object
-                const pdfFile = new File([pdfBlob], drawing.name, { type: 'application/pdf' });
-                
-                // Process with Tesseract OCR
-                const sheets = await window.MODA_TESSERACT_OCR.processPDF(pdfFile, {
-                    onProgress: (progress) => {
-                        const baseProgress = Math.round((i / drawingsToProcess.length) * 100);
-                        const fileProgress = Math.round((progress.percent / 100) * (100 / drawingsToProcess.length));
-                        
-                        setProcessingDrawing({
-                            status: 'processing',
-                            progress: baseProgress + fileProgress,
-                            current: i + 1,
-                            total: drawingsToProcess.length,
-                            fileName: drawing.name,
-                            stage: progress.stage,
-                            pageProgress: `${progress.current}/${progress.total}`
-                        });
+                try {
+                    // Call the Edge Function to process with Claude Vision
+                    const response = await fetch('https://syreuphexagezawjyjgt.supabase.co/functions/v1/process-drawing-sheets', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.MODA_SUPABASE.client.supabaseKey}`,
+                        },
+                        body: JSON.stringify({
+                            drawingFileId: drawing.id,
+                            action: 'split_and_ocr'
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        console.error(`[Drawings] OCR failed for ${drawing.name}:`, errorData);
+                        continue;
                     }
-                });
-                
-                // Save sheets to database
-                if (window.MODA_DRAWING_SHEETS?.saveSheets) {
-                    await window.MODA_DRAWING_SHEETS.saveSheets(drawing.id, selectedProject.id, sheets);
-                } else if (window.MODA_SUPABASE?.client) {
-                    // Fallback: Save directly to database if drawing sheets module not loaded
-                    console.log(`[Drawings] Using direct database save for ${sheets.length} sheets`);
-                    for (const sheet of sheets) {
-                        try {
-                            const { data: insertedSheet, error: insertError } = await window.MODA_SUPABASE.client
-                                .from('drawing_sheets')
-                                .insert({
-                                    drawing_file_id: drawing.id,
-                                    project_id: selectedProject.id,
-                                    sheet_name: sheet.sheet_number || `Sheet ${sheet.page_number}`,
-                                    sheet_title: sheet.sheet_title,
-                                    drawing_date: sheet.date,
-                                    page_number: sheet.page_number,
-                                    ocr_confidence: sheet.ocr_confidence,
-                                    ocr_metadata: {
-                                        raw_text: sheet.raw_text,
-                                        blm_id: sheet.blm_id,
-                                        extracted_at: new Date().toISOString(),
-                                        ocr_engine: 'tesseract'
-                                    }
-                                })
-                                .select()
-                                .single();
-                            
-                            if (insertError) {
-                                console.error(`[Drawings] Error inserting sheet ${sheet.page_number}:`, insertError);
-                                continue;
-                            }
-                            
-                            // Auto-link to module if BLM ID found
-                            if (sheet.blm_id && insertedSheet) {
-                                try {
-                                    await window.MODA_SUPABASE.client.rpc('auto_link_sheet_to_module', {
-                                        p_sheet_id: insertedSheet.id,
-                                        p_sheet_number: sheet.sheet_number || sheet.blm_id
-                                    });
-                                } catch (linkError) {
-                                    console.warn(`[Drawings] Auto-link failed for sheet ${sheet.page_number}:`, linkError);
-                                }
-                            }
-                        } catch (error) {
-                            console.error(`[Drawings] Error processing sheet ${sheet.page_number}:`, error);
-                        }
-                    }
+                    
+                    const result = await response.json();
+                    console.log(`[Drawings] Extracted ${result.processed_sheets} sheets from ${drawing.name}`);
+                    
+                    totalProcessed++;
+                    totalSheets += result.processed_sheets || 0;
+                    
+                    setProcessingDrawing({
+                        status: 'processing',
+                        progress: Math.round(((i + 1) / drawingsToProcess.length) * 100),
+                        current: i + 1,
+                        total: drawingsToProcess.length,
+                        fileName: drawing.name,
+                        stage: `Completed: ${result.processed_sheets} sheets extracted`
+                    });
+                    
+                } catch (fetchError) {
+                    console.error(`[Drawings] Error processing ${drawing.name}:`, fetchError);
                 }
-                
-                console.log(`[Drawings] Extracted ${sheets.length} sheets from ${drawing.name}`);
             }
             
             setProcessingDrawing(null);
             setSelectedDrawings([]); // Clear selection after processing
-            alert(`Successfully extracted sheets from ${drawingsToProcess.length} PDF file(s) using Tesseract OCR!\n\nClick "Browse Sheets" to view and filter the extracted sheets.`);
+            
+            if (totalProcessed > 0) {
+                alert(
+                    `Successfully processed ${totalProcessed} PDF file(s)!\n\n` +
+                    `Total sheets extracted: ${totalSheets}\n\n` +
+                    `Click "Browse Sheets" to view and filter the extracted sheets.`
+                );
+            } else {
+                alert('No PDFs were processed successfully. Check the console for errors.');
+            }
         } catch (error) {
             console.error('[Drawings] Extract sheets error:', error);
             setProcessingDrawing(null);
@@ -1909,6 +1880,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 Upload Drawings
                             </button>
                         )}
+                        {!isMobile && selectedDrawings.length > 0 && (
+                            <button
+                                onClick={handleExtractSheets}
+                                disabled={processingDrawing}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Extract title block metadata using Claude Vision AI"
+                            >
+                                <span className="icon-scan w-4 h-4"></span>
+                                Run OCR ({selectedDrawings.length})
+                            </button>
+                        )}
                     </div>
                 </div>
                 
@@ -2138,7 +2120,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         <table className="w-full min-w-max">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    {(window.MODA_TESSERACT_OCR || window.Tesseract) && (
+                                    {window.MODA_SUPABASE?.client && (
                                         <th className="px-4 py-3 text-left">
                                             <input
                                                 type="checkbox"
@@ -2215,7 +2197,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     
                                     return (
                                         <tr key={drawing.id} className="hover:bg-gray-50">
-                                            {(window.MODA_TESSERACT_OCR || window.Tesseract) && (
+                                            {window.MODA_SUPABASE?.client && (
                                                 <td className="px-4 py-4">
                                                     {isPdf && (
                                                         <input
@@ -2229,7 +2211,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                                 }
                                                             }}
                                                             className="w-4 h-4 text-purple-600 rounded cursor-pointer"
-                                                            title="Select for OCR processing"
+                                                            title="Select for Claude Vision OCR"
                                                         />
                                                     )}
                                                 </td>
