@@ -76,7 +76,7 @@ serve(async (req) => {
 
     try {
       // Download PDF from storage (handle both Supabase and SharePoint)
-      let pdfBytes: Uint8Array;
+      let pdfBytes;
       const storagePath = latestVersion.storage_path;
       const isSharePoint = storagePath.startsWith('sharepoint:') || latestVersion.storage_type === 'sharepoint';
 
