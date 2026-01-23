@@ -75,20 +75,63 @@ serve(async (req) => {
     console.log(`[ProcessSheets] Created extraction job: ${job.id}`);
 
     try {
-      // Download PDF from storage
-      const { data: pdfData, error: downloadError } = await supabaseClient.storage
-        .from('drawings')
-        .download(latestVersion.storage_path);
+      // Download PDF from storage (handle both Supabase and SharePoint)
+      let pdfBytes: Uint8Array;
+      const storagePath = latestVersion.storage_path;
+      const isSharePoint = storagePath.startsWith('sharepoint:') || latestVersion.storage_type === 'sharepoint';
 
-      if (downloadError || !pdfData) {
-        throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+      if (isSharePoint) {
+        // Extract SharePoint file ID from storage path
+        const sharePointFileId = latestVersion.sharepoint_file_id || storagePath.replace('sharepoint:', '');
+        console.log(`[ProcessSheets] Downloading from SharePoint, fileId: ${sharePointFileId}`);
+
+        // Call SharePoint Edge Function to get download URL
+        const sharePointResponse = await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/sharepoint`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              action: 'download',
+              fileId: sharePointFileId,
+            }),
+          }
+        );
+
+        if (!sharePointResponse.ok) {
+          const errorText = await sharePointResponse.text();
+          throw new Error(`SharePoint download failed: ${errorText}`);
+        }
+
+        const { downloadUrl } = await sharePointResponse.json();
+        console.log(`[ProcessSheets] Got SharePoint download URL`);
+
+        // Download the actual file from SharePoint
+        const fileResponse = await fetch(downloadUrl);
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to download from SharePoint URL: ${fileResponse.status}`);
+        }
+
+        const pdfBuffer = await fileResponse.arrayBuffer();
+        pdfBytes = new Uint8Array(pdfBuffer);
+        console.log(`[ProcessSheets] Downloaded PDF from SharePoint, size: ${pdfBytes.length} bytes`);
+      } else {
+        // Download from Supabase Storage
+        const { data: pdfData, error: downloadError } = await supabaseClient.storage
+          .from('drawings')
+          .download(storagePath);
+
+        if (downloadError || !pdfData) {
+          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+        }
+
+        const pdfBuffer = await pdfData.arrayBuffer();
+        pdfBytes = new Uint8Array(pdfBuffer);
+        console.log(`[ProcessSheets] Downloaded PDF from Supabase, size: ${pdfBytes.length} bytes`);
       }
-
-      console.log(`[ProcessSheets] Downloaded PDF, size: ${pdfData.size} bytes`);
-
-      // Convert PDF to array buffer
-      const pdfBuffer = await pdfData.arrayBuffer();
-      const pdfBytes = new Uint8Array(pdfBuffer);
 
       // Use pdf-lib to split PDF into individual pages
       // Note: We'll use a dynamic import for pdf-lib
