@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.30**
+**Current Version: 1.3.31**
 
 ---
+
+## [1.3.31] - 2025-01-22
+### Drawing Links Reset Fix
+- **Fixed Reset Link**: Use empty string for both package_path and page_number (both have NOT NULL constraints)
 
 ## [1.3.30] - 2025-01-22
 ### Drawing Links Fixes

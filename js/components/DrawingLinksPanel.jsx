@@ -159,11 +159,11 @@ const DrawingLinksPanel = ({
         if (!confirm('Reset this link? This will clear the drawing and page configuration.')) return;
         
         try {
-            // Use empty string for package_path since it has NOT NULL constraint
+            // Use empty strings for NOT NULL constrained columns
             await window.MODA_DRAWING_LINKS.update(linkId, {
                 packagePath: '',
                 sharepointFileId: null,
-                pageNumber: null,
+                pageNumber: '',
                 extractedFileId: null,
                 extractionStatus: null,
                 extractedAt: null
