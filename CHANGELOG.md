@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.31**
+**Current Version: 1.3.32**
 
 ---
+
+## [1.3.32] - 2025-01-22
+### Drawing Links Pre-Extraction Fix
+- **Fixed File ID**: Use correct `id` property from SharePoint upload result (was using non-existent `fileId`)
 
 ## [1.3.31] - 2025-01-22
 ### Drawing Links Reset Fix

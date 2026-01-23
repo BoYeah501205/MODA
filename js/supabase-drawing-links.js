@@ -350,10 +350,11 @@
             
             if (onProgress) onProgress({ status: 'complete', percent: 100 });
             
-            console.log('[Drawing Links] Pre-extracted and uploaded:', fileName, 'FileId:', uploadResult.fileId);
+            // uploadFile returns { id, name, size, webUrl, downloadUrl }
+            console.log('[Drawing Links] Pre-extracted and uploaded:', fileName, 'FileId:', uploadResult.id);
             
             return {
-                extractedFileId: uploadResult.fileId,
+                extractedFileId: uploadResult.id,
                 extractedAt: new Date().toISOString(),
                 fileName: fileName
             };
