@@ -1299,8 +1299,12 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     });
                     
                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        console.error(`[Drawings] OCR failed for ${drawing.name}:`, errorData);
+                        const errorText = await response.text();
+                        console.error(`[Drawings] OCR failed for ${drawing.name}:`, response.status, errorText);
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            console.error(`[Drawings] Error details:`, errorData.error, errorData.details);
+                        } catch (e) {}
                         continue;
                     }
                     

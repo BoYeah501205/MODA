@@ -1310,6 +1310,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             ) : <div className="p-8 text-center text-gray-500">Loading Tracker Module...</div>
                         )}
 
+                        {activeTab === 'supplychain' && (
+                            window.ProcurementBoard ? (
+                                <window.ProcurementBoard projects={projects} auth={auth} />
+                            ) : <div className="p-8 text-center text-gray-500">Loading Supply Chain Module...</div>
+                        )}
+
                         {activeTab === 'admin' && auth.canAccessAdmin && (
                             <>
                                 {/* Data Management Button */}

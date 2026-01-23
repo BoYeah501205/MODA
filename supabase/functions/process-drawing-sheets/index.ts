@@ -25,15 +25,15 @@ serve(async (req) => {
     );
 
     const anthropic = new Anthropic({
-      apiKey: Deno.env.get('CLAUDE_API_KEY') ?? '',
+      apiKey: Deno.env.get('OCR_Reader') ?? '',
     });
 
     console.log(`[ProcessSheets] Processing drawing file: ${drawingFileId}, action: ${action}`);
 
-    // Get drawing file metadata
+    // Get drawing file metadata (table is 'drawings' not 'drawing_files')
     const { data: drawingFile, error: fileError } = await supabaseClient
-      .from('drawing_files')
-      .select('*, drawing_versions(*)')
+      .from('drawings')
+      .select('*')
       .eq('id', drawingFileId)
       .single();
 
@@ -41,13 +41,19 @@ serve(async (req) => {
       throw new Error(`Drawing file not found: ${fileError?.message}`);
     }
 
-    // Get latest version
-    const latestVersion = drawingFile.drawing_versions
-      .sort((a: any, b: any) => parseFloat(b.version) - parseFloat(a.version))[0];
+    // Get versions separately (avoids schema cache relationship issues)
+    const { data: versions, error: versionsError } = await supabaseClient
+      .from('drawing_versions')
+      .select('*')
+      .eq('drawing_id', drawingFileId)
+      .order('version', { ascending: false });
 
-    if (!latestVersion) {
-      throw new Error('No versions found for drawing file');
+    if (versionsError || !versions || versions.length === 0) {
+      throw new Error(`No versions found: ${versionsError?.message}`);
     }
+
+    // Get latest version
+    const latestVersion = versions[0];
 
     console.log(`[ProcessSheets] Latest version: ${latestVersion.version}, path: ${latestVersion.storage_path}`);
 
@@ -55,7 +61,7 @@ serve(async (req) => {
     const { data: job, error: jobError } = await supabaseClient
       .from('sheet_extraction_jobs')
       .insert({
-        drawing_file_id: drawingFileId,
+        drawing_id: drawingFileId,
         status: 'processing',
         started_at: new Date().toISOString(),
       })
@@ -241,7 +247,7 @@ Return ONLY the JSON object, no other text.`,
         const { data: sheet, error: sheetError } = await supabaseClient
           .from('drawing_sheets')
           .insert({
-            drawing_file_id: drawingFileId,
+            drawing_id: drawingFileId,
             project_id: drawingFile.project_id,
             sheet_number: sheetNumber,
             sheet_name: parsedFields.sheet_name,
