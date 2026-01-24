@@ -1868,7 +1868,7 @@ function ModuleDetailModal({ module, set, issues, onClose }) {
 }
 
 // ============================================================================
-// DAILY REPORT TAB
+// DAILY REPORT TAB - Redesigned Mobile-First Workflow
 // ============================================================================
 
 function DailyReportTab({ 
@@ -1891,37 +1891,191 @@ function DailyReportTab({
     const [showPreview, setShowPreview] = useState(false);
     const [newGlobalItem, setNewGlobalItem] = useState({ text: '', priority: 'fyi' });
     const [showAddGlobalItem, setShowAddGlobalItem] = useState(false);
+    
+    // Module selection state
+    const [selectedModules, setSelectedModules] = useState([]);
+    const [moduleSearch, setModuleSearch] = useState('');
+    
+    // Weather state
+    const [weatherData, setWeatherData] = useState(null);
+    const [weatherSource, setWeatherSource] = useState('auto'); // 'auto' or 'manual'
+    const [isFetchingWeather, setIsFetchingWeather] = useState(false);
+    const [manualWeather, setManualWeather] = useState({
+        tempHigh: '',
+        tempLow: '',
+        conditions: '',
+        wind: 'Light',
+        precipitation: 'none'
+    });
+    
+    // Saving state
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState(null);
+    const [lastSaved, setLastSaved] = useState(null);
 
     // Get active projects (those with on-site activity)
     const activeProjects = projects.filter(p => p.status === 'Active');
+    
+    // Get modules for selected project
+    const projectModules = useMemo(() => {
+        if (!selectedProject) return [];
+        return selectedProject.modules || [];
+    }, [selectedProject]);
+    
+    // Filter modules by search
+    const filteredModules = useMemo(() => {
+        if (!moduleSearch.trim()) return projectModules;
+        const search = moduleSearch.toLowerCase();
+        return projectModules.filter(m => {
+            const serial = (m.serialNumber || m.serial_number || '').toLowerCase();
+            const blm = (m.hitchBLM || m.blm_id || '').toLowerCase();
+            const unit = (m.hitchUnit || m.unit_type || '').toLowerCase();
+            return serial.includes(search) || blm.includes(search) || unit.includes(search);
+        });
+    }, [projectModules, moduleSearch]);
 
     // Load or create report when project/date changes
     useEffect(() => {
         if (selectedProject && reportDate) {
             const report = reportHook.createOrGetReport(selectedProject.id, reportDate);
             setActiveReport(report);
+            
+            // Load previously selected modules if editing existing report
+            if (report?.modulesSetToday?.length > 0) {
+                setSelectedModules(report.modulesSetToday.map(m => m.moduleId));
+            } else {
+                setSelectedModules([]);
+            }
+            
+            // Load weather if exists
+            if (report?.weather) {
+                if (report.weather.source === 'api') {
+                    setWeatherData(report.weather);
+                    setWeatherSource('auto');
+                } else {
+                    setManualWeather({
+                        tempHigh: report.weather.tempHigh || report.weather.tempPM || '',
+                        tempLow: report.weather.tempLow || report.weather.tempAM || '',
+                        conditions: report.weather.conditions || '',
+                        wind: report.weather.wind || 'Light',
+                        precipitation: report.weather.precipitation || 'none'
+                    });
+                    setWeatherSource('manual');
+                }
+            }
+        }
+    }, [selectedProject, reportDate]);
+    
+    // Auto-fetch weather when project/date selected
+    useEffect(() => {
+        if (selectedProject && reportDate && !weatherData && weatherSource === 'auto') {
+            fetchWeather();
         }
     }, [selectedProject, reportDate]);
 
-    // Get today's sets for the selected project
-    const projectSets = scheduleHook.schedules.filter(s => 
-        s.projectId === selectedProject?.id && s.scheduledDate === reportDate
-    );
-
-    // Calculate progress from project data
-    const calculateProgress = () => {
-        if (!selectedProject) return { today: 0, total: 0, remaining: 0 };
-        const modules = selectedProject.modules || [];
-        const totalModules = modules.length;
+    // Fetch weather from API
+    const fetchWeather = async () => {
+        if (!selectedProject) return;
         
+        setIsFetchingWeather(true);
+        try {
+            // Use Open-Meteo API (free, no key required)
+            // Default to Phoenix, AZ coordinates if project doesn't have location
+            const lat = selectedProject.latitude || 33.4484;
+            const lon = selectedProject.longitude || -112.0740;
+            
+            // Fetch historical weather for the report date
+            const response = await fetch(
+                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,weather_code&timezone=America/Phoenix&start_date=${reportDate}&end_date=${reportDate}`
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.daily) {
+                    const weather = {
+                        tempHigh: Math.round(data.daily.temperature_2m_max?.[0] * 9/5 + 32) || '--', // Convert C to F
+                        tempLow: Math.round(data.daily.temperature_2m_min?.[0] * 9/5 + 32) || '--',
+                        precipitation: data.daily.precipitation_sum?.[0] > 0 ? `${data.daily.precipitation_sum[0]}mm` : 'none',
+                        wind: getWindLevel(data.daily.wind_speed_10m_max?.[0]),
+                        conditions: getWeatherCondition(data.daily.weather_code?.[0]),
+                        source: 'api'
+                    };
+                    setWeatherData(weather);
+                    setWeatherSource('auto');
+                }
+            } else {
+                console.warn('Weather API returned non-OK status');
+                setWeatherSource('manual');
+            }
+        } catch (err) {
+            console.error('Error fetching weather:', err);
+            setWeatherSource('manual');
+        } finally {
+            setIsFetchingWeather(false);
+        }
+    };
+    
+    // Convert wind speed to level
+    const getWindLevel = (speedKmh) => {
+        if (!speedKmh) return 'Light';
+        const speedMph = speedKmh * 0.621371;
+        if (speedMph < 10) return 'Light';
+        if (speedMph < 20) return 'Moderate';
+        if (speedMph < 30) return 'High';
+        return 'Other';
+    };
+    
+    // Convert weather code to condition string
+    const getWeatherCondition = (code) => {
+        if (!code) return 'Unknown';
+        if (code === 0) return 'Clear';
+        if (code <= 3) return 'Partly Cloudy';
+        if (code <= 49) return 'Cloudy';
+        if (code <= 69) return 'Rain';
+        if (code <= 79) return 'Snow';
+        if (code <= 99) return 'Thunderstorm';
+        return 'Unknown';
+    };
+
+    // Toggle module selection
+    const toggleModule = (moduleId) => {
+        setSelectedModules(prev => {
+            if (prev.includes(moduleId)) {
+                return prev.filter(id => id !== moduleId);
+            } else {
+                return [...prev, moduleId];
+            }
+        });
+    };
+    
+    // Select all visible modules
+    const selectAllModules = () => {
+        const visibleIds = filteredModules.map(m => m.id);
+        setSelectedModules(prev => {
+            const newSelection = [...prev];
+            visibleIds.forEach(id => {
+                if (!newSelection.includes(id)) {
+                    newSelection.push(id);
+                }
+            });
+            return newSelection;
+        });
+    };
+    
+    // Clear all selections
+    const clearAllModules = () => {
+        setSelectedModules([]);
+    };
+
+    // Calculate progress
+    const progress = useMemo(() => {
+        const totalModules = projectModules.length;
+        const setToday = selectedModules.length;
         // Count sawboxes for unit calculation
-        const sawboxCount = modules.filter(m => 
+        const sawboxCount = projectModules.filter(m => 
             m.difficulty?.includes('Sawbox') || m.isSawbox
         ).length;
         const totalUnits = totalModules + sawboxCount;
-        
-        // Count set modules (from report or schedules)
-        const setToday = activeReport?.modulesSetToday?.length || 0;
         const setTotal = activeReport?.progress?.unitsSetTotal || 0;
         
         return {
@@ -1929,9 +2083,7 @@ function DailyReportTab({
             total: setTotal,
             remaining: totalUnits - setTotal
         };
-    };
-
-    const progress = calculateProgress();
+    }, [projectModules, selectedModules, activeReport]);
 
     // Format date for display
     const formatDate = (dateStr) => {
@@ -1950,20 +2102,7 @@ function DailyReportTab({
         reportHook.addGlobalItem(activeReport.id, newGlobalItem);
         setNewGlobalItem({ text: '', priority: 'fyi' });
         setShowAddGlobalItem(false);
-        // Refresh active report
         setActiveReport(reportHook.getReportByDate(selectedProject.id, reportDate));
-    };
-
-    // Handle weather update
-    const handleWeatherUpdate = (field, value) => {
-        if (!activeReport) return;
-        reportHook.updateReport(activeReport.id, {
-            weather: { ...activeReport.weather, [field]: value }
-        });
-        setActiveReport(prev => ({
-            ...prev,
-            weather: { ...prev.weather, [field]: value }
-        }));
     };
 
     // Handle general notes update
@@ -1972,17 +2111,166 @@ function DailyReportTab({
         reportHook.updateReport(activeReport.id, { generalNotes: notes });
         setActiveReport(prev => ({ ...prev, generalNotes: notes }));
     };
+    
+    // Save report to database
+    const handleSaveReport = async () => {
+        if (!activeReport || !selectedProject) return;
+        
+        setIsSaving(true);
+        setSaveError(null);
+        
+        try {
+            // Get weather data to save
+            const weatherToSave = weatherSource === 'auto' ? {
+                ...weatherData,
+                source: 'api'
+            } : {
+                tempHigh: manualWeather.tempHigh,
+                tempLow: manualWeather.tempLow,
+                tempAM: manualWeather.tempLow, // For backward compatibility
+                tempPM: manualWeather.tempHigh,
+                conditions: manualWeather.conditions,
+                wind: manualWeather.wind,
+                precipitation: manualWeather.precipitation,
+                source: 'manual'
+            };
+            
+            // Build modules set today data
+            const modulesSetToday = selectedModules.map((moduleId, index) => {
+                const module = projectModules.find(m => m.id === moduleId);
+                return {
+                    moduleId,
+                    serialNumber: module?.serialNumber || module?.serial_number || '',
+                    hitchBLM: module?.hitchBLM || module?.blm_id || '',
+                    hitchUnit: module?.hitchUnit || module?.unit_type || '',
+                    setSequence: index + 1,
+                    setTime: new Date().toISOString()
+                };
+            });
+            
+            // Update report
+            reportHook.updateReport(activeReport.id, {
+                weather: weatherToSave,
+                modulesSetToday,
+                progress: {
+                    ...activeReport.progress,
+                    unitsSetToday: selectedModules.length
+                },
+                status: 'draft',
+                updatedAt: new Date().toISOString()
+            });
+            
+            // Also save to Supabase if available
+            if (window.MODA_DAILY_REPORTS) {
+                try {
+                    // Check if report exists in Supabase
+                    const existingReport = await window.MODA_DAILY_REPORTS.getReportByDate(
+                        selectedProject.id,
+                        reportDate
+                    );
+                    
+                    if (existingReport) {
+                        await window.MODA_DAILY_REPORTS.updateReport(existingReport.id, {
+                            weather_source: weatherSource === 'auto' ? 'api' : 'manual',
+                            weather_conditions: weatherToSave,
+                            general_notes: activeReport.generalNotes
+                        });
+                        
+                        // Update modules
+                        for (const moduleData of modulesSetToday) {
+                            await window.MODA_DAILY_REPORTS.addModuleToReport(existingReport.id, moduleData.moduleId, {
+                                setStatus: 'set',
+                                setSequence: moduleData.setSequence,
+                                setTime: moduleData.setTime
+                            });
+                        }
+                    } else {
+                        // Create new report in Supabase
+                        const newReport = await window.MODA_DAILY_REPORTS.createReport(
+                            selectedProject.id,
+                            reportDate,
+                            {
+                                weatherSource: weatherSource === 'auto' ? 'api' : 'manual',
+                                weatherConditions: weatherToSave,
+                                generalNotes: activeReport.generalNotes
+                            }
+                        );
+                        
+                        // Add modules
+                        for (const moduleData of modulesSetToday) {
+                            await window.MODA_DAILY_REPORTS.addModuleToReport(newReport.id, moduleData.moduleId, {
+                                setStatus: 'set',
+                                setSequence: moduleData.setSequence,
+                                setTime: moduleData.setTime
+                            });
+                        }
+                    }
+                } catch (supabaseErr) {
+                    console.warn('Supabase save failed, data saved locally:', supabaseErr);
+                }
+            }
+            
+            setLastSaved(new Date());
+            setActiveReport(reportHook.getReportByDate(selectedProject.id, reportDate));
+        } catch (err) {
+            console.error('Error saving report:', err);
+            setSaveError(err.message || 'Failed to save report');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
-    // Generate report
+    // Generate and preview report
     const handleGenerateReport = () => {
         if (!activeReport) return;
-        reportHook.generateReport(activeReport.id);
-        setShowPreview(true);
+        handleSaveReport().then(() => {
+            reportHook.generateReport(activeReport.id);
+            setShowPreview(true);
+        });
+    };
+    
+    // Export to PDF
+    const handleExportPDF = async () => {
+        if (!activeReport || !selectedProject) return;
+        
+        // Use the report-export.js if available
+        if (window.MODA_REPORT_EXPORT) {
+            try {
+                const reportData = {
+                    ...activeReport,
+                    project: selectedProject,
+                    modulesSetToday: selectedModules.map(id => {
+                        const m = projectModules.find(mod => mod.id === id);
+                        return {
+                            moduleId: id,
+                            serialNumber: m?.serialNumber || m?.serial_number,
+                            hitchBLM: m?.hitchBLM || m?.blm_id,
+                            hitchUnit: m?.hitchUnit || m?.unit_type
+                        };
+                    }),
+                    weather: weatherSource === 'auto' ? weatherData : manualWeather
+                };
+                await window.MODA_REPORT_EXPORT.generatePDF(reportData);
+            } catch (err) {
+                console.error('PDF export error:', err);
+                alert('PDF export failed: ' + err.message);
+            }
+        } else {
+            alert('PDF export module not loaded. Please refresh and try again.');
+        }
+    };
+
+    // Get current weather display
+    const getCurrentWeather = () => {
+        if (weatherSource === 'auto' && weatherData) {
+            return weatherData;
+        }
+        return manualWeather;
     };
 
     return (
         <div className="daily-report-container">
-            {/* Project & Date Selection */}
+            {/* Project & Date Selection - Compact Header */}
             <div className="report-header-controls">
                 <div className="control-group">
                     <label>Project</label>
@@ -1991,6 +2279,8 @@ function DailyReportTab({
                         onChange={(e) => {
                             const proj = projects.find(p => p.id === e.target.value);
                             setSelectedProject(proj);
+                            setSelectedModules([]);
+                            setWeatherData(null);
                         }}
                         className="project-select"
                     >
@@ -2005,17 +2295,17 @@ function DailyReportTab({
                     <input 
                         type="date" 
                         value={reportDate} 
-                        onChange={(e) => setReportDate(e.target.value)}
+                        onChange={(e) => {
+                            setReportDate(e.target.value);
+                            setWeatherData(null);
+                        }}
                         className="date-input"
+                        max={new Date().toISOString().split('T')[0]}
                     />
                 </div>
-                {activeReport && (
-                    <div className="report-status">
-                        <span className={`status-badge ${activeReport.status}`}>
-                            {activeReport.status === 'draft' ? 'Draft' : 
-                             activeReport.status === 'generated' ? 'Generated' : 
-                             'Sent'}
-                        </span>
+                {lastSaved && (
+                    <div className="save-status">
+                        <span className="status-badge saved">Saved {lastSaved.toLocaleTimeString()}</span>
                     </div>
                 )}
             </div>
@@ -2028,128 +2318,228 @@ function DailyReportTab({
                 </div>
             ) : (
                 <div className="report-editor">
-                    {/* Report Header Info */}
+                    {/* Report Header */}
                     <div className="report-section header-section">
                         <div className="section-title">
-                            <h3><span className="icon-report" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Daily Site Report</h3>
+                            <h3><span className="icon-report" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Daily Set Report</h3>
                             <span className="report-date">{formatDate(reportDate)}</span>
                         </div>
-                        
-                        <div className="header-grid">
-                            <div className="header-field">
-                                <label>Job Site (Building)</label>
-                                <div className="field-value">{selectedProject.name}</div>
-                            </div>
-                            <div className="header-field">
-                                <label>Autovol Rep</label>
-                                <input 
-                                    type="text" 
-                                    value={activeReport?.autovolRep || currentUser?.name || ''}
-                                    onChange={(e) => {
-                                        if (activeReport) {
-                                            reportHook.updateReport(activeReport.id, { autovolRep: e.target.value });
-                                            setActiveReport(prev => ({ ...prev, autovolRep: e.target.value }));
-                                        }
-                                    }}
-                                    placeholder="Enter name..."
-                                />
-                            </div>
-                            <div className="header-field">
-                                <label>General Contractor</label>
-                                <input 
-                                    type="text" 
-                                    value={activeReport?.generalContractor || selectedProject.generalContractor || ''}
-                                    onChange={(e) => {
-                                        if (activeReport) {
-                                            reportHook.updateReport(activeReport.id, { generalContractor: e.target.value });
-                                            setActiveReport(prev => ({ ...prev, generalContractor: e.target.value }));
-                                        }
-                                    }}
-                                    placeholder="Enter GC..."
-                                />
-                            </div>
-                        </div>
+                        <div className="project-name-display">{selectedProject.name}</div>
                     </div>
 
-                    {/* Weather Section */}
+                    {/* Weather Section - Auto-fetch with Manual Override */}
                     <div className="report-section weather-section">
                         <div className="section-title">
                             <h3><span className="icon-weather" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Weather</h3>
-                            <label className="weather-day-toggle">
-                                <input 
-                                    type="checkbox" 
-                                    checked={activeReport?.weather?.isWeatherDay || false}
-                                    onChange={(e) => handleWeatherUpdate('isWeatherDay', e.target.checked)}
-                                />
-                                <span>Weather Day (No Sets)</span>
-                            </label>
+                            <div className="weather-source-toggle">
+                                <button 
+                                    type="button"
+                                    className={`toggle-btn ${weatherSource === 'auto' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setWeatherSource('auto');
+                                        if (!weatherData) fetchWeather();
+                                    }}
+                                >
+                                    Auto
+                                </button>
+                                <button 
+                                    type="button"
+                                    className={`toggle-btn ${weatherSource === 'manual' ? 'active' : ''}`}
+                                    onClick={() => setWeatherSource('manual')}
+                                >
+                                    Manual
+                                </button>
+                            </div>
                         </div>
                         
-                        <div className="weather-grid">
-                            <div className="weather-field">
-                                <label>Temp AM</label>
-                                <div className="temp-input">
-                                    <input 
-                                        type="number" 
-                                        value={activeReport?.weather?.tempAM || ''}
-                                        onChange={(e) => handleWeatherUpdate('tempAM', e.target.value)}
-                                        placeholder="--"
-                                    />
-                                    <span>°F</span>
+                        {weatherSource === 'auto' ? (
+                            <div className="weather-auto-display">
+                                {isFetchingWeather ? (
+                                    <div className="weather-loading">
+                                        <span className="spinner-small"></span> Fetching weather...
+                                    </div>
+                                ) : weatherData ? (
+                                    <div className="weather-data-grid">
+                                        <div className="weather-item">
+                                            <span className="weather-label">High</span>
+                                            <span className="weather-value">{weatherData.tempHigh}°F</span>
+                                        </div>
+                                        <div className="weather-item">
+                                            <span className="weather-label">Low</span>
+                                            <span className="weather-value">{weatherData.tempLow}°F</span>
+                                        </div>
+                                        <div className="weather-item">
+                                            <span className="weather-label">Conditions</span>
+                                            <span className="weather-value">{weatherData.conditions}</span>
+                                        </div>
+                                        <div className="weather-item">
+                                            <span className="weather-label">Wind</span>
+                                            <span className="weather-value">{weatherData.wind}</span>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={fetchWeather} 
+                                            className="btn-link refresh-btn"
+                                        >
+                                            Refresh
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="weather-error">
+                                        <p>Could not fetch weather data.</p>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setWeatherSource('manual')} 
+                                            className="btn-link"
+                                        >
+                                            Enter manually
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="weather-manual-form">
+                                <div className="weather-grid">
+                                    <div className="weather-field">
+                                        <label>High Temp</label>
+                                        <div className="temp-input">
+                                            <input 
+                                                type="number" 
+                                                value={manualWeather.tempHigh}
+                                                onChange={(e) => setManualWeather(prev => ({ ...prev, tempHigh: e.target.value }))}
+                                                placeholder="--"
+                                            />
+                                            <span>°F</span>
+                                        </div>
+                                    </div>
+                                    <div className="weather-field">
+                                        <label>Low Temp</label>
+                                        <div className="temp-input">
+                                            <input 
+                                                type="number" 
+                                                value={manualWeather.tempLow}
+                                                onChange={(e) => setManualWeather(prev => ({ ...prev, tempLow: e.target.value }))}
+                                                placeholder="--"
+                                            />
+                                            <span>°F</span>
+                                        </div>
+                                    </div>
+                                    <div className="weather-field">
+                                        <label>Conditions</label>
+                                        <select 
+                                            value={manualWeather.conditions}
+                                            onChange={(e) => setManualWeather(prev => ({ ...prev, conditions: e.target.value }))}
+                                        >
+                                            <option value="">Select...</option>
+                                            <option value="Clear">Clear</option>
+                                            <option value="Partly Cloudy">Partly Cloudy</option>
+                                            <option value="Cloudy">Cloudy</option>
+                                            <option value="Rain">Rain</option>
+                                            <option value="Windy">Windy</option>
+                                            <option value="Hot">Hot</option>
+                                        </select>
+                                    </div>
+                                    <div className="weather-field">
+                                        <label>Wind</label>
+                                        <select 
+                                            value={manualWeather.wind}
+                                            onChange={(e) => setManualWeather(prev => ({ ...prev, wind: e.target.value }))}
+                                        >
+                                            {WIND_LEVELS.map(level => (
+                                                <option key={level} value={level}>{level}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="weather-field">
-                                <label>Temp PM</label>
-                                <div className="temp-input">
-                                    <input 
-                                        type="number" 
-                                        value={activeReport?.weather?.tempPM || ''}
-                                        onChange={(e) => handleWeatherUpdate('tempPM', e.target.value)}
-                                        placeholder="--"
-                                    />
-                                    <span>°F</span>
-                                </div>
-                            </div>
-                            <div className="weather-field">
-                                <label>Precipitation</label>
-                                <input 
-                                    type="text" 
-                                    value={activeReport?.weather?.precipitation || 'none'}
-                                    onChange={(e) => handleWeatherUpdate('precipitation', e.target.value)}
-                                    placeholder="none"
-                                />
-                            </div>
-                            <div className="weather-field">
-                                <label>Wind</label>
-                                <select 
-                                    value={activeReport?.weather?.wind || 'Light'}
-                                    onChange={(e) => handleWeatherUpdate('wind', e.target.value)}
+                        )}
+                    </div>
+
+                    {/* Module Selection - Mobile-Friendly Grid */}
+                    <div className="report-section modules-section">
+                        <div className="section-title">
+                            <h3><span className="icon-box" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Modules Set Today</h3>
+                            <span className="module-count">{selectedModules.length} of {projectModules.length}</span>
+                        </div>
+                        
+                        {/* Search and bulk actions */}
+                        <div className="module-controls">
+                            <input 
+                                type="text"
+                                value={moduleSearch}
+                                onChange={(e) => setModuleSearch(e.target.value)}
+                                placeholder="Search modules..."
+                                className="module-search-input"
+                            />
+                            <div className="bulk-actions">
+                                <button 
+                                    type="button" 
+                                    onClick={selectAllModules}
+                                    className="btn-link"
                                 >
-                                    {WIND_LEVELS.map(level => (
-                                        <option key={level} value={level}>{level}</option>
-                                    ))}
-                                </select>
+                                    Select All
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={clearAllModules}
+                                    className="btn-link"
+                                >
+                                    Clear
+                                </button>
                             </div>
+                        </div>
+                        
+                        {/* Module Grid - Tap to Select */}
+                        <div className="module-grid">
+                            {filteredModules.length === 0 ? (
+                                <div className="empty-modules">
+                                    {moduleSearch ? 'No modules match your search' : 'No modules in this project'}
+                                </div>
+                            ) : (
+                                filteredModules.map(module => {
+                                    const isSelected = selectedModules.includes(module.id);
+                                    const serial = module.serialNumber || module.serial_number || 'N/A';
+                                    const blm = module.hitchBLM || module.blm_id || '';
+                                    const unit = module.hitchUnit || module.unit_type || '';
+                                    
+                                    return (
+                                        <button
+                                            key={module.id}
+                                            type="button"
+                                            className={`module-card ${isSelected ? 'selected' : ''}`}
+                                            onClick={() => toggleModule(module.id)}
+                                        >
+                                            <div className="module-card-check">
+                                                {isSelected && <span className="check-icon">&#10003;</span>}
+                                            </div>
+                                            <div className="module-card-info">
+                                                <div className="module-blm">{blm || unit || 'Module'}</div>
+                                                <div className="module-serial">{serial}</div>
+                                            </div>
+                                        </button>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
 
-                    {/* Progress Section */}
+                    {/* Progress Summary */}
                     <div className="report-section progress-section">
                         <div className="section-title">
-                            <h3><span className="icon-box" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Progress</h3>
+                            <h3><span className="icon-chart" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Progress</h3>
                         </div>
                         <div className="progress-grid">
                             <div className="progress-stat">
                                 <div className="stat-value">{progress.today}</div>
-                                <div className="stat-label">Units Set Today</div>
+                                <div className="stat-label">Set Today</div>
                             </div>
                             <div className="progress-stat">
                                 <div className="stat-value">{progress.total}</div>
-                                <div className="stat-label">Units Set Total</div>
+                                <div className="stat-label">Total Set</div>
                             </div>
                             <div className="progress-stat">
                                 <div className="stat-value">{progress.remaining}</div>
-                                <div className="stat-label">Units Remaining</div>
+                                <div className="stat-label">Remaining</div>
                             </div>
                         </div>
                     </div>
@@ -2157,12 +2547,12 @@ function DailyReportTab({
                     {/* Global Items Section */}
                     <div className="report-section global-items-section">
                         <div className="section-title">
-                            <h3><span className="icon-attention" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Global Items</h3>
+                            <h3><span className="icon-attention" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Highlights / Notes</h3>
                             <button 
                                 onClick={() => setShowAddGlobalItem(true)}
                                 className="btn-add-small"
                             >
-                                + Add Item
+                                + Add
                             </button>
                         </div>
                         
@@ -2180,7 +2570,7 @@ function DailyReportTab({
                                         onChange={(e) => setNewGlobalItem(prev => ({ ...prev, priority: e.target.value }))}
                                     >
                                         {GLOBAL_ITEM_PRIORITIES.map(p => (
-                                            <option key={p.id} value={p.id}>{p.icon} {p.label}</option>
+                                            <option key={p.id} value={p.id}>{p.label}</option>
                                         ))}
                                     </select>
                                     <div className="form-actions">
@@ -2193,7 +2583,7 @@ function DailyReportTab({
                         
                         <div className="global-items-list">
                             {(activeReport?.globalItems || []).length === 0 ? (
-                                <div className="empty-items">No global items added</div>
+                                <div className="empty-items">No highlights added</div>
                             ) : (
                                 activeReport.globalItems.map(item => {
                                     const priority = GLOBAL_ITEM_PRIORITIES.find(p => p.id === item.priority);
@@ -2206,7 +2596,7 @@ function DailyReportTab({
                                                 borderLeftColor: priority?.color 
                                             }}
                                         >
-                                            <span className="item-icon">{priority?.icon}</span>
+                                            <span className={`item-icon ${priority?.iconClass || ''}`} style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '6px' }}></span>
                                             <span className="item-text">{item.text}</span>
                                             <button 
                                                 onClick={() => {
@@ -2215,38 +2605,8 @@ function DailyReportTab({
                                                 }}
                                                 className="btn-remove"
                                             >
-                                                ×
+                                                &times;
                                             </button>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Issues Section */}
-                    <div className="report-section issues-section">
-                        <div className="section-title">
-                            <h3><span className="icon-alert" style={{ width: '18px', height: '18px', display: 'inline-block', marginRight: '8px' }}></span>Issues ({(activeReport?.issues || []).length})</h3>
-                        </div>
-                        <div className="issues-list">
-                            {(activeReport?.issues || []).length === 0 ? (
-                                <div className="empty-items">No issues logged for this day</div>
-                            ) : (
-                                activeReport.issues.map(issue => {
-                                    const category = ISSUE_CATEGORIES.find(c => c.id === issue.category);
-                                    return (
-                                        <div key={issue.id} className="issue-item">
-                                            <div className="issue-header">
-                                                <span className="issue-category">{category?.icon} {category?.label}</span>
-                                                <span className="issue-module">{issue.serialNumber}</span>
-                                            </div>
-                                            <p className="issue-description">{issue.description}</p>
-                                            {issue.photos?.length > 0 && (
-                                                <div className="issue-photos">
-                                                    {issue.photos.length} photo(s) attached
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })
@@ -2263,18 +2623,35 @@ function DailyReportTab({
                             value={activeReport?.generalNotes || ''}
                             onChange={(e) => handleNotesUpdate(e.target.value)}
                             placeholder="Enter any additional notes for the day..."
-                            rows={4}
+                            rows={3}
                             className="notes-textarea"
                         />
                     </div>
 
-                    {/* Actions */}
+                    {/* Error Display */}
+                    {saveError && (
+                        <div className="save-error">
+                            <span className="icon-alert" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '6px' }}></span>
+                            {saveError}
+                        </div>
+                    )}
+
+                    {/* Actions - Sticky Footer on Mobile */}
                     <div className="report-actions">
-                        <button onClick={handleGenerateReport} className="btn-primary btn-large">
-                            <span className="icon-report" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '6px', filter: 'brightness(0) invert(1)' }}></span>Generate Report
+                        <button 
+                            onClick={handleSaveReport} 
+                            disabled={isSaving || selectedModules.length === 0}
+                            className="btn-secondary"
+                        >
+                            {isSaving ? 'Saving...' : 'Save Draft'}
                         </button>
-                        <button onClick={() => setShowPreview(true)} className="btn-secondary">
-                            Preview
+                        <button 
+                            onClick={handleGenerateReport} 
+                            disabled={isSaving || selectedModules.length === 0}
+                            className="btn-primary btn-large"
+                        >
+                            <span className="icon-report" style={{ width: '16px', height: '16px', display: 'inline-block', marginRight: '6px', filter: 'brightness(0) invert(1)' }}></span>
+                            Generate Report
                         </button>
                     </div>
                 </div>
@@ -2283,15 +2660,24 @@ function DailyReportTab({
             {/* Report Preview Modal */}
             {showPreview && activeReport && (
                 <ReportPreviewModal 
-                    report={activeReport}
+                    report={{
+                        ...activeReport,
+                        modulesSetToday: selectedModules.map(id => {
+                            const m = projectModules.find(mod => mod.id === id);
+                            return {
+                                moduleId: id,
+                                serialNumber: m?.serialNumber || m?.serial_number,
+                                hitchBLM: m?.hitchBLM || m?.blm_id,
+                                hitchUnit: m?.hitchUnit || m?.unit_type
+                            };
+                        }),
+                        weather: getCurrentWeather(),
+                        progress
+                    }}
                     project={selectedProject}
                     onClose={() => setShowPreview(false)}
-                    onExportPDF={() => {
-                        // TODO: Implement PDF export
-                        alert('PDF export coming soon!');
-                    }}
+                    onExportPDF={handleExportPDF}
                     onSend={() => {
-                        // TODO: Implement send functionality
                         alert('Send functionality coming soon!');
                     }}
                 />
@@ -2313,6 +2699,18 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
             year: 'numeric' 
         });
     };
+    
+    // Get weather display values (handle both old and new format)
+    const getWeatherTemp = () => {
+        const w = report.weather;
+        if (!w) return '--°F / --°F';
+        // New format: tempHigh/tempLow
+        if (w.tempHigh !== undefined) {
+            return `${w.tempLow || '--'}°F (Low) / ${w.tempHigh || '--'}°F (High)`;
+        }
+        // Old format: tempAM/tempPM
+        return `${w.tempAM || '--'}°F (AM) / ${w.tempPM || '--'}°F (PM)`;
+    };
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -2325,7 +2723,7 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
                 <div className="modal-body report-preview">
                     {/* Report Header */}
                     <div className="preview-header">
-                        <div className="preview-title">DAILY SITE REPORT</div>
+                        <div className="preview-title">DAILY SET REPORT</div>
                         <div className="preview-meta">
                             <div className="meta-row">
                                 <span className="meta-label">Job Site:</span>
@@ -2350,9 +2748,10 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
                     <div className="preview-section">
                         <div className="preview-section-title">Weather</div>
                         <div className="preview-weather">
-                            <span>Temp: {report.weather?.tempAM || '--'}°F (AM) / {report.weather?.tempPM || '--'}°F (PM)</span>
-                            <span>Precipitation: {report.weather?.precipitation || 'none'}</span>
+                            <span>Temp: {getWeatherTemp()}</span>
+                            <span>Conditions: {report.weather?.conditions || 'N/A'}</span>
                             <span>Wind: {report.weather?.wind || 'Light'}</span>
+                            <span>Precipitation: {report.weather?.precipitation || 'none'}</span>
                             {report.weather?.isWeatherDay && <span className="weather-day-badge">Weather Day</span>}
                         </div>
                     </div>
@@ -2362,30 +2761,46 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
                         <div className="preview-section-title">Progress</div>
                         <div className="preview-progress">
                             <div className="progress-item">
-                                <span className="progress-label">Units Set Today:</span>
-                                <span className="progress-value">{report.progress?.unitsSetToday || 0}</span>
+                                <span className="progress-label">Set Today:</span>
+                                <span className="progress-value">{report.progress?.today || report.progress?.unitsSetToday || 0}</span>
                             </div>
                             <div className="progress-item">
-                                <span className="progress-label">Units Set Total:</span>
-                                <span className="progress-value">{report.progress?.unitsSetTotal || 0}</span>
+                                <span className="progress-label">Total Set:</span>
+                                <span className="progress-value">{report.progress?.total || report.progress?.unitsSetTotal || 0}</span>
                             </div>
                             <div className="progress-item">
-                                <span className="progress-label">Units Remaining:</span>
-                                <span className="progress-value">{report.progress?.unitsRemaining || 0}</span>
+                                <span className="progress-label">Remaining:</span>
+                                <span className="progress-value">{report.progress?.remaining || report.progress?.unitsRemaining || 0}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Global Items */}
+                    {/* Modules Set Today */}
+                    {report.modulesSetToday?.length > 0 && (
+                        <div className="preview-section">
+                            <div className="preview-section-title">Modules Set Today ({report.modulesSetToday.length})</div>
+                            <div className="preview-modules-list">
+                                {report.modulesSetToday.map((module, idx) => (
+                                    <div key={module.moduleId || idx} className="preview-module-item">
+                                        <span className="module-num">{idx + 1}.</span>
+                                        <span className="module-blm">{module.hitchBLM || module.hitchUnit || 'Module'}</span>
+                                        <span className="module-serial">{module.serialNumber}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Global Items / Highlights */}
                     {report.globalItems?.length > 0 && (
                         <div className="preview-section">
-                            <div className="preview-section-title">Global Items</div>
+                            <div className="preview-section-title">Highlights</div>
                             <ul className="preview-list">
                                 {report.globalItems.map(item => {
                                     const priority = GLOBAL_ITEM_PRIORITIES.find(p => p.id === item.priority);
                                     return (
                                         <li key={item.id}>
-                                            <span className="item-priority">{priority?.icon}</span>
+                                            <span className={`item-icon ${priority?.iconClass || ''}`} style={{ width: '14px', height: '14px', display: 'inline-block', marginRight: '6px' }}></span>
                                             {item.text}
                                         </li>
                                     );
@@ -2403,7 +2818,7 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
                                 return (
                                     <div key={issue.id} className="preview-issue">
                                         <div className="issue-line">
-                                            <strong>{issue.serialNumber}</strong> - {category?.label}
+                                            <strong>{issue.serialNumber}</strong> - {category?.label || issue.category}
                                         </div>
                                         <p>{issue.description}</p>
                                     </div>
@@ -2422,7 +2837,7 @@ function ReportPreviewModal({ report, project, onClose, onExportPDF, onSend }) {
 
                     {/* Generated timestamp */}
                     <div className="preview-footer">
-                        Report generated: {report.generatedAt ? new Date(report.generatedAt).toLocaleString() : 'Draft'}
+                        Report generated: {report.generatedAt ? new Date(report.generatedAt).toLocaleString() : new Date().toLocaleString()}
                     </div>
                 </div>
 

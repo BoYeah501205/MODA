@@ -2,7 +2,21 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.46**
+**Current Version: 1.3.47**
+
+---
+
+## [1.3.47] - 2025-01-24
+### Daily Report Redesign - Mobile-First Workflow
+- **Redesigned Daily Report Tab** in On-Site module with simplified workflow
+- **Mobile-friendly module grid** - Tap cards to select/deselect modules that were set
+- **Auto-fetch weather** from Open-Meteo API with manual fallback option
+- **Save to database** with localStorage fallback for offline support
+- **PDF export capability** via report-export.js integration
+- **Removed crew assignment** functionality (simplified workflow)
+- **Search and bulk actions** - Search modules, Select All, Clear buttons
+- **Progress tracking** - Set Today, Total Set, Remaining counts
+- **Responsive design** - Sticky action bar on mobile, touch-friendly 44px+ tap targets
 
 ---
 
