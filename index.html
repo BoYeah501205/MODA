@@ -11,8 +11,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.3.33">
-    <script>window.MODA_VERSION = '1.3.33'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.3.37">
+    <script>window.MODA_VERSION = '1.3.37'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -152,6 +152,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script defer src="https://unpkg.com/docx@8.2.3/build/index.umd.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -177,6 +178,7 @@
     <link href="./css/dark-mode.css" rel="stylesheet">
     <link href="./css/mobile.css" rel="stylesheet">
     <link href="./css/module-import.css" rel="stylesheet">
+    <link href="./css/daily-report.css" rel="stylesheet">
 </head>
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
     <div id="root">
@@ -287,6 +289,8 @@
     <script src="./js/sharepoint-client.js"></script>
     <script src="./js/sharepoint-attachments.js"></script>
     <script src="./js/issue-routing.js?v=1"></script>
+    <script src="./js/supabase-daily-reports.js"></script>
+    <script src="./js/report-export.js"></script>
     
     <!-- Photo Compression Utility -->
     <script src="./js/photo-compression.js"></script>
@@ -376,6 +380,10 @@
     <!-- On-Site Module Components -->
     <script type="text/babel" src="./js/components/onsite/PhotoCapture.jsx?v=1"></script>
     <script type="text/babel" src="./js/components/onsite/IssueLogger.jsx?v=1"></script>
+    <script type="text/babel" src="./js/components/onsite/ReportIssueLogger.jsx"></script>
+    <script type="text/babel" src="./js/components/onsite/IssueComments.jsx"></script>
+    <script type="text/babel" src="./js/components/onsite/DailyReportWizard.jsx"></script>
+    <script type="text/babel" src="./js/components/onsite/ModuleReportHistory.jsx"></script>
     <script type="text/babel" src="./js/components/onsite/OnSiteTab.jsx?v=1"></script>
     
     <!-- Admin Panel -->

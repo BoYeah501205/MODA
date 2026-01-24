@@ -2,9 +2,36 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.33**
+**Current Version: 1.3.37**
 
 ---
+
+## [1.3.37] - 2025-01-23
+### Daily Set Report Feature
+- **DailyReportWizard**: Mobile-first 5-step wizard for creating daily set reports
+  - Step 1: Project/date selection with weather auto-fetch (Open-Meteo API)
+  - Step 2: Module selection with set status (Set/Partial/Not Set) and sequence tracking
+  - Step 3: Issue logging with categories, severity, and action taken
+  - Step 4: General photos with SharePoint folder structure support
+  - Step 5: Review and submit
+- **Issue Categories**: Quality Defect, Transit Damage, Site Condition, Missing/Wrong, Drawing/Design, MEP
+- **Issue Comments**: Team can discuss and respond to reported issues
+- **PDF/Word Export**: Generate formatted reports with photo links
+- **Module Report History**: View all reports, issues, and photos for a module from Project Directory
+- **Offline Support**: Queue reports locally when offline, sync when connected
+- **Weather Integration**: Auto-fetch from Open-Meteo or manual entry
+- **Database**: New tables for daily_reports, report_modules, report_issues, report_issue_comments, report_photos
+
+### Files Added
+- `backend/create-daily-reports-tables.sql` - Supabase migration
+- `js/supabase-daily-reports.js` - Data access layer
+- `js/report-export.js` - PDF/Word generation
+- `js/components/onsite/DailyReportWizard.jsx`
+- `js/components/onsite/ReportIssueLogger.jsx`
+- `js/components/onsite/IssueComments.jsx`
+- `js/components/onsite/ModuleReportHistory.jsx`
+- `css/daily-report.css` - Mobile-first styles
+- `docs/DAILY_REPORT_FEATURE.md` - Documentation
 
 ## [1.3.33] - 2025-01-22
 ### Claude Vision OCR for Shop Drawings
