@@ -107,7 +107,7 @@ serve(async (req) => {
 
       // Use pdf-lib to split PDF into individual pages
       // Note: We'll use a dynamic import for pdf-lib
-      const { PDFDocument } = await import('https://cdn.skypack.dev/pdf-lib@1.17.1');
+      const { PDFDocument } = await import('https://esm.sh/pdf-lib@1.17.1');
 
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const totalPages = pdfDoc.getPageCount();
@@ -324,8 +324,8 @@ Return ONLY the JSON object, no other text.`,
         .from('sheet_extraction_jobs')
         .update({
           status: 'failed',
-          error_message: processingError.message,
-          error_details: { stack: processingError.stack },
+          error_message: String(processingError),
+          error_details: { stack: String(processingError) },
           completed_at: new Date().toISOString(),
         })
         .eq('id', job.id);
@@ -336,8 +336,8 @@ Return ONLY the JSON object, no other text.`,
     console.error('[ProcessSheets] Error:', error);
     return new Response(
       JSON.stringify({
-        error: error.message,
-        details: error.stack,
+        error: String(error),
+        details: String(error),
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
