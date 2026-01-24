@@ -1285,6 +1285,56 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 });
                 
                 try {
+                    // Get the latest version to check storage type
+                    const latestVersion = drawing.versions?.[0];
+                    let pdfDownloadUrl = null;
+                    
+                    // If stored in SharePoint, get download URL from frontend
+                    if (latestVersion?.storage_path?.startsWith('sharepoint:') || latestVersion?.storage_type === 'sharepoint') {
+                        const sharePointFileId = latestVersion.sharepoint_file_id || latestVersion.storage_path?.replace('sharepoint:', '');
+                        console.log(`[Drawings] Getting SharePoint download URL for: ${sharePointFileId}`);
+                        
+                        setProcessingDrawing({ 
+                            status: 'processing', 
+                            progress: Math.round((i / drawingsToProcess.length) * 100),
+                            current: i + 1,
+                            total: drawingsToProcess.length,
+                            fileName: drawing.name,
+                            stage: 'Getting SharePoint download URL...'
+                        });
+                        
+                        // Call SharePoint function to get download URL
+                        const spResponse = await fetch('https://syreuphexagezawjyjgt.supabase.co/functions/v1/sharepoint', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${window.MODA_SUPABASE.client.supabaseKey}`,
+                            },
+                            body: JSON.stringify({
+                                action: 'download',
+                                fileId: sharePointFileId
+                            })
+                        });
+                        
+                        if (spResponse.ok) {
+                            const spData = await spResponse.json();
+                            pdfDownloadUrl = spData.downloadUrl;
+                            console.log(`[Drawings] Got SharePoint download URL`);
+                        } else {
+                            console.error(`[Drawings] Failed to get SharePoint URL:`, await spResponse.text());
+                            continue;
+                        }
+                    }
+                    
+                    setProcessingDrawing({ 
+                        status: 'processing', 
+                        progress: Math.round((i / drawingsToProcess.length) * 100),
+                        current: i + 1,
+                        total: drawingsToProcess.length,
+                        fileName: drawing.name,
+                        stage: 'Sending to Claude Vision API...'
+                    });
+                    
                     // Call the Edge Function to process with Claude Vision
                     const response = await fetch('https://syreuphexagezawjyjgt.supabase.co/functions/v1/process-drawing-sheets', {
                         method: 'POST',
@@ -1294,7 +1344,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         },
                         body: JSON.stringify({
                             drawingFileId: drawing.id,
-                            action: 'split_and_ocr'
+                            action: 'split_and_ocr',
+                            pdfDownloadUrl: pdfDownloadUrl  // Pass the download URL if available
                         })
                     });
                     

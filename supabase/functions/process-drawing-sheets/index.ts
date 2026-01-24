@@ -1,6 +1,6 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.24.3';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.24.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { drawingFileId, action = 'split_and_ocr' } = await req.json();
+    const { drawingFileId, action = 'split_and_ocr', pdfDownloadUrl } = await req.json();
 
     if (!drawingFileId) {
       throw new Error('drawingFileId is required');
@@ -78,54 +78,26 @@ serve(async (req) => {
       // Download PDF from storage (handle both Supabase and SharePoint)
       let pdfBytes;
       const storagePath = latestVersion.storage_path;
-      const isSharePoint = storagePath.startsWith('sharepoint:') || latestVersion.storage_type === 'sharepoint';
 
-      if (isSharePoint) {
-        // Extract SharePoint file ID from storage path
-        const sharePointFileId = latestVersion.sharepoint_file_id || storagePath.replace('sharepoint:', '');
-        console.log(`[ProcessSheets] Downloading from SharePoint, fileId: ${sharePointFileId}`);
-
-        // Call SharePoint Edge Function to get download URL
-        const sharePointResponse = await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/sharepoint`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            },
-            body: JSON.stringify({
-              action: 'download',
-              fileId: sharePointFileId,
-            }),
-          }
-        );
-
-        if (!sharePointResponse.ok) {
-          const errorText = await sharePointResponse.text();
-          throw new Error(`SharePoint download failed: ${errorText}`);
-        }
-
-        const { downloadUrl } = await sharePointResponse.json();
-        console.log(`[ProcessSheets] Got SharePoint download URL`);
-
-        // Download the actual file from SharePoint
-        const fileResponse = await fetch(downloadUrl);
+      // If frontend provided a download URL (for SharePoint files), use it directly
+      if (pdfDownloadUrl) {
+        console.log(`[ProcessSheets] Using provided download URL from frontend`);
+        const fileResponse = await fetch(pdfDownloadUrl);
         if (!fileResponse.ok) {
-          throw new Error(`Failed to download from SharePoint URL: ${fileResponse.status}`);
+          throw new Error(`Failed to download from provided URL: ${fileResponse.status}`);
         }
-
         const pdfBuffer = await fileResponse.arrayBuffer();
         pdfBytes = new Uint8Array(pdfBuffer);
-        console.log(`[ProcessSheets] Downloaded PDF from SharePoint, size: ${pdfBytes.length} bytes`);
+        console.log(`[ProcessSheets] Downloaded PDF, size: ${pdfBytes.length} bytes`);
       } else {
-        // Download from Supabase Storage
+        // Download from Supabase Storage (fallback for non-SharePoint files)
+        console.log(`[ProcessSheets] Downloading from Supabase Storage: ${storagePath}`);
         const { data: pdfData, error: downloadError } = await supabaseClient.storage
           .from('drawings')
           .download(storagePath);
 
         if (downloadError || !pdfData) {
-          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+          throw new Error(`Failed to download PDF: ${JSON.stringify(downloadError)}`);
         }
 
         const pdfBuffer = await pdfData.arrayBuffer();
@@ -162,27 +134,9 @@ serve(async (req) => {
 
         const singlePageBytes = await singlePagePdf.save();
 
-        // Convert first page to image for OCR (using PDF to PNG conversion)
-        // For now, we'll store the PDF and do OCR on the PDF directly
-        // In production, you might want to convert to PNG first for better OCR
-
-        // Generate storage path for individual sheet
-        const sheetStoragePath = `${drawingFile.project_id}/${drawingFile.category}/${drawingFile.discipline}/sheets/${drawingFile.id}_sheet_${sheetNumber}.pdf`;
-
-        // Upload individual sheet to storage
-        const { error: uploadError } = await supabaseClient.storage
-          .from('drawings')
-          .upload(sheetStoragePath, singlePageBytes, {
-            contentType: 'application/pdf',
-            upsert: true,
-          });
-
-        if (uploadError) {
-          console.error(`[ProcessSheets] Failed to upload sheet ${sheetNumber}:`, uploadError);
-          continue;
-        }
-
-        console.log(`[ProcessSheets] Uploaded sheet ${sheetNumber} to: ${sheetStoragePath}`);
+        // NOTE: We do NOT upload individual sheet PDFs to storage
+        // PDFs stay in SharePoint, we only store metadata in Supabase
+        // This allows re-running OCR for different purposes (Wall IDs, MEP fixtures, etc.)
 
         // Perform OCR on the sheet using Claude Vision
         let ocrMetadata = {};
@@ -286,7 +240,10 @@ Return ONLY the JSON object, no other text.`,
           ocrMetadata = { error: ocrError.message };
         }
 
-        // Insert sheet record
+        // Insert sheet record (metadata only - no individual PDF storage)
+        // storage_path references the parent drawing's SharePoint path + page number
+        const sheetStoragePath = `${storagePath}#page=${sheetNumber}`;
+        
         const { data: sheet, error: sheetError } = await supabaseClient
           .from('drawing_sheets')
           .insert({
