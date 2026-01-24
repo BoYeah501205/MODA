@@ -29,9 +29,9 @@ CREATE TABLE IF NOT EXISTS sheet_walls (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_sheet_walls_sheet ON sheet_walls(sheet_id);
-CREATE INDEX idx_sheet_walls_project ON sheet_walls(project_id);
-CREATE INDEX idx_sheet_walls_wall_id ON sheet_walls(wall_id);
+CREATE INDEX IF NOT EXISTS idx_sheet_walls_sheet ON sheet_walls(sheet_id);
+CREATE INDEX IF NOT EXISTS idx_sheet_walls_project ON sheet_walls(project_id);
+CREATE INDEX IF NOT EXISTS idx_sheet_walls_wall_id ON sheet_walls(wall_id);
 
 -- ============================================
 -- 2. MEP FIXTURE EXTRACTION TABLE
@@ -62,9 +62,9 @@ CREATE TABLE IF NOT EXISTS sheet_mep_fixtures (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_sheet_mep_sheet ON sheet_mep_fixtures(sheet_id);
-CREATE INDEX idx_sheet_mep_project ON sheet_mep_fixtures(project_id);
-CREATE INDEX idx_sheet_mep_category ON sheet_mep_fixtures(fixture_category);
+CREATE INDEX IF NOT EXISTS idx_sheet_mep_sheet ON sheet_mep_fixtures(sheet_id);
+CREATE INDEX IF NOT EXISTS idx_sheet_mep_project ON sheet_mep_fixtures(project_id);
+CREATE INDEX IF NOT EXISTS idx_sheet_mep_category ON sheet_mep_fixtures(fixture_category);
 
 -- ============================================
 -- 3. VERSION CHANGES TABLE
@@ -103,10 +103,10 @@ CREATE TABLE IF NOT EXISTS drawing_version_changes (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_version_changes_drawing ON drawing_version_changes(drawing_id);
-CREATE INDEX idx_version_changes_project ON drawing_version_changes(project_id);
-CREATE INDEX idx_version_changes_type ON drawing_version_changes(change_type);
-CREATE INDEX idx_version_changes_severity ON drawing_version_changes(change_severity);
+CREATE INDEX IF NOT EXISTS idx_version_changes_drawing ON drawing_version_changes(drawing_id);
+CREATE INDEX IF NOT EXISTS idx_version_changes_project ON drawing_version_changes(project_id);
+CREATE INDEX IF NOT EXISTS idx_version_changes_type ON drawing_version_changes(change_type);
+CREATE INDEX IF NOT EXISTS idx_version_changes_severity ON drawing_version_changes(change_severity);
 
 -- ============================================
 -- 4. TREND ANALYTICS TABLE
@@ -151,8 +151,8 @@ CREATE TABLE IF NOT EXISTS drawing_analytics (
     UNIQUE(project_id, period_start, period_end, period_type)
 );
 
-CREATE INDEX idx_analytics_project ON drawing_analytics(project_id);
-CREATE INDEX idx_analytics_period ON drawing_analytics(period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_analytics_project ON drawing_analytics(project_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_period ON drawing_analytics(period_start, period_end);
 
 -- ============================================
 -- 5. EXTRACTION JOBS TABLE (Extended)
@@ -294,6 +294,16 @@ ALTER TABLE sheet_walls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sheet_mep_fixtures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE drawing_version_changes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE drawing_analytics ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies first (for re-run safety)
+DROP POLICY IF EXISTS "Allow authenticated read sheet_walls" ON sheet_walls;
+DROP POLICY IF EXISTS "Allow authenticated read sheet_mep_fixtures" ON sheet_mep_fixtures;
+DROP POLICY IF EXISTS "Allow authenticated read drawing_version_changes" ON drawing_version_changes;
+DROP POLICY IF EXISTS "Allow authenticated read drawing_analytics" ON drawing_analytics;
+DROP POLICY IF EXISTS "Allow service role all sheet_walls" ON sheet_walls;
+DROP POLICY IF EXISTS "Allow service role all sheet_mep_fixtures" ON sheet_mep_fixtures;
+DROP POLICY IF EXISTS "Allow service role all drawing_version_changes" ON drawing_version_changes;
+DROP POLICY IF EXISTS "Allow service role all drawing_analytics" ON drawing_analytics;
 
 -- Allow authenticated users to read
 CREATE POLICY "Allow authenticated read sheet_walls" ON sheet_walls

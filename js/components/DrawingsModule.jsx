@@ -51,6 +51,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [advancedFilters, setAdvancedFilters] = useState({ unitTypes: [], roomTypes: [], difficulties: [] }); // Multi-select filters
     const [pdfViewerData, setPdfViewerData] = useState(null); // { url, name, drawingId, versionId } for PDF viewer modal
     const [showDrawingStatusLog, setShowDrawingStatusLog] = useState(false); // Drawing status matrix modal
+    const [showAIMenu, setShowAIMenu] = useState(false); // AI Analysis dropdown menu
+    const [showAnalysisBrowser, setShowAnalysisBrowser] = useState(null); // 'walls' | 'fixtures' | 'changes' | null
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -1935,16 +1937,99 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 Upload Drawings
                             </button>
                         )}
-                        {!isMobile && selectedDrawings.length > 0 && (
-                            <button
-                                onClick={handleExtractSheets}
-                                disabled={processingDrawing}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Extract title block metadata using Claude Vision AI"
-                            >
-                                <span className="icon-scan w-4 h-4"></span>
-                                Run OCR ({selectedDrawings.length})
-                            </button>
+                        {/* AI Analysis Dropdown */}
+                        {!isMobile && isModulePackages && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowAIMenu(!showAIMenu)}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-purple-700"
+                                    title="AI-powered drawing analysis"
+                                >
+                                    <span className="icon-cpu w-4 h-4"></span>
+                                    AI Analysis
+                                    <span className={`transform transition-transform ${showAIMenu ? 'rotate-180' : ''}`}>▼</span>
+                                </button>
+                                
+                                {showAIMenu && (
+                                    <>
+                                    {/* Click-outside overlay */}
+                                    <div className="fixed inset-0 z-40" onClick={() => setShowAIMenu(false)}></div>
+                                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                                        <div className="p-2">
+                                            <div className="text-xs font-semibold text-gray-500 px-3 py-1 uppercase">Extract Data</div>
+                                            
+                                            {/* Run OCR - requires selection */}
+                                            <button
+                                                onClick={() => { setShowAIMenu(false); handleExtractSheets(); }}
+                                                disabled={selectedDrawings.length === 0 || processingDrawing}
+                                                className="w-full px-3 py-2 text-left text-sm rounded hover:bg-purple-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <span className="icon-scan w-4 h-4 text-purple-600"></span>
+                                                <div>
+                                                    <div className="font-medium">Run OCR</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {selectedDrawings.length > 0 
+                                                            ? `Extract title blocks (${selectedDrawings.length} selected)`
+                                                            : 'Select PDFs first'}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                            
+                                            <div className="border-t border-gray-100 my-2"></div>
+                                            <div className="text-xs font-semibold text-gray-500 px-3 py-1 uppercase">Browse Results</div>
+                                            
+                                            {/* Browse Sheets */}
+                                            <button
+                                                onClick={() => { setShowAIMenu(false); setShowSheetBrowser(true); }}
+                                                className="w-full px-3 py-2 text-left text-sm rounded hover:bg-blue-50 flex items-center gap-2"
+                                            >
+                                                <span className="icon-layers w-4 h-4 text-blue-600"></span>
+                                                <div>
+                                                    <div className="font-medium">Browse Sheets</div>
+                                                    <div className="text-xs text-gray-500">View extracted sheet metadata</div>
+                                                </div>
+                                            </button>
+                                            
+                                            {/* Browse Walls */}
+                                            <button
+                                                onClick={() => { setShowAIMenu(false); setShowAnalysisBrowser('walls'); }}
+                                                className="w-full px-3 py-2 text-left text-sm rounded hover:bg-green-50 flex items-center gap-2"
+                                            >
+                                                <span className="icon-box w-4 h-4 text-green-600"></span>
+                                                <div>
+                                                    <div className="font-medium">Wall Schedule</div>
+                                                    <div className="text-xs text-gray-500">View extracted wall IDs</div>
+                                                </div>
+                                            </button>
+                                            
+                                            {/* Browse Fixtures */}
+                                            <button
+                                                onClick={() => { setShowAIMenu(false); setShowAnalysisBrowser('fixtures'); }}
+                                                className="w-full px-3 py-2 text-left text-sm rounded hover:bg-yellow-50 flex items-center gap-2"
+                                            >
+                                                <span className="icon-zap w-4 h-4 text-yellow-600"></span>
+                                                <div>
+                                                    <div className="font-medium">MEP Fixtures</div>
+                                                    <div className="text-xs text-gray-500">View fixture counts by category</div>
+                                                </div>
+                                            </button>
+                                            
+                                            {/* Version Changes */}
+                                            <button
+                                                onClick={() => { setShowAIMenu(false); setShowAnalysisBrowser('changes'); }}
+                                                className="w-full px-3 py-2 text-left text-sm rounded hover:bg-red-50 flex items-center gap-2"
+                                            >
+                                                <span className="icon-git-compare w-4 h-4 text-red-600"></span>
+                                                <div>
+                                                    <div className="font-medium">Version Changes</div>
+                                                    <div className="text-xs text-gray-500">Track design revisions</div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    </>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -3823,6 +3908,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     projectName={selectedProject?.name}
                     modules={selectedProject?.modules || []}
                     onClose={() => setShowSheetBrowser(false)}
+                    auth={auth}
+                />
+            )}
+            
+            {/* Analysis Browser (Walls, Fixtures, Changes) */}
+            {showAnalysisBrowser && window.AnalysisBrowser && (
+                <window.AnalysisBrowser
+                    projectId={selectedProject?.id}
+                    projectName={selectedProject?.name}
+                    analysisType={showAnalysisBrowser}
+                    onClose={() => setShowAnalysisBrowser(null)}
                     auth={auth}
                 />
             )}
