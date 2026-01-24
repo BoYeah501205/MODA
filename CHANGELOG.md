@@ -2,7 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.40**
+**Current Version: 1.3.46**
+
+---
+
+## [1.3.46] - 2025-01-24
+### Shop Drawing Issue Links
+- Added direct link fields for Shop Drawing issue type in Report Issue modal
+- **Project Drawing Link**: URL field for linking to project drawings in SharePoint, Procore, etc.
+- **Module Link**: URL field for linking to module details in MODA or external systems
+- Links appear in a highlighted section when "Shop Drawing" issue type is selected
 
 ---
 

@@ -54,7 +54,9 @@ function IssueSubmissionModal({
         title: '',
         description: '',
         assigned_to_id: '',
-        assigned_to: ''
+        assigned_to: '',
+        drawing_link: '',    // Direct link to project drawing (for Shop Drawing issues)
+        module_link: ''      // Direct link to module (for Shop Drawing issues)
     });
 
     const [photos, setPhotos] = useState([]);
@@ -452,6 +454,45 @@ function IssueSubmissionModal({
                                     {getCategoriesForType(formData.issue_type).find(c => c.name === formData.issue_category)?.description}
                                 </p>
                             )}
+                        </div>
+                    )}
+
+                    {/* Shop Drawing Links - shown only for shop-drawing issue type */}
+                    {formData.issue_type === 'shop-drawing' && (
+                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="text-sm font-medium text-blue-800 mb-3">Shop Drawing References</div>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Project Drawing Link
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={formData.drawing_link}
+                                        onChange={(e) => handleChange('drawing_link', e.target.value)}
+                                        placeholder="https://... (link to project drawing)"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Direct link to the project drawing in SharePoint, Procore, or other system
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Module Link
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={formData.module_link}
+                                        onChange={(e) => handleChange('module_link', e.target.value)}
+                                        placeholder="https://... (link to module details)"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Direct link to the module in MODA or external system
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     )}
 
