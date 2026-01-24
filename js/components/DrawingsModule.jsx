@@ -1863,7 +1863,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             
                                             {/* Run OCR - requires selection and admin role */}
                                             <button
-                                                onClick={() => { setShowAIMenu(false); handleExtractSheets(); }}
+                                                onClick={(e) => { e.stopPropagation(); setShowAIMenu(false); handleExtractSheets(); }}
                                                 disabled={!isAdmin || selectedDrawings.length === 0}
                                                 className="w-full px-3 py-2 text-left text-sm rounded hover:bg-purple-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 title={!isAdmin ? 'Admin only' : ''}
@@ -1889,7 +1889,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             
                                             {/* Browse Sheets */}
                                             <button
-                                                onClick={() => { setShowAIMenu(false); setShowSheetBrowser(true); }}
+                                                onClick={(e) => { e.stopPropagation(); setShowAIMenu(false); setShowSheetBrowser(true); }}
                                                 className="w-full px-3 py-2 text-left text-sm rounded hover:bg-blue-50 flex items-center gap-2"
                                             >
                                                 <span className="icon-layers w-4 h-4 text-blue-600"></span>
@@ -1901,7 +1901,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             
                                             {/* Browse Walls */}
                                             <button
-                                                onClick={() => { setShowAIMenu(false); setShowAnalysisBrowser('walls'); }}
+                                                onClick={(e) => { e.stopPropagation(); setShowAIMenu(false); setShowAnalysisBrowser('walls'); }}
                                                 className="w-full px-3 py-2 text-left text-sm rounded hover:bg-green-50 flex items-center gap-2"
                                             >
                                                 <span className="icon-box w-4 h-4 text-green-600"></span>
@@ -1913,7 +1913,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             
                                             {/* Browse Fixtures */}
                                             <button
-                                                onClick={() => { setShowAIMenu(false); setShowAnalysisBrowser('fixtures'); }}
+                                                onClick={(e) => { e.stopPropagation(); setShowAIMenu(false); setShowAnalysisBrowser('fixtures'); }}
                                                 className="w-full px-3 py-2 text-left text-sm rounded hover:bg-yellow-50 flex items-center gap-2"
                                             >
                                                 <span className="icon-zap w-4 h-4 text-yellow-600"></span>
@@ -1925,7 +1925,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             
                                             {/* Version Changes */}
                                             <button
-                                                onClick={() => { setShowAIMenu(false); setShowAnalysisBrowser('changes'); }}
+                                                onClick={(e) => { e.stopPropagation(); setShowAIMenu(false); setShowAnalysisBrowser('changes'); }}
                                                 className="w-full px-3 py-2 text-left text-sm rounded hover:bg-red-50 flex items-center gap-2"
                                             >
                                                 <span className="icon-git-compare w-4 h-4 text-red-600"></span>
