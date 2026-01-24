@@ -1854,17 +1854,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 </button>
                                 
                                 {showAIMenu && (
-                                    <>
-                                    {/* Click-outside overlay - behind dropdown */}
                                     <div 
-                                        className="fixed inset-0" 
-                                        style={{ zIndex: 40 }}
-                                        onClick={(e) => { e.preventDefault(); setShowAIMenu(false); }}
-                                    ></div>
-                                    <div 
-                                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200"
-                                        style={{ zIndex: 50 }}
-                                        onClick={(e) => e.stopPropagation()}
+                                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50"
                                     >
                                         <div className="p-2">
                                             <div className="text-xs font-semibold text-gray-500 px-3 py-1 uppercase">Extract Data</div>
@@ -1944,7 +1935,6 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             </button>
                                         </div>
                                     </div>
-                                    </>
                                 )}
                             </div>
                         )}
