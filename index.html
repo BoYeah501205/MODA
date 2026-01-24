@@ -11,8 +11,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.3.37">
-    <script>window.MODA_VERSION = '1.3.37'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.3.40">
+    <script>window.MODA_VERSION = '1.3.40'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -279,6 +279,7 @@
     <script src="./js/supabase-drawings.js"></script>
     <script src="./js/supabase-drawing-sheets.js"></script>
     <script src="./js/supabase-drawing-links.js"></script>
+    <script src="./js/ocrJobManager.js"></script>
     <!-- Tesseract OCR module - disabled until needed
     <script src="./js/tesseract-ocr.js"></script>
     -->
@@ -362,6 +363,7 @@
     <script type="text/babel" src="./js/components/DrawingStatusLog.jsx"></script>
     <script type="text/babel" src="./js/components/SheetBrowser.jsx"></script>
     <script type="text/babel" src="./js/components/AnalysisBrowser.jsx"></script>
+    <script type="text/babel" src="./js/components/OCRProgressIndicator.jsx"></script>
     <script type="text/babel" src="./js/components/ModuleDrawingsViewer.jsx"></script>
     <script type="text/babel" src="./js/components/ModuleMenuPage.jsx"></script>
     

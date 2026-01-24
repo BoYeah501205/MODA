@@ -1230,10 +1230,27 @@ const DrawingsModule = ({ projects = [], auth }) => {
         }
     }, []);
     
-    // Handle extract sheets - trigger OCR processing for selected PDFs using Claude Vision API
-    const handleExtractSheets = useCallback(async () => {
+    // Check if user is admin (for OCR access)
+    const isAdmin = useMemo(() => {
+        const role = auth?.currentUser?.dashboardRole?.toLowerCase();
+        return role === 'admin';
+    }, [auth]);
+    
+    // Handle extract sheets - queue OCR processing for selected PDFs (background processing)
+    const handleExtractSheets = useCallback(() => {
+        // Admin-only check
+        if (!isAdmin) {
+            alert('OCR processing is restricted to Admin users only.');
+            return;
+        }
+        
         if (!window.MODA_SUPABASE?.client) {
             alert('Supabase not available. Please refresh the page.');
+            return;
+        }
+        
+        if (!window.MODA_OCR_MANAGER) {
+            alert('OCR Manager not available. Please refresh the page.');
             return;
         }
         
@@ -1252,153 +1269,39 @@ const DrawingsModule = ({ projects = [], auth }) => {
             return;
         }
         
-        // Estimate cost based on typical page counts
-        const estimatedCost = (drawingsToProcess.length * 15 * 0.015).toFixed(2); // ~15 pages avg, ~$0.015/page
+        // Get cost estimate from OCR manager
+        const estimate = window.MODA_OCR_MANAGER.estimateCost(drawingsToProcess);
         
         const confirmed = confirm(
-            `Run OCR on ${drawingsToProcess.length} PDF file(s)?\n\n` +
+            `Queue OCR for ${drawingsToProcess.length} PDF file(s)?\n\n` +
             `This will use Claude Vision AI to extract title block metadata:\n` +
             `- Sheet Number (e.g., XE-B1L6M17-01)\n` +
             `- Sheet Title (e.g., ELEC ENLG PLAN)\n` +
             `- BLM Type (e.g., B1L6M17)\n` +
             `- Scale, Date, Discipline\n\n` +
-            `Estimated cost: ~$${estimatedCost} (based on ~15 pages/PDF)\n\n` +
-            `Processing may take 1-2 minutes per PDF.`
+            `COST ESTIMATE:\n` +
+            `- Files: ${estimate.fileCount}\n` +
+            `- Est. pages: ~${estimate.estimatedPages} (avg 15/PDF)\n` +
+            `- Est. cost: ~$${estimate.estimatedCost}\n` +
+            `- Per file: ~$${estimate.costPerFile}\n\n` +
+            `Processing runs in background - you can navigate away.\n` +
+            `Progress shown in floating indicator (bottom-right).`
         );
         if (!confirmed) return;
         
-        try {
-            setProcessingDrawing({ status: 'processing', progress: 0, stage: 'starting' });
-            
-            let totalProcessed = 0;
-            let totalSheets = 0;
-            
-            for (let i = 0; i < drawingsToProcess.length; i++) {
-                const drawing = drawingsToProcess[i];
-                console.log(`[Drawings] Processing ${i + 1}/${drawingsToProcess.length}: ${drawing.name}`);
-                
-                setProcessingDrawing({ 
-                    status: 'processing', 
-                    progress: Math.round((i / drawingsToProcess.length) * 100),
-                    current: i + 1,
-                    total: drawingsToProcess.length,
-                    fileName: drawing.name,
-                    stage: 'Sending to Claude Vision API...'
-                });
-                
-                try {
-                    // Get the latest version to check storage type
-                    const latestVersion = drawing.versions?.[0];
-                    let pdfDownloadUrl = null;
-                    
-                    // If stored in SharePoint, get download URL from frontend
-                    if (latestVersion?.storage_path?.startsWith('sharepoint:') || latestVersion?.storage_type === 'sharepoint') {
-                        const sharePointFileId = latestVersion.sharepoint_file_id || latestVersion.storage_path?.replace('sharepoint:', '');
-                        console.log(`[Drawings] Getting SharePoint download URL for: ${sharePointFileId}`);
-                        
-                        setProcessingDrawing({ 
-                            status: 'processing', 
-                            progress: Math.round((i / drawingsToProcess.length) * 100),
-                            current: i + 1,
-                            total: drawingsToProcess.length,
-                            fileName: drawing.name,
-                            stage: 'Getting SharePoint download URL...'
-                        });
-                        
-                        // Call SharePoint function to get download URL
-                        const spResponse = await fetch('https://syreuphexagezawjyjgt.supabase.co/functions/v1/sharepoint', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${window.MODA_SUPABASE.client.supabaseKey}`,
-                            },
-                            body: JSON.stringify({
-                                action: 'download',
-                                fileId: sharePointFileId
-                            })
-                        });
-                        
-                        if (spResponse.ok) {
-                            const spData = await spResponse.json();
-                            pdfDownloadUrl = spData.downloadUrl;
-                            console.log(`[Drawings] Got SharePoint download URL`);
-                        } else {
-                            console.error(`[Drawings] Failed to get SharePoint URL:`, await spResponse.text());
-                            continue;
-                        }
-                    }
-                    
-                    setProcessingDrawing({ 
-                        status: 'processing', 
-                        progress: Math.round((i / drawingsToProcess.length) * 100),
-                        current: i + 1,
-                        total: drawingsToProcess.length,
-                        fileName: drawing.name,
-                        stage: 'Sending to Claude Vision API...'
-                    });
-                    
-                    // Call the Edge Function to process with Claude Vision
-                    const response = await fetch('https://syreuphexagezawjyjgt.supabase.co/functions/v1/process-drawing-sheets', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${window.MODA_SUPABASE.client.supabaseKey}`,
-                        },
-                        body: JSON.stringify({
-                            drawingFileId: drawing.id,
-                            action: 'split_and_ocr',
-                            pdfDownloadUrl: pdfDownloadUrl  // Pass the download URL if available
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error(`[Drawings] OCR failed for ${drawing.name}:`, response.status, errorText);
-                        try {
-                            const errorData = JSON.parse(errorText);
-                            console.error(`[Drawings] Error details:`, errorData.error, errorData.details);
-                        } catch (e) {}
-                        continue;
-                    }
-                    
-                    const result = await response.json();
-                    console.log(`[Drawings] Extracted ${result.processed_sheets} sheets from ${drawing.name}`);
-                    
-                    totalProcessed++;
-                    totalSheets += result.processed_sheets || 0;
-                    
-                    setProcessingDrawing({
-                        status: 'processing',
-                        progress: Math.round(((i + 1) / drawingsToProcess.length) * 100),
-                        current: i + 1,
-                        total: drawingsToProcess.length,
-                        fileName: drawing.name,
-                        stage: `Completed: ${result.processed_sheets} sheets extracted`
-                    });
-                    
-                } catch (fetchError) {
-                    console.error(`[Drawings] Error processing ${drawing.name}:`, fetchError);
-                }
-            }
-            
-            setProcessingDrawing(null);
-            setSelectedDrawings([]); // Clear selection after processing
-            
-            if (totalProcessed > 0) {
-                alert(
-                    `Successfully processed ${totalProcessed} PDF file(s)!\n\n` +
-                    `Total sheets extracted: ${totalSheets}\n\n` +
-                    `Click "Browse Sheets" to view and filter the extracted sheets.`
-                );
-            } else {
-                alert('No PDFs were processed successfully. Check the console for errors.');
-            }
-        } catch (error) {
-            console.error('[Drawings] Extract sheets error:', error);
-            setProcessingDrawing(null);
-            alert('Error extracting sheets: ' + error.message);
-        }
-    }, [currentDrawings, selectedDrawings, selectedProject]);
+        // Queue the job with OCR manager
+        const jobId = window.MODA_OCR_MANAGER.queueJob(
+            selectedProject?.id,
+            selectedProject?.name || 'Unknown Project',
+            drawingsToProcess
+        );
+        
+        console.log(`[Drawings] Queued OCR job: ${jobId} with ${drawingsToProcess.length} files`);
+        
+        // Clear selection
+        setSelectedDrawings([]);
+        
+    }, [currentDrawings, selectedDrawings, selectedProject, isAdmin]);
     
     // Handle download - forces file download
     const handleDownload = useCallback(async (version) => {
@@ -1958,19 +1861,25 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                         <div className="p-2">
                                             <div className="text-xs font-semibold text-gray-500 px-3 py-1 uppercase">Extract Data</div>
                                             
-                                            {/* Run OCR - requires selection */}
+                                            {/* Run OCR - requires selection and admin role */}
                                             <button
                                                 onClick={() => { setShowAIMenu(false); handleExtractSheets(); }}
-                                                disabled={selectedDrawings.length === 0 || processingDrawing}
+                                                disabled={!isAdmin || selectedDrawings.length === 0}
                                                 className="w-full px-3 py-2 text-left text-sm rounded hover:bg-purple-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title={!isAdmin ? 'Admin only' : ''}
                                             >
                                                 <span className="icon-scan w-4 h-4 text-purple-600"></span>
                                                 <div>
-                                                    <div className="font-medium">Run OCR</div>
+                                                    <div className="font-medium flex items-center gap-1">
+                                                        Run OCR
+                                                        {!isAdmin && <span className="text-xs text-red-500">(Admin)</span>}
+                                                    </div>
                                                     <div className="text-xs text-gray-500">
-                                                        {selectedDrawings.length > 0 
-                                                            ? `Extract title blocks (${selectedDrawings.length} selected)`
-                                                            : 'Select PDFs first'}
+                                                        {!isAdmin 
+                                                            ? 'Restricted to Admin users'
+                                                            : selectedDrawings.length > 0 
+                                                                ? `Extract title blocks (${selectedDrawings.length} selected)`
+                                                                : 'Select PDFs first'}
                                                     </div>
                                                 </div>
                                             </button>

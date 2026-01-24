@@ -2,9 +2,42 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.37**
+**Current Version: 1.3.40**
 
 ---
+
+## [1.3.40] - 2025-01-24
+### Background OCR Processing
+- **OCR Job Manager**: Global singleton for background OCR processing
+  - Queue multiple OCR batches while navigating MODA
+  - Cancel individual jobs or all jobs
+  - Error tracking with summary at completion
+- **Floating Progress Indicator**: Bottom-right corner indicator
+  - Collapsible pill showing "OCR: 3/10 files..."
+  - Expandable panel with job details, queue, and errors
+  - Persists across all tabs/navigation
+- **Cost Estimate**: Shows estimated cost before starting OCR batch
+  - Files count, estimated pages, total cost
+  - Based on ~15 pages/PDF at $0.015/page
+- **Admin-Only OCR**: Restricted to Admin users only
+  - Non-admin users see "(Admin)" label and disabled button
+- **AI Analysis Dropdown**: Consolidated menu for all AI features
+  - Run OCR, Browse Sheets, Wall Schedule, MEP Fixtures, Version Changes
+
+### Files Added
+- `js/ocrJobManager.js` - Background OCR queue manager
+- `js/components/OCRProgressIndicator.jsx` - Floating progress UI
+- `js/components/AnalysisBrowser.jsx` - Unified browser for walls/fixtures/changes
+
+### Files Modified
+- `js/components/DrawingsModule.jsx` - Refactored to use OCR manager
+- `js/components/App.jsx` - Added global OCRProgressIndicator
+- `index.html` - Added new scripts
+
+## [1.3.39] - 2025-01-23
+### AI Analysis UI
+- Added AI Analysis dropdown menu in Drawings module
+- Created AnalysisBrowser component for walls, fixtures, changes
 
 ## [1.3.37] - 2025-01-23
 ### Daily Set Report Feature
