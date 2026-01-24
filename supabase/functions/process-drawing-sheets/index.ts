@@ -109,7 +109,22 @@ serve(async (req) => {
       // Note: We'll use a dynamic import for pdf-lib
       const { PDFDocument } = await import('https://esm.sh/pdf-lib@1.17.1');
 
-      const pdfDoc = await PDFDocument.load(pdfBytes);
+      let pdfDoc;
+      try {
+        // Try loading without password first
+        pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+      } catch (loadError) {
+        // If that fails, try with empty password (some PDFs have empty password protection)
+        console.log(`[ProcessSheets] Initial load failed, trying with ignoreEncryption...`);
+        try {
+          pdfDoc = await PDFDocument.load(pdfBytes, { 
+            ignoreEncryption: true,
+            updateMetadata: false 
+          });
+        } catch (retryError: any) {
+          throw new Error(`PDF cannot be loaded - may be corrupted or have unsupported encryption: ${retryError?.message || retryError}`);
+        }
+      }
       const totalPages = pdfDoc.getPageCount();
 
       console.log(`[ProcessSheets] PDF has ${totalPages} pages`);
