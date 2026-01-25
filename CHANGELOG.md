@@ -2,7 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.47**
+**Current Version: 1.3.48**
+
+---
+
+## [1.3.48] - 2025-01-25
+### Shop Drawing Issue Module Linking
+- **Module selector** in Report Issue modal when "Shop Drawing" type is selected
+  - Dropdown shows all project modules sorted by build sequence
+  - Links issue directly to module ID (not URL)
+- **Yellow status indicator** on shop drawing packages in Drawings tab
+  - Green dot = no issues, Yellow dot = open shop-drawing issue linked
+  - Hover shows issue count
+- **Issue routing** stores `linked_module_id` for shop-drawing issues
+- Added `getOpenShopDrawingIssuesForModule()` and `moduleHasOpenShopDrawingIssue()` functions
 
 ---
 

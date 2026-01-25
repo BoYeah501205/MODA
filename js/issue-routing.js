@@ -161,6 +161,10 @@
             department: issueData.department || '',
             stage: issueData.stage || '',
             
+            // Module linking (for shop-drawing issues)
+            linked_module_id: issueData.linked_module_id || null,
+            linked_module_serial: issueData.linked_module_serial || '',
+            
             // Assignment
             submitted_by: issueData.submitted_by || 'Unknown',
             submitted_by_id: issueData.submitted_by_id || null,
@@ -226,6 +230,23 @@
         };
     }
 
+    // ===== GET OPEN SHOP-DRAWING ISSUES FOR MODULE =====
+    // Returns open issues of type 'shop-drawing' linked to a specific module
+    function getOpenShopDrawingIssuesForModule(moduleId) {
+        if (!moduleId) return [];
+        const issues = loadIssues('moda_engineering_issues');
+        return issues.filter(issue => 
+            issue.issue_type === 'shop-drawing' &&
+            issue.status === 'open' &&
+            issue.linked_module_id === moduleId
+        );
+    }
+
+    // ===== CHECK IF MODULE HAS OPEN SHOP-DRAWING ISSUES =====
+    function moduleHasOpenShopDrawingIssue(moduleId) {
+        return getOpenShopDrawingIssuesForModule(moduleId).length > 0;
+    }
+
     // ===== UPDATE ISSUE =====
     function updateIssue(issueId, updates, storageKey) {
         const issues = loadIssues(storageKey);
@@ -267,7 +288,9 @@
         deleteIssue,
         
         getIssuesForDashboard,
-        getIssueCounts
+        getIssueCounts,
+        getOpenShopDrawingIssuesForModule,
+        moduleHasOpenShopDrawingIssue
     };
 
     console.log('[IssueRouting] Issue routing system initialized');

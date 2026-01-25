@@ -2265,10 +2265,25 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             )}
                                             {isModulePackages && (
                                                 <td className="px-2 py-4 text-center">
-                                                    <span 
-                                                        className="inline-block w-3 h-3 rounded-full bg-green-300/50 border border-green-400/30"
-                                                        title="No issues reported"
-                                                    ></span>
+                                                    {(() => {
+                                                        // Check if this module has open shop-drawing issues
+                                                        const hasOpenIssue = linkedModule?.id && 
+                                                            window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(linkedModule.id);
+                                                        const issueCount = hasOpenIssue ? 
+                                                            window.MODA_ISSUE_ROUTING?.getOpenShopDrawingIssuesForModule?.(linkedModule.id)?.length || 0 : 0;
+                                                        
+                                                        return hasOpenIssue ? (
+                                                            <span 
+                                                                className="inline-block w-3 h-3 rounded-full bg-amber-400 border border-amber-500"
+                                                                title={`${issueCount} open shop drawing issue${issueCount > 1 ? 's' : ''}`}
+                                                            ></span>
+                                                        ) : (
+                                                            <span 
+                                                                className="inline-block w-3 h-3 rounded-full bg-green-300/50 border border-green-400/30"
+                                                                title="No issues reported"
+                                                            ></span>
+                                                        );
+                                                    })()}
                                                 </td>
                                             )}
                                             <td className="px-4 py-4">

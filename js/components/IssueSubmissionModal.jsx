@@ -55,8 +55,8 @@ function IssueSubmissionModal({
         description: '',
         assigned_to_id: '',
         assigned_to: '',
-        drawing_link: '',    // Direct link to project drawing (for Shop Drawing issues)
-        module_link: ''      // Direct link to module (for Shop Drawing issues)
+        linked_module_id: '',    // Module ID for Shop Drawing issues (links to shop drawing package)
+        linked_module_serial: '' // Module serial number for display
     });
 
     const [photos, setPhotos] = useState([]);
@@ -457,41 +457,57 @@ function IssueSubmissionModal({
                         </div>
                     )}
 
-                    {/* Shop Drawing Links - shown only for shop-drawing issue type */}
+                    {/* Shop Drawing Module Link - shown only for shop-drawing issue type */}
                     {formData.issue_type === 'shop-drawing' && (
                         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="text-sm font-medium text-blue-800 mb-3">Shop Drawing References</div>
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Project Drawing Link
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={formData.drawing_link}
-                                        onChange={(e) => handleChange('drawing_link', e.target.value)}
-                                        placeholder="https://... (link to project drawing)"
+                            <div className="text-sm font-medium text-blue-800 mb-3">Link to Module Shop Drawing Package</div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Select Module <span className="text-red-500">*</span>
+                                </label>
+                                {formData.project_id ? (
+                                    <select
+                                        value={formData.linked_module_id}
+                                        onChange={(e) => {
+                                            const moduleId = e.target.value;
+                                            const selectedProject = projects.find(p => p.id === formData.project_id);
+                                            const module = selectedProject?.modules?.find(m => m.id === moduleId);
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                linked_module_id: moduleId,
+                                                linked_module_serial: module?.serialNumber || '',
+                                                blm_id: module?.hitchBLM || module?.serialNumber || prev.blm_id
+                                            }));
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Direct link to the project drawing in SharePoint, Procore, or other system
+                                    >
+                                        <option value="">Select a module...</option>
+                                        {(() => {
+                                            const selectedProject = projects.find(p => p.id === formData.project_id);
+                                            const modules = selectedProject?.modules || [];
+                                            return modules
+                                                .sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0))
+                                                .map(m => (
+                                                    <option key={m.id} value={m.id}>
+                                                        #{m.buildSequence} - {m.serialNumber} ({m.hitchBLM || 'No BLM'})
+                                                    </option>
+                                                ));
+                                        })()}
+                                    </select>
+                                ) : (
+                                    <p className="text-sm text-amber-600 py-2">
+                                        Please select a project first to choose a module
                                     </p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Module Link
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={formData.module_link}
-                                        onChange={(e) => handleChange('module_link', e.target.value)}
-                                        placeholder="https://... (link to module details)"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Direct link to the module in MODA or external system
-                                    </p>
-                                </div>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1">
+                                    This links the issue to the module's shop drawing package
+                                </p>
+                                {formData.linked_module_serial && (
+                                    <div className="mt-2 p-2 bg-white rounded border border-blue-200">
+                                        <span className="text-xs text-blue-600">Linked to: </span>
+                                        <span className="text-xs font-medium text-blue-800">{formData.linked_module_serial}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
