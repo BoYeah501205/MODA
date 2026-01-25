@@ -2,7 +2,28 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.49**
+**Current Version: 1.3.50**
+
+---
+
+## [1.3.50] - 2025-01-25
+### Issue Reporting Enhancements
+- **Edit Issue functionality** - Edit button on issue detail modal with permission checks
+  - Edit title, description, and priority
+  - Full edit history tracking (who changed what, when)
+- **Multi-select module linking** for Shop Drawing issues
+  - Searchable module list with checkboxes
+  - Search by M#, BLM, serial number
+  - "Applies to all modules of unit type" checkbox option
+  - Auto-populates BLM from selected module(s)
+- **Project dropdown improvements**
+  - Sections for "Active Projects" and "Completed Projects"
+  - Sorted by project number
+- **Status filter for shop drawing packages**
+  - Filter by All / Green (no issues) / Yellow (has issues)
+- **Shop Drawing sub-categories** - SQL migration for default categories:
+  - Dimension, Question, Error, Other
+  - Manage via Admin > App Configuration > Issue Categories
 
 ---
 

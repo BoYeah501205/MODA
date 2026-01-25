@@ -54,6 +54,14 @@ function IssueDetailModal({
     const [showAssignMenu, setShowAssignMenu] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [resolutionNote, setResolutionNote] = useState('');
+    
+    // Edit mode state
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editForm, setEditForm] = useState({
+        title: issue?.title || '',
+        description: issue?.description || '',
+        priority: issue?.priority || 'medium'
+    });
 
     const modalRef = useRef(null);
     const commentInputRef = useRef(null);
@@ -195,6 +203,92 @@ function IssueDetailModal({
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    // Handle saving issue edits
+    const handleSaveEdit = async () => {
+        if (!canEdit) return;
+        
+        // Check if anything changed
+        const hasChanges = editForm.title !== issue.title ||
+                          editForm.description !== issue.description ||
+                          editForm.priority !== issue.priority;
+        
+        if (!hasChanges) {
+            setIsEditMode(false);
+            return;
+        }
+
+        setIsUpdating(true);
+
+        try {
+            const now = new Date().toISOString();
+            
+            // Build edit history entry
+            const editEntry = {
+                edited_by: currentUser.name,
+                edited_by_id: currentUser.id,
+                timestamp: now,
+                changes: []
+            };
+            
+            if (editForm.title !== issue.title) {
+                editEntry.changes.push({ field: 'title', from: issue.title, to: editForm.title });
+            }
+            if (editForm.description !== issue.description) {
+                editEntry.changes.push({ field: 'description', from: issue.description, to: editForm.description });
+            }
+            if (editForm.priority !== issue.priority) {
+                editEntry.changes.push({ field: 'priority', from: issue.priority, to: editForm.priority });
+            }
+
+            let updates;
+
+            if (window.MODA_SUPABASE_ISSUES?.issues?.update) {
+                // Supabase update
+                updates = await window.MODA_SUPABASE_ISSUES.issues.update(issue.id, {
+                    title: editForm.title,
+                    description: editForm.description,
+                    priority: editForm.priority,
+                    edit_history: [...(issue.edit_history || []), editEntry]
+                });
+            } else {
+                // localStorage fallback
+                updates = {
+                    ...issue,
+                    title: editForm.title,
+                    description: editForm.description,
+                    priority: editForm.priority,
+                    updated_at: now,
+                    edit_history: [...(issue.edit_history || []), editEntry]
+                };
+
+                const stored = JSON.parse(localStorage.getItem('moda_engineering_issues') || '[]');
+                const idx = stored.findIndex(i => i.id === issue.id);
+                if (idx !== -1) {
+                    stored[idx] = updates;
+                    localStorage.setItem('moda_engineering_issues', JSON.stringify(stored));
+                }
+            }
+
+            onUpdate(updates);
+            setIsEditMode(false);
+        } catch (err) {
+            console.error('Error saving edit:', err);
+            alert('Failed to save changes: ' + err.message);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    // Cancel edit and reset form
+    const handleCancelEdit = () => {
+        setEditForm({
+            title: issue?.title || '',
+            description: issue?.description || '',
+            priority: issue?.priority || 'medium'
+        });
+        setIsEditMode(false);
     };
 
     const handleAssign = async (employeeId) => {
@@ -433,13 +527,92 @@ function IssueDetailModal({
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                 {/* Main Content */}
                                 <div className="lg:col-span-2 space-y-6">
-                                    {/* Description */}
-                                    <div>
-                                        <h3 className="text-sm font-medium text-gray-500 mb-2">Description</h3>
-                                        <p className="text-gray-900 whitespace-pre-wrap">
-                                            {issue.description || 'No description provided'}
-                                        </p>
-                                    </div>
+                                    {/* Edit Button */}
+                                    {canEdit && !isEditMode && issue.status !== 'closed' && (
+                                        <div className="flex justify-end">
+                                            <button
+                                                onClick={() => setIsEditMode(true)}
+                                                className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition flex items-center gap-1"
+                                            >
+                                                <span className="icon-edit w-4 h-4"></span>
+                                                Edit Issue
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Edit Mode Form */}
+                                    {isEditMode ? (
+                                        <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.title}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Issue title..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                                <textarea
+                                                    value={editForm.description}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                                    rows={4}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                                    placeholder="Describe the issue..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                                                <div className="flex gap-2">
+                                                    {PRIORITY_LEVELS.map(level => (
+                                                        <button
+                                                            key={level.id}
+                                                            type="button"
+                                                            onClick={() => setEditForm(prev => ({ ...prev, priority: level.id }))}
+                                                            className={`px-3 py-1.5 rounded-lg border-2 text-sm font-medium transition ${
+                                                                editForm.priority === level.id
+                                                                    ? 'border-current'
+                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                            }`}
+                                                            style={{
+                                                                borderColor: editForm.priority === level.id ? level.color : undefined,
+                                                                backgroundColor: editForm.priority === level.id ? `${level.color}15` : undefined,
+                                                                color: level.color
+                                                            }}
+                                                        >
+                                                            {level.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-end gap-2 pt-2">
+                                                <button
+                                                    onClick={handleCancelEdit}
+                                                    disabled={isUpdating}
+                                                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={handleSaveEdit}
+                                                    disabled={isUpdating}
+                                                    className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition disabled:opacity-50"
+                                                >
+                                                    {isUpdating ? 'Saving...' : 'Save Changes'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* Description (View Mode) */
+                                        <div>
+                                            <h3 className="text-sm font-medium text-gray-500 mb-2">Description</h3>
+                                            <p className="text-gray-900 whitespace-pre-wrap">
+                                                {issue.description || 'No description provided'}
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {/* Photos */}
                                     {issue.photo_urls?.length > 0 && (

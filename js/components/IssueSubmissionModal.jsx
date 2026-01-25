@@ -66,6 +66,7 @@ function IssueSubmissionModal({
     const [showProjectSelect, setShowProjectSelect] = useState(!context?.project_id);
     const [issueCategories, setIssueCategories] = useState([]);
     const [loadingCategories, setLoadingCategories] = useState(true);
+    const [moduleSearchTerm, setModuleSearchTerm] = useState(''); // Search filter for modules
 
     const fileInputRef = useRef(null);
     const modalRef = useRef(null);
@@ -370,15 +371,44 @@ function IssueSubmissionModal({
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">Select a project...</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
+                                {(() => {
+                                    // Separate active and completed projects
+                                    const activeProjects = projects
+                                        .filter(p => p.status !== 'Completed' && p.status !== 'completed')
+                                        .sort((a, b) => (a.projectNumber || a.name || '').localeCompare(b.projectNumber || b.name || ''));
+                                    const completedProjects = projects
+                                        .filter(p => p.status === 'Completed' || p.status === 'completed')
+                                        .sort((a, b) => (a.projectNumber || a.name || '').localeCompare(b.projectNumber || b.name || ''));
+                                    
+                                    return (
+                                        <>
+                                            {activeProjects.length > 0 && (
+                                                <optgroup label="Active Projects">
+                                                    {activeProjects.map(p => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.projectNumber ? `${p.projectNumber} - ` : ''}{p.name}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                            {completedProjects.length > 0 && (
+                                                <optgroup label="Completed Projects">
+                                                    {completedProjects.map(p => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.projectNumber ? `${p.projectNumber} - ` : ''}{p.name}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </select>
                         </div>
                     )}
 
-                    {/* Module BLM ID (if no context) */}
-                    {!context?.blm_id && (
+                    {/* Module BLM ID (if no context) - hidden for shop-drawing since BLM auto-populates from module selection */}
+                    {!context?.blm_id && formData.issue_type !== 'shop-drawing' && (
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Module BLM ID (optional)
@@ -461,55 +491,160 @@ function IssueSubmissionModal({
                     {/* Shop Drawing Module Link - shown only for shop-drawing issue type */}
                     {formData.issue_type === 'shop-drawing' && (
                         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="text-sm font-medium text-blue-800 mb-3">Link to Module Shop Drawing Package</div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Select Module <span className="text-red-500">*</span>
-                                </label>
-                                {formData.project_id ? (
-                                    <select
-                                        value={formData.linked_module_id}
-                                        onChange={(e) => {
-                                            const moduleId = e.target.value;
-                                            const selectedProject = projects.find(p => p.id === formData.project_id);
-                                            const module = selectedProject?.modules?.find(m => m.id === moduleId);
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                linked_module_id: moduleId,
-                                                linked_module_serial: module?.serialNumber || '',
-                                                blm_id: module?.hitchBLM || module?.serialNumber || prev.blm_id
-                                            }));
-                                        }}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="">Select a module...</option>
-                                        {(() => {
-                                            const selectedProject = projects.find(p => p.id === formData.project_id);
-                                            const modules = selectedProject?.modules || [];
-                                            return modules
-                                                .sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0))
-                                                .map(m => (
-                                                    <option key={m.id} value={m.id}>
-                                                        #{m.buildSequence} - {m.serialNumber} ({m.hitchBLM || 'No BLM'})
-                                                    </option>
-                                                ));
-                                        })()}
-                                    </select>
-                                ) : (
-                                    <p className="text-sm text-amber-600 py-2">
-                                        Please select a project first to choose a module
+                            <div className="text-sm font-medium text-blue-800 mb-3">Link to Module Shop Drawing Package(s)</div>
+                            
+                            {formData.project_id ? (
+                                <div className="space-y-3">
+                                    {/* Unit Type Checkbox */}
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.applies_to_unit_type}
+                                            onChange={(e) => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    applies_to_unit_type: e.target.checked,
+                                                    linked_module_ids: e.target.checked ? [] : prev.linked_module_ids
+                                                }));
+                                            }}
+                                            className="w-4 h-4 text-blue-600 rounded"
+                                        />
+                                        <span className="text-sm text-gray-700">
+                                            Applies to all modules of unit type: <strong>{formData.unit_type || 'All'}</strong>
+                                        </span>
+                                    </label>
+
+                                    {/* Module Search & Selection - hidden if applies_to_unit_type */}
+                                    {!formData.applies_to_unit_type && (
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Search & Select Modules
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={moduleSearchTerm}
+                                                    onChange={(e) => setModuleSearchTerm(e.target.value)}
+                                                    placeholder="Search by M#, BLM, serial..."
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+
+                                            {/* Module Checkboxes */}
+                                            <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white">
+                                                {(() => {
+                                                    const selectedProject = projects.find(p => p.id === formData.project_id);
+                                                    const modules = selectedProject?.modules || [];
+                                                    const searchLower = moduleSearchTerm.toLowerCase();
+                                                    
+                                                    const filteredModules = modules
+                                                        .filter(m => {
+                                                            if (!moduleSearchTerm) return true;
+                                                            const searchFields = [
+                                                                m.serialNumber,
+                                                                m.hitchBLM,
+                                                                m.rearBLM,
+                                                                `M${m.buildSequence}`,
+                                                                `#${m.buildSequence}`,
+                                                                m.unitType
+                                                            ].filter(Boolean).map(s => s.toLowerCase());
+                                                            return searchFields.some(f => f.includes(searchLower));
+                                                        })
+                                                        .sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+
+                                                    if (filteredModules.length === 0) {
+                                                        return (
+                                                            <div className="p-3 text-sm text-gray-500 text-center">
+                                                                {moduleSearchTerm ? 'No modules match your search' : 'No modules in this project'}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return filteredModules.map(m => (
+                                                        <label
+                                                            key={m.id}
+                                                            className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                                                                formData.linked_module_ids.includes(m.id) ? 'bg-blue-50' : ''
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.linked_module_ids.includes(m.id)}
+                                                                onChange={(e) => {
+                                                                    const isChecked = e.target.checked;
+                                                                    setFormData(prev => {
+                                                                        const newIds = isChecked
+                                                                            ? [...prev.linked_module_ids, m.id]
+                                                                            : prev.linked_module_ids.filter(id => id !== m.id);
+                                                                        
+                                                                        // Build display string from selected modules
+                                                                        const selectedModules = modules.filter(mod => newIds.includes(mod.id));
+                                                                        const displayStr = selectedModules.map(mod => mod.hitchBLM || mod.serialNumber).join(', ');
+                                                                        
+                                                                        // Auto-populate blm_id from first selected module
+                                                                        const firstModule = selectedModules[0];
+                                                                        
+                                                                        return {
+                                                                            ...prev,
+                                                                            linked_module_ids: newIds,
+                                                                            linked_modules_display: displayStr,
+                                                                            blm_id: firstModule?.hitchBLM || firstModule?.serialNumber || ''
+                                                                        };
+                                                                    });
+                                                                }}
+                                                                className="w-4 h-4 text-blue-600 rounded"
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-sm font-medium text-gray-900">
+                                                                    #{m.buildSequence} - {m.serialNumber}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500">
+                                                                    {m.hitchBLM || 'No BLM'} {m.unitType ? `| ${m.unitType}` : ''}
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    ));
+                                                })()}
+                                            </div>
+
+                                            {/* Selected Count */}
+                                            {formData.linked_module_ids.length > 0 && (
+                                                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
+                                                    <div>
+                                                        <span className="text-xs text-blue-600">Selected: </span>
+                                                        <span className="text-xs font-medium text-blue-800">
+                                                            {formData.linked_module_ids.length} module{formData.linked_module_ids.length > 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData(prev => ({
+                                                            ...prev,
+                                                            linked_module_ids: [],
+                                                            linked_modules_display: '',
+                                                            blm_id: ''
+                                                        }))}
+                                                        className="text-xs text-red-600 hover:text-red-800"
+                                                    >
+                                                        Clear all
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    <p className="text-xs text-gray-500">
+                                        {formData.applies_to_unit_type 
+                                            ? 'Issue will apply to all modules of the selected unit type'
+                                            : 'Select one or more modules to link this issue to their shop drawing packages'
+                                        }
                                     </p>
-                                )}
-                                <p className="text-xs text-gray-500 mt-1">
-                                    This links the issue to the module's shop drawing package
+                                </div>
+                            ) : (
+                                <p className="text-sm text-amber-600 py-2">
+                                    Please select a project first to choose modules
                                 </p>
-                                {formData.linked_module_serial && (
-                                    <div className="mt-2 p-2 bg-white rounded border border-blue-200">
-                                        <span className="text-xs text-blue-600">Linked to: </span>
-                                        <span className="text-xs font-medium text-blue-800">{formData.linked_module_serial}</span>
-                                    </div>
-                                )}
-                            </div>
+                            )}
                         </div>
                     )}
 

@@ -49,6 +49,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showBulkRenameModal, setShowBulkRenameModal] = useState(false); // Bulk rename unlinked drawings
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false); // Toggle advanced filter panel
     const [advancedFilters, setAdvancedFilters] = useState({ unitTypes: [], roomTypes: [], difficulties: [] }); // Multi-select filters
+    const [issueStatusFilter, setIssueStatusFilter] = useState('all'); // 'all' | 'green' | 'yellow' - filter by issue status
     const [pdfViewerData, setPdfViewerData] = useState(null); // { url, name, drawingId, versionId } for PDF viewer modal
     const [showDrawingStatusLog, setShowDrawingStatusLog] = useState(false); // Drawing status matrix modal
     const [showAIMenu, setShowAIMenu] = useState(false); // AI Analysis dropdown menu
@@ -655,8 +656,26 @@ const DrawingsModule = ({ projects = [], auth }) => {
             });
         }
         
+        // Issue status filter (only for Module Packages)
+        if (isModulePackages && issueStatusFilter !== 'all') {
+            results = results.filter(drawing => {
+                const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
+                const linkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
+                
+                const hasOpenIssue = linkedModule?.id && 
+                    window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(linkedModule.id);
+                
+                if (issueStatusFilter === 'yellow') {
+                    return hasOpenIssue === true;
+                } else if (issueStatusFilter === 'green') {
+                    return hasOpenIssue !== true;
+                }
+                return true;
+            });
+        }
+        
         return results;
-    }, [currentDrawings, drawingSearchTerm, isModulePackages, findModuleByBLM, hasActiveFilters, advancedFilters]);
+    }, [currentDrawings, drawingSearchTerm, isModulePackages, findModuleByBLM, hasActiveFilters, advancedFilters, issueStatusFilter]);
     
     // Count unlinked drawings hidden by filters
     const hiddenUnlinkedCount = useMemo(() => {
@@ -1943,22 +1962,37 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 
                 {/* Search/Filter Bar */}
                 <div className="mb-4">
-                    <div className="relative">
-                        <span className="icon-search w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></span>
-                        <input
-                            type="text"
-                            value={drawingSearchTerm}
-                            onChange={(e) => setDrawingSearchTerm(e.target.value)}
-                            placeholder={isModulePackages ? "Search by filename, serial no., BLM ID, or sequence..." : "Search by filename..."}
-                            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        {drawingSearchTerm && (
-                            <button
-                                onClick={() => setDrawingSearchTerm('')}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    <div className="flex gap-3">
+                        <div className="relative flex-1">
+                            <span className="icon-search w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></span>
+                            <input
+                                type="text"
+                                value={drawingSearchTerm}
+                                onChange={(e) => setDrawingSearchTerm(e.target.value)}
+                                placeholder={isModulePackages ? "Search by filename, serial no., BLM ID, or sequence..." : "Search by filename..."}
+                                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            {drawingSearchTerm && (
+                                <button
+                                    onClick={() => setDrawingSearchTerm('')}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+                        
+                        {/* Status Filter (Module Packages only) */}
+                        {isModulePackages && (
+                            <select
+                                value={issueStatusFilter}
+                                onChange={(e) => setIssueStatusFilter(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                             >
-                                ✕
-                            </button>
+                                <option value="all">All Status</option>
+                                <option value="green">No Issues (Green)</option>
+                                <option value="yellow">Has Issues (Yellow)</option>
+                            </select>
                         )}
                     </div>
                     

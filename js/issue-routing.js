@@ -162,8 +162,9 @@
             stage: issueData.stage || '',
             
             // Module linking (for shop-drawing issues)
-            linked_module_id: issueData.linked_module_id || null,
-            linked_module_serial: issueData.linked_module_serial || '',
+            linked_module_ids: issueData.linked_module_ids || [],
+            linked_modules_display: issueData.linked_modules_display || '',
+            applies_to_unit_type: issueData.applies_to_unit_type || false,
             
             // Assignment
             submitted_by: issueData.submitted_by || 'Unknown',
@@ -235,11 +236,20 @@
     function getOpenShopDrawingIssuesForModule(moduleId) {
         if (!moduleId) return [];
         const issues = loadIssues('moda_engineering_issues');
-        return issues.filter(issue => 
-            issue.issue_type === 'shop-drawing' &&
-            issue.status === 'open' &&
-            issue.linked_module_id === moduleId
-        );
+        return issues.filter(issue => {
+            if (issue.issue_type !== 'shop-drawing' || issue.status !== 'open') {
+                return false;
+            }
+            // Check array format (new)
+            if (Array.isArray(issue.linked_module_ids)) {
+                return issue.linked_module_ids.includes(moduleId);
+            }
+            // Fallback for legacy single ID format
+            if (issue.linked_module_id === moduleId) {
+                return true;
+            }
+            return false;
+        });
     }
 
     // ===== CHECK IF MODULE HAS OPEN SHOP-DRAWING ISSUES =====
