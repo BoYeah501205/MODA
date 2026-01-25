@@ -2,7 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.48**
+**Current Version: 1.3.49**
+
+---
+
+## [1.3.49] - 2025-01-25
+### On-Site Tab Reset
+- **Cleared On-Site tab** - Placeholder while rebuilding from scratch
+- Removed old complex workflow (sets dashboard, schedule, daily reports)
+- Preparing for new streamlined implementation based on user plan
 
 ---
 

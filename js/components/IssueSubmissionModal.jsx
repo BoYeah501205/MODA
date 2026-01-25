@@ -55,8 +55,9 @@ function IssueSubmissionModal({
         description: '',
         assigned_to_id: '',
         assigned_to: '',
-        linked_module_id: '',    // Module ID for Shop Drawing issues (links to shop drawing package)
-        linked_module_serial: '' // Module serial number for display
+        linked_module_ids: [],      // Array of module IDs for Shop Drawing issues
+        linked_modules_display: '', // Display string for selected modules
+        applies_to_unit_type: false // If true, applies to all modules of selected unit type
     });
 
     const [photos, setPhotos] = useState([]);
