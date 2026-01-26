@@ -2,7 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.0**
+**Current Version: 1.5.1**
+
+---
+
+## [1.5.1] - 2026-01-25
+### Bug Fix
+- **Fixed negative modules warning** - Weekly Board "Running Low on Scheduled Modules" warning now clamps to 0 instead of showing nonsensical negative numbers (e.g., "-5290 modules remaining")
 
 ---
 
