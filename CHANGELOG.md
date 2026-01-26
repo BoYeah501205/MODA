@@ -2,7 +2,22 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.1**
+**Current Version: 1.5.3**
+
+---
+
+## [1.5.3] - 2026-01-25
+### WeeklyBoard Console Optimization
+- **Fixed WeeklySchedules save error** - Update query no longer fails with 406 error
+- **Fixed StaggerChangeLog error** - Changed column from `timestamp` to `created_at`
+- **Reduced WeeklyBoard console noise** - All WeeklyBoard/WeeklySchedule logs now debug-only
+- **Eliminated 15+ repeated log messages** per render cycle
+
+---
+
+## [1.5.2] - 2026-01-25
+### Bug Fix
+- **Fixed ErrorBoundary Component error** - Added `Component` to React destructuring in build script
 
 ---
 

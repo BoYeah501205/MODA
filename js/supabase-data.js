@@ -708,17 +708,17 @@
             const userEmail = userProfile?.email || currentUser?.email || '';
             const userRole = userProfile?.dashboard_role || '';
             
-            console.log('[WeeklySchedules] canEdit check - email:', userEmail, 'role:', userRole);
+            if (window.MODA_DEBUG) console.log('[WeeklySchedules] canEdit check - email:', userEmail, 'role:', userRole);
             
             // Admin role can always edit
             if (userRole === 'admin') {
-                console.log('[WeeklySchedules] Admin role detected - edit allowed');
+                if (window.MODA_DEBUG) console.log('[WeeklySchedules] Admin role detected - edit allowed');
                 return true;
             }
             
             // Check authorized editors list
             const isAuthorized = this.AUTHORIZED_EDITORS.includes(userEmail.toLowerCase());
-            console.log('[WeeklySchedules] Authorized editor check:', isAuthorized);
+            if (window.MODA_DEBUG) console.log('[WeeklySchedules] Authorized editor check:', isAuthorized);
             return isAuthorized;
         },
         
@@ -756,7 +756,7 @@
                 
                 let result;
                 if (existing?.id) {
-                    // Update existing record
+                    // Update existing record - don't use .single() as it may return 0 rows on some configs
                     const { data, error } = await getClient()
                         .from('weekly_schedules')
                         .update({
@@ -765,10 +765,9 @@
                             updated_at: new Date().toISOString()
                         })
                         .eq('id', existing.id)
-                        .select()
-                        .single();
+                        .select();
                     if (error) throw error;
-                    result = data;
+                    result = data?.[0] || { id: existing.id };
                 } else {
                     // Insert new record
                     const { data, error } = await getClient()
@@ -831,7 +830,7 @@
                     .single();
                 
                 if (error) throw error;
-                console.log('[WeeklySchedules] Saved completed week:', weekData.weekId);
+                if (window.MODA_DEBUG) console.log('[WeeklySchedules] Saved completed week:', weekData.weekId);
                 return data;
             } catch (err) {
                 console.error('[WeeklySchedules] Error saving completed week:', err);
@@ -851,7 +850,7 @@
                     .eq('week_id', weekId);
                 
                 if (error) throw error;
-                console.log('[WeeklySchedules] Deleted completed week:', weekId);
+                if (window.MODA_DEBUG) console.log('[WeeklySchedules] Deleted completed week:', weekId);
                 return true;
             } catch (err) {
                 console.error('[WeeklySchedules] Error deleting completed week:', err);
@@ -871,7 +870,7 @@
                 .on('postgres_changes',
                     { event: '*', schema: 'public', table: 'weekly_schedules' },
                     async () => {
-                        console.log('[WeeklySchedules] Real-time update');
+                        if (window.MODA_DEBUG) console.log('[WeeklySchedules] Real-time update');
                         const current = await this.getCurrent();
                         callback({ type: 'current', data: current });
                     }
@@ -879,7 +878,7 @@
                 .on('postgres_changes',
                     { event: '*', schema: 'public', table: 'completed_weeks' },
                     async () => {
-                        console.log('[WeeklySchedules] Completed weeks update');
+                        if (window.MODA_DEBUG) console.log('[WeeklySchedules] Completed weeks update');
                         const completed = await this.getCompleted();
                         callback({ type: 'completed', data: completed });
                     }
@@ -1061,15 +1060,20 @@
             if (!client) return [];
             
             try {
+                // Try created_at first (standard Supabase column), fallback to timestamp
                 const { data, error } = await client
                     .from('stagger_change_log')
                     .select('*')
-                    .order('timestamp', { ascending: false });
+                    .order('created_at', { ascending: false });
                 
-                if (error) throw error;
+                if (error) {
+                    // If created_at doesn't exist, table might not exist - return empty
+                    if (window.MODA_DEBUG) console.warn('[StaggerChangeLog] Table may not exist:', error.message);
+                    return [];
+                }
                 return data || [];
             } catch (error) {
-                console.error('[StaggerChangeLog] Error fetching:', error.message);
+                if (window.MODA_DEBUG) console.error('[StaggerChangeLog] Error fetching:', error.message);
                 return [];
             }
         },

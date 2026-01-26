@@ -68,19 +68,19 @@ const useWeeklySchedule = () => {
         
         const loadFromSupabase = async () => {
             const available = isSupabaseAvailable();
-            console.log('[WeeklySchedule] Load attempt', retryCount + 1, '- Supabase available:', available);
+            if (window.MODA_DEBUG) console.log('[WeeklySchedule] Load attempt', retryCount + 1, '- Supabase available:', available);
             setDebugInfo(prev => ({ ...prev, retries: retryCount }));
             
             if (!available) {
                 // Retry a few times before falling back to localStorage
                 if (retryCount < MAX_RETRIES) {
                     retryCount++;
-                    console.log('[WeeklySchedule] Supabase not ready, retry in 500ms (attempt', retryCount, 'of', MAX_RETRIES, ')');
+                    if (window.MODA_DEBUG) console.log('[WeeklySchedule] Supabase not ready, retry in 500ms (attempt', retryCount, 'of', MAX_RETRIES, ')');
                     retryTimer = setTimeout(loadFromSupabase, 500);
                     return;
                 }
                 
-                console.log('[WeeklySchedule] Supabase not available after retries, using localStorage fallback');
+                if (window.MODA_DEBUG) console.log('[WeeklySchedule] Supabase not available after retries, using localStorage fallback');
                 setDebugInfo({ source: 'localStorage', retries: retryCount, error: 'Supabase not available' });
                 // Fallback to localStorage with safe parsing
                 try {
@@ -107,14 +107,14 @@ const useWeeklySchedule = () => {
                 
                 // Load current schedule
                 const current = await api.getCurrent();
-                console.log('[WeeklySchedule] Loaded current schedule from Supabase:', current);
+                if (window.MODA_DEBUG) console.log('[WeeklySchedule] Loaded current schedule from Supabase:', current);
                 if (current) {
                     setScheduleSetup({
                         shift1: current.shift1 || DEFAULT_SCHEDULE.shift1,
                         shift2: current.shift2 || DEFAULT_SCHEDULE.shift2
                     });
                 } else {
-                    console.log('[WeeklySchedule] No current schedule in Supabase, using defaults');
+                    if (window.MODA_DEBUG) console.log('[WeeklySchedule] No current schedule in Supabase, using defaults');
                 }
                 
                 // Load completed weeks
@@ -131,13 +131,13 @@ const useWeeklySchedule = () => {
                 
                 setSynced(true);
                 setDebugInfo({ source: 'supabase', retries: retryCount, error: null });
-                console.log('[WeeklySchedule] Loaded from Supabase successfully');
+                if (window.MODA_DEBUG) console.log('[WeeklySchedule] Loaded from Supabase successfully');
                 
                 // Subscribe to real-time updates after successful load
                 unsubscribe = window.MODA_SUPABASE_DATA.weeklySchedules.onSnapshot(({ current, completed }) => {
                     if (isSaving.current) return; // Skip if we're the one saving
                     
-                    console.log('[WeeklySchedule] Real-time update received');
+                    if (window.MODA_DEBUG) console.log('[WeeklySchedule] Real-time update received');
                     if (current) {
                         isFromRealtime.current = true; // Mark as real-time update to skip save
                         setScheduleSetup({
@@ -205,7 +205,7 @@ const useWeeklySchedule = () => {
             
             if (isSupabaseAvailable() && window.MODA_SUPABASE_DATA?.weeklySchedules) {
                 const newCanEdit = window.MODA_SUPABASE_DATA.weeklySchedules.canEdit();
-                console.log('[WeeklySchedule] Permission check result:', newCanEdit);
+                if (window.MODA_DEBUG) console.log('[WeeklySchedule] Permission check result:', newCanEdit);
                 if (isMounted) {
                     setCanEdit(newCanEdit);
                 }
@@ -230,7 +230,7 @@ const useWeeklySchedule = () => {
         
         // Listen for profile changes (backup mechanism)
         const handleProfileChange = (event) => {
-            console.log('[WeeklySchedule] Profile loaded event received');
+            if (window.MODA_DEBUG) console.log('[WeeklySchedule] Profile loaded event received');
             setTimeout(() => {
                 if (checkPermissions() && pollInterval) {
                     clearInterval(pollInterval);
@@ -2110,7 +2110,7 @@ function WeeklyBoardTab({
             try {
                 const saved = localStorage.getItem('autovol_selected_week_id');
                 if (saved && saved !== 'null') {
-                    console.log('[WeeklyBoard] Popout reading selected week from localStorage:', saved);
+                    if (window.MODA_DEBUG) console.log('[WeeklyBoard] Popout reading selected week from localStorage:', saved);
                     return saved;
                 }
             } catch (e) {}
@@ -2134,7 +2134,7 @@ function WeeklyBoardTab({
         if (!isPopout) {
             try {
                 localStorage.setItem('autovol_selected_week_id', selectedWeekId || '');
-                console.log('[WeeklyBoard] Saved selected week to localStorage:', selectedWeekId);
+                if (window.MODA_DEBUG) console.log('[WeeklyBoard] Saved selected week to localStorage:', selectedWeekId);
             } catch (e) {}
         }
     }, [selectedWeekId, isPopout]);
@@ -2191,7 +2191,7 @@ function WeeklyBoardTab({
                 setLocalPlacementMode(prototype);
                 // Clear localStorage after reading
                 localStorage.removeItem('moda_prototype_placement');
-                console.log('[WeeklyBoard] Entering placement mode for prototype:', prototype.serialNumber);
+                if (window.MODA_DEBUG) console.log('[WeeklyBoard] Entering placement mode for prototype:', prototype.serialNumber);
             }
         } catch (e) {
             console.error('[WeeklyBoard] Error reading prototype placement from localStorage:', e);
@@ -2210,7 +2210,7 @@ function WeeklyBoardTab({
     
     // Handle prototype placement - insert after target module
     const handlePlacePrototypeLocal = useCallback((prototype, afterModule, position) => {
-        console.log('[WeeklyBoard] handlePlacePrototypeLocal called:', {
+        if (window.MODA_DEBUG) console.log('[WeeklyBoard] handlePlacePrototypeLocal called:', {
             prototype: prototype.serialNumber,
             afterModule: afterModule.serialNumber,
             position,
@@ -2243,10 +2243,10 @@ function WeeklyBoardTab({
         newBuildSeq = Math.round(newBuildSeq * 100) / 100; // Round to 2 decimals
         
         // Update the prototype module with new build sequence
-        console.log('[WeeklyBoard] Updating prototype with:', { newBuildSeq, insertedAfter: afterModule.serialNumber, prototypeProjectId: prototype.projectId });
+        if (window.MODA_DEBUG) console.log('[WeeklyBoard] Updating prototype with:', { newBuildSeq, insertedAfter: afterModule.serialNumber, prototypeProjectId: prototype.projectId });
         setProjects(prev => {
             const targetProject = prev.find(p => p.id === prototype.projectId);
-            console.log('[WeeklyBoard] Found target project:', targetProject?.name, 'with', targetProject?.modules?.length, 'modules');
+            if (window.MODA_DEBUG) console.log('[WeeklyBoard] Found target project:', targetProject?.name, 'with', targetProject?.modules?.length, 'modules');
             
             const updated = prev.map(project => {
                 if (project.id !== prototype.projectId) return project;
@@ -2255,7 +2255,7 @@ function WeeklyBoardTab({
                     modules: (project.modules || []).map(m => {
                         if (m.id !== prototype.id) return m;
                         const originalSeq = m.originalBuildSequence || m.buildSequence;
-                        console.log('[WeeklyBoard] Updating module:', m.serialNumber, 'insertedAfter:', afterModule.serialNumber);
+                        if (window.MODA_DEBUG) console.log('[WeeklyBoard] Updating module:', m.serialNumber, 'insertedAfter:', afterModule.serialNumber);
                         return { 
                             ...m, 
                             buildSequence: newBuildSeq, 
@@ -2413,8 +2413,8 @@ function WeeklyBoardTab({
     // Get all active projects
     const activeProjects = projects.filter(p => p.status === 'Active');
     
-    // Debug: Log active projects
-    console.log('[WeeklyBoard] Active projects:', activeProjects.map(p => ({ 
+    // Debug: Log active projects (only in debug mode to reduce console noise)
+    if (window.MODA_DEBUG) console.log('[WeeklyBoard] Active projects:', activeProjects.map(p => ({ 
         name: p.name, 
         status: p.status, 
         productionOrder: p.productionOrder, 
@@ -2448,7 +2448,7 @@ function WeeklyBoardTab({
                     .map(m => ({ ...m, projectId: p.id, projectName: p.name, projectAbbreviation: p.abbreviation, projectProductionOrder: p.productionOrder || 999 }))
             );
         
-        console.log('[WeeklyBoard] Found scheduled prototypes from all projects:', allScheduledPrototypes.map(p => `${p.serialNumber} after ${p.insertedAfter}`));
+        if (window.MODA_DEBUG) console.log('[WeeklyBoard] Found scheduled prototypes from all projects:', allScheduledPrototypes.map(p => `${p.serialNumber} after ${p.insertedAfter}`));
         
         // Regular modules exclude prototypes with insertedAfter (they'll be added separately)
         const regularModules = rawModules.filter(m => !(m.isPrototype && m.insertedAfter));
@@ -2504,10 +2504,12 @@ function WeeklyBoardTab({
         return result;
     })();
     
-    // Debug: Log module count and scheduled prototypes
-    const scheduledProtos = allModules.filter(m => m.isPrototype && m.insertedAfter);
-    console.log('[WeeklyBoard] allModules count:', allModules.length, 
-                'scheduledPrototypes:', scheduledProtos.map(p => `${p.serialNumber} after ${p.insertedAfter}`));
+    // Debug: Log module count and scheduled prototypes (only in debug mode)
+    if (window.MODA_DEBUG) {
+        const scheduledProtos = allModules.filter(m => m.isPrototype && m.insertedAfter);
+        console.log('[WeeklyBoard] allModules count:', allModules.length, 
+                    'scheduledPrototypes:', scheduledProtos.map(p => `${p.serialNumber} after ${p.insertedAfter}`));
+    }
     
     // Auto-calculate starting module index for the current week
     // Based on cumulative line balance from all previous weeks
