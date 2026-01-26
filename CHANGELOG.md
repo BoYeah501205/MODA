@@ -2,7 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.4.5**
+**Current Version: 1.5.0**
+
+---
+
+## [1.5.0] - 2026-01-25
+### Long-Term Productivity Optimizations
+- **Fixed WeeklySchedules 400 error** - Replaced upsert with check-then-update/insert pattern
+- **Enhanced Service Worker caching** - Added caching for unpkg, jsdelivr, Google Fonts, and Supabase API
+- **Added API Cache utility** - In-memory caching for redundant Supabase calls (`MODA_API_CACHE`)
+- **Added ErrorBoundary component** - Graceful error handling prevents full app crashes
+
+### New Files
+- `js/utils/apiCache.js` - API response caching utility
+- `js/components/ui/ErrorBoundary.jsx` - React error boundary component
 
 ---
 

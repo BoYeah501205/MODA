@@ -5138,9 +5138,11 @@ const getProjectAcronym = (module) => {
             {(() => {
                 const twoWeeksBalance = lineBalance * 2;
                 const currentStartIdx = getAutoCalculatedStartingIndex;
-                const remainingModules = allModules.length - currentStartIdx;
+                // Clamp to 0 - can't have negative remaining modules
+                const remainingModules = Math.max(0, allModules.length - currentStartIdx);
                 
-                if (remainingModules >= twoWeeksBalance || allModules.length === 0) return null;
+                // Don't show warning if no modules loaded or if we have enough
+                if (allModules.length === 0 || remainingModules >= twoWeeksBalance) return null;
                 
                 return (
                     <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4">

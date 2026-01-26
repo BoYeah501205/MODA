@@ -31,6 +31,7 @@ const FILE_ORDER = [
     'ui/StatusBadge.jsx',
     'ui/DifficultyBadge.jsx',
     'ui/ProgressBar.jsx',
+    'ui/ErrorBoundary.jsx',
     
     // Auth Components
     'auth/AuthConstants.jsx',

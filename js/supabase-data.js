@@ -747,21 +747,46 @@
             if (!this.canEdit()) throw new Error('Not authorized to edit schedules');
             
             try {
-                // Upsert the current schedule
-                const { data, error } = await getClient()
+                // First, check if a current schedule exists
+                const { data: existing } = await getClient()
                     .from('weekly_schedules')
-                    .upsert({
-                        is_current: true,
-                        shift1: scheduleData.shift1,
-                        shift2: scheduleData.shift2,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'is_current' })
-                    .select()
-                    .single();
+                    .select('id')
+                    .eq('is_current', true)
+                    .maybeSingle();
                 
-                if (error) throw error;
-                console.log('[WeeklySchedules] Saved current schedule');
-                return data;
+                let result;
+                if (existing?.id) {
+                    // Update existing record
+                    const { data, error } = await getClient()
+                        .from('weekly_schedules')
+                        .update({
+                            shift1: scheduleData.shift1,
+                            shift2: scheduleData.shift2,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', existing.id)
+                        .select()
+                        .single();
+                    if (error) throw error;
+                    result = data;
+                } else {
+                    // Insert new record
+                    const { data, error } = await getClient()
+                        .from('weekly_schedules')
+                        .insert({
+                            is_current: true,
+                            shift1: scheduleData.shift1,
+                            shift2: scheduleData.shift2,
+                            updated_at: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+                    if (error) throw error;
+                    result = data;
+                }
+                
+                if (window.MODA_DEBUG) console.log('[WeeklySchedules] Saved current schedule');
+                return result;
             } catch (err) {
                 console.error('[WeeklySchedules] Error saving current:', err);
                 throw err;

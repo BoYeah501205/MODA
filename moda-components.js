@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-26T04:09:30.669Z
+ * Generated: 2026-01-26T04:23:54.112Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -1247,6 +1247,116 @@ window.ProgressBar = ProgressBar;
 window.StageProgressBar = StageProgressBar;
 window.MultiStageProgress = MultiStageProgress;
 window.CircularProgress = CircularProgress;
+})();
+
+
+// ============================================================================
+// FILE: ui/ErrorBoundary.jsx
+// ============================================================================
+(function() {
+/**
+ * MODA Error Boundary Component
+ * 
+ * Catches JavaScript errors in child components and displays a fallback UI
+ * instead of crashing the entire application.
+ */
+// [Removed duplicate React destructuring]
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null
+    };
+  }
+  static getDerivedStateFromError(error) {
+    // Update state so the next render shows the fallback UI
+    return {
+      hasError: true,
+      error
+    };
+  }
+  componentDidCatch(error, errorInfo) {
+    // Log error to console
+    console.error('[ErrorBoundary] Caught error:', error);
+    console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
+    this.setState({
+      errorInfo
+    });
+
+    // Log to activity log if available
+    if (window.MODA_ACTIVITY_LOG?.log) {
+      window.MODA_ACTIVITY_LOG.log({
+        action: 'error',
+        entity_type: 'app',
+        entity_id: 'error-boundary',
+        details: {
+          error: error.message,
+          stack: error.stack,
+          componentStack: errorInfo.componentStack
+        }
+      });
+    }
+  }
+  handleRetry = () => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
+    });
+  };
+  handleReload = () => {
+    window.location.reload();
+  };
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI
+      return /*#__PURE__*/React.createElement("div", {
+        className: "min-h-[200px] flex items-center justify-center p-6"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bg-red-50 border border-red-200 rounded-lg p-6 max-w-lg text-center"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-red-500 text-4xl mb-4"
+      }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("h2", {
+        className: "text-lg font-semibold text-red-800 mb-2"
+      }, this.props.title || 'Something went wrong'), /*#__PURE__*/React.createElement("p", {
+        className: "text-red-600 text-sm mb-4"
+      }, this.props.message || 'An error occurred while loading this section.'), window.MODA_DEBUG && this.state.error && /*#__PURE__*/React.createElement("details", {
+        className: "text-left mb-4 text-xs"
+      }, /*#__PURE__*/React.createElement("summary", {
+        className: "cursor-pointer text-red-700 font-medium"
+      }, "Error Details (Debug Mode)"), /*#__PURE__*/React.createElement("pre", {
+        className: "mt-2 p-2 bg-red-100 rounded overflow-auto max-h-32 text-red-800"
+      }, this.state.error.toString(), this.state.errorInfo?.componentStack)), /*#__PURE__*/React.createElement("div", {
+        className: "flex gap-2 justify-center"
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: this.handleRetry,
+        className: "px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+      }, "Try Again"), /*#__PURE__*/React.createElement("button", {
+        onClick: this.handleReload,
+        className: "px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition text-sm"
+      }, "Reload Page"))));
+    }
+    return this.props.children;
+  }
+}
+
+// Tab-specific error boundary with custom messaging
+function TabErrorBoundary({
+  children,
+  tabName
+}) {
+  return /*#__PURE__*/React.createElement(ErrorBoundary, {
+    title: `Error loading ${tabName || 'this tab'}`,
+    message: "There was a problem loading this section. You can try again or reload the page."
+  }, children);
+}
+
+// Export to window
+window.ErrorBoundary = ErrorBoundary;
+window.TabErrorBoundary = TabErrorBoundary;
+if (window.MODA_DEBUG) console.log('[ErrorBoundary] Component loaded');
 })();
 
 
@@ -12111,8 +12221,11 @@ function WeeklyBoardTab({
   })())), (() => {
     const twoWeeksBalance = lineBalance * 2;
     const currentStartIdx = getAutoCalculatedStartingIndex;
-    const remainingModules = allModules.length - currentStartIdx;
-    if (remainingModules >= twoWeeksBalance || allModules.length === 0) return null;
+    // Clamp to 0 - can't have negative remaining modules
+    const remainingModules = Math.max(0, allModules.length - currentStartIdx);
+
+    // Don't show warning if no modules loaded or if we have enough
+    if (allModules.length === 0 || remainingModules >= twoWeeksBalance) return null;
     return /*#__PURE__*/React.createElement("div", {
       className: "bg-orange-50 border-2 border-orange-300 rounded-lg p-4"
     }, /*#__PURE__*/React.createElement("div", {

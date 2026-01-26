@@ -25,6 +25,18 @@ This document tracks all changes made during the performance optimization initia
 - **Description**: Last working state before any optimization changes
 - **Restore Command**: `git checkout pre-optimization-baseline`
 
+### Backup 2: Post Phase 1 & 2 Optimizations (v1.4.5)
+- **Date**: 2026-01-25
+- **Commit**: acd1f3e
+- **Tag**: `v1.4.5-stable`
+- **Description**: All Phase 1 & 2 optimizations complete - stable state before code splitting
+- **Restore Command**: `git checkout v1.4.5-stable`
+- **Improvements**: 
+  - Babel Standalone removed (-2.5MB)
+  - Tailwind CDN replaced with production build (-40KB)
+  - Console logging reduced (MODA_DEBUG flag)
+  - Project sync fixed (-15 API calls on login)
+
 ---
 
 ## Phase 1: Eliminate Babel Standalone
