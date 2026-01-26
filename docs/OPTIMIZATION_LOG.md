@@ -84,7 +84,11 @@ git reset --hard origin/main
 
 | Date | Phase | Change | Result | Commit |
 |------|-------|--------|--------|--------|
-| 2026-01-25 | Setup | Created optimization log | - | - |
+| 2026-01-25 | Setup | Created optimization log | - | 4ce36cf |
+| 2026-01-25 | 1a | Added preconnect hints for CDNs | Faster DNS/connection | - |
+| 2026-01-25 | 1b | Created build-jsx.cjs script | Compiles 69 JSX files | - |
+| 2026-01-25 | 1c | Removed Babel Standalone, use pre-compiled bundle | **-2.5MB download** | - |
+| 2026-01-25 | 1d | Local testing passed | App loads, login works | - |
 
 ---
 

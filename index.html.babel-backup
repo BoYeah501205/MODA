@@ -11,8 +11,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.4.0">
-    <script>window.MODA_VERSION = '1.4.0'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.3.50">
+    <script>window.MODA_VERSION = '1.3.50'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -143,23 +143,12 @@
     <meta name="theme-color" content="#1E3A5F">
     <meta name="format-detection" content="telephone=no">
     
-    <!-- Preconnect to CDNs for faster resource loading -->
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://syreuphexagezawjyjgt.supabase.co" crossorigin>
-    
-    <!-- DNS Prefetch for additional domains -->
-    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
-    
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <!-- React Router for URL-based navigation -->
     <script src="https://unpkg.com/react-router-dom@6.21.1/dist/umd/react-router-dom.production.min.js"></script>
-    <!-- Babel Standalone REMOVED - JSX pre-compiled at build time (saves ~2.5MB) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -319,33 +308,120 @@
     <!-- Activity Logger Hook -->
     <script src="./js/hooks/useActivityLogger.js"></script>
     
-    <!-- QA Constants (non-JSX) -->
+    <!-- Contexts -->
+    <script type="text/babel" src="./js/contexts/ProjectContext.jsx"></script>
+    
+    <!-- Shared UI Components -->
+    <script type="text/babel" src="./js/components/ui/Modal.jsx"></script>
+    <script type="text/babel" src="./js/components/ui/StatusBadge.jsx"></script>
+    <script type="text/babel" src="./js/components/ui/DifficultyBadge.jsx"></script>
+    <script type="text/babel" src="./js/components/ui/ProgressBar.jsx"></script>
+    
+    <!-- React Components -->
+    <script type="text/babel" src="./js/components/MobileNavigation.jsx"></script>
+    <script type="text/babel" src="./js/components/TrainingMatrix.jsx"></script>
+    <script type="text/babel" src="./js/components/WeeklyBoard.jsx"></script>
+    <script type="text/babel" src="./js/components/RFIManager.jsx"></script>
+    <script type="text/babel" src="./js/components/PreconModule.jsx"></script>
+    <script type="text/babel" src="./js/components/ExecutiveDashboard.jsx"></script>
+    <script type="text/babel" src="./js/components/DashboardHome.jsx"></script>
+    <script type="text/babel" src="./js/components/NavigationGroups.jsx"></script>
+    <script type="text/babel" src="./js/components/UserProfileModal.jsx"></script>
+    
+    <!-- QA Module -->
     <script src="./js/qa/qaConstants.js"></script>
     <script src="./js/qa/projectQAConfig.js"></script>
+    <script type="text/babel" src="./js/components/QAModule.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/QADashboard.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/TravelersPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/InspectionsPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/DeviationsPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/TestingPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/QAReportsPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/TravelerDetailModal.jsx"></script>
+    <script type="text/babel" src="./js/components/qa/QAInspectionModal.jsx"></script>
     
-    <!-- ============================================================ -->
-    <!-- PRE-COMPILED REACT COMPONENTS -->
-    <!-- All JSX compiled at build time - no Babel Standalone needed -->
-    <!-- Regenerate with: node scripts/build-jsx.cjs -->
-    <!-- ============================================================ -->
-    <script src="./dist/moda-components.js"></script>
+    <!-- Extracted Modules -->
+    <script type="text/babel" src="./js/components/YardMap.jsx"></script>
+    <script type="text/babel" src="./js/components/YardMapV2.jsx"></script>
+    <script type="text/babel" src="./js/components/TransportModule.jsx"></script>
+    <script type="text/babel" src="./js/components/EquipmentModule.jsx"></script>
+    <script type="text/babel" src="./js/components/PeopleModule.jsx"></script>
+    <script type="text/babel" src="./js/components/ProjectsModule.jsx"></script>
+    <script type="text/babel" src="./js/components/TrackerModule.jsx"></script>
+    <script type="text/babel" src="./js/components/AutomationModule.jsx"></script>
+    <script type="text/babel" src="./js/components/HeatMapMatrix.jsx"></script>
+    <script type="text/babel" src="./js/components/WeeklyHeatMapReport.jsx"></script>
+    <script type="text/babel" src="./js/components/WeeklyBoardPrintReport.jsx"></script>
+    <script type="text/babel" src="./js/components/WeeklyBoardManagementReport.jsx"></script>
+    <script type="text/babel" src="./js/components/ReportsHub.jsx"></script>
+    
+    <!-- Drawings Module -->
+    <script type="text/babel" src="./js/components/DrawingLinksPanel.jsx"></script>
+    <script type="text/babel" src="./js/components/DrawingsModule.jsx"></script>
+    <script type="text/babel" src="./js/components/PDFViewerModal.jsx"></script>
+    <script type="text/babel" src="./js/components/DrawingStatusLog.jsx"></script>
+    <script type="text/babel" src="./js/components/SheetBrowser.jsx"></script>
+    <script type="text/babel" src="./js/components/AnalysisBrowser.jsx"></script>
+    <script type="text/babel" src="./js/components/OCRProgressIndicator.jsx"></script>
+    <script type="text/babel" src="./js/components/ModuleDrawingsViewer.jsx"></script>
+    <script type="text/babel" src="./js/components/ModuleMenuPage.jsx"></script>
+    
+    <!-- Toast Notification System -->
+    <script type="text/babel" src="./js/components/ToastNotification.jsx?v=1"></script>
+    
+    <!-- Engineering Issue Tracker -->
+    <script type="text/babel" src="./js/components/IssueTypesManager.jsx?v=1"></script>
+    <script type="text/babel" src="./js/components/IssueCategoriesManager.jsx"></script>
+    <script type="text/babel" src="./js/components/IssueSubmissionModal.jsx?v=4"></script>
+    <script type="text/babel" src="./js/components/IssueDetailModal.jsx"></script>
+    <script type="text/babel" src="./js/components/EngineeringModule.jsx"></script>
+    
+    <!-- Procurement Board -->
+    <script type="text/babel" src="./js/components/ProcurementBoard.jsx"></script>
+    
+    <!-- On-Site Module Components -->
+    <script type="text/babel" src="./js/components/onsite/PhotoCapture.jsx?v=1"></script>
+    <script type="text/babel" src="./js/components/onsite/IssueLogger.jsx?v=1"></script>
+    <script type="text/babel" src="./js/components/onsite/ReportIssueLogger.jsx"></script>
+    <script type="text/babel" src="./js/components/onsite/IssueComments.jsx"></script>
+    <script type="text/babel" src="./js/components/onsite/DailyReportWizard.jsx"></script>
+    <script type="text/babel" src="./js/components/onsite/ModuleReportHistory.jsx"></script>
+    <script type="text/babel" src="./js/components/onsite/OnSiteTab.jsx?v=1"></script>
+    
+    <!-- Admin Panel -->
+    <script type="text/babel" src="./js/components/AdminPanel.jsx"></script>
+    
+    <!-- Auth Modules -->
+    <script type="text/babel" src="./js/components/auth/AuthConstants.jsx?v=2"></script>
+    <script type="text/babel" src="./js/components/auth/AuthModule.jsx?v=13"></script>
+    <script type="text/babel" src="./js/components/auth/LoginPage.jsx?v=2"></script>
+    <script type="text/babel" src="./js/components/auth/RoleManager.jsx?v=2"></script>
+    <script type="text/babel" src="./js/components/auth/CustomPermissionsEditor.jsx?v=1"></script>
+    <script type="text/babel" src="./js/components/auth/UserPermissionsManager.jsx?v=1"></script>
+    
+    <!-- Activity Log Viewer -->
+    <script type="text/babel" src="./js/components/ActivityLogViewer.jsx"></script>
+    
+    <!-- Build Sequence History -->
+    <script type="text/babel" src="./js/components/BuildSequenceHistory.jsx"></script>
     
     <!-- Router: Load appropriate component based on URL -->
-    <script>
+    <script type="text/babel">
         // Check if URL matches /module/{projectId}/{blm} pattern
-        (function() {
-            var path = window.location.pathname;
-            var moduleMatch = path.match(/\/module\/([^\/]+)\/([^\/]+)/);
+        const path = window.location.pathname;
+        const moduleMatch = path.match(/\/module\/([^\/]+)\/([^\/]+)/);
+        
+        if (moduleMatch) {
+            // Render ModuleMenuPage for QR code scans
+            console.log('[Router] Rendering ModuleMenuPage for:', moduleMatch[1], moduleMatch[2]);
+            ReactDOM.render(<ModuleMenuPage />, document.getElementById('root'));
             
-            if (moduleMatch) {
-                // Render ModuleMenuPage for QR code scans
-                console.log('[Router] Rendering ModuleMenuPage for:', moduleMatch[1], moduleMatch[2]);
-                ReactDOM.render(React.createElement(ModuleMenuPage), document.getElementById('root'));
-                
-                // Set flag to prevent App.jsx from rendering
-                window.MODA_ROUTE_HANDLED = true;
-            }
-        })();
+            // Set flag to prevent App.jsx from rendering
+            window.MODA_ROUTE_HANDLED = true;
+        }
     </script>
+    
+    <script type="text/babel" src="./js/components/App.jsx?v=5"></script>
 </body>
 </html>

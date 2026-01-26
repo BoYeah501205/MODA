@@ -2,7 +2,22 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.3.50**
+**Current Version: 1.4.0**
+
+---
+
+## [1.4.0] - 2026-01-25
+### Performance Optimization - Phase 1
+- **Removed Babel Standalone** (~2.5MB) - JSX now pre-compiled at build time
+- **Added CDN preconnect hints** - Faster DNS resolution and connection establishment
+- **Created build-jsx.cjs script** - Compiles 69 JSX files into single optimized bundle
+- **Expected improvement**: 40-50% faster initial page load
+
+### Technical Details
+- New build command: `npm run build:jsx`
+- Pre-compiled bundle: `dist/moda-components.js` (2.1MB)
+- Backup of original: `index.html.babel-backup`
+- Rollback tag: `pre-optimization-baseline`
 
 ---
 
