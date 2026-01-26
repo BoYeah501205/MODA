@@ -712,5 +712,5 @@
         initialize();
     }
 
-    console.log('[Supabase] Client module loaded');
+    if (window.MODA_DEBUG) console.log('[Supabase] Client module loaded');
 })();

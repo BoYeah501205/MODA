@@ -402,6 +402,6 @@
         formatShortageNumber
     };
 
-    console.log('[Supabase Procurement] Module initialized');
+    if (window.MODA_DEBUG) console.log('[Supabase Procurement] Module initialized');
 
 })();

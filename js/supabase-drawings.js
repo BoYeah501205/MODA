@@ -1209,5 +1209,5 @@
         admin: AdminUtils
     };
 
-    console.log('[Supabase Drawings] Module initialized');
+    if (window.MODA_DEBUG) console.log('[Supabase Drawings] Module initialized');
 })();

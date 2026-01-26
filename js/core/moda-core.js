@@ -175,7 +175,7 @@
                 });
                 
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(unifiedModules));
-                console.log(`[MODA Unified] Migrated ${migratedCount} new modules. Total: ${Object.keys(unifiedModules).length}`);
+                if (window.MODA_DEBUG) console.log(`[MODA Unified] Migrated ${migratedCount} new modules. Total: ${Object.keys(unifiedModules).length}`);
                 return unifiedModules;
             },
             
@@ -355,10 +355,10 @@
                 });
                 
                 localStorage.setItem('autovol_projects', JSON.stringify(projects));
-                console.log('[MODA Unified] Synced to projects');
+                if (window.MODA_DEBUG) console.log('[MODA Unified] Synced to projects');
             }
         };
         
         // Initialize unified modules on page load
         MODA_UNIFIED.migrateFromProjects();
-        console.log('[MODA Unified] Data layer initialized', MODA_UNIFIED.getStats());
+        if (window.MODA_DEBUG) console.log('[MODA Unified] Data layer initialized', MODA_UNIFIED.getStats());

@@ -303,5 +303,5 @@
         moduleHasOpenShopDrawingIssue
     };
 
-    console.log('[IssueRouting] Issue routing system initialized');
+    if (window.MODA_DEBUG) console.log('[IssueRouting] Issue routing system initialized');
 })();

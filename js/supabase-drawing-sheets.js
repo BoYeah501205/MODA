@@ -622,6 +622,6 @@
         STORAGE_BUCKET
     };
 
-    console.log('[DrawingSheets] Module loaded');
+    if (window.MODA_DEBUG) console.log('[DrawingSheets] Module loaded');
 
 })();

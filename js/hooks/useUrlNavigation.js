@@ -93,6 +93,8 @@
     // Export for use in components
     window.useUrlNavigation = useUrlNavigation;
     
-    console.log('🔗 URL Navigation hook loaded');
-    console.log('🔗 URLs: /#/home, /#/production, /#/projects, etc.');
+    if (window.MODA_DEBUG) {
+        console.log('🔗 URL Navigation hook loaded');
+        console.log('🔗 URLs: /#/home, /#/production, /#/projects, etc.');
+    }
 })();

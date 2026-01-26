@@ -978,5 +978,5 @@
         printReport
     };
 
-    console.log('[MODA OnSite] Supabase API loaded');
+    if (window.MODA_DEBUG) console.log('[MODA OnSite] Supabase API loaded');
 })();

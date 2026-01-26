@@ -1269,5 +1269,5 @@
         dashboardRoles: DashboardRolesAPI
     };
 
-    console.log('[Supabase Data] Module loaded');
+    if (window.MODA_DEBUG) console.log('[Supabase Data] Module loaded');
 })();

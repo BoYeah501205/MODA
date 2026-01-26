@@ -750,6 +750,6 @@
         generateWord
     };
 
-    console.log('MODA Report Export module loaded');
+    if (window.MODA_DEBUG) console.log('MODA Report Export module loaded');
 
 })();

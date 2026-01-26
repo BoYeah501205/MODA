@@ -172,5 +172,5 @@
         parseModuleCSV
     };
 
-    console.log('[ModuleImport] Module import utilities initialized');
+    if (window.MODA_DEBUG) console.log('[ModuleImport] Module import utilities initialized');
 })();

@@ -489,5 +489,5 @@
         flushQueue: flushLogQueue
     };
 
-    console.log('[ActivityLog] Module loaded');
+    if (window.MODA_DEBUG) console.log('[ActivityLog] Module loaded');
 })();

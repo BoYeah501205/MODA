@@ -141,4 +141,4 @@ window.usePrefersReducedMotion = function() {
     return prefersReducedMotion;
 };
 
-console.log('✅ Mobile responsiveness hooks loaded');
+if (window.MODA_DEBUG) console.log('✅ Mobile responsiveness hooks loaded');

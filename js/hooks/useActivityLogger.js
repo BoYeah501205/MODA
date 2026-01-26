@@ -282,5 +282,5 @@
     window.useActivityLogs = useActivityLogs;
     window.useActivityFeed = useActivityFeed;
 
-    console.log('[useActivityLogger] Hooks loaded');
+    if (window.MODA_DEBUG) console.log('[useActivityLogger] Hooks loaded');
 })();

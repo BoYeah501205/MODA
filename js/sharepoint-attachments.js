@@ -525,5 +525,5 @@
     // Export to window
     window.MODA_SHAREPOINT_ATTACHMENTS = SharePointAttachments;
 
-    console.log('[SharePoint Attachments] Module initialized');
+    if (window.MODA_DEBUG) console.log('[SharePoint Attachments] Module initialized');
 })();

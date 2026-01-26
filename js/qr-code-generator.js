@@ -206,6 +206,6 @@
         isQRCodeLibraryAvailable
     };
 
-    console.log('[QRCode] Module loaded');
+    if (window.MODA_DEBUG) console.log('[QRCode] Module loaded');
 
 })();

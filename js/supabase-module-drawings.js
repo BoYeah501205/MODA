@@ -236,6 +236,6 @@
         utils: Utils
     };
 
-    console.log('[Module Drawings] Data layer loaded');
+    if (window.MODA_DEBUG) console.log('[Module Drawings] Data layer loaded');
 
 })();

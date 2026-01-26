@@ -338,4 +338,4 @@ window.MODA_OCR_MANAGER = (function() {
     };
 })();
 
-console.log('[OCR Manager] Initialized');
+if (window.MODA_DEBUG) console.log('[OCR Manager] Initialized');

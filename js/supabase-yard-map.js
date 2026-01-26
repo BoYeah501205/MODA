@@ -514,4 +514,4 @@ window.MODA_YARD_MAP_DATA = {
   isAvailable: () => true
 };
 
-console.log('[YardMapData] MODA Yard Map v2.0 data layer loaded');
+if (window.MODA_DEBUG) console.log('[YardMapData] MODA Yard Map v2.0 data layer loaded');

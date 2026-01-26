@@ -202,5 +202,5 @@
         DEFAULT_OPTIONS
     };
 
-    console.log('[MODA Photo] Compression utility loaded');
+    if (window.MODA_DEBUG) console.log('[MODA Photo] Compression utility loaded');
 })();

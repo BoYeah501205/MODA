@@ -576,5 +576,5 @@
     window.useSupabaseModulesSet = useSupabaseModulesSet;
     window.useSupabaseOnSite = useSupabaseOnSite;
 
-    console.log('[MODA] Supabase On-Site hooks loaded');
+    if (window.MODA_DEBUG) console.log('[MODA] Supabase On-Site hooks loaded');
 })();

@@ -205,5 +205,5 @@
         compareSnapshots
     };
 
-    console.log('[SequenceHistory] Build sequence history utilities initialized');
+    if (window.MODA_DEBUG) console.log('[SequenceHistory] Build sequence history utilities initialized');
 })();

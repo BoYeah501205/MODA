@@ -694,6 +694,6 @@
         pdf: PDFUtils
     };
 
-    console.log('[Drawing Links] Data layer loaded');
+    if (window.MODA_DEBUG) console.log('[Drawing Links] Data layer loaded');
 
 })();

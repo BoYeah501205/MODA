@@ -1061,6 +1061,6 @@
         getYesterday
     };
 
-    console.log('MODA Daily Reports module loaded');
+    if (window.MODA_DEBUG) console.log('MODA Daily Reports module loaded');
 
 })();

@@ -384,6 +384,6 @@
         getModuleDifficultySummary
     };
     
-    console.log('HeatMapAPI loaded');
+    if (window.MODA_DEBUG) console.log('HeatMapAPI loaded');
 
 })();

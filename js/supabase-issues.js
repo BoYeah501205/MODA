@@ -536,6 +536,6 @@
         formatIssueNumber
     };
 
-    console.log('[Supabase Issues] Module initialized');
+    if (window.MODA_DEBUG) console.log('[Supabase Issues] Module initialized');
 
 })();

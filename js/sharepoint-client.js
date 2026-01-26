@@ -355,5 +355,5 @@
     // Export to window
     window.MODA_SHAREPOINT = SharePointClient;
 
-    console.log('[SharePoint Client] Module initialized');
+    if (window.MODA_DEBUG) console.log('[SharePoint Client] Module initialized');
 })();

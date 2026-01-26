@@ -2,7 +2,32 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.4.0**
+**Current Version: 1.4.3**
+
+---
+
+## [1.4.3] - 2026-01-25
+### Performance Optimization - Phase 2a: Console Logging
+- **Added MODA_DEBUG flag** - Toggle verbose logging via localStorage
+- **Reduced console noise** - 30+ module "loaded" messages now debug-only
+- **Cleaner production console** - Only warnings/errors shown by default
+
+### How to Enable Debug Mode
+```javascript
+localStorage.setItem('MODA_DEBUG', 'true'); location.reload();
+```
+
+---
+
+## [1.4.2] - 2026-01-25
+### Bug Fix
+- **Fixed moda-components.js deployment** - File now correctly copied to dist/ for Vercel
+
+---
+
+## [1.4.1] - 2026-01-25
+### Performance Fix
+- **Fixed excessive project sync on login** - Eliminated 15 unnecessary API calls
 
 ---
 

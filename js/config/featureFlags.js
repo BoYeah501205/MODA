@@ -88,7 +88,30 @@ window.MODA_FEATURE_FLAGS = {
     getEnabled: getEnabledFeatures
 };
 
-// Console helper for debugging
-console.log('🚩 MODA Feature Flags loaded');
-console.log('🚩 To check flags: MODA_FEATURE_FLAGS.getEnabled()');
-console.log('🚩 To check specific: MODA_FEATURE_FLAGS.isEnabled("featureName", userEmail)');
+// ===== DEBUG LOGGING SYSTEM =====
+// Set to true to see verbose console output, false for production
+const MODA_DEBUG = localStorage.getItem('MODA_DEBUG') === 'true' || false;
+
+// Logging utility - only logs in debug mode
+const modaLog = {
+    debug: (...args) => MODA_DEBUG && console.log(...args),
+    info: (...args) => MODA_DEBUG && console.info(...args),
+    warn: (...args) => console.warn(...args), // Always show warnings
+    error: (...args) => console.error(...args), // Always show errors
+    // Force log regardless of debug mode (for critical info)
+    force: (...args) => console.log(...args)
+};
+
+// Export debug utilities
+window.MODA_DEBUG = MODA_DEBUG;
+window.modaLog = modaLog;
+
+// Enable debug mode: localStorage.setItem('MODA_DEBUG', 'true'); location.reload();
+// Disable debug mode: localStorage.setItem('MODA_DEBUG', 'false'); location.reload();
+
+// Only log feature flags in debug mode
+if (MODA_DEBUG) {
+    console.log('🚩 MODA Feature Flags loaded');
+    console.log('🚩 To check flags: MODA_FEATURE_FLAGS.getEnabled()');
+    console.log('🚩 To check specific: MODA_FEATURE_FLAGS.isEnabled("featureName", userEmail)');
+}
