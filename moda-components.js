@@ -1,17 +1,18 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-26T04:23:54.112Z
+ * Generated: 2026-01-26T04:29:35.156Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
  */
 
-// Extract React hooks once at bundle top (prevents duplicate declarations)
+// Extract React hooks and classes once at bundle top (prevents duplicate declarations)
 const { 
     useState, useEffect, useCallback, useMemo, useRef, 
     useContext, useReducer, useLayoutEffect, useImperativeHandle,
     useDebugValue, useDeferredValue, useTransition, useId,
-    createContext, forwardRef, memo, lazy, Suspense, Fragment
+    createContext, forwardRef, memo, lazy, Suspense, Fragment,
+    Component, PureComponent
 } = React;
 
 

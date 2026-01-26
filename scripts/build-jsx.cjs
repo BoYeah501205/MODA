@@ -136,13 +136,14 @@ const babelConfig = {
     compact: false // Keep readable for debugging
 };
 
-// React hooks that are commonly destructured at file top
+// React hooks and classes that are commonly destructured at file top
 // We'll extract these once at the bundle top and remove duplicates
 const REACT_HOOKS = [
     'useState', 'useEffect', 'useCallback', 'useMemo', 'useRef', 
     'useContext', 'useReducer', 'useLayoutEffect', 'useImperativeHandle',
     'useDebugValue', 'useDeferredValue', 'useTransition', 'useId',
-    'createContext', 'forwardRef', 'memo', 'lazy', 'Suspense', 'Fragment'
+    'createContext', 'forwardRef', 'memo', 'lazy', 'Suspense', 'Fragment',
+    'Component', 'PureComponent'
 ];
 
 // Remove duplicate React destructuring statements
@@ -195,12 +196,13 @@ function build() {
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
  */
 
-// Extract React hooks once at bundle top (prevents duplicate declarations)
+// Extract React hooks and classes once at bundle top (prevents duplicate declarations)
 const { 
     useState, useEffect, useCallback, useMemo, useRef, 
     useContext, useReducer, useLayoutEffect, useImperativeHandle,
     useDebugValue, useDeferredValue, useTransition, useId,
-    createContext, forwardRef, memo, lazy, Suspense, Fragment
+    createContext, forwardRef, memo, lazy, Suspense, Fragment,
+    Component, PureComponent
 } = React;
 `);
     
