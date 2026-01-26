@@ -524,7 +524,7 @@ function DashboardRoleManager({ auth }) {
                                     {/* Header Row */}
                                     <div style={{
                                         display: 'grid',
-                                        gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                        gridTemplateColumns: 'minmax(180px, 1fr) 60px 60px 60px 60px',
                                         background: '#F3F4F6',
                                         borderBottom: '2px solid #E5E7EB',
                                         fontWeight: '600',
@@ -547,7 +547,7 @@ function DashboardRoleManager({ auth }) {
                                                 key={tab.id}
                                                 style={{
                                                     display: 'grid',
-                                                    gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                                    gridTemplateColumns: 'minmax(180px, 1fr) 60px 60px 60px 60px',
                                                     borderBottom: '1px solid #E5E7EB',
                                                     background: index % 2 === 0 ? 'white' : '#FAFAFA'
                                                 }}
@@ -585,7 +585,7 @@ function DashboardRoleManager({ auth }) {
                                     {/* Special Features Section Header */}
                                     <div style={{
                                         display: 'grid',
-                                        gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                        gridTemplateColumns: 'minmax(180px, 1fr) 60px 60px 60px 60px',
                                         background: '#E0F2FE',
                                         borderBottom: '1px solid #E5E7EB',
                                         fontWeight: '600',
@@ -607,7 +607,7 @@ function DashboardRoleManager({ auth }) {
                                                 key={feature.id}
                                                 style={{
                                                     display: 'grid',
-                                                    gridTemplateColumns: '1fr 60px 60px 60px 60px',
+                                                    gridTemplateColumns: 'minmax(180px, 1fr) 60px 60px 60px 60px',
                                                     borderBottom: '1px solid #E5E7EB',
                                                     background: index % 2 === 0 ? '#F0F9FF' : '#E0F2FE'
                                                 }}
