@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.6**
+**Current Version: 1.5.7**
 
 ---
+
+## [1.5.7] - 2026-01-26
+### Auto-Progression Fix
+- **Fixed auto-progression logic** - Now correctly suggests next starting module based on AUTO-C/AUTO-F/AUTO-W station completion
+- Previously used simple module count offset which didn't reflect actual production progress
+- Now finds the first module that hasn't completed all three AUTO stations
 
 ## [1.5.6] - 2026-01-26
 ### Full-Width CSS Fix
