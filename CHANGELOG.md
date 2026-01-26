@@ -2,7 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.3**
+**Current Version: 1.5.4**
+
+---
+
+## [1.5.4] - 2026-01-25
+### Weekly Board Dynamic NEXT Rows
+- **Added dynamic NEXT row controls** - Users can now expand beyond the default 5 NEXT rows when stations produce ahead of schedule
+- **"+" button** in Day column adds additional NEXT rows (one at a time)
+- **"-" button** on hover removes NEXT rows (minimum 1 when visible)
+- **Collapse control** hides all NEXT rows with "Show NEXT" button to restore default 5
+- Fixes limitation where DRY-TTP and other fast stations couldn't show modules beyond the 5-row preview
 
 ---
 

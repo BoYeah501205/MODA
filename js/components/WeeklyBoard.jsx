@@ -2101,6 +2101,10 @@ function WeeklyBoardTab({
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
     
+    // ===== DYNAMIC NEXT ROW COUNT =====
+    // Controls how many NEXT (upcoming) rows are visible. Default 5, can be expanded or collapsed.
+    const [visibleNextRows, setVisibleNextRows] = useState(5);
+    
     // ===== WEEK SELECTOR =====
     // selectedWeekId: null means "use currentWeek (auto)", otherwise use specific week
     // For popout: read initial week from localStorage if available
@@ -2603,9 +2607,9 @@ function WeeklyBoardTab({
         // Current week: line balance modules (use weekLineBalance from displayed week)
         const currentModules = allModules.slice(startIdx, startIdx + weekLineBalance);
         
-        // Next week preview: 5 modules after current week (or fewer if at end)
+        // Next week preview: dynamic count based on visibleNextRows (or fewer if at end)
         const nextStartIdx = startIdx + weekLineBalance;
-        const nextModules = allModules.slice(nextStartIdx, nextStartIdx + 5);
+        const nextModules = allModules.slice(nextStartIdx, nextStartIdx + visibleNextRows);
         
         return {
             previous: addStatusInfo(previousModules, 'previous'),
@@ -4373,20 +4377,66 @@ const getProjectAcronym = (module) => {
                     ))}
                     
                     {/* Next Week row markers */}
-                    {next.length > 0 && (
+                    {visibleNextRows > 0 && (
                         <>
-                            {/* Divider */}
-                            <div className="border-t border-dashed border-green-300 my-0.5"></div>
+                            {/* Divider with collapse control */}
+                            <div className="border-t border-dashed border-green-300 my-0.5 relative">
+                                {visibleNextRows > 0 && (
+                                    <button
+                                        onClick={() => setVisibleNextRows(0)}
+                                        className="absolute -top-2 right-0 w-4 h-4 bg-green-100 hover:bg-green-200 border border-green-300 rounded text-green-600 text-xs flex items-center justify-center"
+                                        title="Hide all NEXT rows"
+                                    >
+                                        -
+                                    </button>
+                                )}
+                            </div>
                             {next.map((_, idx) => (
                                 <div 
                                     key={`next-${idx}`}
-                                    className="rounded border border-green-300 bg-green-50 flex items-center justify-center text-center"
+                                    className="rounded border border-green-300 bg-green-50 flex items-center justify-center text-center relative group"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
                                     <div className="text-xs font-bold text-green-600">NEXT</div>
+                                    {/* Remove row button - show on hover */}
+                                    {idx === next.length - 1 && visibleNextRows > 1 && (
+                                        <button
+                                            onClick={() => setVisibleNextRows(prev => Math.max(1, prev - 1))}
+                                            className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-100 hover:bg-red-200 border border-red-300 rounded text-red-600 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                                            title="Remove one NEXT row"
+                                        >
+                                            -
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </>
+                    )}
+                    
+                    {/* Add more NEXT rows button */}
+                    <div className="mt-1">
+                        <button
+                            onClick={() => setVisibleNextRows(prev => prev + 1)}
+                            className="w-full rounded border-2 border-dashed border-green-300 bg-green-50/50 hover:bg-green-100 flex items-center justify-center text-center transition-colors"
+                            style={{ height: `${CARD_HEIGHT}px` }}
+                            title="Add another NEXT row"
+                        >
+                            <div className="text-lg font-bold text-green-500">+</div>
+                        </button>
+                    </div>
+                    
+                    {/* Show collapsed indicator when NEXT rows are hidden */}
+                    {visibleNextRows === 0 && (
+                        <div className="mt-1">
+                            <button
+                                onClick={() => setVisibleNextRows(5)}
+                                className="w-full rounded border border-green-300 bg-green-50 hover:bg-green-100 flex items-center justify-center text-center transition-colors"
+                                style={{ height: `${CARD_HEIGHT}px` }}
+                                title="Show NEXT rows (default 5)"
+                            >
+                                <div className="text-xs font-bold text-green-600">Show NEXT</div>
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
