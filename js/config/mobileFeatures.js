@@ -276,5 +276,4 @@
     };
 
     if (window.MODA_DEBUG) console.log('[Mobile Config] Loaded. Device is mobile:', isMobileDevice());
-    return config;
 })();
