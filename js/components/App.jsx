@@ -592,6 +592,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [projectsLoading, setProjectsLoading] = useState(true);
             const [projectsSynced, setProjectsSynced] = useState(false);
             
+            // Ref to track last synced projects (prevents unnecessary sync on first load)
+            const lastSyncedProjects = useRef(null);
+            
             // Wrapper to save projects to both state and localStorage
             const setProjects = useCallback((newProjects) => {
                 setProjectsState(prevProjects => {
@@ -622,6 +625,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     endDate: p.end_date || p.endDate
                                 }));
                                 setProjectsState(mappedProjects);
+                                // Initialize lastSyncedProjects to prevent unnecessary sync on first load
+                                if (lastSyncedProjects.current === null) {
+                                    lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
+                                }
                                 setProjectsSynced(true);
                                 console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
                             } catch (supabaseError) {
@@ -849,7 +856,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             }, []);
 
             // Save to localStorage and sync to Supabase when projects change
-            const lastSyncedProjects = useRef(null);
             useEffect(() => {
                 // Only save to localStorage if not using Firestore (Firestore handles its own persistence)
                 if (!projectsSynced && Array.isArray(projects) && projects.length > 0) {

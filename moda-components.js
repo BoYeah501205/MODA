@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-26T03:34:30.573Z
+ * Generated: 2026-01-26T03:40:56.313Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -50179,6 +50179,9 @@ function Dashboard({
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsSynced, setProjectsSynced] = useState(false);
 
+  // Ref to track last synced projects (prevents unnecessary sync on first load)
+  const lastSyncedProjects = useRef(null);
+
   // Wrapper to save projects to both state and localStorage
   const setProjects = useCallback(newProjects => {
     setProjectsState(prevProjects => {
@@ -50208,6 +50211,10 @@ function Dashboard({
               endDate: p.end_date || p.endDate
             }));
             setProjectsState(mappedProjects);
+            // Initialize lastSyncedProjects to prevent unnecessary sync on first load
+            if (lastSyncedProjects.current === null) {
+              lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
+            }
             setProjectsSynced(true);
             console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
           } catch (supabaseError) {
@@ -50446,7 +50453,6 @@ function Dashboard({
   }, []);
 
   // Save to localStorage and sync to Supabase when projects change
-  const lastSyncedProjects = useRef(null);
   useEffect(() => {
     // Only save to localStorage if not using Firestore (Firestore handles its own persistence)
     if (!projectsSynced && Array.isArray(projects) && projects.length > 0) {
