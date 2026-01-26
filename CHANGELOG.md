@@ -2,15 +2,21 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.7**
+**Current Version: 1.5.8**
 
 ---
 
+## [1.5.8] - 2026-01-26
+### Reverted Auto-Progression & Added Project Completion Script
+- **Reverted auto-progression** to original simple offset method (currentStartIdx + modulesProduced)
+- **Added SQL script** `backend/mark-completed-projects.sql` to mark all completed projects as 100% complete
+- Root cause: Old projects with incomplete modules were interfering with auto-progression
+- Run the SQL script to mark all projects except Locke Lofts and El Cerrito as complete
+
 ## [1.5.7] - 2026-01-26
-### Auto-Progression Fix
-- **Fixed auto-progression logic** - Now correctly suggests next starting module based on AUTO-C/AUTO-F/AUTO-W station completion
-- Previously used simple module count offset which didn't reflect actual production progress
-- Now finds the first module that hasn't completed all three AUTO stations
+### Auto-Progression Fix (Reverted in 1.5.8)
+- Attempted to fix auto-progression based on AUTO station completion
+- Reverted because the real issue was incomplete old project data
 
 ## [1.5.6] - 2026-01-26
 ### Full-Width CSS Fix

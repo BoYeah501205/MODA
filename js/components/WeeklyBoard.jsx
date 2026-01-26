@@ -5868,30 +5868,16 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
         return idx;
     }, [currentWeek, allModules]);
     
-    // Calculate suggested next starting module based on AUTO station completion
-    // The next module "online" is the first one that hasn't completed all AUTO stations
+    // Calculate suggested next starting module based on ACTUAL modules produced
     const suggestedNextModule = useMemo(() => {
-        // AUTO stations that determine when a module comes "online"
-        const AUTO_STATIONS = ['auto-c', 'auto-f', 'auto-walls'];
-        
-        // Helper to check if a module has completed all AUTO stations
-        const hasCompletedAutoStations = (module) => {
-            const progress = module.stageProgress || {};
-            return AUTO_STATIONS.every(station => (progress[station] || 0) >= 100);
-        };
-        
-        // Find the first module that hasn't completed all AUTO stations
-        const nextModule = allModules.find(m => !hasCompletedAutoStations(m));
-        
-        if (nextModule) {
-            console.log('[WeekCompleteModal] Next module based on AUTO stations:', nextModule.serialNumber);
-            return nextModule;
+        // If current starting module not found, suggest the first available module
+        if (currentStartIdx === -1) {
+            console.log('[WeekCompleteModal] Falling back to first available module');
+            return allModules[0] || null;
         }
-        
-        // If all modules have completed AUTO stations, suggest the last module + 1 (none available)
-        console.log('[WeekCompleteModal] All modules have completed AUTO stations');
-        return null;
-    }, [allModules]);
+        const nextIdx = currentStartIdx + modulesProduced;
+        return allModules[nextIdx] || null;
+    }, [currentStartIdx, modulesProduced, allModules]);
     
     // Calculate variance
     const variance = modulesProduced - lineBalance;
@@ -6036,7 +6022,7 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
                                 <div className="flex-1">
                                     <div className="font-medium text-gray-800">Auto-progress (Recommended)</div>
                                     <div className="text-sm text-gray-500">
-                                        Based on AUTO-C/AUTO-F/AUTO-W completion:
+                                        Based on {modulesProduced} modules produced:
                                     </div>
                                     {suggestedNextModule ? (
                                         <div className="mt-1 font-mono text-lg font-bold text-autovol-teal">
