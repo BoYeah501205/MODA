@@ -11,8 +11,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.4.3">
-    <script>window.MODA_VERSION = '1.4.3'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.4.5">
+    <script>window.MODA_VERSION = '1.4.5'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -151,8 +151,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://syreuphexagezawjyjgt.supabase.co" crossorigin>
     
-    <!-- DNS Prefetch for additional domains -->
-    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+    <!-- Tailwind CSS - Production build (replaces CDN) -->
+    <link rel="stylesheet" href="./css/tailwind-output.css">
     
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -165,7 +165,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script defer src="https://unpkg.com/docx@8.2.3/build/index.umd.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CDN REMOVED - using production build css/tailwind-output.css -->
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

@@ -2,7 +2,21 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.4.3**
+**Current Version: 1.4.5**
+
+---
+
+## [1.4.5] - 2026-01-25
+### Performance Optimization - Phase 2b: Tailwind Production Build
+- **Replaced Tailwind CDN** with pre-built production CSS (62KB vs ~100KB+ CDN)
+- **Eliminated CDN warning** - No more "cdn.tailwindcss.com should not be used in production"
+- **Added build:tailwind script** - Tailwind now builds as part of `npm run build`
+
+---
+
+## [1.4.4] - 2026-01-25
+### Bug Fix
+- **Fixed mobileFeatures.js error** - Removed erroneous `return config;` statement
 
 ---
 

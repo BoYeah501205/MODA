@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build:jsx": "node scripts/build-jsx.cjs",
-    "build": "npm run build:jsx && vite build && npm run copy-assets",
+    "build:tailwind": "npx tailwindcss -i ./css/tailwind-input.css -o ./css/tailwind-output.css --minify",
+    "build": "npm run build:tailwind && npm run build:jsx && vite build && npm run copy-assets",
     "copy-assets": "node -e \"const fs=require('fs');const path=require('path');function copy(s,d){if(!fs.existsSync(s))return;fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>{const sp=path.join(s,f),dp=path.join(d,f);fs.statSync(sp).isDirectory()?copy(sp,dp):fs.copyFileSync(sp,dp)})};copy('js','dist/js');copy('css','dist/css');copy('public','dist/public');if(fs.existsSync('moda-components.js'))fs.copyFileSync('moda-components.js','dist/moda-components.js');console.log('Assets copied!')\"",
     "preview": "vite preview",
     "serve": "vite preview --port 8000",

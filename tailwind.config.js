@@ -1,8 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./index-vite.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./index.html",
+    "./weekly-board-popout.html",
+    "./js/**/*.{js,jsx}",
+    "./moda-components.js",
   ],
   theme: {
     extend: {
