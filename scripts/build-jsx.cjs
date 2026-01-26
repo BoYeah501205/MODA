@@ -16,7 +16,8 @@ const { transformSync } = require('@babel/core');
 
 // Configuration
 const JSX_SOURCE_DIR = path.join(__dirname, '..', 'js', 'components');
-const OUTPUT_FILE = path.join(__dirname, '..', 'dist', 'moda-components.js');
+// Output to root level - Vite will copy to dist/ during build
+const OUTPUT_FILE = path.join(__dirname, '..', 'moda-components.js');
 const CONTEXTS_DIR = path.join(__dirname, '..', 'js', 'contexts');
 
 // Files to compile in order (dependencies first)
