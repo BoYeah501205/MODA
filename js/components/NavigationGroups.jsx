@@ -71,12 +71,22 @@ function NavigationGroups({
     setActiveTab, 
     visibleTabs = [],
     canAccessAdmin = false,
-    setSelectedProject
+    setSelectedProject,
+    userTabPreferences = null
 }) {
     const { useState, useMemo, useEffect, useRef } = React;
     
     // Track which groups are expanded
     const [expandedGroups, setExpandedGroups] = useState({});
+    
+    // Get user's hidden tabs and custom ordering from preferences
+    const hiddenTabs = useMemo(() => {
+        return new Set(userTabPreferences?.hidden_tabs || []);
+    }, [userTabPreferences]);
+    
+    const tabOrder = useMemo(() => {
+        return userTabPreferences?.tab_order || {};
+    }, [userTabPreferences]);
     
     // Ref for the nav container to detect outside clicks
     const navRef = useRef(null);
@@ -93,18 +103,40 @@ function NavigationGroups({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
     
-    // Filter groups to only show those with visible tabs
+    // Filter groups to only show those with visible tabs (respecting user preferences)
     const visibleGroups = useMemo(() => {
-        return NAV_GROUPS.map(group => ({
-            ...group,
-            tabs: group.tabs.filter(tab => visibleTabs.includes(tab.id))
-        })).filter(group => group.tabs.length > 0);
-    }, [visibleTabs]);
+        return NAV_GROUPS.map(group => {
+            // Filter tabs by role permissions AND user's hidden preferences
+            let filteredTabs = group.tabs.filter(tab => 
+                visibleTabs.includes(tab.id) && !hiddenTabs.has(tab.id)
+            );
+            
+            // Apply custom ordering if user has set one for this group
+            const groupOrder = tabOrder[group.id];
+            if (groupOrder && groupOrder.length > 0) {
+                filteredTabs = [...filteredTabs].sort((a, b) => {
+                    const aIndex = groupOrder.indexOf(a.id);
+                    const bIndex = groupOrder.indexOf(b.id);
+                    if (aIndex === -1 && bIndex === -1) return 0;
+                    if (aIndex === -1) return 1;
+                    if (bIndex === -1) return -1;
+                    return aIndex - bIndex;
+                });
+            }
+            
+            return {
+                ...group,
+                tabs: filteredTabs
+            };
+        }).filter(group => group.tabs.length > 0);
+    }, [visibleTabs, hiddenTabs, tabOrder]);
     
-    // Filter standalone tabs
+    // Filter standalone tabs (respecting user preferences)
     const visibleStandalone = useMemo(() => {
-        return STANDALONE_TABS.filter(tab => visibleTabs.includes(tab.id));
-    }, [visibleTabs]);
+        return STANDALONE_TABS.filter(tab => 
+            visibleTabs.includes(tab.id) && !hiddenTabs.has(tab.id)
+        );
+    }, [visibleTabs, hiddenTabs]);
     
     // Check if active tab is in a group
     const activeGroupId = useMemo(() => {

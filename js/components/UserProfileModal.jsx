@@ -11,7 +11,7 @@
  * - Account: Status, last login
  */
 
-function UserProfileModal({ auth, employees = [], onClose, darkMode, setDarkMode }) {
+function UserProfileModal({ auth, employees = [], onClose, darkMode, setDarkMode, onOpenViewsSettings }) {
     const { useState, useMemo } = React;
     const viewportSize = window.useViewportSize ? window.useViewportSize() : 'desktop';
     const isMobileOrTablet = viewportSize === 'mobile' || viewportSize === 'tablet';
@@ -202,6 +202,49 @@ function UserProfileModal({ auth, employees = [], onClose, darkMode, setDarkMode
                             </div>
                         </div>
                     )}
+
+                    {/* Settings */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3 flex items-center gap-2">
+                            <span className="icon-cog" style={{ width: '16px', height: '16px', display: 'inline-block' }}></span>
+                            Settings
+                        </h3>
+                        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                            {/* Customize Navigation */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <span className="text-sm text-gray-600">Navigation</span>
+                                    <p className="text-xs text-gray-400">Hide or reorder tabs</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (onOpenViewsSettings) {
+                                            onClose();
+                                            onOpenViewsSettings();
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                                    style={{ color: 'var(--autovol-navy)' }}
+                                >
+                                    Customize
+                                </button>
+                            </div>
+                            
+                            {/* Theme Toggle (shown on mobile/tablet or always) */}
+                            {setDarkMode && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600">Theme</span>
+                                    <button
+                                        onClick={() => setDarkMode(prev => !prev)}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                                    >
+                                        <span className={darkMode ? 'icon-sun' : 'icon-moon'} style={{ width: '16px', height: '16px', display: 'inline-block' }}></span>
+                                        <span className="text-sm">{darkMode ? 'Light' : 'Dark'}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
                     {/* Account Status */}
                     <div>

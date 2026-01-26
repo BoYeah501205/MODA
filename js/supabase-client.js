@@ -640,6 +640,107 @@
         }
     }
 
+    // Get user's tab preferences
+    async function getUserTabPreferences(userId = null) {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            const targetId = userId || currentUser?.id;
+            if (!targetId) {
+                return { success: false, error: 'No user ID provided' };
+            }
+
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, email, name, user_tab_preferences')
+                .eq('id', targetId)
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Get tab preferences error:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { 
+                success: true, 
+                preferences: data?.user_tab_preferences || null,
+                hasPreferences: data?.user_tab_preferences != null
+            };
+
+        } catch (error) {
+            console.error('[Supabase] Get tab preferences exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Update current user's tab preferences (users can only update their own)
+    async function updateMyTabPreferences(preferences) {
+        if (!supabase || !currentUser) {
+            return { success: false, error: 'Not authenticated' };
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ user_tab_preferences: preferences })
+                .eq('id', currentUser.id)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Update tab preferences error:', error);
+                return { success: false, error: error.message };
+            }
+
+            // Update local profile cache
+            if (userProfile) {
+                userProfile.user_tab_preferences = preferences;
+            }
+
+            console.log('[Supabase] Tab preferences updated');
+            return { success: true, preferences: data?.user_tab_preferences };
+
+        } catch (error) {
+            console.error('[Supabase] Update tab preferences exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Admin function: Reset a user's tab preferences
+    async function adminResetUserTabPreferences(userId) {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            // Validate caller is admin
+            if (!userProfile || (userProfile.dashboard_role !== 'admin' && !userProfile.is_protected)) {
+                return { success: false, error: 'Only admins can reset other users\' preferences' };
+            }
+
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ user_tab_preferences: null })
+                .eq('id', userId)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Admin reset tab preferences error:', error);
+                return { success: false, error: error.message };
+            }
+
+            console.log('[Supabase] User tab preferences reset by admin');
+            return { success: true };
+
+        } catch (error) {
+            console.error('[Supabase] Admin reset tab preferences exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // Check if a user exists by email (uses profiles table)
     // Uses direct fetch API to avoid SDK Promise hanging
     async function checkUserByEmail(email) {
@@ -696,6 +797,9 @@
         updateUserCustomPermissions,
         getUserCustomPermissions,
         clearUserCustomPermissions,
+        getUserTabPreferences,
+        updateMyTabPreferences,
+        adminResetUserTabPreferences,
         inviteUser,
         checkUserByEmail,
         adminSetPassword,

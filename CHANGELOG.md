@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.4**
+**Current Version: 1.5.5**
 
 ---
+
+## [1.5.5] - 2026-01-25
+### Full-Width Layout Restored
+- **Restored full-width layout** for Production (Weekly Board) and Projects tabs
+- Removed side padding constraints that were limiting view width
+- Production and Projects tabs now use `w-full px-2` instead of `max-w-7xl mx-auto px-4`
 
 ## [1.5.4] - 2026-01-25
 ### Weekly Board Dynamic NEXT Rows
