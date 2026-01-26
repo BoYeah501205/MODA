@@ -5577,8 +5577,8 @@ const getProjectAcronym = (module) => {
             {/* Week Complete Modal */}
             {showCompleteModal && (
                 <WeekCompleteModal
-                    currentWeek={currentWeek}
-                    lineBalance={getLineBalance()}
+                    currentWeek={displayWeek}
+                    lineBalance={lineBalance}
                     activeProjects={activeProjects}
                     allModules={allModules}
                     onComplete={(data, nextWeekId) => {

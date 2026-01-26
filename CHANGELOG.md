@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.8**
+**Current Version: 1.5.9**
 
 ---
+
+## [1.5.9] - 2026-01-26
+### Fixed Week Complete Modal Using Wrong Week
+- **Fixed bug** where Complete Week modal used `currentWeek` prop instead of `displayWeek`
+- Modal now correctly uses the selected/displayed week's starting module for auto-progression
+- This was causing 25-0626 to appear instead of 26-0046 when completing a week
 
 ## [1.5.8] - 2026-01-26
 ### Reverted Auto-Progression & Added Project Completion Script
