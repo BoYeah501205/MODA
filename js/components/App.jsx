@@ -711,9 +711,27 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [selectedProject, setSelectedProject] = useState(null);
             const [showProjectModal, setShowProjectModal] = useState(false);
             const [showImportModal, setShowImportModal] = useState(false);
+            const [showUserProfile, setShowUserProfile] = useState(false);
+            const [showViewsSettings, setShowViewsSettings] = useState(false);
+            const [userTabPreferences, setUserTabPreferences] = useState(null);
             const [viewMode, setViewMode] = useState('grid'); // grid, list
             const [searchTerm, setSearchTerm] = useState('');
             const [stageFilter, setStageFilter] = useState('all');
+            
+            // Load user tab preferences from profile
+            useEffect(() => {
+                const prefs = window.MODA_SUPABASE?.userProfile?.user_tab_preferences;
+                if (prefs) {
+                    setUserTabPreferences(prefs);
+                }
+                
+                // Listen for preference changes
+                const handlePrefsChanged = (e) => {
+                    setUserTabPreferences(e.detail?.preferences || null);
+                };
+                window.addEventListener('moda-tab-preferences-changed', handlePrefsChanged);
+                return () => window.removeEventListener('moda-tab-preferences-changed', handlePrefsChanged);
+            }, [auth.currentUser]);
             
             // Keyboard shortcuts
             useEffect(() => {
@@ -1065,24 +1083,46 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 >
                                     Sign Out
                                 </button>
-                            </div>
-                        </div>
-                    </header>
 
-                    {/* Navigation - Grouped or Flat based on feature flag */}
-                    {isFeatureEnabled('enableNavGroups', auth.currentUser?.email) && window.NavigationGroups ? (
-                        <window.NavigationGroups
+// Get current week for Executive Dashboard
+const getCurrentWeek = () => {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
+    return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+};
+const currentWeek = getCurrentWeek();
+
+return (
+    <div className="min-h-screen" style={{backgroundColor: 'var(--autovol-gray-bg)'}}>
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b mobile-header">
+            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    {/* Mobile Navigation - Hamburger Menu */}
+                    {window.MobileNavigation && (
+                        <window.MobileNavigation
+                            tabs={[
+                                {id: 'executive', label: 'Executive', icon: 'icon-executive'},
+                                {id: 'production', label: 'Production', icon: 'icon-production'},
+                                {id: 'projects', label: 'Projects', icon: 'icon-projects'},
+                                {id: 'people', label: 'People', icon: 'icon-people'},
+                                {id: 'qa', label: 'QA', icon: 'icon-qa'},
+                                {id: 'transport', label: 'Transport', icon: 'icon-transport'},
+                                {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
+                                {id: 'precon', label: 'Precon', icon: 'icon-precon'},
+                                {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'},
+                                {id: 'drawings', label: 'Drawings', icon: 'icon-drawings'},
+                                {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
+                                {id: 'onsite', label: 'On-Site', icon: 'icon-building'},
+                                {id: 'reports', label: 'Reports', icon: 'icon-reports'},
+                                {id: 'automation', label: 'Automation', icon: 'icon-automation'}
+                            ].filter(tab => auth.visibleTabs.includes(tab.id))}
                             activeTab={activeTab}
-                            setActiveTab={setActiveTab}
-                            visibleTabs={auth.visibleTabs}
-                            canAccessAdmin={auth.canAccessAdmin}
-                            setSelectedProject={setSelectedProject}
+                            onTabChange={(tabId) => { setActiveTab(tabId); setSelectedProject(null); }}
+                            currentUser={auth.currentUser}
+                            onLogout={auth.logout}
                         />
-                    ) : (
-                        /* Original flat navigation - hidden on mobile/tablet */
-                        <nav className="bg-white border-b hide-mobile-tablet">
-                            <div className="max-w-7xl mx-auto px-4">
-                                <div className="flex gap-1">
                                     {/* HOME TAB - Feature flagged */}
                                     {isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                                         <button

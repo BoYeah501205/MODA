@@ -763,3 +763,16 @@
     padding-left: 8px !important;
     padding-right: 8px !important;
 }
+
+/* ===== FULL-WIDTH MAIN CONTENT FOR PRODUCTION & PROJECTS ===== */
+/* Override any max-width constraints when main has w-full class */
+main.w-full {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+main.w-full > * {
+    max-width: 100% !important;
+}

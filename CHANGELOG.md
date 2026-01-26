@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.5**
+**Current Version: 1.5.6**
 
 ---
+
+## [1.5.6] - 2026-01-26
+### Full-Width CSS Fix
+- **Added CSS overrides** to force full-width layout for Production and Projects tabs
+- `main.w-full` now has `max-width: 100% !important` and `width: 100% !important`
+- Child elements also get `max-width: 100% !important` to prevent nested constraints
 
 ## [1.5.5] - 2026-01-25
 ### Full-Width Layout Restored
