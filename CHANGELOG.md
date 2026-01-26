@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.9**
+**Current Version: 1.5.10**
 
 ---
+
+## [1.5.10] - 2026-01-26
+### Auto-Calculate Starting Module from Previous Week
+- **Fixed auto-progression** when current week has no starting module set
+- Modal now calculates starting index from previous week's starting module + line balance
+- Example: If previous week started at 26-0026 with 20 modules, current week starts at index 26-0046
+- Also improved fallback to find first incomplete AUTO station module instead of allModules[0]
 
 ## [1.5.9] - 2026-01-26
 ### Fixed Week Complete Modal Using Wrong Week

@@ -5581,6 +5581,7 @@ const getProjectAcronym = (module) => {
                     lineBalance={lineBalance}
                     activeProjects={activeProjects}
                     allModules={allModules}
+                    weeks={weeks}
                     onComplete={(data, nextWeekId) => {
                         completeWeek(data);
                         setShowCompleteModal(false);
@@ -5846,7 +5847,7 @@ const getProjectAcronym = (module) => {
 }
 
 // ===== WEEK COMPLETE MODAL =====
-function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModules, onComplete, onClose, addWeek }) {
+function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModules, weeks = [], onComplete, onClose, addWeek }) {
     const { useState, useMemo, useEffect } = React;
     
     // Form state
@@ -5858,25 +5859,66 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
     const [notes, setNotes] = useState('');
     
     // Calculate current starting module index
+    // If current week has no starting module, try to calculate from previous week
     const currentStartIdx = useMemo(() => {
-        if (!currentWeek?.startingModule) return -1;
-        const idx = allModules.findIndex(m => m.serialNumber === currentWeek.startingModule);
-        // If starting module not found, log warning
-        if (idx === -1 && currentWeek?.startingModule) {
+        // First try: use current week's starting module
+        if (currentWeek?.startingModule) {
+            const idx = allModules.findIndex(m => m.serialNumber === currentWeek.startingModule);
+            if (idx !== -1) {
+                return idx;
+            }
             console.warn('[WeekCompleteModal] Starting module not found in allModules:', currentWeek.startingModule);
         }
-        return idx;
-    }, [currentWeek, allModules]);
+        
+        // Second try: calculate from previous week's starting module + its line balance
+        if (weeks.length > 0 && currentWeek?.weekStart) {
+            const sortedWeeks = [...weeks].sort((a, b) => 
+                parseLocalDate(a.weekStart) - parseLocalDate(b.weekStart)
+            );
+            const currentWeekIdx = sortedWeeks.findIndex(w => w.id === currentWeek.id);
+            
+            if (currentWeekIdx > 0) {
+                const prevWeek = sortedWeeks[currentWeekIdx - 1];
+                if (prevWeek?.startingModule) {
+                    const prevStartIdx = allModules.findIndex(m => m.serialNumber === prevWeek.startingModule);
+                    if (prevStartIdx !== -1) {
+                        // Previous week's starting index + previous week's line balance = this week's starting index
+                        const prevLineBalance = prevWeek.plannedModules || 20;
+                        const calculatedIdx = prevStartIdx + prevLineBalance;
+                        console.log('[WeekCompleteModal] Calculated from previous week:', prevWeek.startingModule, '+', prevLineBalance, '= index', calculatedIdx);
+                        return calculatedIdx;
+                    }
+                }
+            }
+        }
+        
+        return -1;
+    }, [currentWeek, allModules, weeks]);
     
     // Calculate suggested next starting module based on ACTUAL modules produced
     const suggestedNextModule = useMemo(() => {
-        // If current starting module not found, suggest the first available module
-        if (currentStartIdx === -1) {
-            console.log('[WeekCompleteModal] Falling back to first available module');
-            return allModules[0] || null;
+        // If current starting module is set and found, use simple offset
+        if (currentStartIdx !== -1) {
+            const nextIdx = currentStartIdx + modulesProduced;
+            return allModules[nextIdx] || null;
         }
-        const nextIdx = currentStartIdx + modulesProduced;
-        return allModules[nextIdx] || null;
+        
+        // Fallback: Find first module that hasn't completed all AUTO stations
+        // This is more accurate than just using allModules[0]
+        const AUTO_STATIONS = ['auto-c', 'auto-f', 'auto-walls'];
+        const firstIncomplete = allModules.find(m => {
+            const progress = m.stageProgress || {};
+            return !AUTO_STATIONS.every(station => (progress[station] || 0) >= 100);
+        });
+        
+        if (firstIncomplete) {
+            console.log('[WeekCompleteModal] Fallback: First incomplete AUTO module:', firstIncomplete.serialNumber);
+            return firstIncomplete;
+        }
+        
+        // Last resort: first module
+        console.log('[WeekCompleteModal] Fallback: Using first module');
+        return allModules[0] || null;
     }, [currentStartIdx, modulesProduced, allModules]);
     
     // Calculate variance
