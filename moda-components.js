@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-27T18:41:12.733Z
+ * Generated: 2026-01-27T18:51:18.662Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -10039,7 +10039,6 @@ function WeeklyBoardTab({
   // Update module progress for a specific station (works across all projects)
   const updateModuleProgress = (moduleId, projectId, stationId, newProgress) => {
     if (!setProjects) return;
-    let modulesForSupabase = null;
 
     // Find module info for toast before updating
     const project = projects.find(p => p.id === projectId);
@@ -10052,9 +10051,12 @@ function WeeklyBoardTab({
       progress: newProgress,
       projectId: projectId
     });
-    setProjects(prevProjects => prevProjects.map(proj => {
-      if (proj.id !== projectId) return proj;
-      const updatedModules = proj.modules.map(mod => {
+
+    // Compute updated modules SYNCHRONOUSLY before setProjects
+    // This ensures we have the correct data for Supabase sync (avoids closure issues)
+    let modulesForSupabase = null;
+    if (project?.modules) {
+      modulesForSupabase = project.modules.map(mod => {
         if (mod.id !== moduleId) return mod;
         const updatedProgress = {
           ...mod.stageProgress
@@ -10078,10 +10080,14 @@ function WeeklyBoardTab({
           stationCompletedAt
         };
       });
-      modulesForSupabase = updatedModules;
+    }
+
+    // Update React state
+    setProjects(prevProjects => prevProjects.map(proj => {
+      if (proj.id !== projectId) return proj;
       return {
         ...proj,
-        modules: updatedModules
+        modules: modulesForSupabase || proj.modules
       };
     }));
 

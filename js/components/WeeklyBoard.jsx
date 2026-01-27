@@ -2733,8 +2733,6 @@ function WeeklyBoardTab({
     // Update module progress for a specific station (works across all projects)
     const updateModuleProgress = (moduleId, projectId, stationId, newProgress) => {
         if (!setProjects) return;
-
-        let modulesForSupabase = null;
         
         // Find module info for toast before updating
         const project = projects.find(p => p.id === projectId);
@@ -2749,10 +2747,11 @@ function WeeklyBoardTab({
             projectId: projectId
         });
         
-        setProjects(prevProjects => prevProjects.map(proj => {
-            if (proj.id !== projectId) return proj;
-            
-            const updatedModules = proj.modules.map(mod => {
+        // Compute updated modules SYNCHRONOUSLY before setProjects
+        // This ensures we have the correct data for Supabase sync (avoids closure issues)
+        let modulesForSupabase = null;
+        if (project?.modules) {
+            modulesForSupabase = project.modules.map(mod => {
                 if (mod.id !== moduleId) return mod;
                 
                 const updatedProgress = { ...mod.stageProgress };
@@ -2768,13 +2767,12 @@ function WeeklyBoardTab({
                 
                 return { ...mod, stageProgress: updatedProgress, stationCompletedAt };
             });
-
-            modulesForSupabase = updatedModules;
-
-            return {
-                ...proj,
-                modules: updatedModules
-            };
+        }
+        
+        // Update React state
+        setProjects(prevProjects => prevProjects.map(proj => {
+            if (proj.id !== projectId) return proj;
+            return { ...proj, modules: modulesForSupabase || proj.modules };
         }));
 
         // Detailed Supabase availability check
