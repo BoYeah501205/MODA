@@ -350,5 +350,15 @@
             }
         })();
     </script>
+
+    <!-- Eruda Mobile Console (for iPad debugging without Mac) -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>
+        // Auto-init eruda on mobile devices for debugging
+        if (window.MODA_IS_MOBILE) {
+            eruda.init();
+            console.log('[MODA] Eruda mobile console initialized - tap the green icon in bottom-right corner');
+        }
+    </script>
 </body>
 </html>
