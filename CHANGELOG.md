@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.11**
+**Current Version: 1.5.14**
 
 ---
+
+## [1.5.14] - 2026-01-27
+### Fixed Mobile/iPad Session Persistence
+- **Fixed re-login required on every refresh** on iPad and mobile Safari
+- Root cause: Supabase auth was using in-memory storage on mobile devices, which doesn't persist across page refreshes
+- Now uses a safe localStorage wrapper that tries localStorage first and only falls back to memory if quota errors occur
+- Sessions now persist properly on all devices (desktop, tablet, mobile)
 
 ## [1.5.11] - 2026-01-27
 ### Real-Time Live Updates for WeeklyBoard

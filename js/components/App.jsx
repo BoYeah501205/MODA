@@ -612,6 +612,20 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // Load projects from Supabase on mount
             useEffect(() => {
                 const loadProjects = async () => {
+                    // Wait for Supabase to initialize (up to 5 seconds)
+                    let attempts = 0;
+                    const maxAttempts = 50;
+                    while (attempts < maxAttempts && !window.MODA_SUPABASE?.isInitialized) {
+                        await new Promise(r => setTimeout(r, 100));
+                        attempts++;
+                    }
+                    
+                    if (window.MODA_SUPABASE?.isInitialized) {
+                        console.log('[App] Supabase initialized after', attempts * 100, 'ms');
+                    } else {
+                        console.warn('[App] Supabase did not initialize after 5 seconds');
+                    }
+                    
                     try {
                         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
                             console.log('[App] Loading projects from Supabase...');
@@ -685,19 +699,19 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             
             // Real-time subscription for projects (live updates across devices)
             useEffect(() => {
-                if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
-                    console.log('[App] Real-time subscription not available');
-                    return;
-                }
+                let unsubscribe = null;
+                let cancelled = false;
                 
-                console.log('[App] Setting up real-time subscription for projects...');
-                
-                const unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot((updatedProjects) => {
-                    console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
+                const setupRealtime = async () => {
+                    // Wait for Supabase to initialize (up to 5 seconds)
+                    let attempts = 0;
+                    const maxAttempts = 50;
+                    while (attempts < maxAttempts && !window.MODA_SUPABASE?.isInitialized) {
+                        await new Promise(r => setTimeout(r, 100));
+                        attempts++;
+                    }
                     
-                    // Map Supabase field names to UI field names
-                    const mappedProjects = (updatedProjects || []).map(p => ({
-                        ...p,
+                    if (cancelled) return;
                         customer: p.client || p.customer || '',
                         startDate: p.start_date || p.startDate,
                         endDate: p.end_date || p.endDate

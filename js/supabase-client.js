@@ -42,30 +42,47 @@
                 return;
             }
 
-            // Initialize client with custom storage for mobile
-            // On mobile, use memory-only storage to avoid iOS Safari quota errors
-            const isMobile = window.MODA_IS_MOBILE || 
-                             /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
-                             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            // Create a safe storage wrapper that uses localStorage with fallback
+            // This handles iOS Safari quota errors gracefully while still persisting sessions
+            const safeStorage = {
+                getItem: function(key) {
+                    try {
+                        return localStorage.getItem(key);
+                    } catch (e) {
+                        console.warn('[Supabase] localStorage.getItem failed:', e.message);
+                        return this._fallback?.[key] || null;
+                    }
+                },
+                setItem: function(key, value) {
+                    try {
+                        localStorage.setItem(key, value);
+                    } catch (e) {
+                        // Quota exceeded or private browsing - use in-memory fallback
+                        console.warn('[Supabase] localStorage.setItem failed, using memory fallback:', e.message);
+                        if (!this._fallback) this._fallback = {};
+                        this._fallback[key] = value;
+                    }
+                },
+                removeItem: function(key) {
+                    try {
+                        localStorage.removeItem(key);
+                    } catch (e) {
+                        console.warn('[Supabase] localStorage.removeItem failed:', e.message);
+                    }
+                    if (this._fallback) delete this._fallback[key];
+                }
+            };
             
-            const clientOptions = {};
-            
-            if (isMobile) {
-                console.log('[Supabase] Mobile detected - using memory storage to avoid quota errors');
-                // Use in-memory storage on mobile instead of localStorage
-                const memoryStorage = {
-                    _data: {},
-                    getItem: function(key) { return this._data[key] || null; },
-                    setItem: function(key, value) { this._data[key] = value; },
-                    removeItem: function(key) { delete this._data[key]; }
-                };
-                clientOptions.auth = {
-                    storage: memoryStorage,
+            const clientOptions = {
+                auth: {
+                    storage: safeStorage,
                     persistSession: true,
-                    autoRefreshToken: true
-                };
-            }
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true
+                }
+            };
             
+            console.log('[Supabase] Using safe storage wrapper for session persistence');
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, clientOptions);
 
             // Listen for auth state changes
