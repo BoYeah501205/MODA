@@ -41,6 +41,7 @@ function UserPermissionsManager({ auth }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [savingRoleFor, setSavingRoleFor] = useState(null);
     const [resettingPasswordFor, setResettingPasswordFor] = useState(null);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     // Get all available dashboard roles
     const allDashboardRoles = window.DEFAULT_DASHBOARD_ROLES || [
@@ -75,6 +76,29 @@ function UserPermissionsManager({ auth }) {
     useEffect(() => {
         loadUsers();
     }, [loadUsers]);
+
+    // Sync missing profiles from auth.users
+    const syncMissingProfiles = async () => {
+        setIsSyncing(true);
+        try {
+            const result = await window.MODA_SUPABASE?.syncMissingProfiles();
+            if (result?.success) {
+                if (result.synced > 0) {
+                    alert(`Synced ${result.synced} missing user profile(s). Refreshing list...`);
+                    await loadUsers();
+                } else {
+                    alert('All users are already synced. No missing profiles found.');
+                }
+            } else {
+                alert('Sync failed: ' + (result?.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('[UserPermissions] Sync error:', err);
+            alert('Error syncing profiles: ' + err.message);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     // Filter users
     const filteredUsers = users.filter(user => {
@@ -172,13 +196,39 @@ function UserPermissionsManager({ auth }) {
 
     return (
         <div>
-            {/* Header - Refresh button only since title is shown by parent CollapsibleSection */}
+            {/* Header - Refresh and Sync buttons */}
             <div style={{ 
                 display: 'flex', 
                 justifyContent: 'flex-end', 
                 alignItems: 'center',
+                gap: '8px',
                 marginBottom: '16px'
             }}>
+                <button
+                    onClick={syncMissingProfiles}
+                    disabled={isSyncing}
+                    title="Sync users from Supabase Auth that may be missing from the profiles table"
+                    style={{
+                        padding: '8px 16px',
+                        fontSize: '13px',
+                        border: '1px solid #F59E0B',
+                        borderRadius: '6px',
+                        background: isSyncing ? '#FEF3C7' : 'white',
+                        color: '#B45309',
+                        cursor: isSyncing ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                        <path d="M16 21h5v-5"/>
+                    </svg>
+                    {isSyncing ? 'Syncing...' : 'Sync Missing'}
+                </button>
                 <button
                     onClick={loadUsers}
                     style={{
@@ -221,20 +271,47 @@ function UserPermissionsManager({ auth }) {
                 marginBottom: '16px',
                 flexWrap: 'wrap'
             }}>
-                <input
-                    type="text"
-                    placeholder="Search by name or email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{
-                        flex: '1',
-                        minWidth: '200px',
-                        padding: '8px 12px',
-                        fontSize: '13px',
-                        border: '1px solid #D1D5DB',
-                        borderRadius: '6px'
-                    }}
-                />
+                <div style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
+                    <input
+                        type="text"
+                        placeholder="Search by name or email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{
+                            width: '100%',
+                            padding: '8px 32px 8px 12px',
+                            fontSize: '13px',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '6px',
+                            boxSizing: 'border-box'
+                        }}
+                    />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            style={{
+                                position: 'absolute',
+                                right: '8px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#9CA3AF'
+                            }}
+                            title="Clear search"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    )}
+                </div>
                 <select
                     value={filterRole}
                     onChange={(e) => setFilterRole(e.target.value)}

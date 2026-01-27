@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.17**
+**Current Version: 1.5.18**
 
 ---
+
+## [1.5.18] - 2026-01-27
+### User Management Improvements
+- **Added clear (X) button** to search input in User Permissions Manager - appears when text is entered
+- **Added "Sync Missing" button** to sync users from Supabase Auth who are missing from the profiles table
+- Created `sync_missing_profiles` RPC function and SQL migration (`backend/sync-missing-profiles.sql`)
+- **Note**: Run the SQL migration in Supabase to enable the Sync Missing feature
 
 ## [1.5.17] - 2026-01-27
 ### WeeklyBoard UI Cleanup

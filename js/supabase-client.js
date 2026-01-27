@@ -800,6 +800,37 @@
         }
     }
 
+    // Sync missing profiles - creates profile rows for auth users without them
+    // This requires admin privileges and calls a database function
+    async function syncMissingProfiles() {
+        if (!supabase) {
+            return { success: false, error: 'Supabase not initialized' };
+        }
+
+        try {
+            console.log('[Supabase] Syncing missing profiles...');
+            
+            // Call the sync_missing_profiles RPC function
+            const { data, error } = await supabase.rpc('sync_missing_profiles');
+            
+            if (error) {
+                console.error('[Supabase] Sync missing profiles error:', error);
+                return { success: false, error: error.message };
+            }
+
+            console.log('[Supabase] Sync result:', data);
+            return { 
+                success: true, 
+                synced: data || 0,
+                message: `Synced ${data || 0} missing profile(s)`
+            };
+
+        } catch (error) {
+            console.error('[Supabase] Sync missing profiles exception:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // Expose global API
     window.MODA_SUPABASE = {
         initialize,
@@ -820,6 +851,7 @@
         inviteUser,
         checkUserByEmail,
         adminSetPassword,
+        syncMissingProfiles,
         get client() { return supabase; },
         get currentUser() { return currentUser; },
         get userProfile() { return userProfile; },
