@@ -175,25 +175,38 @@
                 return () => {};
             }
 
+            console.log('[Projects] Setting up real-time subscription...');
+
             // Initial load
-            this.getAll().then(projects => callback(projects)).catch(console.error);
+            this.getAll().then(projects => {
+                console.log('[Projects] Initial load:', projects.length, 'projects');
+                callback(projects);
+            }).catch(console.error);
 
             // Subscribe to changes
-            const subscription = getClient()
+            const channel = getClient()
                 .channel('projects-changes')
                 .on('postgres_changes', 
                     { event: '*', schema: 'public', table: 'projects' },
                     async (payload) => {
-                        console.log('[Projects] Real-time update:', payload.eventType);
+                        console.log('[Projects] Real-time event received:', payload.eventType, payload);
                         const projects = await this.getAll();
                         callback(projects);
                     }
                 )
-                .subscribe();
+                .subscribe((status) => {
+                    console.log('[Projects] Subscription status:', status);
+                    if (status === 'SUBSCRIBED') {
+                        console.log('[Projects] Real-time subscription ACTIVE - listening for changes');
+                    } else if (status === 'CHANNEL_ERROR') {
+                        console.error('[Projects] Real-time subscription FAILED - check if Realtime is enabled for projects table');
+                    }
+                });
 
             // Return unsubscribe function
             return () => {
-                subscription.unsubscribe();
+                console.log('[Projects] Unsubscribing from real-time');
+                channel.unsubscribe();
             };
         }
     };
