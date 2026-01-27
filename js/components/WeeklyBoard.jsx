@@ -2100,6 +2100,8 @@ function WeeklyBoardTab({
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
+
+    const supabaseSyncTimeoutsRef = useRef({});
     
     // ===== DYNAMIC NEXT ROW COUNT =====
     // Controls how many NEXT (upcoming) rows are visible. Default 5, can be expanded or collapsed.
@@ -2731,6 +2733,8 @@ function WeeklyBoardTab({
     // Update module progress for a specific station (works across all projects)
     const updateModuleProgress = (moduleId, projectId, stationId, newProgress) => {
         if (!setProjects) return;
+
+        let modulesForSupabase = null;
         
         // Find module info for toast before updating
         const project = projects.find(p => p.id === projectId);
@@ -2738,30 +2742,91 @@ function WeeklyBoardTab({
         const station = productionStages.find(s => s.id === stationId);
         const wasComplete = module?.stageProgress?.[stationId] === 100;
         
+        console.log('[WeeklyBoard] Progress update:', {
+            module: module?.serialNumber,
+            station: station?.dept,
+            progress: newProgress,
+            projectId: projectId
+        });
+        
         setProjects(prevProjects => prevProjects.map(proj => {
             if (proj.id !== projectId) return proj;
             
+            const updatedModules = proj.modules.map(mod => {
+                if (mod.id !== moduleId) return mod;
+                
+                const updatedProgress = { ...mod.stageProgress };
+                updatedProgress[stationId] = newProgress;
+                
+                let stationCompletedAt = mod.stationCompletedAt || {};
+                if (newProgress === 100 && !wasComplete) {
+                    stationCompletedAt = { ...stationCompletedAt, [stationId]: Date.now() };
+                } else if (newProgress < 100 && wasComplete) {
+                    stationCompletedAt = { ...stationCompletedAt };
+                    delete stationCompletedAt[stationId];
+                }
+                
+                return { ...mod, stageProgress: updatedProgress, stationCompletedAt };
+            });
+
+            modulesForSupabase = updatedModules;
+
             return {
                 ...proj,
-                modules: proj.modules.map(mod => {
-                    if (mod.id !== moduleId) return mod;
-                    
-                    const updatedProgress = { ...mod.stageProgress };
-                    updatedProgress[stationId] = newProgress;
-                    
-                    // Track completion timestamps per station
-                    let stationCompletedAt = mod.stationCompletedAt || {};
-                    if (newProgress === 100 && !wasComplete) {
-                        stationCompletedAt = { ...stationCompletedAt, [stationId]: Date.now() };
-                    } else if (newProgress < 100 && wasComplete) {
-                        stationCompletedAt = { ...stationCompletedAt };
-                        delete stationCompletedAt[stationId];
-                    }
-                    
-                    return { ...mod, stageProgress: updatedProgress, stationCompletedAt };
-                })
+                modules: updatedModules
             };
         }));
+
+        // Detailed Supabase availability check
+        const supabaseData = window.MODA_SUPABASE_DATA;
+        const supabaseProjectsApi = supabaseData?.projects;
+        const isAvailableFunc = supabaseData?.isAvailable;
+        const isAvailable = typeof isAvailableFunc === 'function' ? isAvailableFunc() : false;
+        const hasUpdateFunc = typeof supabaseProjectsApi?.update === 'function';
+        
+        console.log('[WeeklyBoard] Supabase check:', {
+            supabaseDataExists: !!supabaseData,
+            projectsApiExists: !!supabaseProjectsApi,
+            isAvailableFuncExists: !!isAvailableFunc,
+            isAvailable: isAvailable,
+            hasUpdateFunc: hasUpdateFunc,
+            finalAvailable: isAvailable && hasUpdateFunc
+        });
+        
+        if (!isAvailable || !hasUpdateFunc) {
+            console.warn('[WeeklyBoard] ⚠️ Supabase not available - module progress will NOT sync across devices!');
+            console.warn('[WeeklyBoard] Check: Are you logged in? Is Supabase initialized? Check browser console for errors.');
+            return;
+        }
+
+        if (!modulesForSupabase) {
+            console.warn('[WeeklyBoard] No modules to sync (modulesForSupabase is null)');
+            return;
+        }
+
+        console.log('[WeeklyBoard] Scheduling Supabase sync for project:', projectId, 'modules:', modulesForSupabase.length);
+
+        try {
+            const timeouts = supabaseSyncTimeoutsRef.current;
+            if (timeouts[projectId]) clearTimeout(timeouts[projectId]);
+
+            timeouts[projectId] = setTimeout(async () => {
+                try {
+                    console.log('[WeeklyBoard] Syncing to Supabase...');
+                    await supabaseProjectsApi.update(projectId, { modules: modulesForSupabase });
+                    console.log('[WeeklyBoard] ✅ Successfully synced module progress to Supabase');
+                } catch (err) {
+                    console.error('[WeeklyBoard] ❌ Failed to sync module progress to Supabase:', err);
+                    console.error('[WeeklyBoard] Error details:', {
+                        message: err.message,
+                        code: err.code,
+                        hint: err.hint
+                    });
+                }
+            }, 600);
+        } catch (err) {
+            console.error('[WeeklyBoard] Error scheduling Supabase sync:', err);
+        }
         
         // Toast notifications for completions disabled for now
         // if (newProgress === 100 && !wasComplete && module && station) {
@@ -5581,7 +5646,6 @@ const getProjectAcronym = (module) => {
                     lineBalance={lineBalance}
                     activeProjects={activeProjects}
                     allModules={allModules}
-                    weeks={weeks}
                     onComplete={(data, nextWeekId) => {
                         completeWeek(data);
                         setShowCompleteModal(false);
@@ -5847,7 +5911,7 @@ const getProjectAcronym = (module) => {
 }
 
 // ===== WEEK COMPLETE MODAL =====
-function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModules, weeks = [], onComplete, onClose, addWeek }) {
+function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModules, onComplete, onClose, addWeek }) {
     const { useState, useMemo, useEffect } = React;
     
     // Form state
@@ -5859,66 +5923,25 @@ function WeekCompleteModal({ currentWeek, lineBalance, activeProjects, allModule
     const [notes, setNotes] = useState('');
     
     // Calculate current starting module index
-    // If current week has no starting module, try to calculate from previous week
     const currentStartIdx = useMemo(() => {
-        // First try: use current week's starting module
-        if (currentWeek?.startingModule) {
-            const idx = allModules.findIndex(m => m.serialNumber === currentWeek.startingModule);
-            if (idx !== -1) {
-                return idx;
-            }
+        if (!currentWeek?.startingModule) return -1;
+        const idx = allModules.findIndex(m => m.serialNumber === currentWeek.startingModule);
+        // If starting module not found, log warning
+        if (idx === -1 && currentWeek?.startingModule) {
             console.warn('[WeekCompleteModal] Starting module not found in allModules:', currentWeek.startingModule);
         }
-        
-        // Second try: calculate from previous week's starting module + its line balance
-        if (weeks.length > 0 && currentWeek?.weekStart) {
-            const sortedWeeks = [...weeks].sort((a, b) => 
-                parseLocalDate(a.weekStart) - parseLocalDate(b.weekStart)
-            );
-            const currentWeekIdx = sortedWeeks.findIndex(w => w.id === currentWeek.id);
-            
-            if (currentWeekIdx > 0) {
-                const prevWeek = sortedWeeks[currentWeekIdx - 1];
-                if (prevWeek?.startingModule) {
-                    const prevStartIdx = allModules.findIndex(m => m.serialNumber === prevWeek.startingModule);
-                    if (prevStartIdx !== -1) {
-                        // Previous week's starting index + previous week's line balance = this week's starting index
-                        const prevLineBalance = prevWeek.plannedModules || 20;
-                        const calculatedIdx = prevStartIdx + prevLineBalance;
-                        console.log('[WeekCompleteModal] Calculated from previous week:', prevWeek.startingModule, '+', prevLineBalance, '= index', calculatedIdx);
-                        return calculatedIdx;
-                    }
-                }
-            }
-        }
-        
-        return -1;
-    }, [currentWeek, allModules, weeks]);
+        return idx;
+    }, [currentWeek, allModules]);
     
     // Calculate suggested next starting module based on ACTUAL modules produced
     const suggestedNextModule = useMemo(() => {
-        // If current starting module is set and found, use simple offset
-        if (currentStartIdx !== -1) {
-            const nextIdx = currentStartIdx + modulesProduced;
-            return allModules[nextIdx] || null;
+        // If current starting module not found, suggest the first available module
+        if (currentStartIdx === -1) {
+            console.log('[WeekCompleteModal] Falling back to first available module');
+            return allModules[0] || null;
         }
-        
-        // Fallback: Find first module that hasn't completed all AUTO stations
-        // This is more accurate than just using allModules[0]
-        const AUTO_STATIONS = ['auto-c', 'auto-f', 'auto-walls'];
-        const firstIncomplete = allModules.find(m => {
-            const progress = m.stageProgress || {};
-            return !AUTO_STATIONS.every(station => (progress[station] || 0) >= 100);
-        });
-        
-        if (firstIncomplete) {
-            console.log('[WeekCompleteModal] Fallback: First incomplete AUTO module:', firstIncomplete.serialNumber);
-            return firstIncomplete;
-        }
-        
-        // Last resort: first module
-        console.log('[WeekCompleteModal] Fallback: Using first module');
-        return allModules[0] || null;
+        const nextIdx = currentStartIdx + modulesProduced;
+        return allModules[nextIdx] || null;
     }, [currentStartIdx, modulesProduced, allModules]);
     
     // Calculate variance

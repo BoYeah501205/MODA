@@ -2,9 +2,18 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.10**
+**Current Version: 1.5.5**
 
 ---
+
+## [1.5.5] - 2026-01-27
+### Fixed WeeklyBoard Module Progress Cross-Device Sync
+- **Fixed critical bug** where module progression updates on iPad/tablet were not syncing to other devices
+- Added Supabase persistence to `updateModuleProgress()` in WeeklyBoard component
+- Progress updates now debounce-write to Supabase (600ms) after updating local state
+- Added comprehensive diagnostic logging to identify Supabase connectivity issues
+- Logs show: availability check details, sync scheduling, success/failure confirmation
+- Warning displayed in console if Supabase unavailable: "⚠️ Supabase not available - module progress will NOT sync across devices!"
 
 ## [1.5.10] - 2026-01-26
 ### Auto-Calculate Starting Module from Previous Week
