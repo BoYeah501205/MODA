@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-27T18:59:08.682Z
+ * Generated: 2026-01-27T19:10:07.442Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -50480,6 +50480,15 @@ function Dashboard({
   // Load projects from Supabase on mount
   useEffect(() => {
     const loadProjects = async () => {
+      // Wait for Supabase to initialize (up to 5 seconds)
+      let attempts = 0;
+      while (attempts < 50 && !window.MODA_SUPABASE?.isInitialized) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+      if (window.MODA_SUPABASE?.isInitialized) {
+        console.log('[App] Supabase initialized after', attempts * 100, 'ms');
+      }
       try {
         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
           console.log('[App] Loading projects from Supabase...');
@@ -50553,32 +50562,41 @@ function Dashboard({
 
   // Real-time subscription for projects (live updates across devices)
   useEffect(() => {
-    if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
-      console.log('[App] Real-time subscription not available');
-      return;
-    }
-    console.log('[App] Setting up real-time subscription for projects...');
-    const unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot(updatedProjects => {
-      console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
-
-      // Map Supabase field names to UI field names
-      const mappedProjects = (updatedProjects || []).map(p => ({
-        ...p,
-        customer: p.client || p.customer || '',
-        startDate: p.start_date || p.startDate,
-        endDate: p.end_date || p.endDate
-      }));
-      setProjectsState(mappedProjects);
-
-      // Update lastSyncedProjects to prevent echo writes
-      lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
-    });
-    console.log('[App] Real-time subscription active');
-
-    // Cleanup subscription on unmount
+    let unsubscribe = null;
+    let cancelled = false;
+    const setupRealtime = async () => {
+      // Wait for Supabase to initialize (up to 5 seconds)
+      let attempts = 0;
+      while (attempts < 50 && !window.MODA_SUPABASE?.isInitialized) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+      if (cancelled) return;
+      if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
+        console.log('[App] Real-time subscription not available');
+        return;
+      }
+      console.log('[App] Setting up real-time subscription for projects...');
+      unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot(updatedProjects => {
+        console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
+        const mappedProjects = (updatedProjects || []).map(p => ({
+          ...p,
+          customer: p.client || p.customer || '',
+          startDate: p.start_date || p.startDate,
+          endDate: p.end_date || p.endDate
+        }));
+        setProjectsState(mappedProjects);
+        lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
+      });
+      console.log('[App] Real-time subscription active');
+    };
+    setupRealtime();
     return () => {
-      console.log('[App] Unsubscribing from real-time updates');
-      unsubscribe();
+      cancelled = true;
+      if (unsubscribe) {
+        console.log('[App] Unsubscribing from real-time updates');
+        unsubscribe();
+      }
     };
   }, []);
   const [trashedProjects, setTrashedProjects] = useState(() => {

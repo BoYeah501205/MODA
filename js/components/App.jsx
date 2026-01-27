@@ -614,16 +614,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 const loadProjects = async () => {
                     // Wait for Supabase to initialize (up to 5 seconds)
                     let attempts = 0;
-                    const maxAttempts = 50;
-                    while (attempts < maxAttempts && !window.MODA_SUPABASE?.isInitialized) {
+                    while (attempts < 50 && !window.MODA_SUPABASE?.isInitialized) {
                         await new Promise(r => setTimeout(r, 100));
                         attempts++;
                     }
-                    
                     if (window.MODA_SUPABASE?.isInitialized) {
                         console.log('[App] Supabase initialized after', attempts * 100, 'ms');
-                    } else {
-                        console.warn('[App] Supabase did not initialize after 5 seconds');
                     }
                     
                     try {
@@ -705,30 +701,45 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 const setupRealtime = async () => {
                     // Wait for Supabase to initialize (up to 5 seconds)
                     let attempts = 0;
-                    const maxAttempts = 50;
-                    while (attempts < maxAttempts && !window.MODA_SUPABASE?.isInitialized) {
+                    while (attempts < 50 && !window.MODA_SUPABASE?.isInitialized) {
                         await new Promise(r => setTimeout(r, 100));
                         attempts++;
                     }
                     
                     if (cancelled) return;
-                        customer: p.client || p.customer || '',
-                        startDate: p.start_date || p.startDate,
-                        endDate: p.end_date || p.endDate
-                    }));
                     
-                    setProjectsState(mappedProjects);
+                    if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
+                        console.log('[App] Real-time subscription not available');
+                        return;
+                    }
                     
-                    // Update lastSyncedProjects to prevent echo writes
-                    lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
-                });
+                    console.log('[App] Setting up real-time subscription for projects...');
+                    
+                    unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot((updatedProjects) => {
+                        console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
+                        
+                        const mappedProjects = (updatedProjects || []).map(p => ({
+                            ...p,
+                            customer: p.client || p.customer || '',
+                            startDate: p.start_date || p.startDate,
+                            endDate: p.end_date || p.endDate
+                        }));
+                        
+                        setProjectsState(mappedProjects);
+                        lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
+                    });
+                    
+                    console.log('[App] Real-time subscription active');
+                };
                 
-                console.log('[App] Real-time subscription active');
+                setupRealtime();
                 
-                // Cleanup subscription on unmount
                 return () => {
-                    console.log('[App] Unsubscribing from real-time updates');
-                    unsubscribe();
+                    cancelled = true;
+                    if (unsubscribe) {
+                        console.log('[App] Unsubscribing from real-time updates');
+                        unsubscribe();
+                    }
                 };
             }, []);
             
