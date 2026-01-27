@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.5**
+**Current Version: 1.5.11**
 
 ---
+
+## [1.5.11] - 2026-01-27
+### Real-Time Live Updates for WeeklyBoard
+- **Added Supabase real-time subscription** for projects table in App.jsx
+- WeeklyBoard now automatically updates when any user makes changes (no refresh needed)
+- Uses `ProjectsAPI.onSnapshot()` to listen for INSERT/UPDATE/DELETE events
+- Cross-device sync is now live - changes appear within seconds on all devices
+- Added eruda mobile console for iPad debugging (green icon in bottom-right corner)
 
 ## [1.5.5] - 2026-01-27
 ### Fixed WeeklyBoard Module Progress Cross-Device Sync

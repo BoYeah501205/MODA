@@ -683,6 +683,41 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 loadProjects();
             }, []);
             
+            // Real-time subscription for projects (live updates across devices)
+            useEffect(() => {
+                if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
+                    console.log('[App] Real-time subscription not available');
+                    return;
+                }
+                
+                console.log('[App] Setting up real-time subscription for projects...');
+                
+                const unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot((updatedProjects) => {
+                    console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
+                    
+                    // Map Supabase field names to UI field names
+                    const mappedProjects = (updatedProjects || []).map(p => ({
+                        ...p,
+                        customer: p.client || p.customer || '',
+                        startDate: p.start_date || p.startDate,
+                        endDate: p.end_date || p.endDate
+                    }));
+                    
+                    setProjectsState(mappedProjects);
+                    
+                    // Update lastSyncedProjects to prevent echo writes
+                    lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
+                });
+                
+                console.log('[App] Real-time subscription active');
+                
+                // Cleanup subscription on unmount
+                return () => {
+                    console.log('[App] Unsubscribing from real-time updates');
+                    unsubscribe();
+                };
+            }, []);
+            
             const [trashedProjects, setTrashedProjects] = useState(() => {
                 const saved = localStorage.getItem('autovol_trash_projects');
                 if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -711,27 +746,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [selectedProject, setSelectedProject] = useState(null);
             const [showProjectModal, setShowProjectModal] = useState(false);
             const [showImportModal, setShowImportModal] = useState(false);
-            const [showUserProfile, setShowUserProfile] = useState(false);
-            const [showViewsSettings, setShowViewsSettings] = useState(false);
-            const [userTabPreferences, setUserTabPreferences] = useState(null);
             const [viewMode, setViewMode] = useState('grid'); // grid, list
             const [searchTerm, setSearchTerm] = useState('');
             const [stageFilter, setStageFilter] = useState('all');
-            
-            // Load user tab preferences from profile
-            useEffect(() => {
-                const prefs = window.MODA_SUPABASE?.userProfile?.user_tab_preferences;
-                if (prefs) {
-                    setUserTabPreferences(prefs);
-                }
-                
-                // Listen for preference changes
-                const handlePrefsChanged = (e) => {
-                    setUserTabPreferences(e.detail?.preferences || null);
-                };
-                window.addEventListener('moda-tab-preferences-changed', handlePrefsChanged);
-                return () => window.removeEventListener('moda-tab-preferences-changed', handlePrefsChanged);
-            }, [auth.currentUser]);
             
             // Keyboard shortcuts
             useEffect(() => {
@@ -1083,46 +1100,24 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 >
                                     Sign Out
                                 </button>
+                            </div>
+                        </div>
+                    </header>
 
-// Get current week for Executive Dashboard
-const getCurrentWeek = () => {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
-    return Math.ceil((days + startOfYear.getDay() + 1) / 7);
-};
-const currentWeek = getCurrentWeek();
-
-return (
-    <div className="min-h-screen" style={{backgroundColor: 'var(--autovol-gray-bg)'}}>
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b mobile-header">
-            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    {/* Mobile Navigation - Hamburger Menu */}
-                    {window.MobileNavigation && (
-                        <window.MobileNavigation
-                            tabs={[
-                                {id: 'executive', label: 'Executive', icon: 'icon-executive'},
-                                {id: 'production', label: 'Production', icon: 'icon-production'},
-                                {id: 'projects', label: 'Projects', icon: 'icon-projects'},
-                                {id: 'people', label: 'People', icon: 'icon-people'},
-                                {id: 'qa', label: 'QA', icon: 'icon-qa'},
-                                {id: 'transport', label: 'Transport', icon: 'icon-transport'},
-                                {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
-                                {id: 'precon', label: 'Precon', icon: 'icon-precon'},
-                                {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'},
-                                {id: 'drawings', label: 'Drawings', icon: 'icon-drawings'},
-                                {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
-                                {id: 'onsite', label: 'On-Site', icon: 'icon-building'},
-                                {id: 'reports', label: 'Reports', icon: 'icon-reports'},
-                                {id: 'automation', label: 'Automation', icon: 'icon-automation'}
-                            ].filter(tab => auth.visibleTabs.includes(tab.id))}
+                    {/* Navigation - Grouped or Flat based on feature flag */}
+                    {isFeatureEnabled('enableNavGroups', auth.currentUser?.email) && window.NavigationGroups ? (
+                        <window.NavigationGroups
                             activeTab={activeTab}
-                            onTabChange={(tabId) => { setActiveTab(tabId); setSelectedProject(null); }}
-                            currentUser={auth.currentUser}
-                            onLogout={auth.logout}
+                            setActiveTab={setActiveTab}
+                            visibleTabs={auth.visibleTabs}
+                            canAccessAdmin={auth.canAccessAdmin}
+                            setSelectedProject={setSelectedProject}
                         />
+                    ) : (
+                        /* Original flat navigation - hidden on mobile/tablet */
+                        <nav className="bg-white border-b hide-mobile-tablet">
+                            <div className="max-w-7xl mx-auto px-4">
+                                <div className="flex gap-1">
                                     {/* HOME TAB - Feature flagged */}
                                     {isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                                         <button
@@ -1184,7 +1179,7 @@ return (
                     )}
 
                     {/* Main Content */}
-                    <main className={(activeTab === 'production' || activeTab === 'projects') ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
+                    <main className="max-w-7xl mx-auto px-4 py-6">
                         {/* Dashboard Home - Feature flagged */}
                         {activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                             window.DashboardHome ? (

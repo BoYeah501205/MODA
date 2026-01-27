@@ -5,14 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>Modular Operations Dashboard Application</title>
     
+    <!-- Favicon - Browser tab icon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/public/autovol-logo.png">
+    <link rel="manifest" href="/public/manifest.json">
+    
     <!-- Cache control for development - forces refresh on mobile -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.5.5">
-    <script>window.MODA_VERSION = '1.5.5'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.5.11">
+    <script>window.MODA_VERSION = '1.5.11'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -354,11 +360,16 @@
     <!-- Eruda Mobile Console (for iPad debugging without Mac) -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>
-        // Auto-init eruda on mobile devices for debugging
-        if (window.MODA_IS_MOBILE) {
-            eruda.init();
-            console.log('[MODA] Eruda mobile console initialized - tap the green icon in bottom-right corner');
-        }
+        // Always init eruda for debugging (can be disabled later)
+        // Wait for eruda to load, then initialize
+        (function initEruda() {
+            if (typeof eruda !== 'undefined') {
+                eruda.init();
+                console.log('[MODA] Eruda mobile console initialized - tap the green icon in bottom-right corner');
+            } else {
+                setTimeout(initEruda, 100);
+            }
+        })();
     </script>
 </body>
 </html>

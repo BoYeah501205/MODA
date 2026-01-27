@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-26T04:34:38.630Z
+ * Generated: 2026-01-27T18:41:12.733Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -9397,6 +9397,12 @@ function WeeklyBoardTab({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
 
+  const supabaseSyncTimeoutsRef = useRef({});
+
+  // ===== DYNAMIC NEXT ROW COUNT =====
+  // Controls how many NEXT (upcoming) rows are visible. Default 5, can be expanded or collapsed.
+  const [visibleNextRows, setVisibleNextRows] = useState(5);
+
   // ===== WEEK SELECTOR =====
   // selectedWeekId: null means "use currentWeek (auto)", otherwise use specific week
   // For popout: read initial week from localStorage if available
@@ -9901,9 +9907,9 @@ function WeeklyBoardTab({
     // Current week: line balance modules (use weekLineBalance from displayed week)
     const currentModules = allModules.slice(startIdx, startIdx + weekLineBalance);
 
-    // Next week preview: 5 modules after current week (or fewer if at end)
+    // Next week preview: dynamic count based on visibleNextRows (or fewer if at end)
     const nextStartIdx = startIdx + weekLineBalance;
-    const nextModules = allModules.slice(nextStartIdx, nextStartIdx + 5);
+    const nextModules = allModules.slice(nextStartIdx, nextStartIdx + visibleNextRows);
     return {
       previous: addStatusInfo(previousModules, 'previous'),
       current: addStatusInfo(currentModules, 'current'),
@@ -10033,44 +10039,98 @@ function WeeklyBoardTab({
   // Update module progress for a specific station (works across all projects)
   const updateModuleProgress = (moduleId, projectId, stationId, newProgress) => {
     if (!setProjects) return;
+    let modulesForSupabase = null;
 
     // Find module info for toast before updating
     const project = projects.find(p => p.id === projectId);
     const module = project?.modules?.find(m => m.id === moduleId);
     const station = productionStages.find(s => s.id === stationId);
     const wasComplete = module?.stageProgress?.[stationId] === 100;
+    console.log('[WeeklyBoard] Progress update:', {
+      module: module?.serialNumber,
+      station: station?.dept,
+      progress: newProgress,
+      projectId: projectId
+    });
     setProjects(prevProjects => prevProjects.map(proj => {
       if (proj.id !== projectId) return proj;
+      const updatedModules = proj.modules.map(mod => {
+        if (mod.id !== moduleId) return mod;
+        const updatedProgress = {
+          ...mod.stageProgress
+        };
+        updatedProgress[stationId] = newProgress;
+        let stationCompletedAt = mod.stationCompletedAt || {};
+        if (newProgress === 100 && !wasComplete) {
+          stationCompletedAt = {
+            ...stationCompletedAt,
+            [stationId]: Date.now()
+          };
+        } else if (newProgress < 100 && wasComplete) {
+          stationCompletedAt = {
+            ...stationCompletedAt
+          };
+          delete stationCompletedAt[stationId];
+        }
+        return {
+          ...mod,
+          stageProgress: updatedProgress,
+          stationCompletedAt
+        };
+      });
+      modulesForSupabase = updatedModules;
       return {
         ...proj,
-        modules: proj.modules.map(mod => {
-          if (mod.id !== moduleId) return mod;
-          const updatedProgress = {
-            ...mod.stageProgress
-          };
-          updatedProgress[stationId] = newProgress;
-
-          // Track completion timestamps per station
-          let stationCompletedAt = mod.stationCompletedAt || {};
-          if (newProgress === 100 && !wasComplete) {
-            stationCompletedAt = {
-              ...stationCompletedAt,
-              [stationId]: Date.now()
-            };
-          } else if (newProgress < 100 && wasComplete) {
-            stationCompletedAt = {
-              ...stationCompletedAt
-            };
-            delete stationCompletedAt[stationId];
-          }
-          return {
-            ...mod,
-            stageProgress: updatedProgress,
-            stationCompletedAt
-          };
-        })
+        modules: updatedModules
       };
     }));
+
+    // Detailed Supabase availability check
+    const supabaseData = window.MODA_SUPABASE_DATA;
+    const supabaseProjectsApi = supabaseData?.projects;
+    const isAvailableFunc = supabaseData?.isAvailable;
+    const isAvailable = typeof isAvailableFunc === 'function' ? isAvailableFunc() : false;
+    const hasUpdateFunc = typeof supabaseProjectsApi?.update === 'function';
+    console.log('[WeeklyBoard] Supabase check:', {
+      supabaseDataExists: !!supabaseData,
+      projectsApiExists: !!supabaseProjectsApi,
+      isAvailableFuncExists: !!isAvailableFunc,
+      isAvailable: isAvailable,
+      hasUpdateFunc: hasUpdateFunc,
+      finalAvailable: isAvailable && hasUpdateFunc
+    });
+    if (!isAvailable || !hasUpdateFunc) {
+      console.warn('[WeeklyBoard] ⚠️ Supabase not available - module progress will NOT sync across devices!');
+      console.warn('[WeeklyBoard] Check: Are you logged in? Is Supabase initialized? Check browser console for errors.');
+      return;
+    }
+    if (!modulesForSupabase) {
+      console.warn('[WeeklyBoard] No modules to sync (modulesForSupabase is null)');
+      return;
+    }
+    console.log('[WeeklyBoard] Scheduling Supabase sync for project:', projectId, 'modules:', modulesForSupabase.length);
+    try {
+      const timeouts = supabaseSyncTimeoutsRef.current;
+      if (timeouts[projectId]) clearTimeout(timeouts[projectId]);
+      timeouts[projectId] = setTimeout(async () => {
+        try {
+          console.log('[WeeklyBoard] Syncing to Supabase...');
+          await supabaseProjectsApi.update(projectId, {
+            modules: modulesForSupabase
+          });
+          console.log('[WeeklyBoard] ✅ Successfully synced module progress to Supabase');
+        } catch (err) {
+          console.error('[WeeklyBoard] ❌ Failed to sync module progress to Supabase:', err);
+          console.error('[WeeklyBoard] Error details:', {
+            message: err.message,
+            code: err.code,
+            hint: err.hint
+          });
+        }
+      }, 600);
+    } catch (err) {
+      console.error('[WeeklyBoard] Error scheduling Supabase sync:', err);
+    }
 
     // Toast notifications for completions disabled for now
     // if (newProgress === 100 && !wasComplete && module && station) {
@@ -11631,17 +11691,47 @@ function WeeklyBoardTab({
       className: "text-xs font-bold text-autovol-navy"
     }, dayInfo.label), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-gray-500"
-    }, dayInfo.monthStr, " ", dayInfo.dayNum))), next.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "border-t border-dashed border-green-300 my-0.5"
-    }), next.map((_, idx) => /*#__PURE__*/React.createElement("div", {
+    }, dayInfo.monthStr, " ", dayInfo.dayNum))), visibleNextRows > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "border-t border-dashed border-green-300 my-0.5 relative"
+    }, visibleNextRows > 0 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisibleNextRows(0),
+      className: "absolute -top-2 right-0 w-4 h-4 bg-green-100 hover:bg-green-200 border border-green-300 rounded text-green-600 text-xs flex items-center justify-center",
+      title: "Hide all NEXT rows"
+    }, "-")), next.map((_, idx) => /*#__PURE__*/React.createElement("div", {
       key: `next-${idx}`,
-      className: "rounded border border-green-300 bg-green-50 flex items-center justify-center text-center",
+      className: "rounded border border-green-300 bg-green-50 flex items-center justify-center text-center relative group",
       style: {
         height: `${CARD_HEIGHT}px`
       }
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-xs font-bold text-green-600"
-    }, "NEXT"))))));
+    }, "NEXT"), idx === next.length - 1 && visibleNextRows > 1 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisibleNextRows(prev => Math.max(1, prev - 1)),
+      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-100 hover:bg-red-200 border border-red-300 rounded text-red-600 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex",
+      title: "Remove one NEXT row"
+    }, "-")))), /*#__PURE__*/React.createElement("div", {
+      className: "mt-1"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisibleNextRows(prev => prev + 1),
+      className: "w-full rounded border-2 border-dashed border-green-300 bg-green-50/50 hover:bg-green-100 flex items-center justify-center text-center transition-colors",
+      style: {
+        height: `${CARD_HEIGHT}px`
+      },
+      title: "Add another NEXT row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-lg font-bold text-green-500"
+    }, "+"))), visibleNextRows === 0 && /*#__PURE__*/React.createElement("div", {
+      className: "mt-1"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisibleNextRows(5),
+      className: "w-full rounded border border-green-300 bg-green-50 hover:bg-green-100 flex items-center justify-center text-center transition-colors",
+      style: {
+        height: `${CARD_HEIGHT}px`
+      },
+      title: "Show NEXT rows (default 5)"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-xs font-bold text-green-600"
+    }, "Show NEXT")))));
   };
 
   // Show configuration prompt if week not set up
@@ -12528,8 +12618,8 @@ function WeeklyBoardTab({
     className: "fixed inset-0 z-[99]",
     onClick: () => setShowBulkMenu(null)
   }), showCompleteModal && /*#__PURE__*/React.createElement(WeekCompleteModal, {
-    currentWeek: currentWeek,
-    lineBalance: getLineBalance(),
+    currentWeek: displayWeek,
+    lineBalance: lineBalance,
     activeProjects: activeProjects,
     allModules: allModules,
     onComplete: (data, nextWeekId) => {
@@ -16115,11 +16205,20 @@ function NavigationGroups({
   setActiveTab,
   visibleTabs = [],
   canAccessAdmin = false,
-  setSelectedProject
+  setSelectedProject,
+  userTabPreferences = null
 }) {
 // [Removed duplicate React destructuring]
   // Track which groups are expanded
   const [expandedGroups, setExpandedGroups] = useState({});
+
+  // Get user's hidden tabs and custom ordering from preferences
+  const hiddenTabs = useMemo(() => {
+    return new Set(userTabPreferences?.hidden_tabs || []);
+  }, [userTabPreferences]);
+  const tabOrder = useMemo(() => {
+    return userTabPreferences?.tab_order || {};
+  }, [userTabPreferences]);
 
   // Ref for the nav container to detect outside clicks
   const navRef = useRef(null);
@@ -16135,18 +16234,35 @@ function NavigationGroups({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter groups to only show those with visible tabs
+  // Filter groups to only show those with visible tabs (respecting user preferences)
   const visibleGroups = useMemo(() => {
-    return NAV_GROUPS.map(group => ({
-      ...group,
-      tabs: group.tabs.filter(tab => visibleTabs.includes(tab.id))
-    })).filter(group => group.tabs.length > 0);
-  }, [visibleTabs]);
+    return NAV_GROUPS.map(group => {
+      // Filter tabs by role permissions AND user's hidden preferences
+      let filteredTabs = group.tabs.filter(tab => visibleTabs.includes(tab.id) && !hiddenTabs.has(tab.id));
 
-  // Filter standalone tabs
+      // Apply custom ordering if user has set one for this group
+      const groupOrder = tabOrder[group.id];
+      if (groupOrder && groupOrder.length > 0) {
+        filteredTabs = [...filteredTabs].sort((a, b) => {
+          const aIndex = groupOrder.indexOf(a.id);
+          const bIndex = groupOrder.indexOf(b.id);
+          if (aIndex === -1 && bIndex === -1) return 0;
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        });
+      }
+      return {
+        ...group,
+        tabs: filteredTabs
+      };
+    }).filter(group => group.tabs.length > 0);
+  }, [visibleTabs, hiddenTabs, tabOrder]);
+
+  // Filter standalone tabs (respecting user preferences)
   const visibleStandalone = useMemo(() => {
-    return STANDALONE_TABS.filter(tab => visibleTabs.includes(tab.id));
-  }, [visibleTabs]);
+    return STANDALONE_TABS.filter(tab => visibleTabs.includes(tab.id) && !hiddenTabs.has(tab.id));
+  }, [visibleTabs, hiddenTabs]);
 
   // Check if active tab is in a group
   const activeGroupId = useMemo(() => {
@@ -16317,7 +16433,8 @@ function UserProfileModal({
   employees = [],
   onClose,
   darkMode,
-  setDarkMode
+  setDarkMode,
+  onOpenViewsSettings
 }) {
 // [Removed duplicate React destructuring]
   const viewportSize = window.useViewportSize ? window.useViewportSize() : 'desktop';
@@ -16510,6 +16627,50 @@ function UserProfileModal({
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-sm font-medium"
   }, darkMode ? 'Light Mode' : 'Dark Mode'))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-semibold text-gray-500 uppercase mb-3 flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-cog",
+    style: {
+      width: '16px',
+      height: '16px',
+      display: 'inline-block'
+    }
+  }), "Settings"), /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-50 rounded-lg p-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between items-center"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-600"
+  }, "Navigation"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400"
+  }, "Hide or reorder tabs")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (onOpenViewsSettings) {
+        onClose();
+        onOpenViewsSettings();
+      }
+    },
+    className: "px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-100 transition",
+    style: {
+      color: 'var(--autovol-navy)'
+    }
+  }, "Customize")), setDarkMode && /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between items-center"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-600"
+  }, "Theme"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDarkMode(prev => !prev),
+    className: "flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: darkMode ? 'icon-sun' : 'icon-moon',
+    style: {
+      width: '16px',
+      height: '16px',
+      display: 'inline-block'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm"
+  }, darkMode ? 'Light' : 'Dark'))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-sm font-semibold text-gray-500 uppercase mb-3 flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-tracker",
@@ -50382,6 +50543,37 @@ function Dashboard({
       }
     };
     loadProjects();
+  }, []);
+
+  // Real-time subscription for projects (live updates across devices)
+  useEffect(() => {
+    if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
+      console.log('[App] Real-time subscription not available');
+      return;
+    }
+    console.log('[App] Setting up real-time subscription for projects...');
+    const unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot(updatedProjects => {
+      console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
+
+      // Map Supabase field names to UI field names
+      const mappedProjects = (updatedProjects || []).map(p => ({
+        ...p,
+        customer: p.client || p.customer || '',
+        startDate: p.start_date || p.startDate,
+        endDate: p.end_date || p.endDate
+      }));
+      setProjectsState(mappedProjects);
+
+      // Update lastSyncedProjects to prevent echo writes
+      lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
+    });
+    console.log('[App] Real-time subscription active');
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('[App] Unsubscribing from real-time updates');
+      unsubscribe();
+    };
   }, []);
   const [trashedProjects, setTrashedProjects] = useState(() => {
     const saved = localStorage.getItem('autovol_trash_projects');
