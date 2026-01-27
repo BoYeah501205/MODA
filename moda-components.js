@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-27T19:10:07.442Z
+ * Generated: 2026-01-27T19:12:30.038Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -3571,7 +3571,9 @@ function LoginPage({
   }), !isInviteFlow && view === 'forgot' && /*#__PURE__*/React.createElement(ForgotPasswordForm, {
     auth: auth,
     onBack: () => setView('login')
-  })));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "absolute bottom-4 left-0 right-0 text-center text-xs text-gray-400 z-10"
+  }, "MODA v", window.MODA_VERSION || '?'));
 }
 // ===== END AUTHENTICATION SYSTEM =====
 

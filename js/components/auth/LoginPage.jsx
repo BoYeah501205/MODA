@@ -370,6 +370,10 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
                         {!isInviteFlow && view === 'login' && <LoginForm auth={auth} onForgotPassword={() => setView('forgot')} />}
                         {!isInviteFlow && view === 'forgot' && <ForgotPasswordForm auth={auth} onBack={() => setView('login')} />}
                     </div>
+                    {/* Version number */}
+                    <div className="absolute bottom-4 left-0 right-0 text-center text-xs text-gray-400 z-10">
+                        MODA v{window.MODA_VERSION || '?'}
+                    </div>
                 </div>
             );
         }
