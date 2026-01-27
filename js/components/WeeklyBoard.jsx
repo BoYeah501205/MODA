@@ -2740,13 +2740,6 @@ function WeeklyBoardTab({
         const station = productionStages.find(s => s.id === stationId);
         const wasComplete = module?.stageProgress?.[stationId] === 100;
         
-        console.log('[WeeklyBoard] Progress update:', {
-            module: module?.serialNumber,
-            station: station?.dept,
-            progress: newProgress,
-            projectId: projectId
-        });
-        
         // Compute updated modules SYNCHRONOUSLY before setProjects
         // This ensures we have the correct data for Supabase sync (avoids closure issues)
         let modulesForSupabase = null;
@@ -2782,27 +2775,9 @@ function WeeklyBoardTab({
         const isAvailable = typeof isAvailableFunc === 'function' ? isAvailableFunc() : false;
         const hasUpdateFunc = typeof supabaseProjectsApi?.update === 'function';
         
-        console.log('[WeeklyBoard] Supabase check:', {
-            supabaseDataExists: !!supabaseData,
-            projectsApiExists: !!supabaseProjectsApi,
-            isAvailableFuncExists: !!isAvailableFunc,
-            isAvailable: isAvailable,
-            hasUpdateFunc: hasUpdateFunc,
-            finalAvailable: isAvailable && hasUpdateFunc
-        });
-        
-        if (!isAvailable || !hasUpdateFunc) {
-            console.warn('[WeeklyBoard] ⚠️ Supabase not available - module progress will NOT sync across devices!');
-            console.warn('[WeeklyBoard] Check: Are you logged in? Is Supabase initialized? Check browser console for errors.');
+        if (!isAvailable || !hasUpdateFunc || !modulesForSupabase) {
             return;
         }
-
-        if (!modulesForSupabase) {
-            console.warn('[WeeklyBoard] No modules to sync (modulesForSupabase is null)');
-            return;
-        }
-
-        console.log('[WeeklyBoard] Scheduling Supabase sync for project:', projectId, 'modules:', modulesForSupabase.length);
 
         try {
             const timeouts = supabaseSyncTimeoutsRef.current;
@@ -2810,16 +2785,9 @@ function WeeklyBoardTab({
 
             timeouts[projectId] = setTimeout(async () => {
                 try {
-                    console.log('[WeeklyBoard] Syncing to Supabase...');
                     await supabaseProjectsApi.update(projectId, { modules: modulesForSupabase });
-                    console.log('[WeeklyBoard] ✅ Successfully synced module progress to Supabase');
                 } catch (err) {
-                    console.error('[WeeklyBoard] ❌ Failed to sync module progress to Supabase:', err);
-                    console.error('[WeeklyBoard] Error details:', {
-                        message: err.message,
-                        code: err.code,
-                        hint: err.hint
-                    });
+                    console.error('[WeeklyBoard] Sync failed:', err.message);
                 }
             }, 600);
         } catch (err) {

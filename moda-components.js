@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-27T19:12:30.038Z
+ * Generated: 2026-01-27T19:18:12.356Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -10047,12 +10047,6 @@ function WeeklyBoardTab({
     const module = project?.modules?.find(m => m.id === moduleId);
     const station = productionStages.find(s => s.id === stationId);
     const wasComplete = module?.stageProgress?.[stationId] === 100;
-    console.log('[WeeklyBoard] Progress update:', {
-      module: module?.serialNumber,
-      station: station?.dept,
-      progress: newProgress,
-      projectId: projectId
-    });
 
     // Compute updated modules SYNCHRONOUSLY before setProjects
     // This ensures we have the correct data for Supabase sync (avoids closure issues)
@@ -10099,41 +10093,19 @@ function WeeklyBoardTab({
     const isAvailableFunc = supabaseData?.isAvailable;
     const isAvailable = typeof isAvailableFunc === 'function' ? isAvailableFunc() : false;
     const hasUpdateFunc = typeof supabaseProjectsApi?.update === 'function';
-    console.log('[WeeklyBoard] Supabase check:', {
-      supabaseDataExists: !!supabaseData,
-      projectsApiExists: !!supabaseProjectsApi,
-      isAvailableFuncExists: !!isAvailableFunc,
-      isAvailable: isAvailable,
-      hasUpdateFunc: hasUpdateFunc,
-      finalAvailable: isAvailable && hasUpdateFunc
-    });
-    if (!isAvailable || !hasUpdateFunc) {
-      console.warn('[WeeklyBoard] ⚠️ Supabase not available - module progress will NOT sync across devices!');
-      console.warn('[WeeklyBoard] Check: Are you logged in? Is Supabase initialized? Check browser console for errors.');
+    if (!isAvailable || !hasUpdateFunc || !modulesForSupabase) {
       return;
     }
-    if (!modulesForSupabase) {
-      console.warn('[WeeklyBoard] No modules to sync (modulesForSupabase is null)');
-      return;
-    }
-    console.log('[WeeklyBoard] Scheduling Supabase sync for project:', projectId, 'modules:', modulesForSupabase.length);
     try {
       const timeouts = supabaseSyncTimeoutsRef.current;
       if (timeouts[projectId]) clearTimeout(timeouts[projectId]);
       timeouts[projectId] = setTimeout(async () => {
         try {
-          console.log('[WeeklyBoard] Syncing to Supabase...');
           await supabaseProjectsApi.update(projectId, {
             modules: modulesForSupabase
           });
-          console.log('[WeeklyBoard] ✅ Successfully synced module progress to Supabase');
         } catch (err) {
-          console.error('[WeeklyBoard] ❌ Failed to sync module progress to Supabase:', err);
-          console.error('[WeeklyBoard] Error details:', {
-            message: err.message,
-            code: err.code,
-            hint: err.hint
-          });
+          console.error('[WeeklyBoard] Sync failed:', err.message);
         }
       }, 600);
     } catch (err) {
@@ -50488,12 +50460,8 @@ function Dashboard({
         await new Promise(r => setTimeout(r, 100));
         attempts++;
       }
-      if (window.MODA_SUPABASE?.isInitialized) {
-        console.log('[App] Supabase initialized after', attempts * 100, 'ms');
-      }
       try {
         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
-          console.log('[App] Loading projects from Supabase...');
           try {
             const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
             // Map Supabase field names to UI field names
@@ -50510,7 +50478,6 @@ function Dashboard({
               lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
             }
             setProjectsSynced(true);
-            console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
           } catch (supabaseError) {
             // Log detailed error info for debugging
             const errorDetails = {
@@ -50524,7 +50491,6 @@ function Dashboard({
               window.debugError(`Supabase projects failed: ${supabaseError.message || 'Unknown error'}`);
               if (supabaseError.code) window.debugError(`Error code: ${supabaseError.code}`);
             }
-            console.log('[App] Falling back to localStorage for projects');
             // Fallback to localStorage
             const saved = localStorage.getItem('autovol_projects');
             if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -50534,7 +50500,6 @@ function Dashboard({
           }
         } else {
           // Fallback to localStorage
-          console.log('[App] Supabase not available, using localStorage for projects');
           try {
             const saved = localStorage.getItem('autovol_projects');
             if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -50575,12 +50540,9 @@ function Dashboard({
       }
       if (cancelled) return;
       if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
-        console.log('[App] Real-time subscription not available');
         return;
       }
-      console.log('[App] Setting up real-time subscription for projects...');
       unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot(updatedProjects => {
-        console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
         const mappedProjects = (updatedProjects || []).map(p => ({
           ...p,
           customer: p.client || p.customer || '',
@@ -50590,13 +50552,11 @@ function Dashboard({
         setProjectsState(mappedProjects);
         lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
       });
-      console.log('[App] Real-time subscription active');
     };
     setupRealtime();
     return () => {
       cancelled = true;
       if (unsubscribe) {
-        console.log('[App] Unsubscribing from real-time updates');
         unsubscribe();
       }
     };

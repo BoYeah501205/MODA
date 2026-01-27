@@ -618,13 +618,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         await new Promise(r => setTimeout(r, 100));
                         attempts++;
                     }
-                    if (window.MODA_SUPABASE?.isInitialized) {
-                        console.log('[App] Supabase initialized after', attempts * 100, 'ms');
-                    }
                     
                     try {
                         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
-                            console.log('[App] Loading projects from Supabase...');
                             try {
                                 const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
                                 // Map Supabase field names to UI field names
@@ -640,7 +636,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
                                 }
                                 setProjectsSynced(true);
-                                console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
                             } catch (supabaseError) {
                                 // Log detailed error info for debugging
                                 const errorDetails = {
@@ -654,7 +649,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     window.debugError(`Supabase projects failed: ${supabaseError.message || 'Unknown error'}`);
                                     if (supabaseError.code) window.debugError(`Error code: ${supabaseError.code}`);
                                 }
-                                console.log('[App] Falling back to localStorage for projects');
                                 // Fallback to localStorage
                                 const saved = localStorage.getItem('autovol_projects');
                                 if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -664,7 +658,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             }
                         } else {
                             // Fallback to localStorage
-                            console.log('[App] Supabase not available, using localStorage for projects');
                             try {
                                 const saved = localStorage.getItem('autovol_projects');
                                 if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -709,15 +702,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     if (cancelled) return;
                     
                     if (!window.MODA_SUPABASE_DATA?.isAvailable?.() || !window.MODA_SUPABASE_DATA?.projects?.onSnapshot) {
-                        console.log('[App] Real-time subscription not available');
                         return;
                     }
                     
-                    console.log('[App] Setting up real-time subscription for projects...');
-                    
                     unsubscribe = window.MODA_SUPABASE_DATA.projects.onSnapshot((updatedProjects) => {
-                        console.log('[App] Real-time update received:', updatedProjects.length, 'projects');
-                        
                         const mappedProjects = (updatedProjects || []).map(p => ({
                             ...p,
                             customer: p.client || p.customer || '',
@@ -728,8 +716,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         setProjectsState(mappedProjects);
                         lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
                     });
-                    
-                    console.log('[App] Real-time subscription active');
                 };
                 
                 setupRealtime();
@@ -737,7 +723,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 return () => {
                     cancelled = true;
                     if (unsubscribe) {
-                        console.log('[App] Unsubscribing from real-time updates');
                         unsubscribe();
                     }
                 };

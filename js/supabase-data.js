@@ -171,15 +171,11 @@
         // Subscribe to real-time changes
         onSnapshot(callback) {
             if (!isAvailable()) {
-                console.warn('[Projects] Supabase not available for real-time');
                 return () => {};
             }
 
-            console.log('[Projects] Setting up real-time subscription...');
-
             // Initial load
             this.getAll().then(projects => {
-                console.log('[Projects] Initial load:', projects.length, 'projects');
                 callback(projects);
             }).catch(console.error);
 
@@ -189,23 +185,18 @@
                 .on('postgres_changes', 
                     { event: '*', schema: 'public', table: 'projects' },
                     async (payload) => {
-                        console.log('[Projects] Real-time event received:', payload.eventType, payload);
                         const projects = await this.getAll();
                         callback(projects);
                     }
                 )
                 .subscribe((status) => {
-                    console.log('[Projects] Subscription status:', status);
-                    if (status === 'SUBSCRIBED') {
-                        console.log('[Projects] Real-time subscription ACTIVE - listening for changes');
-                    } else if (status === 'CHANNEL_ERROR') {
-                        console.error('[Projects] Real-time subscription FAILED - check if Realtime is enabled for projects table');
+                    if (status === 'CHANNEL_ERROR') {
+                        console.error('[Projects] Real-time subscription FAILED');
                     }
                 });
 
             // Return unsubscribe function
             return () => {
-                console.log('[Projects] Unsubscribing from real-time');
                 channel.unsubscribe();
             };
         }
