@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.18**
+**Current Version: 1.5.19**
 
 ---
+
+## [1.5.19] - 2026-01-27
+### Fixed Custom Permissions Error
+- **Fixed "Cannot coerce the result to a single JSON object" error** when editing custom permissions for users
+- Changed Supabase queries from `.single()` to `.maybeSingle()` to handle missing profiles gracefully
+- Added better error message when user profile not found: "Try syncing missing profiles first"
 
 ## [1.5.18] - 2026-01-27
 ### User Management Improvements

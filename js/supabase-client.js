@@ -503,12 +503,16 @@
                 return { success: false, error: 'Only admins can modify custom permissions' };
             }
 
-            // Check if target user is protected
+            // Check if target user is protected (use maybeSingle to handle missing profiles)
             const { data: targetProfile } = await supabase
                 .from('profiles')
                 .select('is_protected')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
+
+            if (!targetProfile) {
+                return { success: false, error: 'User profile not found. Try syncing missing profiles first.' };
+            }
 
             if (targetProfile?.is_protected) {
                 return { success: false, error: 'Cannot modify permissions for protected users' };
@@ -520,7 +524,7 @@
                 .update({ custom_tab_permissions: permissions })
                 .eq('id', userId)
                 .select()
-                .single();
+                .maybeSingle();
 
             if (error) {
                 console.error('[Supabase] Update custom permissions error:', error);
@@ -543,15 +547,27 @@
         }
 
         try {
+            // Use maybeSingle() instead of single() to handle missing profiles gracefully
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, email, name, dashboard_role, custom_tab_permissions, is_protected')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
 
             if (error) {
                 console.error('[Supabase] Get custom permissions error:', error);
                 return { success: false, error: error.message };
+            }
+
+            // If no profile found, return success with empty permissions
+            if (!data) {
+                console.warn('[Supabase] No profile found for user:', userId);
+                return { 
+                    success: true, 
+                    user: null,
+                    customPermissions: null,
+                    hasCustomPermissions: false
+                };
             }
 
             return { 
