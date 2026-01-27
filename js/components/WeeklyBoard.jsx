@@ -4981,6 +4981,31 @@ const getProjectAcronym = (module) => {
                                 Back to Current
                             </button>
                         )}
+                        
+                        {/* Pop Out - next to week navigation */}
+                        {!isPopout && !isFeatureHiddenOnMobile('popoutWindow') && (
+                            <button
+                                onClick={() => {
+                                    const popoutUrl = window.location.origin + '/weekly-board-popout.html';
+                                    const popoutWindow = window.open(
+                                        popoutUrl,
+                                        'WeeklyBoardPopout',
+                                        'width=1400,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes'
+                                    );
+                                    if (!popoutWindow) {
+                                        addToast('Please allow popups to open the Weekly Board in a new window', 'error');
+                                    }
+                                }}
+                                className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg"
+                                title="Open Weekly Board in a separate window"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
+                        )}
                     </div>
                 </div>
                 <div className="flex gap-2">
@@ -5059,68 +5084,6 @@ const getProjectAcronym = (module) => {
                     >
                         📊 Week History
                     </button>
-                    {/* Pop Out - hidden on mobile */}
-                    {!isPopout && !isFeatureHiddenOnMobile('popoutWindow') && (
-                        <button
-                            onClick={() => {
-                                const popoutUrl = window.location.origin + '/weekly-board-popout.html';
-                                const popoutWindow = window.open(
-                                    popoutUrl,
-                                    'WeeklyBoardPopout',
-                                    'width=1400,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes'
-                                );
-                                if (!popoutWindow) {
-                                    addToast('Please allow popups to open the Weekly Board in a new window', 'error');
-                                }
-                            }}
-                            className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-medium flex items-center gap-1"
-                            title="Open Weekly Board in a separate window"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                                <polyline points="15 3 21 3 21 9"/>
-                                <line x1="10" y1="14" x2="21" y2="3"/>
-                            </svg>
-                            Pop Out
-                        </button>
-                    )}
-                    {/* TEMPORARY: Mark All Complete button */}
-                    {canEdit && (
-                        <button
-                            onClick={() => {
-                                if (!confirm('Mark ALL modules on the board as 100% complete at ALL stations?')) return;
-                                
-                                const ALL_STAGES = [
-                                    'auto-c', 'auto-f', 'auto-walls', 'mezzanine', 'elec-ceiling',
-                                    'wall-set', 'ceiling-set', 'soffits', 'mech-rough', 'elec-rough',
-                                    'plumb-rough', 'exteriors', 'drywall-bp', 'drywall-ttp', 'roofing',
-                                    'pre-finish', 'mech-trim', 'elec-trim', 'plumb-trim', 'final-finish',
-                                    'sign-off', 'close-up'
-                                ];
-                                const fullProgress = {};
-                                ALL_STAGES.forEach(stage => fullProgress[stage] = 100);
-                                
-                                // Get all module IDs currently on the board
-                                const boardModuleIds = new Set(allModules.map(m => m.id));
-                                
-                                // Update all projects that have modules on the board
-                                setProjects(prev => prev.map(project => ({
-                                    ...project,
-                                    modules: (project.modules || []).map(m => 
-                                        boardModuleIds.has(m.id) 
-                                            ? { ...m, stageProgress: fullProgress }
-                                            : m
-                                    )
-                                })));
-                                
-                                addToast(`Marked ${boardModuleIds.size} modules as 100% complete`, 'success');
-                            }}
-                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium"
-                            title="TEMPORARY: Mark all board modules complete"
-                        >
-                            Mark All Complete
-                        </button>
-                    )}
                     {/* Complete Week - hidden on mobile */}
                     {canEdit && !isFeatureHiddenOnMobile('completeWeekButton') && (
                         <button
@@ -5133,117 +5096,63 @@ const getProjectAcronym = (module) => {
                 </div>
             </div>
             
-            {/* Production Metrics Dashboard */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {/* Modules This Week */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">This Week</div>
-                        <span className="text-lg">📊</span>
-                    </div>
-                    <div className="mt-1">
-                        <span className="text-2xl font-bold text-autovol-navy">
-                            {Object.values(getStationCapacityInfo).reduce((sum, s) => sum + s.complete, 0)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">/ {lineBalance}</span>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">modules completed</div>
-                </div>
-                
-                {/* In Progress */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">In Progress</div>
-                        <span className="text-lg">🔄</span>
-                    </div>
-                    <div className="mt-1">
-                        <span className="text-2xl font-bold text-blue-600">
-                            {Object.values(getStationCapacityInfo).reduce((sum, s) => sum + s.inProgress, 0)}
-                        </span>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">across all stations</div>
-                </div>
-                
-                {/* Completion Rate - modules fully done at ALL stations */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">Completion Rate</div>
-                        <span className="text-lg">📈</span>
-                    </div>
-                    {(() => {
-                        // Count modules that are 100% complete at ALL stations (truly finished)
-                        const fullyCompleteModules = getRecentlyCompleted().length;
-                        const rate = lineBalance > 0 ? Math.round((fullyCompleteModules / lineBalance) * 100) : 0;
-                        const rateColor = rate >= 80 ? 'text-green-600' : rate >= 50 ? 'text-yellow-600' : 'text-red-600';
-                        return (
-                            <>
-                                <div className="mt-1">
-                                    <span className={`text-2xl font-bold ${rateColor}`}>{rate}%</span>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {fullyCompleteModules}/{lineBalance} modules done
-                                </div>
-                            </>
-                        );
-                    })()}
-                </div>
-                
-                {/* Stations at Capacity */}
-                <div className="bg-white rounded-lg border p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium uppercase">Station Status</div>
-                        <span className="text-lg">🏭</span>
-                    </div>
-                    {(() => {
-                        const overCount = Object.values(getStationCapacityInfo).filter(s => s.status === 'over').length;
-                        const atCount = Object.values(getStationCapacityInfo).filter(s => s.status === 'at').length;
-                        return (
-                            <>
-                                <div className="mt-1 flex items-center gap-2">
-                                    {overCount > 0 && (
-                                        <span className="text-sm font-bold text-red-600">{overCount} over</span>
-                                    )}
-                                    {atCount > 0 && (
-                                        <span className="text-sm font-bold text-yellow-600">{atCount} at limit</span>
-                                    )}
-                                    {overCount === 0 && atCount === 0 && (
-                                        <span className="text-sm font-bold text-green-600">All clear</span>
-                                    )}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">capacity status</div>
-                            </>
-                        );
-                    })()}
-                </div>
-            </div>
-            
-            {/* Running Low on Modules Warning */}
+            {/* Production Metrics Dashboard - Collapsible */}
             {(() => {
-                const twoWeeksBalance = lineBalance * 2;
-                const currentStartIdx = getAutoCalculatedStartingIndex;
-                // Clamp to 0 - can't have negative remaining modules
-                const remainingModules = Math.max(0, allModules.length - currentStartIdx);
+                // Calculate THIS WEEK: count unique modules on board that have any progress
+                const modulesWithProgress = allModules.filter(module => {
+                    const progress = module.stageProgress || {};
+                    return productionStages.some(station => (progress[station.id] || 0) > 0);
+                }).length;
                 
-                // Don't show warning if no modules loaded or if we have enough
-                if (allModules.length === 0 || remainingModules >= twoWeeksBalance) return null;
+                // Calculate IN PROGRESS: unique modules with at least one station 0 < progress < 100
+                const modulesInProgress = allModules.filter(module => {
+                    const progress = module.stageProgress || {};
+                    return productionStages.some(station => {
+                        const p = progress[station.id] || 0;
+                        return p > 0 && p < 100;
+                    });
+                }).length;
                 
                 return (
-                    <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                            <div className="text-2xl">⚠️</div>
-                            <div className="flex-1">
-                                <div className="font-bold text-orange-800">Running Low on Scheduled Modules</div>
-                                <div className="text-sm text-orange-700 mt-1">
-                                    Only <strong>{remainingModules}</strong> modules remaining (less than 2 weeks at current line balance of {lineBalance}/week).
+                    <details className="group">
+                        <summary className="cursor-pointer list-none flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 mb-2">
+                            <svg className="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            Production Metrics
+                        </summary>
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Modules This Week */}
+                            <div className="bg-white rounded-lg border p-3 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-xs text-gray-500 font-medium uppercase">This Week</div>
                                 </div>
-                                <div className="text-sm text-orange-600 mt-2">
-                                    Consider scheduling the next project online to ensure continuous production.
+                                <div className="mt-1">
+                                    <span className="text-2xl font-bold text-autovol-navy">
+                                        {modulesWithProgress}
+                                    </span>
+                                    <span className="text-sm text-gray-500 ml-1">/ {lineBalance}</span>
                                 </div>
+                                <div className="text-xs text-gray-500 mt-1">modules with progress</div>
+                            </div>
+                            
+                            {/* In Progress */}
+                            <div className="bg-white rounded-lg border p-3 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-xs text-gray-500 font-medium uppercase">In Progress</div>
+                                </div>
+                                <div className="mt-1">
+                                    <span className="text-2xl font-bold text-blue-600">
+                                        {modulesInProgress}
+                                    </span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">modules incomplete</div>
                             </div>
                         </div>
-                    </div>
+                    </details>
                 );
             })()}
+            
             
             {/* Schedule Conflict Warning Banner */}
             {(() => {
@@ -5289,23 +5198,6 @@ const getProjectAcronym = (module) => {
                 );
             })()}
             
-            {/* Recently Completed Summary - Modules 100% at ALL stations */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-green-700 font-medium text-sm mb-2">
-                    <span>✅ Fully Completed (All Stations)</span>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                    {getRecentlyCompleted().map((module, idx) => (
-                        <div key={idx} className="bg-white border border-green-300 rounded px-2 py-1 text-xs">
-                            <span className="font-mono font-bold">{module.serialNumber}</span>
-                            <span className="text-green-600 ml-1">✓ Done</span>
-                        </div>
-                    ))}
-                    {getRecentlyCompleted().length === 0 && (
-                        <span className="text-sm text-gray-500">No modules fully completed yet (100% at all stations)</span>
-                    )}
-                </div>
-            </div>
             
             {/* Main Board Area with Modules Panel */}
             <div className="flex gap-1">
@@ -5430,11 +5322,7 @@ const getProjectAcronym = (module) => {
                     onKeyDown={handleBoardKeyDown}
                 >
                     {/* Horizontal Scroll Controls */}
-                    <div className="flex items-center justify-between mb-2 no-print">
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <span>💡</span>
-                            <span>Use <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">←</kbd> <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">→</kbd> arrow keys to scroll</span>
-                        </div>
+                    <div className="flex items-center justify-end mb-2 no-print">
                         <div className="flex gap-1">
                             <button
                                 onClick={() => {

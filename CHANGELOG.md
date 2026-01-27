@@ -2,9 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.14**
+**Current Version: 1.5.17**
 
 ---
+
+## [1.5.17] - 2026-01-27
+### WeeklyBoard UI Cleanup
+- **THIS WEEK**: Now counts unique modules on board with any progress (not duplicated across stations)
+- **IN PROGRESS**: Now counts unique modules with at least one station incomplete (0 < progress < 100)
+- **Removed tiles**: Completion Rate, Station Status
+- **Collapsible metrics**: Production Metrics section now collapsed by default
+- **Removed sections**: "Fully Completed (All Stations)" summary, "Running Low on Scheduled Modules" warning
+- **Removed buttons**: "Mark All Complete" temporary button
+- **Moved pop-out button**: Now positioned next to Prev/Next week navigation arrows
+- **Removed lightbulb hint**: Arrow keys scroll hint removed
 
 ## [1.5.14] - 2026-01-27
 ### Fixed Mobile/iPad Session Persistence
