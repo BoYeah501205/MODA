@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.25**
+**Current Version: 1.5.26**
 
 ---
+
+## [1.5.26] - 2026-01-27
+### Fixed iPad Navigation Conflict
+- **Aligned all mobile breakpoints to 1180px** - Matches iPad 10.9" (A14 Bionic) landscape width exactly
+- **Fixed conflict between desktop nav and hamburger menu** - Desktop nav now hidden at ≤1180px, hamburger shows
+- **Updated CSS breakpoints** - `.hide-mobile-tablet`, `.mobile-fab-menu`, header styles all use 1180px
+- **Updated JS breakpoints** - WeeklyBoard, MobileNavigation, mobileFeatures all use 1180px/1181px
+- **Reverted corrupted App.jsx** - Restored from git after accidental edit corruption
 
 ## [1.5.25] - 2026-01-27
 ### iPad Mobile View & Login Autofill

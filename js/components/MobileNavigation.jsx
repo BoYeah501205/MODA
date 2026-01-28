@@ -15,8 +15,8 @@ window.MobileNavigation = function MobileNavigation({
     onLogout 
 }) {
     const [isOpen, setIsOpen] = React.useState(false);
-    // Include all iPads (up to 1366px for iPad Pro 12.9" landscape)
-    const isMobile = window.useIsMobile ? window.useIsMobile(1367) : true;
+    // Include iPad 10.9" (A14) = 1180px landscape
+    const isMobile = window.useIsMobile ? window.useIsMobile(1181) : true;
     
     // Close drawer when clicking overlay
     const handleOverlayClick = () => {

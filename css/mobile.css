@@ -356,7 +356,7 @@ textarea {
     transition: all 0.3s ease;
 }
 
-@media (max-width: 1367px) {
+@media (max-width: 1180px) {
     .mobile-fab-menu {
         display: flex;
     }
@@ -628,7 +628,7 @@ textarea {
     }
 }
 
-/* Hide on both mobile AND tablet (< 1024px) */
+/* Hide on both mobile AND tablet (< 1180px to cover iPad 10.9" landscape) */
 .hide-mobile-tablet {
     display: flex;
 }
@@ -637,7 +637,7 @@ textarea {
     display: none !important;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
     .hide-mobile-tablet {
         display: none !important;
     }
@@ -654,7 +654,7 @@ textarea {
     z-index: 50;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
     /* Compact header on mobile/tablet */
     .mobile-header .max-w-7xl {
         padding-left: 0.75rem;
