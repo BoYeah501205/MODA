@@ -304,7 +304,7 @@ textarea {
     flex: 1;
 }
 
-/* Floating Menu Button for Mobile Navigation */
+/* Floating Menu Button for Mobile Navigation - Bottom Right */
 .mobile-fab-menu {
     display: none;
     position: fixed !important;
@@ -312,11 +312,11 @@ textarea {
     right: 16px !important;
     left: auto !important;
     top: auto !important;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--autovol-navy, #1E3A5F) !important;
-    color: white !important;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--autovol-navy, #1E3A5F);
     border: none;
     cursor: pointer;
     z-index: 9999 !important;
@@ -324,8 +324,7 @@ textarea {
     justify-content: center;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.2s ease;
     /* iOS safe area */
     bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
 }
@@ -335,8 +334,7 @@ textarea {
 }
 
 .mobile-fab-menu.active {
-    background: var(--autovol-teal, #00A19C) !important;
-    color: white !important;
+    color: var(--autovol-teal, #00A19C);
 }
 
 .mobile-fab-icon {

@@ -2089,8 +2089,9 @@ function WeeklyBoardTab({
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
-    // Mobile detection
-    const isMobile = window.useIsMobile ? window.useIsMobile(768) : false;
+    // Mobile detection - include iPad/tablet (up to 1024px)
+    const isMobile = window.useIsMobile ? window.useIsMobile(1025) : false;
+    const isTabletOrMobile = isMobile; // Alias for clarity
     
     // Check if a feature should be hidden on mobile
     const isFeatureHiddenOnMobile = (featureId) => {
@@ -2301,8 +2302,11 @@ function WeeklyBoardTab({
     // Check if a module-station is selected
     const isSelected = (moduleId, stationId) => selectedModules.has(getSelectionKey(moduleId, stationId));
     
-    // Toggle selection for a module
+    // Toggle selection for a module (disabled on mobile/tablet - tap doesn't work well with multi-select)
     const toggleSelection = (moduleId, stationId, isCtrlKey = false) => {
+        // Disable multi-selection on mobile/tablet devices
+        if (isTabletOrMobile) return;
+        
         const key = getSelectionKey(moduleId, stationId);
         setSelectedModules(prev => {
             const newSet = new Set(isCtrlKey ? prev : []);

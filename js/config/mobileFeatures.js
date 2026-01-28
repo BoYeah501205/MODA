@@ -66,7 +66,8 @@
                     'weekHistoryButton',    // Week history/report modal
                     'productionMetrics',    // Production metrics dashboard
                     'modulesOnBoardPanel',  // Left sidebar modules panel
-                    'projectDropdown'       // Project selection dropdown
+                    'projectDropdown',      // Project selection dropdown
+                    'multiSelection'        // Multi-select (doesn't work well with touch)
                 ],
                 showOnMobile: [
                     'weeklyBoard',          // Main board view

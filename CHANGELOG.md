@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.21**
+**Current Version: 1.5.22**
 
 ---
+
+## [1.5.22] - 2026-01-27
+### iPad/Tablet Mobile View & Multi-Selection Fix
+- **iPad now uses mobile view** - Increased breakpoint to 1025px so iPad Pro (portrait/landscape) gets mobile-optimized UI
+- **Disabled multi-selection on mobile/tablet** - Tap-based multi-select doesn't work well on touch devices
+- **Restored original FAB button style** - Transparent background with navy icon, positioned at bottom-right corner
+- **Added multiSelection to hideOnMobile features** - Explicitly disabled in mobile config
 
 ## [1.5.21] - 2026-01-27
 ### Mobile Fixes - Hamburger Position & Safari Session
