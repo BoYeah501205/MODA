@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.26**
+**Current Version: 1.5.27**
 
 ---
+
+## [1.5.27] - 2026-01-27
+### Full-Width Layout for Weekly Board and Project Detail
+- **Weekly Board now uses full screen width** - Removed max-w-7xl constraint for production tab
+- **Project Detail views now use full screen width** - Module details expand to full width when viewing any project
+- **Added memory for future development** - Ensures this requirement is preserved in future changes
 
 ## [1.5.26] - 2026-01-27
 ### Fixed iPad Navigation Conflict
