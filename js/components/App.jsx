@@ -4008,52 +4008,60 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             };
 
             return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="p-6">
-                            {/* Header - Sticky */}
-                            <div className="flex justify-between items-start mb-6 sticky top-0 bg-white pt-2 pb-4 -mt-2 border-b">
-                                <div>
-                                    {editMode ? (
-                                        <div className="flex gap-3 items-center">
-                                            <div>
-                                                <label className="text-xs text-gray-500">Serial Number</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={displayModule.serialNumber || ''} 
-                                                    onChange={(e) => updateField('serialNumber', e.target.value)} 
-                                                    className="block text-xl font-bold px-2 py-1 border rounded w-32"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-500">Build Seq</label>
-                                                <input 
-                                                    type="number" 
-                                                    value={displayModule.buildSequence || ''} 
-                                                    onChange={(e) => updateField('buildSequence', parseInt(e.target.value) || 0)} 
-                                                    className="block text-lg px-2 py-1 border rounded w-20"
-                                                />
-                                            </div>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 md:p-4" onClick={onClose}>
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        {/* Fixed Header - Always visible with close button */}
+                        <div className="flex justify-between items-start p-4 md:p-6 border-b bg-white rounded-t-lg flex-shrink-0">
+                            <div className="flex-1 min-w-0">
+                                {editMode ? (
+                                    <div className="flex gap-3 items-center flex-wrap">
+                                        <div>
+                                            <label className="text-xs text-gray-500">Serial Number</label>
+                                            <input 
+                                                type="text" 
+                                                value={displayModule.serialNumber || ''} 
+                                                onChange={(e) => updateField('serialNumber', e.target.value)} 
+                                                className="block text-xl font-bold px-2 py-1 border rounded w-32"
+                                            />
                                         </div>
-                                    ) : (
-                                        <>
-                                            <h2 className="text-2xl font-bold text-autovol-navy">{displayModule.serialNumber}</h2>
-                                            <p className="text-gray-500">Build Sequence: {displayModule.buildSequence}</p>
-                                        </>
-                                    )}
-                                </div>
-                                <div className="flex gap-2">
-                                    {editMode ? (
-                                        <>
-                                            <button onClick={handleSave} className="px-3 py-1 btn-secondary rounded">Save</button>
-                                            <button onClick={() => { setEditMode(false); setEditingModule({ ...module }); }} className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Cancel</button>
-                                        </>
-                                    ) : (
-                                        <button onClick={() => setEditMode(true)} className="px-3 py-1 btn-primary rounded">Edit</button>
-                                    )}
-                                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                                </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500">Build Seq</label>
+                                            <input 
+                                                type="number" 
+                                                value={displayModule.buildSequence || ''} 
+                                                onChange={(e) => updateField('buildSequence', parseInt(e.target.value) || 0)} 
+                                                className="block text-lg px-2 py-1 border rounded w-20"
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <h2 className="text-xl md:text-2xl font-bold text-autovol-navy truncate">{displayModule.serialNumber}</h2>
+                                        <p className="text-gray-500 text-sm">Build Sequence: {displayModule.buildSequence}</p>
+                                    </>
+                                )}
                             </div>
+                            <div className="flex gap-2 items-center flex-shrink-0 ml-2">
+                                {editMode ? (
+                                    <>
+                                        <button onClick={handleSave} className="px-3 py-1 btn-secondary rounded text-sm">Save</button>
+                                        <button onClick={() => { setEditMode(false); setEditingModule({ ...module }); }} className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">Cancel</button>
+                                    </>
+                                ) : (
+                                    <button onClick={() => setEditMode(true)} className="px-3 py-1 btn-primary rounded text-sm">Edit</button>
+                                )}
+                                <button 
+                                    onClick={onClose} 
+                                    className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full text-2xl"
+                                    aria-label="Close"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6" style={{ WebkitOverflowScrolling: 'touch' }}>
                             
                             {/* Action Buttons */}
                             <div className="mb-6 grid grid-cols-2 gap-3">

@@ -62,7 +62,11 @@
                     'reorderMode',          // Drag-to-reorder modules
                     'weekNavArrows',        // Week navigation arrows (use dropdown)
                     'editWeekButton',       // Edit week in Schedule Setup
-                    'completeWeekButton'    // Complete week action
+                    'completeWeekButton',   // Complete week action
+                    'weekHistoryButton',    // Week history/report modal
+                    'productionMetrics',    // Production metrics dashboard
+                    'modulesOnBoardPanel',  // Left sidebar modules panel
+                    'projectDropdown'       // Project selection dropdown
                 ],
                 showOnMobile: [
                     'weeklyBoard',          // Main board view

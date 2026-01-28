@@ -2,9 +2,25 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.19**
+**Current Version: 1.5.21**
 
 ---
+
+## [1.5.21] - 2026-01-27
+### Mobile Fixes - Hamburger Position & Safari Session
+- **Fixed hamburger menu position** - Now correctly positioned at bottom-right corner with higher z-index (9999), visible background, and !important overrides
+- **Fixed Safari logout on refresh** - Session tokens now properly stored in localStorage after login for persistence across page refreshes
+- **Improved FAB button visibility** - Navy background with white icon, circular shape, drop shadow for better visibility
+
+## [1.5.20] - 2026-01-27
+### Mobile Optimization Phase 2
+- **Fixed module detail modal scroll/close issue** - Close button now always visible in fixed header on mobile
+- **Hidden Week History button on mobile** - Report feature not needed on mobile devices
+- **Hidden Production Metrics dashboard on mobile** - Reduces clutter, focuses on board
+- **Hidden Modules On Board panel on mobile** - Left sidebar hidden to maximize board space
+- **Added fixed viewport for Production Dashboard** - Screen stays fixed, only board scrolls (horizontal/vertical)
+- **Improved modal structure** - Separate fixed header and scrollable content area
+- **Added projectDropdown to mobile hidden features** - Cleaner mobile Weekly Board UI
 
 ## [1.5.19] - 2026-01-27
 ### Fixed Custom Permissions Error

@@ -307,24 +307,27 @@ textarea {
 /* Floating Menu Button for Mobile Navigation */
 .mobile-fab-menu {
     display: none;
-    position: fixed;
-    bottom: 20px;
-    right: 16px;
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--autovol-navy, #1E3A5F);
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 16px !important;
+    left: auto !important;
+    top: auto !important;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--autovol-navy, #1E3A5F) !important;
+    color: white !important;
     border: none;
     cursor: pointer;
-    z-index: 1001;
+    z-index: 9999 !important;
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: opacity 0.2s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     /* iOS safe area */
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 .mobile-fab-menu:active {
@@ -332,7 +335,8 @@ textarea {
 }
 
 .mobile-fab-menu.active {
-    color: var(--autovol-teal, #00A19C);
+    background: var(--autovol-teal, #00A19C) !important;
+    color: white !important;
 }
 
 .mobile-fab-icon {
@@ -1644,6 +1648,50 @@ textarea {
         min-width: 44px;
         min-height: 44px;
     }
+    
+    /* Module Detail Modal - Fix scroll and close button accessibility */
+    .fixed.inset-0.bg-black.bg-opacity-50 > .bg-white {
+        display: flex !important;
+        flex-direction: column !important;
+        max-height: 95vh !important;
+        height: auto !important;
+    }
+    
+    /* Sticky header with close button always visible */
+    .fixed.inset-0.bg-black.bg-opacity-50 > .bg-white > .p-6 {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        padding: 0 !important;
+    }
+    
+    /* Modal header - always visible at top */
+    .fixed.inset-0.bg-black.bg-opacity-50 > .bg-white .sticky.top-0 {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+        background: white !important;
+        padding: 1rem !important;
+        margin: 0 !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        flex-shrink: 0 !important;
+    }
+    
+    /* Modal body - scrollable */
+    .fixed.inset-0.bg-black.bg-opacity-50 > .bg-white .overflow-y-auto {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 1rem !important;
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+    }
+    
+    /* Ensure close button is always accessible */
+    .fixed.inset-0.bg-black.bg-opacity-50 > .bg-white button:last-child {
+        position: relative !important;
+        z-index: 20 !important;
+    }
 }
 
 /* ===== EXECUTIVE DASHBOARD MOBILE ===== */
@@ -1939,6 +1987,42 @@ textarea {
 /* Station pill active state */
 .mobile-weekly-board button.shadow-md {
     transform: scale(1.05);
+}
+
+/* ===== PRODUCTION DASHBOARD MOBILE - FIXED VIEWPORT ===== */
+@media (max-width: 768px) {
+    /* Production tab - fixed viewport, only board scrolls */
+    .mobile-weekly-board-container {
+        height: calc(100vh - 140px) !important; /* Subtract header height */
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    /* Board grid takes full height and scrolls both ways */
+    .mobile-weekly-board-container > div:last-child {
+        flex: 1 !important;
+        min-height: 0 !important;
+        overflow: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    /* Board scroll container */
+    .mobile-weekly-board-container .board-scroll-container {
+        height: 100% !important;
+        max-height: none !important;
+        min-height: auto !important;
+    }
+    
+    /* Hide horizontal scroll controls on mobile - use touch */
+    .mobile-weekly-board-container .no-print {
+        display: none !important;
+    }
+    
+    /* Compact header on mobile */
+    .mobile-weekly-board-container + .flex.items-center.gap-6 {
+        display: none !important; /* Hide legend on mobile */
+    }
 }
 
 /* ===== MOBILE CONTENT SPACING FIXES ===== */

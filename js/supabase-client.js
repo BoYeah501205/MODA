@@ -214,6 +214,25 @@
             console.log('[Supabase] Login succeeded, user:', result.user.email);
             currentUser = result.user;
             
+            // CRITICAL: Manually store session for persistence on refresh
+            // The direct fetch API bypasses Supabase SDK's session storage
+            try {
+                const sessionData = {
+                    access_token: result.access_token,
+                    refresh_token: result.refresh_token,
+                    expires_at: Math.floor(Date.now() / 1000) + result.expires_in,
+                    expires_in: result.expires_in,
+                    token_type: result.token_type,
+                    user: result.user
+                };
+                // Store in the format Supabase SDK expects
+                const storageKey = `sb-syreuphexagezawjyjgt-auth-token`;
+                localStorage.setItem(storageKey, JSON.stringify(sessionData));
+                console.log('[Supabase] Session stored for persistence');
+            } catch (storageErr) {
+                console.warn('[Supabase] Could not store session:', storageErr.message);
+            }
+            
             // Fetch profile using fetch API to avoid SDK hanging
             let profileData = null;
             try {

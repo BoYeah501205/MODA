@@ -5078,12 +5078,15 @@ const getProjectAcronym = (module) => {
                             Edit Week
                         </button>
                     )}
-                    <button
-                        onClick={() => setShowHistoryModal(true)}
-                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
-                    >
-                        📊 Week History
-                    </button>
+                    {/* Week History - hidden on mobile */}
+                    {!isFeatureHiddenOnMobile('weekHistoryButton') && (
+                        <button
+                            onClick={() => setShowHistoryModal(true)}
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
+                        >
+                            📊 Week History
+                        </button>
+                    )}
                     {/* Complete Week - hidden on mobile */}
                     {canEdit && !isFeatureHiddenOnMobile('completeWeekButton') && (
                         <button
@@ -5096,8 +5099,8 @@ const getProjectAcronym = (module) => {
                 </div>
             </div>
             
-            {/* Production Metrics Dashboard - Collapsible */}
-            {(() => {
+            {/* Production Metrics Dashboard - Collapsible - hidden on mobile */}
+            {!isFeatureHiddenOnMobile('productionMetrics') && (() => {
                 // Calculate THIS WEEK: count unique modules on board that have any progress
                 const modulesWithProgress = allModules.filter(module => {
                     const progress = module.stageProgress || {};
@@ -5200,8 +5203,9 @@ const getProjectAcronym = (module) => {
             
             
             {/* Main Board Area with Modules Panel */}
-            <div className="flex gap-1">
-                {/* Modules On-Board Panel (Left Sidebar) */}
+            <div className={`flex gap-1 ${isMobile ? 'mobile-weekly-board-container' : ''}`}>
+                {/* Modules On-Board Panel (Left Sidebar) - hidden on mobile */}
+                {!isFeatureHiddenOnMobile('modulesOnBoardPanel') && (
                 <div className="w-[140px] flex-shrink-0 no-print">
                     <div className="bg-white border rounded-lg shadow-sm sticky top-0">
                         <div className="bg-autovol-navy text-white px-3 py-2 rounded-t-lg">
@@ -5312,6 +5316,7 @@ const getProjectAcronym = (module) => {
                         </div>
                     </div>
                 </div>
+                )}
                 
                 {/* Station Board Grid with Date Markers */}
                 <div 
