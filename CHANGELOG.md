@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.24**
+**Current Version: 1.5.25**
 
 ---
+
+## [1.5.25] - 2026-01-27
+### iPad Mobile View & Login Autofill
+- **Fixed iPad not showing mobile view** - Increased breakpoint from 1025px to 1367px to include all iPad models (iPad 10th gen A16 = 1180px, iPad Pro 12.9" = 1366px)
+- **Fixed email/password autofill** - Added `name` and `autoComplete` attributes to login form inputs for browser "Remember Me" functionality
+- **Updated all mobile breakpoints** - WeeklyBoard, MobileNavigation, mobileFeatures, and CSS all now use 1367px
 
 ## [1.5.24] - 2026-01-27
 ### Fixed Logout on iPad/Mobile

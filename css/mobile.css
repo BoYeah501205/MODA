@@ -356,7 +356,7 @@ textarea {
     transition: all 0.3s ease;
 }
 
-@media (max-width: 1025px) {
+@media (max-width: 1367px) {
     .mobile-fab-menu {
         display: flex;
     }

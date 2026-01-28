@@ -2089,8 +2089,9 @@ function WeeklyBoardTab({
 }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     
-    // Mobile detection - include iPad/tablet (up to 1024px)
-    const isMobile = window.useIsMobile ? window.useIsMobile(1025) : false;
+    // Mobile detection - include all iPads (up to 1366px for iPad Pro 12.9")
+    // iPad 10th gen (A16) = 1180px landscape, iPad Pro 12.9" = 1366px landscape
+    const isMobile = window.useIsMobile ? window.useIsMobile(1367) : false;
     const isTabletOrMobile = isMobile; // Alias for clarity
     
     // Check if a feature should be hidden on mobile

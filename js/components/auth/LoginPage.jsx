@@ -37,13 +37,15 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
                     </div>
                     <h2 style={{color: '#1E3A5F'}} className="text-xl font-semibold text-center mb-6">Sign in to MODA</h2>
                     {error && <div className="mb-4 p-3 rounded-lg text-sm" style={{backgroundColor: '#FDEAEA', color: '#E31B23'}}>{error}</div>}
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" placeholder="you@autovol.com" required /></div>
+                    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" name="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" placeholder="you@autovol.com" required /></div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                             <div className="relative">
                                 <input 
                                     type={showPassword ? 'text' : 'password'} 
+                                    name="password"
+                                    autoComplete="current-password"
                                     value={password} 
                                     onChange={(e) => setPassword(e.target.value)} 
                                     className="input-field pr-10" 

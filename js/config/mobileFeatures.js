@@ -6,12 +6,12 @@
 (function() {
     'use strict';
 
-    // Mobile detection helper (matches useMobile.js logic)
+    // Mobile detection helper - includes all iPads up to iPad Pro 12.9" (1366px landscape)
     const isMobileDevice = () => {
         const ua = navigator.userAgent || '';
         return /iPhone|iPad|iPod|Android/i.test(ua) ||
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
-               window.innerWidth <= 1025;
+               window.innerWidth <= 1367;
     };
 
     window.MODA_MOBILE_CONFIG = {
