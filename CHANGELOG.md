@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.27**
+**Current Version: 1.5.28**
 
 ---
+
+## [1.5.28] - 2026-01-27
+### iPad Navigation Drawer Fixes
+- **Fixed navigation conflict** - Added `hide-mobile-tablet` class to NavigationGroups component so only the sidebar drawer shows on iPad
+- **Fixed drawer scrolling cutoff** - Drawer now uses flexbox layout with scrollable items container
+- **Added iOS safe area support** - Bottom padding accounts for home indicator on newer iPads
+- **Used dynamic viewport height** - `100dvh` properly handles browser chrome on mobile Safari
 
 ## [1.5.27] - 2026-01-27
 ### Full-Width Layout for Weekly Board and Project Detail

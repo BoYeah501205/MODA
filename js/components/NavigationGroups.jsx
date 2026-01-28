@@ -179,7 +179,7 @@ function NavigationGroups({
     };
 
     return (
-        <nav ref={navRef} className="nav-groups bg-white border-b nav-groups-container">
+        <nav ref={navRef} className="nav-groups bg-white border-b nav-groups-container hide-mobile-tablet">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="flex items-center gap-1 overflow-x-auto nav-groups-wrapper">
                     {/* Home Tab (if feature enabled) */}
