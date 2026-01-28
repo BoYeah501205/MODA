@@ -1720,8 +1720,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         </div>
                     ) : (
                         <>
-                            {/* Sub-tabs */}
-                            <div className="bg-white rounded-lg shadow">
+                            {/* Sub-tabs - Hidden on mobile/iPad */}
+                            <div className="bg-white rounded-lg shadow mb-4 hide-mobile-tablet">
                                 <div className="border-b flex overflow-x-auto">
                                     {[
                                         { id: 'weekly-board', label: 'Weekly Board' },
@@ -1745,7 +1745,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 </div>
                                 
                                 {/* Tab Content */}
-                                <div className="p-4">
+                                <div className="p-4 production-tab-content">
                                     
                                     
                                     {productionTab === 'module-status' && (

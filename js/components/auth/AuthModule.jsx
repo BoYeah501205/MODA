@@ -527,14 +527,23 @@ function useAuth() {
         window.MODA_CURRENT_USER = currentUser;
     }, [currentUser]);
 
-    // Listen for Supabase profile loaded event AND poll for it if not immediately available
+    // Listen for Supabase profile loaded event AND actively refresh if needed
     useEffect(() => {
         let pollInterval = null;
         let pollCount = 0;
-        const MAX_POLLS = 20; // Poll for up to 2 seconds (20 * 100ms)
+        const MAX_POLLS = 30; // Poll for up to 3 seconds (30 * 100ms)
+        let isMounted = true;
         
         const updateFromProfile = (profile) => {
+            if (!isMounted) return false;
+            
             if (profile && profile.id) {
+                // Check if this is a default/fallback profile
+                const isDefaultProfile = profile._isDefault === true;
+                if (isDefaultProfile) {
+                    console.log('[Auth] Received default profile (not from DB), will retry...');
+                }
+                
                 console.log('[Auth] Updating session with Supabase profile, role:', profile.dashboard_role, 'customPerms:', profile.custom_tab_permissions ? 'yes' : 'no');
                 const updatedSession = {
                     id: profile.id,
@@ -543,18 +552,19 @@ function useAuth() {
                     dashboardRole: profile.dashboard_role || 'employee',
                     department: profile.department || '',
                     isProtected: (profile.email || '').toLowerCase() === 'trevor@autovol.com',
-                    customTabPermissions: profile.custom_tab_permissions || null
+                    customTabPermissions: profile.custom_tab_permissions || null,
+                    _profileSource: isDefaultProfile ? 'default' : 'database'
                 };
                 setCurrentUser(updatedSession);
                 // Update storage to keep in sync
                 const storage = localStorage.getItem('autovol_session') ? localStorage : sessionStorage;
                 storage.setItem('autovol_session', JSON.stringify(updatedSession));
-                // Stop polling once we have the profile
-                if (pollInterval) {
+                // Stop polling once we have a real profile (not default)
+                if (!isDefaultProfile && pollInterval) {
                     clearInterval(pollInterval);
                     pollInterval = null;
                 }
-                return true;
+                return !isDefaultProfile;
             }
             return false;
         };
@@ -568,7 +578,11 @@ function useAuth() {
         // Check if profile is already loaded
         if (window.MODA_SUPABASE?.userProfile) {
             console.log('[Auth] Found existing Supabase profile on mount');
-            updateFromProfile(window.MODA_SUPABASE.userProfile);
+            const success = updateFromProfile(window.MODA_SUPABASE.userProfile);
+            if (!success) {
+                // Profile was default, try to refresh
+                tryRefreshProfile();
+            }
         } else {
             // Poll for profile if not immediately available (handles async loading race condition)
             console.log('[Auth] Profile not available yet, starting poll...');
@@ -576,16 +590,41 @@ function useAuth() {
                 pollCount++;
                 if (window.MODA_SUPABASE?.userProfile) {
                     console.log('[Auth] Profile found after polling');
-                    updateFromProfile(window.MODA_SUPABASE.userProfile);
+                    const success = updateFromProfile(window.MODA_SUPABASE.userProfile);
+                    if (success) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
                 } else if (pollCount >= MAX_POLLS) {
-                    console.log('[Auth] Profile poll timeout, using localStorage session');
+                    console.log('[Auth] Profile poll timeout, attempting refresh...');
                     clearInterval(pollInterval);
                     pollInterval = null;
+                    // Try one more time with refreshProfile
+                    tryRefreshProfile();
                 }
             }, 100);
         }
+        
+        // Helper to try refreshing profile from database
+        async function tryRefreshProfile() {
+            if (!isMounted || !window.MODA_SUPABASE?.refreshProfile) return;
+            
+            try {
+                console.log('[Auth] Attempting profile refresh...');
+                const result = await window.MODA_SUPABASE.refreshProfile();
+                if (result.success && result.profile) {
+                    console.log('[Auth] Profile refresh successful');
+                    updateFromProfile(result.profile);
+                } else {
+                    console.log('[Auth] Profile refresh failed:', result.error);
+                }
+            } catch (err) {
+                console.warn('[Auth] Profile refresh error:', err.message);
+            }
+        }
 
         return () => {
+            isMounted = false;
             window.removeEventListener('moda-profile-loaded', handleProfileLoaded);
             if (pollInterval) clearInterval(pollInterval);
         };

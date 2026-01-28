@@ -30,6 +30,173 @@
     let userProfile = null;
     let authStateListeners = [];
     let isInitialized = false;
+    let profileFetchInProgress = null; // Prevents duplicate fetches
+
+    // Retry configuration for profile operations
+    const PROFILE_RETRY_CONFIG = {
+        maxRetries: 3,
+        baseDelayMs: 500,
+        maxDelayMs: 5000
+    };
+
+    // Helper: Delay with exponential backoff
+    function delay(attempt) {
+        const delayMs = Math.min(
+            PROFILE_RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt),
+            PROFILE_RETRY_CONFIG.maxDelayMs
+        );
+        return new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    // Helper: Create default profile object (in-memory only)
+    function createDefaultProfile(userId, email, name) {
+        return {
+            id: userId,
+            email: email,
+            name: name || email?.split('@')[0] || 'User',
+            dashboard_role: 'employee',
+            is_protected: (email || '').toLowerCase() === 'trevor@autovol.com',
+            custom_tab_permissions: null,
+            _isDefault: true // Flag to indicate this is a fallback profile
+        };
+    }
+
+    // Helper: Fetch profile from database with retry logic
+    async function fetchProfileWithRetry(userId, accessToken) {
+        let lastError = null;
+        
+        for (let attempt = 0; attempt < PROFILE_RETRY_CONFIG.maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    console.log(`[Supabase] Profile fetch retry ${attempt + 1}/${PROFILE_RETRY_CONFIG.maxRetries}`);
+                    await delay(attempt);
+                }
+                
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const profiles = await response.json();
+                return profiles && profiles.length > 0 ? profiles[0] : null;
+                
+            } catch (err) {
+                lastError = err;
+                console.warn(`[Supabase] Profile fetch attempt ${attempt + 1} failed:`, err.message);
+            }
+        }
+        
+        throw lastError || new Error('Profile fetch failed after retries');
+    }
+
+    // Helper: Create profile in database with retry logic
+    async function createProfileWithRetry(userId, email, name, accessToken) {
+        const profileData = {
+            id: userId,
+            email: email,
+            name: name || email?.split('@')[0] || 'User',
+            dashboard_role: 'employee',
+            is_protected: (email || '').toLowerCase() === 'trevor@autovol.com'
+        };
+        
+        let lastError = null;
+        
+        for (let attempt = 0; attempt < PROFILE_RETRY_CONFIG.maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    console.log(`[Supabase] Profile create retry ${attempt + 1}/${PROFILE_RETRY_CONFIG.maxRetries}`);
+                    await delay(attempt);
+                }
+                
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(profileData)
+                    }
+                );
+                
+                // 409 Conflict means profile already exists (race condition with trigger)
+                if (response.status === 409) {
+                    console.log('[Supabase] Profile already exists (created by trigger), fetching...');
+                    return await fetchProfileWithRetry(userId, accessToken);
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const created = await response.json();
+                console.log('[Supabase] Profile created successfully');
+                return Array.isArray(created) ? created[0] : created;
+                
+            } catch (err) {
+                lastError = err;
+                console.warn(`[Supabase] Profile create attempt ${attempt + 1} failed:`, err.message);
+            }
+        }
+        
+        throw lastError || new Error('Profile creation failed after retries');
+    }
+
+    // Main helper: Ensure profile exists (fetch or create)
+    // This is the primary function for profile management
+    async function ensureProfile(userId, email, name, accessToken) {
+        // Prevent duplicate concurrent fetches for the same user
+        if (profileFetchInProgress && profileFetchInProgress.userId === userId) {
+            console.log('[Supabase] Profile fetch already in progress, waiting...');
+            return profileFetchInProgress.promise;
+        }
+        
+        const fetchPromise = (async () => {
+            try {
+                // First, try to fetch existing profile
+                console.log('[Supabase] Ensuring profile for:', email);
+                let profile = await fetchProfileWithRetry(userId, accessToken);
+                
+                if (profile) {
+                    console.log('[Supabase] Found existing profile, role:', profile.dashboard_role);
+                    return profile;
+                }
+                
+                // Profile doesn't exist - create it
+                console.log('[Supabase] No profile found, creating...');
+                profile = await createProfileWithRetry(userId, email, name, accessToken);
+                
+                if (profile) {
+                    console.log('[Supabase] Profile created, role:', profile.dashboard_role);
+                    return profile;
+                }
+                
+                // If all else fails, return default (but log warning)
+                console.warn('[Supabase] Could not fetch or create profile, using defaults');
+                return createDefaultProfile(userId, email, name);
+                
+            } finally {
+                profileFetchInProgress = null;
+            }
+        })();
+        
+        profileFetchInProgress = { userId, promise: fetchPromise };
+        return fetchPromise;
+    }
 
     // Initialize Supabase
     async function initialize() {
@@ -92,49 +259,22 @@
                 if (session?.user) {
                     currentUser = session.user;
                     
-                    // Fetch user profile using direct fetch API (SDK has hanging issues)
+                    // Fetch or create user profile with retry logic
                     try {
-                        console.log('[Supabase] Fetching profile for user:', session.user.id);
-                        const profileResponse = await fetch(
-                            `${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=*`,
-                            {
-                                headers: {
-                                    'apikey': SUPABASE_ANON_KEY,
-                                    'Authorization': `Bearer ${session.access_token}`
-                                }
-                            }
+                        const profile = await ensureProfile(
+                            session.user.id,
+                            session.user.email,
+                            session.user.user_metadata?.name,
+                            session.access_token
                         );
-                        const profiles = await profileResponse.json();
-                        console.log('[Supabase] Profile response:', profiles);
-                        
-                        if (profiles && profiles.length > 0) {
-                            userProfile = profiles[0];
-                            console.log('[Supabase] Loaded user profile, role:', userProfile.dashboard_role);
-                            // Dispatch event to notify components that profile is loaded
-                            window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: userProfile }));
-                        } else {
-                            // Profile doesn't exist - use default values
-                            console.log('[Supabase] No profile found, using defaults');
-                            userProfile = {
-                                id: session.user.id,
-                                email: session.user.email,
-                                name: session.user.user_metadata?.name || session.user.email.split('@')[0],
-                                dashboard_role: 'employee',
-                                is_protected: false
-                            };
-                            // Still dispatch event with defaults so UI updates
-                            window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: userProfile }));
-                        }
+                        userProfile = profile;
+                        console.log('[Supabase] Profile ready, role:', userProfile.dashboard_role);
+                        window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: userProfile }));
                     } catch (err) {
-                        console.error('[Supabase] Profile fetch error:', err);
-                        // Use defaults on error
-                        userProfile = {
-                            id: session.user.id,
-                            email: session.user.email,
-                            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
-                            dashboard_role: 'employee',
-                            is_protected: false
-                        };
+                        console.error('[Supabase] Profile ensure error:', err);
+                        // Use defaults on error but still dispatch event
+                        userProfile = createDefaultProfile(session.user.id, session.user.email, session.user.user_metadata?.name);
+                        window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: userProfile }));
                     }
                 } else {
                     currentUser = null;
@@ -233,51 +373,24 @@
                 console.warn('[Supabase] Could not store session:', storageErr.message);
             }
             
-            // Fetch profile using fetch API to avoid SDK hanging
+            // Ensure profile exists (fetch or create with retry logic)
             let profileData = null;
             try {
-                console.log('[Supabase] Fetching profile...');
-                const profileResponse = await fetch(
-                    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${result.user.id}&select=*`,
-                    {
-                        headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${result.access_token}`
-                        }
-                    }
+                profileData = await ensureProfile(
+                    result.user.id,
+                    result.user.email,
+                    result.user.user_metadata?.name,
+                    result.access_token
                 );
-                const profiles = await profileResponse.json();
-                console.log('[Supabase] Profile response:', profiles);
-                if (profiles && profiles.length > 0) {
-                    profileData = profiles[0];
-                    userProfile = profileData;
-                    console.log('[Supabase] Loaded profile, role:', profileData.dashboard_role);
-                    if (profileData.custom_tab_permissions) {
-                        console.log('[Supabase] User has custom tab permissions:', Object.keys(profileData.custom_tab_permissions));
-                    }
-                } else {
-                    console.log('[Supabase] No profile found, using defaults');
-                    userProfile = {
-                        id: result.user.id,
-                        email: result.user.email,
-                        name: result.user.email.split('@')[0],
-                        dashboard_role: 'employee',
-                        is_protected: false,
-                        custom_tab_permissions: null
-                    };
-                    profileData = userProfile;
+                userProfile = profileData;
+                
+                if (profileData.custom_tab_permissions) {
+                    console.log('[Supabase] User has custom tab permissions:', Object.keys(profileData.custom_tab_permissions));
                 }
             } catch (err) {
-                console.error('[Supabase] Profile fetch error:', err);
-                userProfile = {
-                    id: result.user.id,
-                    email: result.user.email,
-                    name: result.user.email.split('@')[0],
-                    dashboard_role: 'employee',
-                    is_protected: false,
-                    custom_tab_permissions: null
-                };
-                profileData = userProfile;
+                console.error('[Supabase] Profile ensure error:', err);
+                profileData = createDefaultProfile(result.user.id, result.user.email, result.user.user_metadata?.name);
+                userProfile = profileData;
             }
             
             console.log('[Supabase] Login complete, user:', result.user.email, 'role:', profileData?.dashboard_role);
@@ -882,6 +995,45 @@
         }
     }
 
+    // Refresh current user's profile from database
+    // Useful when profile may have been updated externally
+    async function refreshProfile() {
+        if (!currentUser) {
+            return { success: false, error: 'No user logged in' };
+        }
+
+        try {
+            // Get current access token
+            const storageKey = `sb-syreuphexagezawjyjgt-auth-token`;
+            const stored = localStorage.getItem(storageKey);
+            if (!stored) {
+                return { success: false, error: 'No session token found' };
+            }
+            
+            const session = JSON.parse(stored);
+            const accessToken = session?.access_token;
+            
+            if (!accessToken) {
+                return { success: false, error: 'No access token in session' };
+            }
+
+            console.log('[Supabase] Refreshing profile for:', currentUser.email);
+            const profile = await fetchProfileWithRetry(currentUser.id, accessToken);
+            
+            if (profile) {
+                userProfile = profile;
+                console.log('[Supabase] Profile refreshed, role:', profile.dashboard_role);
+                window.dispatchEvent(new CustomEvent('moda-profile-loaded', { detail: profile }));
+                return { success: true, profile };
+            } else {
+                return { success: false, error: 'Profile not found' };
+            }
+        } catch (error) {
+            console.error('[Supabase] Refresh profile error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // Expose global API
     window.MODA_SUPABASE = {
         initialize,
@@ -890,6 +1042,7 @@
         logout,
         resetPassword,
         updateProfile,
+        refreshProfile,
         onAuthStateChange,
         getAllUsers,
         updateUserRole,
@@ -903,6 +1056,17 @@
         checkUserByEmail,
         adminSetPassword,
         syncMissingProfiles,
+        ensureProfile: async (userId, email, name) => {
+            // Public wrapper that gets access token automatically
+            const storageKey = `sb-syreuphexagezawjyjgt-auth-token`;
+            const stored = localStorage.getItem(storageKey);
+            const session = stored ? JSON.parse(stored) : null;
+            const accessToken = session?.access_token;
+            if (!accessToken) {
+                throw new Error('No access token available');
+            }
+            return ensureProfile(userId, email, name, accessToken);
+        },
         get client() { return supabase; },
         get currentUser() { return currentUser; },
         get userProfile() { return userProfile; },

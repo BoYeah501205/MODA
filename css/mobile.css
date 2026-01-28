@@ -653,6 +653,16 @@ textarea {
     .show-mobile-tablet {
         display: block !important;
     }
+    
+    /* Remove padding from production tab content on mobile - Weekly Board needs full width */
+    .production-tab-content {
+        padding: 0 !important;
+    }
+    
+    /* Weekly Board should fill available space without extra scrolling */
+    .production-dashboard-mobile {
+        overflow: hidden;
+    }
 }
 
 /* ===== MOBILE HEADER STYLES ===== */

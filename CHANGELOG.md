@@ -2,9 +2,25 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.28**
+**Current Version: 1.5.29**
 
 ---
+
+## [1.5.29] - 2026-01-28
+### Authentication & Profile Stability Improvements
+- **Added retry logic for profile fetches** - Exponential backoff with 3 retries for network resilience
+- **Automatic profile creation on login** - If profile doesn't exist in DB, it's created automatically
+- **Prevents duplicate concurrent fetches** - Profile fetch deduplication prevents race conditions
+- **Added `ensureProfile()` helper** - Centralized profile management with fetch-or-create logic
+- **Added `refreshProfile()` function** - Manual profile refresh from database when needed
+- **Improved AuthModule polling** - Detects default/fallback profiles and actively retries
+- **Created consolidated SQL migration** - `backend/fix-profile-stability.sql` with all profile fixes
+- **Better error handling** - Graceful fallbacks when profile operations fail
+
+### Technical Details
+- `supabase-client.js`: Added `PROFILE_RETRY_CONFIG`, `createDefaultProfile()`, `fetchProfileWithRetry()`, `createProfileWithRetry()`, `ensureProfile()`, `refreshProfile()`
+- `AuthModule.jsx`: Improved profile polling with `_isDefault` detection and `tryRefreshProfile()` helper
+- SQL: Consolidated RLS policies, improved `handle_new_user` trigger, added `get_or_create_profile()` function
 
 ## [1.5.28] - 2026-01-27
 ### iPad Navigation Drawer Fixes
