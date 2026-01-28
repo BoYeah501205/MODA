@@ -17,8 +17,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.5.22">
-    <script>window.MODA_VERSION = '1.5.22'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.5.23">
+    <script>window.MODA_VERSION = '1.5.23'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -360,12 +360,43 @@
     <!-- Eruda Mobile Console (for iPad debugging without Mac) -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>
-        // Always init eruda for debugging (can be disabled later)
-        // Wait for eruda to load, then initialize
+        // Eruda console - disabled by default, can be enabled via Admin panel
+        // Setting stored in localStorage as 'moda_eruda_enabled'
         (function initEruda() {
+            const isEnabled = localStorage.getItem('moda_eruda_enabled') === 'true';
+            
             if (typeof eruda !== 'undefined') {
-                eruda.init();
-                console.log('[MODA] Eruda mobile console initialized - tap the green icon in bottom-right corner');
+                if (isEnabled) {
+                    eruda.init();
+                    console.log('[MODA] Eruda mobile console enabled - tap the gear icon in bottom-right corner');
+                }
+                // Expose toggle function for Admin panel
+                window.MODA_ERUDA = {
+                    isEnabled: function() { return localStorage.getItem('moda_eruda_enabled') === 'true'; },
+                    enable: function() {
+                        localStorage.setItem('moda_eruda_enabled', 'true');
+                        if (!eruda._isInit) {
+                            eruda.init();
+                        } else {
+                            eruda.show();
+                        }
+                    },
+                    disable: function() {
+                        localStorage.setItem('moda_eruda_enabled', 'false');
+                        if (eruda._isInit) {
+                            eruda.destroy();
+                        }
+                        // Reload to fully remove
+                        window.location.reload();
+                    },
+                    toggle: function() {
+                        if (this.isEnabled()) {
+                            this.disable();
+                        } else {
+                            this.enable();
+                        }
+                    }
+                };
             } else {
                 setTimeout(initEruda, 100);
             }

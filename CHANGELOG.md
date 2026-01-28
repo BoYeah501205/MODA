@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.22**
+**Current Version: 1.5.23**
 
 ---
+
+## [1.5.23] - 2026-01-27
+### Activity Log Fix & Debug Console Toggle
+- **Fixed Activity Log Supabase connection** - Added `window.supabaseClient` alias so activity log modules can access the Supabase client
+- **Disabled debug console by default** - Eruda mobile console (gear icon) now hidden by default
+- **Added Admin toggle for debug console** - New "Developer Tools" section in Admin > System allows enabling/disabling the mobile debug console
+- **Setting persists in localStorage** - Debug console preference stored as `moda_eruda_enabled`
 
 ## [1.5.22] - 2026-01-27
 ### iPad/Tablet Mobile View & Multi-Selection Fix

@@ -36,7 +36,8 @@
             description: 'Data management and activity monitoring',
             sections: [
                 { id: 'dataManagement', title: 'Data Management', description: 'Manage trash, backup and restore data' },
-                { id: 'activityLog', title: 'Activity Log', description: 'View system activity and audit trail' }
+                { id: 'activityLog', title: 'Activity Log', description: 'View system activity and audit trail' },
+                { id: 'developerTools', title: 'Developer Tools', description: 'Debug console and developer options' }
             ]
         }
     };
@@ -75,6 +76,51 @@
         return (
             <div className="mb-3 mt-6 first:mt-0">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">{title}</h2>
+            </div>
+        );
+    }
+
+    function DeveloperToolsSection() {
+        const [erudaEnabled, setErudaEnabled] = useState(() => {
+            return window.MODA_ERUDA?.isEnabled() || false;
+        });
+
+        const handleToggleEruda = useCallback(() => {
+            if (window.MODA_ERUDA) {
+                window.MODA_ERUDA.toggle();
+                setErudaEnabled(window.MODA_ERUDA.isEnabled());
+            }
+        }, []);
+
+        return (
+            <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <h4 className="font-medium text-gray-900">Mobile Debug Console</h4>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Shows a floating gear icon for viewing console logs, network requests, and debugging on mobile devices.
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleToggleEruda}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                            erudaEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                        role="switch"
+                        aria-checked={erudaEnabled}
+                    >
+                        <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                erudaEnabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                        />
+                    </button>
+                </div>
+                {erudaEnabled && (
+                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                        Debug console is enabled. A gear icon will appear in the bottom-right corner. Disabling will reload the page.
+                    </p>
+                )}
             </div>
         );
     }
@@ -171,6 +217,9 @@
                     ) : (
                         <p className="text-gray-500">Activity logging module not loaded.</p>
                     );
+
+                case 'developerTools':
+                    return <DeveloperToolsSection />;
 
                 default:
                     return <p className="text-gray-500">Section not found.</p>;

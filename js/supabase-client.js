@@ -893,6 +893,13 @@
         get isInitialized() { return isInitialized; }
     };
 
+    // Expose supabase client directly for modules that expect window.supabaseClient
+    // (e.g., supabase-activity-log.js, useActivityLogger.js)
+    Object.defineProperty(window, 'supabaseClient', {
+        get() { return supabase; },
+        configurable: true
+    });
+
     // Auto-initialize when script loads
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initialize);
