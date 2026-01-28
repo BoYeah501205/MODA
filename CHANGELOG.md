@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.23**
+**Current Version: 1.5.24**
 
 ---
+
+## [1.5.24] - 2026-01-27
+### Fixed Logout on iPad/Mobile
+- **Fixed logout not working on iPad** - Now explicitly clears the manually stored session token from localStorage
+- **Added forced page reload after logout** - Ensures all cached state is cleared
+- **Made logout more resilient** - Even if SDK signOut fails, session is cleared and page reloads
 
 ## [1.5.23] - 2026-01-27
 ### Activity Log Fix & Debug Console Toggle

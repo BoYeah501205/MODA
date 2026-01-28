@@ -329,30 +329,46 @@
 
     // Logout
     async function logout() {
-        if (!supabase) {
-            return { success: false, error: 'Supabase not initialized' };
-        }
-
         try {
             // Log logout before clearing user state
             if (window.ActivityLog && currentUser) {
                 window.ActivityLog.logLogout();
             }
             
-            const { error } = await supabase.auth.signOut();
-
-            if (error) {
-                console.error('[Supabase] Logout error:', error);
-                return { success: false, error: error.message };
+            // CRITICAL: Clear manually stored session token first
+            // This ensures logout works even if SDK signOut fails
+            const storageKey = `sb-syreuphexagezawjyjgt-auth-token`;
+            try {
+                localStorage.removeItem(storageKey);
+                console.log('[Supabase] Cleared stored session token');
+            } catch (e) {
+                console.warn('[Supabase] Could not clear session from localStorage:', e.message);
+            }
+            
+            // Also try SDK signOut if available
+            if (supabase) {
+                try {
+                    await supabase.auth.signOut();
+                } catch (signOutError) {
+                    console.warn('[Supabase] SDK signOut error (non-fatal):', signOutError.message);
+                }
             }
 
             currentUser = null;
             userProfile = null;
             console.log('[Supabase] Logout successful');
+            
+            // Force page reload to clear any cached state
+            window.location.reload();
+            
             return { success: true };
 
         } catch (error) {
             console.error('[Supabase] Logout exception:', error);
+            // Even on error, try to clear state and reload
+            currentUser = null;
+            userProfile = null;
+            window.location.reload();
             return { success: false, error: error.message };
         }
     }
