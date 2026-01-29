@@ -322,6 +322,22 @@ window.DEFAULT_DASHBOARD_ROLES = [
         isProtected: false
     },
     {
+        id: 'production_floor',
+        name: 'Production Floor',
+        description: 'Factory floor access - view-only drawings for production reference',
+        tabs: ['drawings'],
+        capabilities: {
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: false
+        },
+        tabPermissions: {
+            drawings: { canView: true, canEdit: false, canCreate: false, canDelete: false }
+        },
+        isDefault: false,
+        isProtected: false
+    },
+    {
         id: 'no-access',
         name: 'No Access',
         description: 'Cannot log in to system',

@@ -2,9 +2,28 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.29**
+**Current Version: 1.5.30**
 
 ---
+
+## [1.5.30] - 2026-01-28
+### Drawings Module Permissions & Activity Log
+- **Added 'Production Floor' role** - New role with view-only access to drawings tab for factory floor users
+- **Implemented granular drawing permissions** - UI elements now respect canView/canEdit/canCreate/canDelete permissions
+- **Hidden Upload buttons for view-only users** - Category, discipline, and drawings list views
+- **Hidden Edit/Delete action buttons for view-only users** - Only Info button remains visible
+- **Hidden AI Analysis and Fix Unlinked buttons for view-only users** - OCR features restricted to edit permissions
+- **Hidden checkbox column for view-only users** - OCR selection not available without edit permissions
+- **Removed redundant View button** - Filename is already clickable to open drawings
+- **Added Activity Log button** - New button in drawings header to view upload/update/delete history
+- **Created Activity Log modal** - Shows chronological list of drawing activities with user, action, and timestamp
+- **Full-width layout for Drawings tab** - Removed side padding to match Weekly Board layout
+- **Created SQL script for production user** - `backend/create-production-floor-user.sql` with setup instructions
+
+### User Setup Instructions
+1. Create user in Supabase Dashboard: Authentication > Users > Add User
+2. Email: `production@autovol.com`, Password: `autovol`
+3. Run SQL script to set dashboard_role to 'production_floor'
 
 ## [1.5.29] - 2026-01-28
 ### Authentication & Profile Stability Improvements

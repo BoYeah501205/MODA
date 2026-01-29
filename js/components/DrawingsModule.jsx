@@ -54,6 +54,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showDrawingStatusLog, setShowDrawingStatusLog] = useState(false); // Drawing status matrix modal
     const [showAIMenu, setShowAIMenu] = useState(false); // AI Analysis dropdown menu
     const [showAnalysisBrowser, setShowAnalysisBrowser] = useState(null); // 'walls' | 'fixtures' | 'changes' | null
+    const [showActivityLog, setShowActivityLog] = useState(false); // Drawing activity log modal
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -67,6 +68,30 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const canManageFolders = useMemo(() => {
         const role = auth?.currentUser?.dashboardRole;
         return role === 'admin' || role === 'Admin';
+    }, [auth]);
+    
+    // Check drawing-specific permissions using tab permissions system
+    const drawingPermissions = useMemo(() => {
+        const role = auth?.currentUser?.dashboardRole;
+        if (!role) return { canView: false, canEdit: false, canCreate: false, canDelete: false };
+        
+        // Admin has full access
+        if (role === 'admin' || role === 'Admin') {
+            return { canView: true, canEdit: true, canCreate: true, canDelete: true };
+        }
+        
+        // Check role-based permissions from DEFAULT_DASHBOARD_ROLES
+        const roleConfig = window.DEFAULT_DASHBOARD_ROLES?.find(r => r.id === role || r.name === role);
+        if (roleConfig?.tabPermissions?.drawings) {
+            return roleConfig.tabPermissions.drawings;
+        }
+        
+        // Default: if user has drawings tab access but no specific permissions, view-only
+        if (roleConfig?.tabs?.includes('drawings')) {
+            return { canView: true, canEdit: false, canCreate: false, canDelete: false };
+        }
+        
+        return { canView: false, canEdit: false, canCreate: false, canDelete: false };
     }, [auth]);
     
     // Available folder colors
@@ -1558,14 +1583,16 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             Reset Folders
                         </button>
                     )}
-                    <button
-                        onClick={() => setShowUploadModal(true)}
-                        className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
-                        style={{ backgroundColor: 'var(--autovol-teal)' }}
-                    >
-                        <span className="icon-upload w-4 h-4"></span>
-                        Upload
-                    </button>
+                    {drawingPermissions.canCreate && (
+                        <button
+                            onClick={() => setShowUploadModal(true)}
+                            className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
+                            style={{ backgroundColor: 'var(--autovol-teal)' }}
+                        >
+                            <span className="icon-upload w-4 h-4"></span>
+                            Upload
+                        </button>
+                    )}
                     <button
                         onClick={() => handleBreadcrumbClick('projects')}
                         className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
@@ -1678,14 +1705,16 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     </div>
                     
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setShowUploadModal(true)}
-                            className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
-                            style={{ backgroundColor: 'var(--autovol-teal)' }}
-                        >
-                            <span className="icon-upload w-4 h-4"></span>
-                            Upload
-                        </button>
+                        {drawingPermissions.canCreate && (
+                            <button
+                                onClick={() => setShowUploadModal(true)}
+                                className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
+                                style={{ backgroundColor: 'var(--autovol-teal)' }}
+                            >
+                                <span className="icon-upload w-4 h-4"></span>
+                                Upload
+                            </button>
+                        )}
                         <button
                             onClick={() => handleBreadcrumbClick('categories')}
                             className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
@@ -1830,6 +1859,14 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             <span className="icon-arrow-left w-4 h-4"></span>
                             Back
                         </button>
+                        <button
+                            onClick={() => setShowActivityLog(true)}
+                            className="px-4 py-2 bg-slate-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-slate-700"
+                            title="View drawing activity history"
+                        >
+                            <span className="icon-clock w-4 h-4"></span>
+                            Activity Log
+                        </button>
                         {isModulePackages && (
                             <button
                                 onClick={() => setShowDrawingStatusLog(true)}
@@ -1840,7 +1877,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 Status Log
                             </button>
                         )}
-                        {!isMobile && isModulePackages && unlinkedDrawings.length > 0 && (
+                        {!isMobile && isModulePackages && unlinkedDrawings.length > 0 && drawingPermissions.canEdit && (
                             <button
                                 onClick={() => setShowBulkRenameModal(true)}
                                 className="px-4 py-2 bg-amber-500 text-white rounded-lg transition flex items-center gap-2 hover:bg-amber-600"
@@ -1849,7 +1886,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 Fix Unlinked ({unlinkedDrawings.length})
                             </button>
                         )}
-                        {!isMobile && (
+                        {!isMobile && drawingPermissions.canCreate && (
                             <button
                                 onClick={() => setShowUploadModal(true)}
                                 className="px-4 py-2 text-white rounded-lg transition flex items-center gap-2"
@@ -1859,8 +1896,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 Upload Drawings
                             </button>
                         )}
-                        {/* AI Analysis Dropdown */}
-                        {!isMobile && isModulePackages && (
+                        {/* AI Analysis Dropdown - only for users with edit permissions */}
+                        {!isMobile && isModulePackages && drawingPermissions.canEdit && (
                             <div className="relative">
                                 <button
                                     onClick={() => setShowAIMenu(!showAIMenu)}
@@ -2201,7 +2238,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         <table className="w-full min-w-max">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    {window.MODA_SUPABASE?.client && (
+                                    {window.MODA_SUPABASE?.client && drawingPermissions.canEdit && (
                                         <th className="px-4 py-3 text-left">
                                             <input
                                                 type="checkbox"
@@ -2278,7 +2315,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     
                                     return (
                                         <tr key={drawing.id} className="hover:bg-gray-50">
-                                            {window.MODA_SUPABASE?.client && (
+                                            {window.MODA_SUPABASE?.client && drawingPermissions.canEdit && (
                                                 <td className="px-4 py-4">
                                                     {isPdf && (
                                                         <input
@@ -2404,20 +2441,13 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     >
                                                         <span className="icon-info-circle w-4 h-4"></span>
                                                     </button>
-                                                    <button
-                                                        onClick={() => setShowEditDrawing(drawing)}
-                                                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation"
-                                                        title="Edit / Rename"
-                                                    >
-                                                        <span className="icon-edit w-4 h-4"></span>
-                                                    </button>
-                                                    {latestVersion && (
+                                                    {drawingPermissions.canEdit && (
                                                         <button
-                                                            onClick={(e) => handleView(latestVersion, e)}
-                                                            className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition touch-manipulation"
-                                                            title="View in Browser"
+                                                            onClick={() => setShowEditDrawing(drawing)}
+                                                            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation"
+                                                            title="Edit / Rename"
                                                         >
-                                                            <span className="icon-eye w-4 h-4"></span>
+                                                            <span className="icon-edit w-4 h-4"></span>
                                                         </button>
                                                     )}
                                                     {/* PDF Viewer with Markup - disabled for now, saved for future development
@@ -2431,13 +2461,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                         </button>
                                                     )}
                                                     */}
-                                                    <button
-                                                        onClick={() => setShowDeleteConfirm(drawing)}
-                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
-                                                        title="Delete"
-                                                    >
-                                                        <span className="icon-trash w-4 h-4"></span>
-                                                    </button>
+                                                    {drawingPermissions.canDelete && (
+                                                        <button
+                                                            onClick={() => setShowDeleteConfirm(drawing)}
+                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation"
+                                                            title="Delete"
+                                                        >
+                                                            <span className="icon-trash w-4 h-4"></span>
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -3719,6 +3751,145 @@ const DrawingsModule = ({ projects = [], auth }) => {
     };
     
     // =========================================================================
+    // RENDER: Activity Log Modal
+    // =========================================================================
+    const ActivityLogModal = () => {
+        const [activities, setActivities] = useState([]);
+        const [loading, setLoading] = useState(true);
+        
+        useEffect(() => {
+            if (!showActivityLog || !selectedProject) return;
+            
+            const loadActivities = async () => {
+                setLoading(true);
+                try {
+                    if (window.MODA_SUPABASE_DRAWINGS?.activity?.getByProject) {
+                        const data = await window.MODA_SUPABASE_DRAWINGS.activity.getByProject(selectedProject.id, 100);
+                        setActivities(data || []);
+                    }
+                } catch (e) {
+                    console.warn('[Drawings] Failed to load activity log:', e);
+                }
+                setLoading(false);
+            };
+            
+            loadActivities();
+        }, [showActivityLog, selectedProject]);
+        
+        if (!showActivityLog) return null;
+        
+        const formatTime = (dateStr) => {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        };
+        
+        const getActionConfig = (action) => {
+            const configs = {
+                upload: { label: 'Upload', color: 'bg-green-100 text-green-800' },
+                delete: { label: 'Delete', color: 'bg-red-100 text-red-800' },
+                rename: { label: 'Rename', color: 'bg-amber-100 text-amber-800' },
+                version: { label: 'New Version', color: 'bg-blue-100 text-blue-800' },
+                restore: { label: 'Restore', color: 'bg-purple-100 text-purple-800' },
+                update: { label: 'Update', color: 'bg-cyan-100 text-cyan-800' }
+            };
+            return configs[action] || { label: action, color: 'bg-gray-100 text-gray-800' };
+        };
+        
+        return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h2 className="text-xl font-bold" style={{ color: 'var(--autovol-navy)' }}>
+                                Drawing Activity Log
+                            </h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                {selectedProject?.name} - {activities.length} activities
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowActivityLog(false)}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        >
+                            <span className="icon-close w-5 h-5"></span>
+                        </button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {loading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                        ) : activities.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500">
+                                <span className="icon-clock w-12 h-12 mx-auto mb-4 opacity-30" style={{ display: 'block' }}></span>
+                                <p>No activity recorded yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {activities.map((activity, idx) => {
+                                    const config = getActionConfig(activity.action);
+                                    let details = {};
+                                    try {
+                                        details = typeof activity.details === 'string' ? JSON.parse(activity.details) : (activity.details || {});
+                                    } catch (e) {}
+                                    
+                                    return (
+                                        <div key={activity.id || idx} className="border rounded-lg p-3 hover:bg-gray-50">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.color}`}>
+                                                            {config.label}
+                                                        </span>
+                                                        <span className="text-sm font-medium text-gray-900">
+                                                            {activity.user_name || 'Unknown'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-sm text-gray-600 mt-1">
+                                                        {details.fileName || details.name || details.drawingName || 'Drawing'}
+                                                        {details.oldName && details.newName && (
+                                                            <span className="text-gray-500"> ({details.oldName} → {details.newName})</span>
+                                                        )}
+                                                        {details.version && <span className="text-gray-500"> v{details.version}</span>}
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs text-gray-400 whitespace-nowrap">
+                                                    {formatTime(activity.created_at)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="p-4 border-t border-gray-200 flex justify-end">
+                        <button
+                            onClick={() => setShowActivityLog(false)}
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // =========================================================================
     // RENDER: Delete Folder Confirmation Modal
     // =========================================================================
     const DeleteFolderConfirmModal = () => {
@@ -3831,6 +4002,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <FileInfoModal />
             <FolderModal />
             <DeleteFolderConfirmModal />
+            <ActivityLogModal />
             
             {/* PDF Viewer with Markup - disabled for now */}
             {pdfViewerData && window.PDFViewerModal && (

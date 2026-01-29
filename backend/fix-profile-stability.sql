@@ -11,10 +11,34 @@
 -- ============================================================================
 
 -- ============================================================================
+-- STEP 0: Create profiles table if it doesn't exist
+-- ============================================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    dashboard_role TEXT DEFAULT 'employee',
+    is_protected BOOLEAN DEFAULT false,
+    custom_tab_permissions JSONB,
+    department TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing triggers that might conflict
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- ============================================================================
 -- STEP 1: Ensure proper RLS policies exist for profiles table
 -- ============================================================================
 
--- Drop existing policies to recreate them cleanly
+-- Drop existing policies to recreate them cleanly (safe - IF EXISTS)
 DROP POLICY IF EXISTS "Users can view all profiles" ON profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
@@ -111,13 +135,12 @@ CREATE OR REPLACE FUNCTION public.sync_missing_profiles()
 RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = ''
 AS $$
 DECLARE
     synced_count INTEGER := 0;
 BEGIN
     -- Insert profiles for auth users that don't have one
-    INSERT INTO public.profiles (id, email, name, dashboard_role, is_protected, created_at, updated_at)
+    INSERT INTO profiles (id, email, name, dashboard_role, is_protected, created_at, updated_at)
     SELECT 
         au.id,
         au.email,
@@ -127,13 +150,11 @@ BEGIN
         au.created_at,
         NOW()
     FROM auth.users au
-    LEFT JOIN public.profiles p ON au.id = p.id
+    LEFT JOIN profiles p ON au.id = p.id
     WHERE p.id IS NULL
     ON CONFLICT (id) DO NOTHING;
     
     GET DIAGNOSTICS synced_count = ROW_COUNT;
-    
-    RAISE LOG 'sync_missing_profiles: Created % new profile(s)', synced_count;
     
     RETURN synced_count;
 END;
@@ -239,6 +260,23 @@ WHERE tablename = 'profiles'
 ORDER BY cmd, policyname;
 
 -- ============================================================================
+-- STEP 7: Create updated_at trigger function and apply to profiles
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Recreate the updated_at trigger for profiles
+CREATE TRIGGER update_profiles_updated_at
+    BEFORE UPDATE ON profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
 -- Success message
 -- ============================================================================
 
@@ -247,10 +285,12 @@ DO $$ BEGIN
     RAISE NOTICE 'Profile stability fixes applied successfully!';
     RAISE NOTICE '';
     RAISE NOTICE 'Changes made:';
-    RAISE NOTICE '1. RLS policies updated for INSERT/UPDATE/SELECT';
-    RAISE NOTICE '2. handle_new_user trigger improved with error handling';
-    RAISE NOTICE '3. sync_missing_profiles function created/updated';
-    RAISE NOTICE '4. get_or_create_profile function created for client use';
-    RAISE NOTICE '5. Any missing profiles have been synced';
+    RAISE NOTICE '1. Profiles table created (if not exists)';
+    RAISE NOTICE '2. RLS policies updated for INSERT/UPDATE/SELECT';
+    RAISE NOTICE '3. handle_new_user trigger improved with error handling';
+    RAISE NOTICE '4. sync_missing_profiles function created/updated';
+    RAISE NOTICE '5. get_or_create_profile function created for client use';
+    RAISE NOTICE '6. updated_at trigger recreated';
+    RAISE NOTICE '7. Any missing profiles have been synced';
     RAISE NOTICE '========================================';
 END $$;

@@ -1189,7 +1189,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     )}
 
                     {/* Main Content - Full width for production tab and project detail views */}
-                    <main className={(activeTab === 'production' || selectedProject) ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
+                    <main className={(activeTab === 'production' || activeTab === 'drawings' || selectedProject) ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"}>
                         {/* Dashboard Home - Feature flagged */}
                         {activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                             window.DashboardHome ? (
@@ -1695,19 +1695,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     {/* Header */}
                     <div className="flex items-center justify-between flex-wrap gap-4">
                         <h2 className="text-2xl font-bold text-autovol-navy">Production Dashboard</h2>
-                        <div className="flex items-center gap-4">
-                            {activeProjects.length > 0 && (
-                                <select 
-                                    value={selectedProjectId || ''}
-                                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                                    className="border rounded px-3 py-2 font-medium"
-                                >
-                                    {activeProjects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
-                            )}
-                        </div>
                     </div>
                     
                     {activeProjects.length === 0 ? (
