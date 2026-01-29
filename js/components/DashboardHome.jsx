@@ -98,8 +98,18 @@ function DashboardHome({
         'wrap': 'Wrap'
     };
     
+    // Check if user is Production Floor (view-only drawings access)
+    const isProductionFloor = userRole === 'production_floor';
+    
     // Quick actions based on role - using CSS icon classes
     const quickActions = useMemo(() => {
+        // Production Floor only gets Drawings access
+        if (isProductionFloor) {
+            return [
+                { id: 'drawings', label: 'Drawings', iconClass: 'icon-file', tab: 'drawings' },
+            ];
+        }
+        
         const actions = [
             { id: 'production', label: 'Production Board', iconClass: 'icon-production', tab: 'production' },
             { id: 'projects', label: 'Projects', iconClass: 'icon-projects', tab: 'projects' },
@@ -118,7 +128,7 @@ function DashboardHome({
         }
         
         return actions;
-    }, [userRole]);
+    }, [userRole, isProductionFloor]);
 
     return (
         <div className="dashboard-home">
@@ -156,116 +166,120 @@ function DashboardHome({
                 </div>
             </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Active Projects */}
-                <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: 'var(--autovol-teal)' }}>
-                    <div className="text-3xl font-bold" style={{ color: 'var(--autovol-navy)' }}>
-                        {metrics.activeProjects}
-                    </div>
-                    <div className="text-sm text-gray-500">Active Projects</div>
-                </div>
-
-                {/* Total Modules */}
-                <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: 'var(--autovol-navy)' }}>
-                    <div className="text-3xl font-bold" style={{ color: 'var(--autovol-navy)' }}>
-                        {metrics.totalModules}
-                    </div>
-                    <div className="text-sm text-gray-500">Total Modules</div>
-                </div>
-
-                {/* In Progress */}
-                <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: '#F59E0B' }}>
-                    <div className="text-3xl font-bold" style={{ color: '#F59E0B' }}>
-                        {metrics.inProgress}
-                    </div>
-                    <div className="text-sm text-gray-500">In Progress</div>
-                </div>
-
-                {/* Completed */}
-                <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: '#10B981' }}>
-                    <div className="text-3xl font-bold" style={{ color: '#10B981' }}>
-                        {metrics.completed}
-                    </div>
-                    <div className="text-sm text-gray-500">Completed</div>
-                </div>
-            </div>
-
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Bottlenecks / Attention Needed */}
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
-                        <span className="icon-alert" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> Stations Needing Attention
-                    </h3>
-                    {metrics.bottlenecks.length > 0 ? (
-                        <div className="space-y-2">
-                            {metrics.bottlenecks.map(({ stageId, count }) => (
-                                <div 
-                                    key={stageId}
-                                    className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200"
-                                >
-                                    <span className="font-medium">{stageNames[stageId] || stageId}</span>
-                                    <span className="text-amber-700 font-semibold">{count} modules</span>
-                                </div>
-                            ))}
+            {/* Metrics Grid - Hidden for Production Floor */}
+            {!isProductionFloor && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    {/* Active Projects */}
+                    <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: 'var(--autovol-teal)' }}>
+                        <div className="text-3xl font-bold" style={{ color: 'var(--autovol-navy)' }}>
+                            {metrics.activeProjects}
                         </div>
-                    ) : (
-                        <div className="text-center py-8 text-gray-400">
-                            <span className="icon-check" style={{ width: '40px', height: '40px', display: 'block', margin: '0 auto 8px', filter: 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(95%) contrast(95%)' }}></span>
-                            No bottlenecks detected
-                        </div>
-                    )}
-                </div>
+                        <div className="text-sm text-gray-500">Active Projects</div>
+                    </div>
 
-                {/* Active Projects List */}
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
-                        <span className="icon-projects" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> Active Projects
-                    </h3>
-                    {projects.filter(p => p.status === 'Active').length > 0 ? (
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {projects.filter(p => p.status === 'Active').slice(0, 5).map(project => {
-                                const moduleCount = project.modules?.length || 0;
-                                const completedCount = (project.modules || []).filter(m => {
-                                    const stages = m.stageProgress || {};
-                                    const avg = Object.values(stages).reduce((a, b) => a + b, 0) / (Object.values(stages).length || 1);
-                                    return avg >= 100;
-                                }).length;
-                                const progress = moduleCount > 0 ? Math.round((completedCount / moduleCount) * 100) : 0;
-                                
-                                return (
+                    {/* Total Modules */}
+                    <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: 'var(--autovol-navy)' }}>
+                        <div className="text-3xl font-bold" style={{ color: 'var(--autovol-navy)' }}>
+                            {metrics.totalModules}
+                        </div>
+                        <div className="text-sm text-gray-500">Total Modules</div>
+                    </div>
+
+                    {/* In Progress */}
+                    <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: '#F59E0B' }}>
+                        <div className="text-3xl font-bold" style={{ color: '#F59E0B' }}>
+                            {metrics.inProgress}
+                        </div>
+                        <div className="text-sm text-gray-500">In Progress</div>
+                    </div>
+
+                    {/* Completed */}
+                    <div className="metric-card bg-white rounded-lg p-4 shadow-sm border-l-4" style={{ borderLeftColor: '#10B981' }}>
+                        <div className="text-3xl font-bold" style={{ color: '#10B981' }}>
+                            {metrics.completed}
+                        </div>
+                        <div className="text-sm text-gray-500">Completed</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Two Column Layout - Hidden for Production Floor */}
+            {!isProductionFloor && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Bottlenecks / Attention Needed */}
+                    <div className="bg-white rounded-lg shadow-sm p-4">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
+                            <span className="icon-alert" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> Stations Needing Attention
+                        </h3>
+                        {metrics.bottlenecks.length > 0 ? (
+                            <div className="space-y-2">
+                                {metrics.bottlenecks.map(({ stageId, count }) => (
                                     <div 
-                                        key={project.id}
-                                        className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 cursor-pointer transition"
-                                        onClick={() => onNavigate?.('projects')}
+                                        key={stageId}
+                                        className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200"
                                     >
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="font-medium">{project.name}</span>
-                                            <span className="text-sm text-gray-500">{moduleCount} modules</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div 
-                                                className="h-2 rounded-full transition-all"
-                                                style={{ 
-                                                    width: `${progress}%`,
-                                                    backgroundColor: progress === 100 ? '#10B981' : 'var(--autovol-teal)'
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-1">{progress}% complete</div>
+                                        <span className="font-medium">{stageNames[stageId] || stageId}</span>
+                                        <span className="text-amber-700 font-semibold">{count} modules</span>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-gray-400">
-                            <span className="icon-folder" style={{ width: '40px', height: '40px', display: 'block', margin: '0 auto 8px', opacity: '0.5' }}></span>
-                            No active projects
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-gray-400">
+                                <span className="icon-check" style={{ width: '40px', height: '40px', display: 'block', margin: '0 auto 8px', filter: 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(95%) contrast(95%)' }}></span>
+                                No bottlenecks detected
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Active Projects List */}
+                    <div className="bg-white rounded-lg shadow-sm p-4">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--autovol-navy)' }}>
+                            <span className="icon-projects" style={{ width: '20px', height: '20px', display: 'inline-block' }}></span> Active Projects
+                        </h3>
+                        {projects.filter(p => p.status === 'Active').length > 0 ? (
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {projects.filter(p => p.status === 'Active').slice(0, 5).map(project => {
+                                    const moduleCount = project.modules?.length || 0;
+                                    const completedCount = (project.modules || []).filter(m => {
+                                        const stages = m.stageProgress || {};
+                                        const avg = Object.values(stages).reduce((a, b) => a + b, 0) / (Object.values(stages).length || 1);
+                                        return avg >= 100;
+                                    }).length;
+                                    const progress = moduleCount > 0 ? Math.round((completedCount / moduleCount) * 100) : 0;
+                                    
+                                    return (
+                                        <div 
+                                            key={project.id}
+                                            className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 cursor-pointer transition"
+                                            onClick={() => onNavigate?.('projects')}
+                                        >
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="font-medium">{project.name}</span>
+                                                <span className="text-sm text-gray-500">{moduleCount} modules</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div 
+                                                    className="h-2 rounded-full transition-all"
+                                                    style={{ 
+                                                        width: `${progress}%`,
+                                                        backgroundColor: progress === 100 ? '#10B981' : 'var(--autovol-teal)'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1">{progress}% complete</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-gray-400">
+                                <span className="icon-folder" style={{ width: '40px', height: '40px', display: 'block', margin: '0 auto 8px', opacity: '0.5' }}></span>
+                                No active projects
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* ===== WEEKLY SCHEDULE WIDGET ===== */}
             {['admin', 'department-supervisor', 'coordinator'].includes(userRole) && (

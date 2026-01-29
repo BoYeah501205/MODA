@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.30**
+**Current Version: 1.5.31**
 
 ---
+
+## [1.5.31] - 2026-01-28
+### Production Floor View Refinements
+- **Hidden Status column** for view-only users in drawings table
+- **Hidden Status Log button** for view-only users
+- **Hidden Status dropdown filter** for view-only users
+- **Simplified Home page for Production Floor** - Only shows Drawings quick action, hides all metrics and project widgets
 
 ## [1.5.30] - 2026-01-28
 ### Drawings Module Permissions & Activity Log

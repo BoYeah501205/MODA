@@ -1867,7 +1867,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             <span className="icon-clock w-4 h-4"></span>
                             Activity Log
                         </button>
-                        {isModulePackages && (
+                        {isModulePackages && drawingPermissions.canEdit && (
                             <button
                                 onClick={() => setShowDrawingStatusLog(true)}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-blue-700"
@@ -2019,8 +2019,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                             )}
                         </div>
                         
-                        {/* Status Filter (Module Packages only) */}
-                        {isModulePackages && (
+                        {/* Status Filter (Module Packages only, edit permissions required) */}
+                        {isModulePackages && drawingPermissions.canEdit && (
                             <select
                                 value={issueStatusFilter}
                                 onChange={(e) => setIssueStatusFilter(e.target.value)}
@@ -2256,7 +2256,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             />
                                         </th>
                                     )}
-                                    {isModulePackages && (
+                                    {isModulePackages && drawingPermissions.canEdit && (
                                         <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                                             Status
                                         </th>
@@ -2334,7 +2334,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     )}
                                                 </td>
                                             )}
-                                            {isModulePackages && (
+                                            {isModulePackages && drawingPermissions.canEdit && (
                                                 <td className="px-2 py-4 text-center">
                                                     {(() => {
                                                         // Check if this module has open shop-drawing issues
