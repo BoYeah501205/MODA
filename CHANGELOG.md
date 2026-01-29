@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.31**
+**Current Version: 1.5.32**
 
 ---
+
+## [1.5.32] - 2026-01-28
+### Production Floor View Refinements (continued)
+- **Hidden Advanced Filters** for view-only users in drawings module
 
 ## [1.5.31] - 2026-01-28
 ### Production Floor View Refinements

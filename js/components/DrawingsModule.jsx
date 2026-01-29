@@ -2033,8 +2033,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
                         )}
                     </div>
                     
-                    {/* Advanced Filters (Module Packages only) */}
-                    {isModulePackages && filterOptions.unitTypes.length > 0 && (
+                    {/* Advanced Filters (Module Packages only, requires edit permissions) */}
+                    {isModulePackages && filterOptions.unitTypes.length > 0 && drawingPermissions.canEdit && (
                         <div className="mt-3">
                             {/* Toggle Button */}
                             <button
