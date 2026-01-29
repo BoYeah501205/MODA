@@ -15,6 +15,7 @@ const ALL_AVAILABLE_TABS = [
     { id: 'engineering', label: '📐 Engineering', icon: '📐', description: 'Engineering documentation' },
     { id: 'automation', label: '🤖 Automation', icon: '🤖', description: 'Automation systems' },
     { id: 'tracker', label: '📦 Tracker', icon: '📦', description: 'Module tracking system' },
+    { id: 'drawings', label: '📐 Drawings', icon: '📐', description: 'Project drawings management' },
     { id: 'admin', label: '⚙️ Admin', icon: '⚙️', description: 'System administration' }
 ];
 
@@ -25,7 +26,7 @@ const DEFAULT_DASHBOARD_ROLES = [
         id: 'admin',
         name: 'Admin',
         description: 'Full system access for operations management',
-        tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'onsite', 'engineering', 'automation', 'tracker', 'admin'],
+        tabs: ['executive', 'production', 'projects', 'people', 'qa', 'transport', 'equipment', 'onsite', 'engineering', 'drawings', 'automation', 'tracker', 'admin'],
         capabilities: {
             canEdit: true,
             canDelete: true,
@@ -261,6 +262,23 @@ const DEFAULT_DASHBOARD_ROLES = [
         isProtected: false
     },
     {
+        id: 'production_floor',
+        name: 'Production Floor',
+        description: 'Factory floor access - view-only drawings for production reference',
+        tabs: ['drawings'],
+        capabilities: {
+            canEdit: false,
+            canDelete: false,
+            canCreate: false,
+            canManageUsers: false,
+            canAccessAdmin: false,
+            canExportData: false
+        },
+        editableTabs: [],
+        isDefault: false,
+        isProtected: false
+    },
+    {
         id: 'no-access',
         name: 'No Access',
         description: 'Cannot log in to system',
@@ -282,7 +300,7 @@ const DEFAULT_DASHBOARD_ROLES = [
 // Initialize roles in localStorage
 function initializeDashboardRoles() {
     const existing = localStorage.getItem('autovol_dashboard_roles');
-    const ROLES_VERSION = 2; // Incremented: Added new roles and editableTabs property
+    const ROLES_VERSION = 3; // Incremented: Added production_floor role and drawings tab
     
     if (!existing) {
         localStorage.setItem('autovol_dashboard_roles', JSON.stringify(DEFAULT_DASHBOARD_ROLES));

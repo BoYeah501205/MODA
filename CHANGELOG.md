@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.35**
+**Current Version: 1.5.36**
 
 ---
+
+## [1.5.36] - 2026-01-29
+### Production Floor Role Fix
+- **Added production_floor role to dashboardRoles.js** - Synced with AuthConstants.jsx for consistency
+- **Added drawings tab to ALL_AVAILABLE_TABS** - Ensures drawings tab is recognized in role system
+- **Incremented ROLES_VERSION to 3** - Forces localStorage update on all clients
+- **Fix for production@autovol.com** - Users with production_floor role can now see Drawings tab on iPad
 
 ## [1.5.35] - 2026-01-29
 ### Mobile PDF Page Images (On-Demand)
