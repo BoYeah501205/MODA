@@ -14,15 +14,6 @@ const DrawingsModule = ({ projects = [], auth }) => {
         return window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }, []);
     
-    // iOS Safari detection - use native PDF viewer for better performance
-    const isIOSSafari = useMemo(() => {
-        if (typeof window === 'undefined') return false;
-        const ua = navigator.userAgent;
-        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS/.test(ua);
-        return isIOS && isSafari;
-    }, []);
-    
     // Navigation state
     const [selectedProject, setSelectedProject] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -4013,22 +4004,24 @@ const DrawingsModule = ({ projects = [], auth }) => {
             <DeleteFolderConfirmModal />
             <ActivityLogModal />
             
-            {/* PDF Viewer - Native iframe for iOS Safari (better performance), custom viewer for desktop */}
+            {/* PDF Viewer - Mobile uses optimized image-based viewer, desktop uses custom viewer */}
             {pdfViewerData && (
-                isIOSSafari ? (
-                    // Native Safari PDF viewer via iframe - much faster on iOS
-                    <div className="fixed inset-0 bg-black/80 flex flex-col z-50">
-                        <div className="flex items-center justify-between p-3 bg-gray-900 text-white">
-                            <h3 className="font-medium truncate flex-1 mr-4">{pdfViewerData.name}</h3>
-                            <div className="flex items-center gap-2">
-                                <a
-                                    href={pdfViewerData.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm"
-                                >
-                                    Open in New Tab
-                                </a>
+                isMobile ? (
+                    // Mobile: Use MobilePdfViewer with page images for fast loading
+                    window.MobilePdfViewer ? (
+                        <window.MobilePdfViewer
+                            isOpen={true}
+                            onClose={() => setPdfViewerData(null)}
+                            pdfUrl={pdfViewerData.url}
+                            drawingName={pdfViewerData.name}
+                            drawingId={pdfViewerData.drawingId}
+                            versionId={pdfViewerData.versionId}
+                        />
+                    ) : (
+                        // Fallback to native iframe if MobilePdfViewer not loaded
+                        <div className="fixed inset-0 bg-black/80 flex flex-col z-50">
+                            <div className="flex items-center justify-between p-3 bg-gray-900 text-white">
+                                <h3 className="font-medium truncate flex-1 mr-4">{pdfViewerData.name}</h3>
                                 <button
                                     onClick={() => setPdfViewerData(null)}
                                     className="p-2 hover:bg-gray-700 rounded-full"
@@ -4036,15 +4029,15 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                     <span className="icon-x w-5 h-5"></span>
                                 </button>
                             </div>
+                            <iframe
+                                src={pdfViewerData.url}
+                                className="flex-1 w-full bg-white"
+                                title={pdfViewerData.name}
+                            />
                         </div>
-                        <iframe
-                            src={pdfViewerData.url}
-                            className="flex-1 w-full bg-white"
-                            title={pdfViewerData.name}
-                        />
-                    </div>
+                    )
                 ) : (
-                    // Custom PDF viewer with markup tools for desktop
+                    // Desktop: Custom PDF viewer with markup tools
                     window.PDFViewerModal && (
                         <window.PDFViewerModal
                             isOpen={true}

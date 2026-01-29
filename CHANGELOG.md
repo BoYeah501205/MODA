@@ -2,9 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.34**
+**Current Version: 1.5.35**
 
 ---
+
+## [1.5.35] - 2026-01-29
+### Mobile PDF Page Images (On-Demand)
+- **Pre-rendered page images** - PDFs split into single-page files for faster mobile loading
+- **On-demand generation** - First mobile view triggers background processing, subsequent views are instant
+- **MobilePdfViewer component** - Swipe navigation, page selector, progress indicator while generating
+- **Native fallback** - Shows PDF in iframe while images are being generated
+- **Works for iOS and Android** - All mobile devices get optimized viewing experience
+
+### Setup Required
+Run `backend/create-pdf-page-images-table.sql` in Supabase and deploy `generate-pdf-images` Edge Function
 
 ## [1.5.34] - 2026-01-29
 ### Background Upload Queue

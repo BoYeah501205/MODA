@@ -82,6 +82,7 @@ const FILE_ORDER = [
     'UploadQueueIndicator.jsx',
     'DrawingLinksPanel.jsx',
     'DrawingsModule.jsx',
+    'MobilePdfViewer.jsx',
     'PDFViewerModal.jsx',
     'DrawingStatusLog.jsx',
     'SheetBrowser.jsx',
