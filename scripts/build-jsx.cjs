@@ -79,6 +79,7 @@ const FILE_ORDER = [
     'ReportsHub.jsx',
     
     // Drawings Module
+    'UploadQueueIndicator.jsx',
     'DrawingLinksPanel.jsx',
     'DrawingsModule.jsx',
     'PDFViewerModal.jsx',

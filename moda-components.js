@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-27T19:18:12.356Z
+ * Generated: 2026-01-29T11:27:25.446Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -2090,6 +2090,26 @@ window.DEFAULT_DASHBOARD_ROLES = [{
   isDefault: true,
   isProtected: false
 }, {
+  id: 'production_floor',
+  name: 'Production Floor',
+  description: 'Factory floor access - view-only drawings for production reference',
+  tabs: ['drawings'],
+  capabilities: {
+    canManageUsers: false,
+    canAccessAdmin: false,
+    canExportData: false
+  },
+  tabPermissions: {
+    drawings: {
+      canView: true,
+      canEdit: false,
+      canCreate: false,
+      canDelete: false
+    }
+  },
+  isDefault: false,
+  isProtected: false
+}, {
   id: 'no-access',
   name: 'No Access',
   description: 'Cannot log in to system',
@@ -2798,14 +2818,20 @@ function useAuth() {
     window.MODA_CURRENT_USER = currentUser;
   }, [currentUser]);
 
-  // Listen for Supabase profile loaded event AND poll for it if not immediately available
+  // Listen for Supabase profile loaded event AND actively refresh if needed
   useEffect(() => {
     let pollInterval = null;
     let pollCount = 0;
-    const MAX_POLLS = 20; // Poll for up to 2 seconds (20 * 100ms)
-
+    const MAX_POLLS = 30; // Poll for up to 3 seconds (30 * 100ms)
+    let isMounted = true;
     const updateFromProfile = profile => {
+      if (!isMounted) return false;
       if (profile && profile.id) {
+        // Check if this is a default/fallback profile
+        const isDefaultProfile = profile._isDefault === true;
+        if (isDefaultProfile) {
+          console.log('[Auth] Received default profile (not from DB), will retry...');
+        }
         console.log('[Auth] Updating session with Supabase profile, role:', profile.dashboard_role, 'customPerms:', profile.custom_tab_permissions ? 'yes' : 'no');
         const updatedSession = {
           id: profile.id,
@@ -2814,18 +2840,19 @@ function useAuth() {
           dashboardRole: profile.dashboard_role || 'employee',
           department: profile.department || '',
           isProtected: (profile.email || '').toLowerCase() === 'trevor@autovol.com',
-          customTabPermissions: profile.custom_tab_permissions || null
+          customTabPermissions: profile.custom_tab_permissions || null,
+          _profileSource: isDefaultProfile ? 'default' : 'database'
         };
         setCurrentUser(updatedSession);
         // Update storage to keep in sync
         const storage = localStorage.getItem('autovol_session') ? localStorage : sessionStorage;
         storage.setItem('autovol_session', JSON.stringify(updatedSession));
-        // Stop polling once we have the profile
-        if (pollInterval) {
+        // Stop polling once we have a real profile (not default)
+        if (!isDefaultProfile && pollInterval) {
           clearInterval(pollInterval);
           pollInterval = null;
         }
-        return true;
+        return !isDefaultProfile;
       }
       return false;
     };
@@ -2837,7 +2864,11 @@ function useAuth() {
     // Check if profile is already loaded
     if (window.MODA_SUPABASE?.userProfile) {
       console.log('[Auth] Found existing Supabase profile on mount');
-      updateFromProfile(window.MODA_SUPABASE.userProfile);
+      const success = updateFromProfile(window.MODA_SUPABASE.userProfile);
+      if (!success) {
+        // Profile was default, try to refresh
+        tryRefreshProfile();
+      }
     } else {
       // Poll for profile if not immediately available (handles async loading race condition)
       console.log('[Auth] Profile not available yet, starting poll...');
@@ -2845,15 +2876,39 @@ function useAuth() {
         pollCount++;
         if (window.MODA_SUPABASE?.userProfile) {
           console.log('[Auth] Profile found after polling');
-          updateFromProfile(window.MODA_SUPABASE.userProfile);
+          const success = updateFromProfile(window.MODA_SUPABASE.userProfile);
+          if (success) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
         } else if (pollCount >= MAX_POLLS) {
-          console.log('[Auth] Profile poll timeout, using localStorage session');
+          console.log('[Auth] Profile poll timeout, attempting refresh...');
           clearInterval(pollInterval);
           pollInterval = null;
+          // Try one more time with refreshProfile
+          tryRefreshProfile();
         }
       }, 100);
     }
+
+    // Helper to try refreshing profile from database
+    async function tryRefreshProfile() {
+      if (!isMounted || !window.MODA_SUPABASE?.refreshProfile) return;
+      try {
+        console.log('[Auth] Attempting profile refresh...');
+        const result = await window.MODA_SUPABASE.refreshProfile();
+        if (result.success && result.profile) {
+          console.log('[Auth] Profile refresh successful');
+          updateFromProfile(result.profile);
+        } else {
+          console.log('[Auth] Profile refresh failed:', result.error);
+        }
+      } catch (err) {
+        console.warn('[Auth] Profile refresh error:', err.message);
+      }
+    }
     return () => {
+      isMounted = false;
       window.removeEventListener('moda-profile-loaded', handleProfileLoaded);
       if (pollInterval) clearInterval(pollInterval);
     };
@@ -3154,11 +3209,14 @@ function LoginForm({
     }
   }, error), /*#__PURE__*/React.createElement("form", {
     onSubmit: handleSubmit,
-    className: "space-y-4"
+    className: "space-y-4",
+    autoComplete: "on"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-1"
   }, "Email"), /*#__PURE__*/React.createElement("input", {
     type: "email",
+    name: "email",
+    autoComplete: "email",
     value: email,
     onChange: e => setEmail(e.target.value),
     className: "input-field",
@@ -3170,6 +3228,8 @@ function LoginForm({
     className: "relative"
   }, /*#__PURE__*/React.createElement("input", {
     type: showPassword ? 'text' : 'password',
+    name: "password",
+    autoComplete: "current-password",
     value: password,
     onChange: e => setPassword(e.target.value),
     className: "input-field pr-10",
@@ -5631,6 +5691,7 @@ function UserPermissionsManager({
   const [currentPage, setCurrentPage] = useState(1);
   const [savingRoleFor, setSavingRoleFor] = useState(null);
   const [resettingPasswordFor, setResettingPasswordFor] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Get all available dashboard roles
   const allDashboardRoles = window.DEFAULT_DASHBOARD_ROLES || [{
@@ -5676,6 +5737,29 @@ function UserPermissionsManager({
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  // Sync missing profiles from auth.users
+  const syncMissingProfiles = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await window.MODA_SUPABASE?.syncMissingProfiles();
+      if (result?.success) {
+        if (result.synced > 0) {
+          alert(`Synced ${result.synced} missing user profile(s). Refreshing list...`);
+          await loadUsers();
+        } else {
+          alert('All users are already synced. No missing profiles found.');
+        }
+      } else {
+        alert('Sync failed: ' + (result?.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('[UserPermissions] Sync error:', err);
+      alert('Error syncing profiles: ' + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Filter users
   const filteredUsers = users.filter(user => {
@@ -5769,9 +5853,43 @@ function UserPermissionsManager({
       display: 'flex',
       justifyContent: 'flex-end',
       alignItems: 'center',
+      gap: '8px',
       marginBottom: '16px'
     }
   }, /*#__PURE__*/React.createElement("button", {
+    onClick: syncMissingProfiles,
+    disabled: isSyncing,
+    title: "Sync users from Supabase Auth that may be missing from the profiles table",
+    style: {
+      padding: '8px 16px',
+      fontSize: '13px',
+      border: '1px solid #F59E0B',
+      borderRadius: '6px',
+      background: isSyncing ? '#FEF3C7' : 'white',
+      color: '#B45309',
+      cursor: isSyncing ? 'wait' : 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px'
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "14",
+    height: "14",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M3 3v5h5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M16 21h5v-5"
+  })), isSyncing ? 'Syncing...' : 'Sync Missing'), /*#__PURE__*/React.createElement("button", {
     onClick: loadUsers,
     style: {
       padding: '8px 16px',
@@ -5808,20 +5926,62 @@ function UserPermissionsManager({
       marginBottom: '16px',
       flexWrap: 'wrap'
     }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: '1',
+      minWidth: '200px',
+      position: 'relative'
+    }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text",
     placeholder: "Search by name or email...",
     value: searchTerm,
     onChange: e => setSearchTerm(e.target.value),
     style: {
-      flex: '1',
-      minWidth: '200px',
-      padding: '8px 12px',
+      width: '100%',
+      padding: '8px 32px 8px 12px',
       fontSize: '13px',
       border: '1px solid #D1D5DB',
-      borderRadius: '6px'
+      borderRadius: '6px',
+      boxSizing: 'border-box'
     }
-  }), /*#__PURE__*/React.createElement("select", {
+  }), searchTerm && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSearchTerm(''),
+    style: {
+      position: 'absolute',
+      right: '8px',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      padding: '4px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#9CA3AF'
+    },
+    title: "Clear search"
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "14",
+    height: "14",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("line", {
+    x1: "18",
+    y1: "6",
+    x2: "6",
+    y2: "18"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "6",
+    y1: "6",
+    x2: "18",
+    y2: "18"
+  })))), /*#__PURE__*/React.createElement("select", {
     value: filterRole,
     onChange: e => setFilterRole(e.target.value),
     style: {
@@ -6117,7 +6277,8 @@ window.MobileNavigation = function MobileNavigation({
   onLogout
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const isMobile = window.useIsMobile ? window.useIsMobile(1025) : true;
+  // Include iPad 10.9" (A14) = 1180px landscape
+  const isMobile = window.useIsMobile ? window.useIsMobile(1181) : true;
 
   // Close drawer when clicking overlay
   const handleOverlayClick = () => {
@@ -9388,8 +9549,9 @@ function WeeklyBoardTab({
   onPlacePrototype = null // Callback when prototype is placed: (prototype, afterModule) => void
 }) {
 // [Removed duplicate React destructuring]
-  // Mobile detection
-  const isMobile = window.useIsMobile ? window.useIsMobile(768) : false;
+  // Mobile detection - iPad 10.9" (A14) = 1180px landscape
+  const isMobile = window.useIsMobile ? window.useIsMobile(1181) : false;
+  const isTabletOrMobile = isMobile; // Alias for clarity
 
   // Check if a feature should be hidden on mobile
   const isFeatureHiddenOnMobile = featureId => {
@@ -9601,8 +9763,10 @@ function WeeklyBoardTab({
   // Check if a module-station is selected
   const isSelected = (moduleId, stationId) => selectedModules.has(getSelectionKey(moduleId, stationId));
 
-  // Toggle selection for a module
+  // Toggle selection for a module (disabled on mobile/tablet - tap doesn't work well with multi-select)
   const toggleSelection = (moduleId, stationId, isCtrlKey = false) => {
+    // Disable multi-selection on mobile/tablet devices
+    if (isTabletOrMobile) return;
     const key = getSelectionKey(moduleId, stationId);
     setSelectedModules(prev => {
       const newSet = new Set(isCtrlKey ? prev : []);
@@ -12126,7 +12290,35 @@ function WeeklyBoardTab({
   }), selectedWeekId && selectedWeekId !== currentWeek?.id && /*#__PURE__*/React.createElement("button", {
     onClick: () => setSelectedWeekId(null),
     className: "text-xs text-blue-600 hover:text-blue-800 underline ml-2"
-  }, "Back to Current"))), /*#__PURE__*/React.createElement("div", {
+  }, "Back to Current"), !isPopout && !isFeatureHiddenOnMobile('popoutWindow') && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const popoutUrl = window.location.origin + '/weekly-board-popout.html';
+      const popoutWindow = window.open(popoutUrl, 'WeeklyBoardPopout', 'width=1400,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');
+      if (!popoutWindow) {
+        addToast('Please allow popups to open the Weekly Board in a new window', 'error');
+      }
+    },
+    className: "p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg",
+    title: "Open Weekly Board in a separate window"
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "16",
+    height: "16",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "15 3 21 3 21 9"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "10",
+    y1: "14",
+    x2: "21",
+    y2: "3"
+  }))))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center border rounded-lg overflow-hidden"
@@ -12161,159 +12353,70 @@ function WeeklyBoardTab({
     },
     className: "px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium",
     title: "Change week configuration"
-  }, "Edit Week"), /*#__PURE__*/React.createElement("button", {
+  }, "Edit Week"), !isFeatureHiddenOnMobile('weekHistoryButton') && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowHistoryModal(true),
     className: "px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
-  }, "\uD83D\uDCCA Week History"), !isPopout && !isFeatureHiddenOnMobile('popoutWindow') && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      const popoutUrl = window.location.origin + '/weekly-board-popout.html';
-      const popoutWindow = window.open(popoutUrl, 'WeeklyBoardPopout', 'width=1400,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');
-      if (!popoutWindow) {
-        addToast('Please allow popups to open the Weekly Board in a new window', 'error');
-      }
-    },
-    className: "px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-medium flex items-center gap-1",
-    title: "Open Weekly Board in a separate window"
-  }, /*#__PURE__*/React.createElement("svg", {
-    width: "14",
-    height: "14",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    strokeLinecap: "round",
-    strokeLinejoin: "round"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "15 3 21 3 21 9"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "10",
-    y1: "14",
-    x2: "21",
-    y2: "3"
-  })), "Pop Out"), canEdit && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      if (!confirm('Mark ALL modules on the board as 100% complete at ALL stations?')) return;
-      const ALL_STAGES = ['auto-c', 'auto-f', 'auto-walls', 'mezzanine', 'elec-ceiling', 'wall-set', 'ceiling-set', 'soffits', 'mech-rough', 'elec-rough', 'plumb-rough', 'exteriors', 'drywall-bp', 'drywall-ttp', 'roofing', 'pre-finish', 'mech-trim', 'elec-trim', 'plumb-trim', 'final-finish', 'sign-off', 'close-up'];
-      const fullProgress = {};
-      ALL_STAGES.forEach(stage => fullProgress[stage] = 100);
-
-      // Get all module IDs currently on the board
-      const boardModuleIds = new Set(allModules.map(m => m.id));
-
-      // Update all projects that have modules on the board
-      setProjects(prev => prev.map(project => ({
-        ...project,
-        modules: (project.modules || []).map(m => boardModuleIds.has(m.id) ? {
-          ...m,
-          stageProgress: fullProgress
-        } : m)
-      })));
-      addToast(`Marked ${boardModuleIds.size} modules as 100% complete`, 'success');
-    },
-    className: "px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium",
-    title: "TEMPORARY: Mark all board modules complete"
-  }, "Mark All Complete"), canEdit && !isFeatureHiddenOnMobile('completeWeekButton') && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCCA Week History"), canEdit && !isFeatureHiddenOnMobile('completeWeekButton') && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowCompleteModal(true),
     className: "px-4 py-2 btn-primary rounded-lg text-sm font-medium"
-  }, "Week Complete"))), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 md:grid-cols-4 gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg border p-3 shadow-sm"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 font-medium uppercase"
-  }, "This Week"), /*#__PURE__*/React.createElement("span", {
-    className: "text-lg"
-  }, "\uD83D\uDCCA")), /*#__PURE__*/React.createElement("div", {
-    className: "mt-1"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-2xl font-bold text-autovol-navy"
-  }, Object.values(getStationCapacityInfo).reduce((sum, s) => sum + s.complete, 0)), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-500 ml-1"
-  }, "/ ", lineBalance)), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-1"
-  }, "modules completed")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg border p-3 shadow-sm"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 font-medium uppercase"
-  }, "In Progress"), /*#__PURE__*/React.createElement("span", {
-    className: "text-lg"
-  }, "\uD83D\uDD04")), /*#__PURE__*/React.createElement("div", {
-    className: "mt-1"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-2xl font-bold text-blue-600"
-  }, Object.values(getStationCapacityInfo).reduce((sum, s) => sum + s.inProgress, 0))), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-1"
-  }, "across all stations")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg border p-3 shadow-sm"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 font-medium uppercase"
-  }, "Completion Rate"), /*#__PURE__*/React.createElement("span", {
-    className: "text-lg"
-  }, "\uD83D\uDCC8")), (() => {
-    // Count modules that are 100% complete at ALL stations (truly finished)
-    const fullyCompleteModules = getRecentlyCompleted().length;
-    const rate = lineBalance > 0 ? Math.round(fullyCompleteModules / lineBalance * 100) : 0;
-    const rateColor = rate >= 80 ? 'text-green-600' : rate >= 50 ? 'text-yellow-600' : 'text-red-600';
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "Week Complete"))), !isFeatureHiddenOnMobile('productionMetrics') && (() => {
+    // Calculate THIS WEEK: count unique modules on board that have any progress
+    const modulesWithProgress = allModules.filter(module => {
+      const progress = module.stageProgress || {};
+      return productionStages.some(station => (progress[station.id] || 0) > 0);
+    }).length;
+
+    // Calculate IN PROGRESS: unique modules with at least one station 0 < progress < 100
+    const modulesInProgress = allModules.filter(module => {
+      const progress = module.stageProgress || {};
+      return productionStages.some(station => {
+        const p = progress[station.id] || 0;
+        return p > 0 && p < 100;
+      });
+    }).length;
+    return /*#__PURE__*/React.createElement("details", {
+      className: "group"
+    }, /*#__PURE__*/React.createElement("summary", {
+      className: "cursor-pointer list-none flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 mb-2"
+    }, /*#__PURE__*/React.createElement("svg", {
+      className: "w-4 h-4 transition-transform group-open:rotate-90",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24"
+    }, /*#__PURE__*/React.createElement("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M9 5l7 7-7 7"
+    })), "Production Metrics"), /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-2 gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-lg border p-3 shadow-sm"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-gray-500 font-medium uppercase"
+    }, "This Week")), /*#__PURE__*/React.createElement("div", {
       className: "mt-1"
     }, /*#__PURE__*/React.createElement("span", {
-      className: `text-2xl font-bold ${rateColor}`
-    }, rate, "%")), /*#__PURE__*/React.createElement("div", {
+      className: "text-2xl font-bold text-autovol-navy"
+    }, modulesWithProgress), /*#__PURE__*/React.createElement("span", {
+      className: "text-sm text-gray-500 ml-1"
+    }, "/ ", lineBalance)), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-gray-500 mt-1"
-    }, fullyCompleteModules, "/", lineBalance, " modules done"));
-  })()), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg border p-3 shadow-sm"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 font-medium uppercase"
-  }, "Station Status"), /*#__PURE__*/React.createElement("span", {
-    className: "text-lg"
-  }, "\uD83C\uDFED")), (() => {
-    const overCount = Object.values(getStationCapacityInfo).filter(s => s.status === 'over').length;
-    const atCount = Object.values(getStationCapacityInfo).filter(s => s.status === 'at').length;
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "mt-1 flex items-center gap-2"
-    }, overCount > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "text-sm font-bold text-red-600"
-    }, overCount, " over"), atCount > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "text-sm font-bold text-yellow-600"
-    }, atCount, " at limit"), overCount === 0 && atCount === 0 && /*#__PURE__*/React.createElement("span", {
-      className: "text-sm font-bold text-green-600"
-    }, "All clear")), /*#__PURE__*/React.createElement("div", {
+    }, "modules with progress")), /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-lg border p-3 shadow-sm"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-gray-500 font-medium uppercase"
+    }, "In Progress")), /*#__PURE__*/React.createElement("div", {
+      className: "mt-1"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-2xl font-bold text-blue-600"
+    }, modulesInProgress)), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-gray-500 mt-1"
-    }, "capacity status"));
-  })())), (() => {
-    const twoWeeksBalance = lineBalance * 2;
-    const currentStartIdx = getAutoCalculatedStartingIndex;
-    // Clamp to 0 - can't have negative remaining modules
-    const remainingModules = Math.max(0, allModules.length - currentStartIdx);
-
-    // Don't show warning if no modules loaded or if we have enough
-    if (allModules.length === 0 || remainingModules >= twoWeeksBalance) return null;
-    return /*#__PURE__*/React.createElement("div", {
-      className: "bg-orange-50 border-2 border-orange-300 rounded-lg p-4"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-start gap-3"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-2xl"
-    }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "font-bold text-orange-800"
-    }, "Running Low on Scheduled Modules"), /*#__PURE__*/React.createElement("div", {
-      className: "text-sm text-orange-700 mt-1"
-    }, "Only ", /*#__PURE__*/React.createElement("strong", null, remainingModules), " modules remaining (less than 2 weeks at current line balance of ", lineBalance, "/week)."), /*#__PURE__*/React.createElement("div", {
-      className: "text-sm text-orange-600 mt-2"
-    }, "Consider scheduling the next project online to ensure continuous production."))));
+    }, "modules incomplete"))));
   })(), (() => {
     const overloadedStations = productionStages.filter(s => getStationCapacityInfo[s.id]?.status === 'over');
     if (overloadedStations.length === 0) return null;
@@ -12347,23 +12450,8 @@ function WeeklyBoardTab({
       className: "text-xs text-red-600 mt-2"
     }, "\uD83D\uDCA1 Consider moving modules to next week or adjusting station capacity in Schedule Setup."))));
   })(), /*#__PURE__*/React.createElement("div", {
-    className: "bg-green-50 border border-green-200 rounded-lg p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 text-green-700 font-medium text-sm mb-2"
-  }, /*#__PURE__*/React.createElement("span", null, "\u2705 Fully Completed (All Stations)")), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 flex-wrap"
-  }, getRecentlyCompleted().map((module, idx) => /*#__PURE__*/React.createElement("div", {
-    key: idx,
-    className: "bg-white border border-green-300 rounded px-2 py-1 text-xs"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "font-mono font-bold"
-  }, module.serialNumber), /*#__PURE__*/React.createElement("span", {
-    className: "text-green-600 ml-1"
-  }, "\u2713 Done"))), getRecentlyCompleted().length === 0 && /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-500"
-  }, "No modules fully completed yet (100% at all stations)"))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1"
-  }, /*#__PURE__*/React.createElement("div", {
+    className: `flex gap-1 ${isMobile ? 'mobile-weekly-board-container' : ''}`
+  }, !isFeatureHiddenOnMobile('modulesOnBoardPanel') && /*#__PURE__*/React.createElement("div", {
     className: "w-[140px] flex-shrink-0 no-print"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white border rounded-lg shadow-sm sticky top-0"
@@ -12466,14 +12554,8 @@ function WeeklyBoardTab({
     tabIndex: 0,
     onKeyDown: handleBoardKeyDown
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-2 no-print"
+    className: "flex items-center justify-end mb-2 no-print"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 text-sm text-gray-500"
-  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCA1"), /*#__PURE__*/React.createElement("span", null, "Use ", /*#__PURE__*/React.createElement("kbd", {
-    className: "px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono"
-  }, "\u2190"), " ", /*#__PURE__*/React.createElement("kbd", {
-    className: "px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono"
-  }, "\u2192"), " arrow keys to scroll")), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -15579,8 +15661,20 @@ function DashboardHome({
     'wrap': 'Wrap'
   };
 
+  // Check if user is Production Floor (view-only drawings access)
+  const isProductionFloor = userRole === 'production_floor';
+
   // Quick actions based on role - using CSS icon classes
   const quickActions = useMemo(() => {
+    // Production Floor only gets Drawings access
+    if (isProductionFloor) {
+      return [{
+        id: 'drawings',
+        label: 'Drawings',
+        iconClass: 'icon-file',
+        tab: 'drawings'
+      }];
+    }
     const actions = [{
       id: 'production',
       label: 'Production Board',
@@ -15617,7 +15711,7 @@ function DashboardHome({
       });
     }
     return actions;
-  }, [userRole]);
+  }, [userRole, isProductionFloor]);
   return /*#__PURE__*/React.createElement("div", {
     className: "dashboard-home"
   }, /*#__PURE__*/React.createElement("div", {
@@ -15657,7 +15751,7 @@ function DashboardHome({
     style: {
       color: 'var(--autovol-navy)'
     }
-  }, action.label))))), /*#__PURE__*/React.createElement("div", {
+  }, action.label))))), !isProductionFloor && /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "metric-card bg-white rounded-lg p-4 shadow-sm border-l-4",
@@ -15707,7 +15801,7 @@ function DashboardHome({
     }
   }, metrics.completed), /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-gray-500"
-  }, "Completed"))), /*#__PURE__*/React.createElement("div", {
+  }, "Completed"))), !isProductionFloor && /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 lg:grid-cols-2 gap-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-lg shadow-sm p-4"
@@ -16287,7 +16381,7 @@ function NavigationGroups({
   };
   return /*#__PURE__*/React.createElement("nav", {
     ref: navRef,
-    className: "nav-groups bg-white border-b nav-groups-container"
+    className: "nav-groups bg-white border-b nav-groups-container hide-mobile-tablet"
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-7xl mx-auto px-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -32846,6 +32940,214 @@ window.ReportsHub = ReportsHub;
 
 
 // ============================================================================
+// FILE: UploadQueueIndicator.jsx
+// ============================================================================
+(function() {
+/**
+ * UploadQueueIndicator.jsx - Floating Upload Progress Indicator
+ * 
+ * Persistent indicator that shows upload progress across navigation.
+ * Appears in bottom-right corner when uploads are in progress.
+ */
+
+function UploadQueueIndicator() {
+// [Removed duplicate React destructuring]
+  const [queueState, setQueueState] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  // Subscribe to upload queue changes
+  useEffect(() => {
+    if (!window.MODA_UPLOAD_QUEUE) return;
+    const unsubscribe = window.MODA_UPLOAD_QUEUE.subscribe(state => {
+      setQueueState(state);
+      // Auto-expand when new uploads start
+      if (state.isProcessing && state.totalInQueue > 0) {
+        setIsMinimized(false);
+      }
+    });
+
+    // Get initial state
+    setQueueState(window.MODA_UPLOAD_QUEUE.getState());
+    return unsubscribe;
+  }, []);
+
+  // Format file size
+  const formatSize = useCallback(bytes => {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }, []);
+
+  // Don't render if no queue or nothing in queue
+  if (!queueState || queueState.totalInQueue === 0 && queueState.completedCount === 0 && queueState.failedCount === 0) {
+    return null;
+  }
+  const {
+    queue,
+    isProcessing,
+    currentUpload,
+    completedCount,
+    failedCount,
+    pendingCount
+  } = queueState;
+  const totalCount = completedCount + failedCount + queue.length;
+
+  // Minimized view - just a small badge
+  if (isMinimized) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed bottom-4 right-4 z-50 cursor-pointer",
+      onClick: () => setIsMinimized(false)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:bg-blue-700 transition"
+    }, isProcessing ? /*#__PURE__*/React.createElement("div", {
+      className: "relative"
+    }, /*#__PURE__*/React.createElement("svg", {
+      className: "animate-spin h-6 w-6",
+      viewBox: "0 0 24 24"
+    }, /*#__PURE__*/React.createElement("circle", {
+      className: "opacity-25",
+      cx: "12",
+      cy: "12",
+      r: "10",
+      stroke: "currentColor",
+      strokeWidth: "4",
+      fill: "none"
+    }), /*#__PURE__*/React.createElement("path", {
+      className: "opacity-75",
+      fill: "currentColor",
+      d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    })), /*#__PURE__*/React.createElement("span", {
+      className: "absolute -top-1 -right-1 bg-white text-blue-600 text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center"
+    }, pendingCount + (currentUpload ? 1 : 0))) : /*#__PURE__*/React.createElement("span", {
+      className: "icon-upload w-6 h-6"
+    })));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed bottom-4 right-4 z-50 w-80 bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between cursor-pointer",
+    onClick: () => setIsExpanded(!isExpanded)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, isProcessing && /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin h-4 w-4",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4",
+    fill: "none"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-sm"
+  }, isProcessing ? 'Uploading...' : 'Uploads')), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs bg-white/20 px-2 py-0.5 rounded"
+  }, completedCount, "/", totalCount), /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      setIsMinimized(true);
+    },
+    className: "p-1 hover:bg-white/20 rounded",
+    title: "Minimize"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-minus w-4 h-4"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      window.MODA_UPLOAD_QUEUE?.clearHistory();
+    },
+    className: "p-1 hover:bg-white/20 rounded",
+    title: "Clear"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-x w-4 h-4"
+  })))), currentUpload && /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 border-b border-gray-100"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-medium text-gray-700 truncate flex-1 mr-2"
+  }, currentUpload.file.name), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-blue-600 font-medium"
+  }, currentUpload.progress?.percent || 0, "%")), /*#__PURE__*/React.createElement("div", {
+    className: "w-full bg-gray-200 rounded-full h-2 overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-blue-600 h-2 rounded-full transition-all duration-300",
+    style: {
+      width: `${currentUpload.progress?.percent || 0}%`
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mt-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-500"
+  }, currentUpload.progress?.status === 'preparing' && 'Preparing...', currentUpload.progress?.status === 'creating session' && 'Creating session...', currentUpload.progress?.status === 'uploading' && 'Uploading...'), currentUpload.progress?.uploaded && currentUpload.progress?.totalBytes && /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-500"
+  }, formatSize(currentUpload.progress.uploaded), " / ", formatSize(currentUpload.progress.totalBytes)))), pendingCount > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-2 bg-gray-50 text-xs text-gray-600"
+  }, pendingCount, " file", pendingCount > 1 ? 's' : '', " waiting..."), isExpanded && queue.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "max-h-48 overflow-y-auto"
+  }, queue.map(task => /*#__PURE__*/React.createElement("div", {
+    key: task.id,
+    className: `px-4 py-2 border-b border-gray-100 flex items-center gap-2 ${task.status === 'complete' ? 'bg-green-50' : task.status === 'failed' ? 'bg-red-50' : ''}`
+  }, task.status === 'queued' && /*#__PURE__*/React.createElement("span", {
+    className: "icon-clock w-4 h-4 text-gray-400"
+  }), task.status === 'uploading' && /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin h-4 w-4 text-blue-600",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4",
+    fill: "none"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+  })), task.status === 'complete' && /*#__PURE__*/React.createElement("span", {
+    className: "icon-check w-4 h-4 text-green-600"
+  }), task.status === 'failed' && /*#__PURE__*/React.createElement("span", {
+    className: "icon-x w-4 h-4 text-red-600"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: `text-sm truncate flex-1 ${task.status === 'failed' ? 'text-red-700' : task.status === 'complete' ? 'text-green-700' : 'text-gray-700'}`
+  }, task.file.name), task.status === 'queued' && /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.MODA_UPLOAD_QUEUE?.cancelUpload(task.id),
+    className: "p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-red-600",
+    title: "Cancel"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-x w-3 h-3"
+  }))))), (completedCount > 0 || failedCount > 0) && !isProcessing && queue.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center gap-4 text-sm"
+  }, completedCount > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-green-600 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-check w-4 h-4"
+  }), completedCount, " completed"), failedCount > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-red-600 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-x w-4 h-4"
+  }), failedCount, " failed"))));
+}
+
+// Export globally
+window.UploadQueueIndicator = UploadQueueIndicator;
+})();
+
+
+// ============================================================================
 // FILE: DrawingLinksPanel.jsx
 // ============================================================================
 (function() {
@@ -33903,6 +34205,15 @@ const DrawingsModule = ({
     return window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }, []);
 
+  // iOS Safari detection - use native PDF viewer for better performance
+  const isIOSSafari = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS/.test(ua);
+    return isIOS && isSafari;
+  }, []);
+
   // Navigation state
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -33947,6 +34258,7 @@ const DrawingsModule = ({
   const [showDrawingStatusLog, setShowDrawingStatusLog] = useState(false); // Drawing status matrix modal
   const [showAIMenu, setShowAIMenu] = useState(false); // AI Analysis dropdown menu
   const [showAnalysisBrowser, setShowAnalysisBrowser] = useState(null); // 'walls' | 'fixtures' | 'changes' | null
+  const [showActivityLog, setShowActivityLog] = useState(false); // Drawing activity log modal
 
   // Custom folders state (loaded from Supabase)
   const [customCategories, setCustomCategories] = useState([]);
@@ -33960,6 +34272,49 @@ const DrawingsModule = ({
   const canManageFolders = useMemo(() => {
     const role = auth?.currentUser?.dashboardRole;
     return role === 'admin' || role === 'Admin';
+  }, [auth]);
+
+  // Check drawing-specific permissions using tab permissions system
+  const drawingPermissions = useMemo(() => {
+    const role = auth?.currentUser?.dashboardRole;
+    if (!role) return {
+      canView: false,
+      canEdit: false,
+      canCreate: false,
+      canDelete: false
+    };
+
+    // Admin has full access
+    if (role === 'admin' || role === 'Admin') {
+      return {
+        canView: true,
+        canEdit: true,
+        canCreate: true,
+        canDelete: true
+      };
+    }
+
+    // Check role-based permissions from DEFAULT_DASHBOARD_ROLES
+    const roleConfig = window.DEFAULT_DASHBOARD_ROLES?.find(r => r.id === role || r.name === role);
+    if (roleConfig?.tabPermissions?.drawings) {
+      return roleConfig.tabPermissions.drawings;
+    }
+
+    // Default: if user has drawings tab access but no specific permissions, view-only
+    if (roleConfig?.tabs?.includes('drawings')) {
+      return {
+        canView: true,
+        canEdit: false,
+        canCreate: false,
+        canDelete: false
+      };
+    }
+    return {
+      canView: false,
+      canEdit: false,
+      canCreate: false,
+      canDelete: false
+    };
   }, [auth]);
 
   // Available folder colors
@@ -35461,7 +35816,7 @@ const DrawingsModule = ({
     title: "Reset folder structure to defaults"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-refresh w-4 h-4"
-  }), "Reset Folders"), /*#__PURE__*/React.createElement("button", {
+  }), "Reset Folders"), drawingPermissions.canCreate && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowUploadModal(true),
     className: "px-4 py-2 text-white rounded-lg transition flex items-center gap-2",
     style: {
@@ -35569,7 +35924,7 @@ const DrawingsModule = ({
       className: "text-gray-600 mt-1"
     }, "Select a discipline to view drawings")), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
-    }, /*#__PURE__*/React.createElement("button", {
+    }, drawingPermissions.canCreate && /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowUploadModal(true),
       className: "px-4 py-2 text-white rounded-lg transition flex items-center gap-2",
       style: {
@@ -35699,18 +36054,24 @@ const DrawingsModule = ({
       className: "px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("span", {
       className: "icon-arrow-left w-4 h-4"
-    }), "Back"), isModulePackages && /*#__PURE__*/React.createElement("button", {
+    }), "Back"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowActivityLog(true),
+      className: "px-4 py-2 bg-slate-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-slate-700",
+      title: "View drawing activity history"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-clock w-4 h-4"
+    }), "Activity Log"), isModulePackages && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowDrawingStatusLog(true),
       className: "px-4 py-2 bg-blue-600 text-white rounded-lg transition flex items-center gap-2 hover:bg-blue-700",
       title: "View drawing status for all modules"
     }, /*#__PURE__*/React.createElement("span", {
       className: "icon-grid w-4 h-4"
-    }), "Status Log"), !isMobile && isModulePackages && unlinkedDrawings.length > 0 && /*#__PURE__*/React.createElement("button", {
+    }), "Status Log"), !isMobile && isModulePackages && unlinkedDrawings.length > 0 && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowBulkRenameModal(true),
       className: "px-4 py-2 bg-amber-500 text-white rounded-lg transition flex items-center gap-2 hover:bg-amber-600"
     }, /*#__PURE__*/React.createElement("span", {
       className: "icon-alert-triangle w-4 h-4"
-    }), "Fix Unlinked (", unlinkedDrawings.length, ")"), !isMobile && /*#__PURE__*/React.createElement("button", {
+    }), "Fix Unlinked (", unlinkedDrawings.length, ")"), !isMobile && drawingPermissions.canCreate && /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowUploadModal(true),
       className: "px-4 py-2 text-white rounded-lg transition flex items-center gap-2",
       style: {
@@ -35718,7 +36079,7 @@ const DrawingsModule = ({
       }
     }, /*#__PURE__*/React.createElement("span", {
       className: "icon-upload w-4 h-4"
-    }), "Upload Drawings"), !isMobile && isModulePackages && /*#__PURE__*/React.createElement("div", {
+    }), "Upload Drawings"), !isMobile && isModulePackages && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("div", {
       className: "relative"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowAIMenu(!showAIMenu),
@@ -35824,7 +36185,7 @@ const DrawingsModule = ({
     }), drawingSearchTerm && /*#__PURE__*/React.createElement("button", {
       onClick: () => setDrawingSearchTerm(''),
       className: "absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-    }, "\u2715")), isModulePackages && /*#__PURE__*/React.createElement("select", {
+    }, "\u2715")), isModulePackages && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("select", {
       value: issueStatusFilter,
       onChange: e => setIssueStatusFilter(e.target.value),
       className: "px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
@@ -35834,7 +36195,7 @@ const DrawingsModule = ({
       value: "green"
     }, "No Issues (Green)"), /*#__PURE__*/React.createElement("option", {
       value: "yellow"
-    }, "Has Issues (Yellow)"))), isModulePackages && filterOptions.unitTypes.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, "Has Issues (Yellow)"))), isModulePackages && filterOptions.unitTypes.length > 0 && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("div", {
       className: "mt-3"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowAdvancedFilters(!showAdvancedFilters),
@@ -35972,7 +36333,7 @@ const DrawingsModule = ({
       className: "w-full min-w-max"
     }, /*#__PURE__*/React.createElement("thead", {
       className: "bg-gray-50 border-b border-gray-200"
-    }, /*#__PURE__*/React.createElement("tr", null, window.MODA_SUPABASE?.client && /*#__PURE__*/React.createElement("th", {
+    }, /*#__PURE__*/React.createElement("tr", null, window.MODA_SUPABASE?.client && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("th", {
       className: "px-4 py-3 text-left"
     }, /*#__PURE__*/React.createElement("input", {
       type: "checkbox",
@@ -35987,7 +36348,7 @@ const DrawingsModule = ({
       },
       className: "w-4 h-4 text-purple-600 rounded cursor-pointer",
       title: "Select all PDFs"
-    })), isModulePackages && /*#__PURE__*/React.createElement("th", {
+    })), isModulePackages && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("th", {
       className: "px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12"
     }, "Status"), /*#__PURE__*/React.createElement("th", {
       className: "px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none",
@@ -36025,7 +36386,7 @@ const DrawingsModule = ({
       return /*#__PURE__*/React.createElement("tr", {
         key: drawing.id,
         className: "hover:bg-gray-50"
-      }, window.MODA_SUPABASE?.client && /*#__PURE__*/React.createElement("td", {
+      }, window.MODA_SUPABASE?.client && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("td", {
         className: "px-4 py-4"
       }, isPdf && /*#__PURE__*/React.createElement("input", {
         type: "checkbox",
@@ -36039,7 +36400,7 @@ const DrawingsModule = ({
         },
         className: "w-4 h-4 text-purple-600 rounded cursor-pointer",
         title: "Select for Claude Vision OCR"
-      })), isModulePackages && /*#__PURE__*/React.createElement("td", {
+      })), isModulePackages && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("td", {
         className: "px-2 py-4 text-center"
       }, (() => {
         // Check if this module has open shop-drawing issues
@@ -36121,19 +36482,13 @@ const DrawingsModule = ({
         title: "File Info"
       }, /*#__PURE__*/React.createElement("span", {
         className: "icon-info-circle w-4 h-4"
-      })), /*#__PURE__*/React.createElement("button", {
+      })), drawingPermissions.canEdit && /*#__PURE__*/React.createElement("button", {
         onClick: () => setShowEditDrawing(drawing),
         className: "p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition touch-manipulation",
         title: "Edit / Rename"
       }, /*#__PURE__*/React.createElement("span", {
         className: "icon-edit w-4 h-4"
-      })), latestVersion && /*#__PURE__*/React.createElement("button", {
-        onClick: e => handleView(latestVersion, e),
-        className: "p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition touch-manipulation",
-        title: "View in Browser"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "icon-eye w-4 h-4"
-      })), /*#__PURE__*/React.createElement("button", {
+      })), drawingPermissions.canDelete && /*#__PURE__*/React.createElement("button", {
         onClick: () => setShowDeleteConfirm(drawing),
         className: "p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition touch-manipulation",
         title: "Delete"
@@ -37136,6 +37491,148 @@ const DrawingsModule = ({
   };
 
   // =========================================================================
+  // RENDER: Activity Log Modal
+  // =========================================================================
+  const ActivityLogModal = () => {
+    const [activities, setActivities] = useState([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+      if (!showActivityLog || !selectedProject) return;
+      const loadActivities = async () => {
+        setLoading(true);
+        try {
+          if (window.MODA_SUPABASE_DRAWINGS?.activity?.getByProject) {
+            const data = await window.MODA_SUPABASE_DRAWINGS.activity.getByProject(selectedProject.id, 100);
+            setActivities(data || []);
+          }
+        } catch (e) {
+          console.warn('[Drawings] Failed to load activity log:', e);
+        }
+        setLoading(false);
+      };
+      loadActivities();
+    }, [showActivityLog, selectedProject]);
+    if (!showActivityLog) return null;
+    const formatTime = dateStr => {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    };
+    const getActionConfig = action => {
+      const configs = {
+        upload: {
+          label: 'Upload',
+          color: 'bg-green-100 text-green-800'
+        },
+        delete: {
+          label: 'Delete',
+          color: 'bg-red-100 text-red-800'
+        },
+        rename: {
+          label: 'Rename',
+          color: 'bg-amber-100 text-amber-800'
+        },
+        version: {
+          label: 'New Version',
+          color: 'bg-blue-100 text-blue-800'
+        },
+        restore: {
+          label: 'Restore',
+          color: 'bg-purple-100 text-purple-800'
+        },
+        update: {
+          label: 'Update',
+          color: 'bg-cyan-100 text-cyan-800'
+        }
+      };
+      return configs[action] || {
+        label: action,
+        color: 'bg-gray-100 text-gray-800'
+      };
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "p-6 border-b border-gray-200 flex items-center justify-between"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+      className: "text-xl font-bold",
+      style: {
+        color: 'var(--autovol-navy)'
+      }
+    }, "Drawing Activity Log"), /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-gray-500 mt-1"
+    }, selectedProject?.name, " - ", activities.length, " activities")), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowActivityLog(false),
+      className: "p-2 hover:bg-gray-100 rounded-lg transition"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-close w-5 h-5"
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 overflow-y-auto p-4"
+    }, loading ? /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-center py-12"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+    })) : activities.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "text-center py-12 text-gray-500"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-clock w-12 h-12 mx-auto mb-4 opacity-30",
+      style: {
+        display: 'block'
+      }
+    }), /*#__PURE__*/React.createElement("p", null, "No activity recorded yet")) : /*#__PURE__*/React.createElement("div", {
+      className: "space-y-2"
+    }, activities.map((activity, idx) => {
+      const config = getActionConfig(activity.action);
+      let details = {};
+      try {
+        details = typeof activity.details === 'string' ? JSON.parse(activity.details) : activity.details || {};
+      } catch (e) {}
+      return /*#__PURE__*/React.createElement("div", {
+        key: activity.id || idx,
+        className: "border rounded-lg p-3 hover:bg-gray-50"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-start justify-between gap-3"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex-1 min-w-0"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2 flex-wrap"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: `px-2 py-0.5 rounded text-xs font-medium ${config.color}`
+      }, config.label), /*#__PURE__*/React.createElement("span", {
+        className: "text-sm font-medium text-gray-900"
+      }, activity.user_name || 'Unknown')), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm text-gray-600 mt-1"
+      }, details.fileName || details.name || details.drawingName || 'Drawing', details.oldName && details.newName && /*#__PURE__*/React.createElement("span", {
+        className: "text-gray-500"
+      }, " (", details.oldName, " \u2192 ", details.newName, ")"), details.version && /*#__PURE__*/React.createElement("span", {
+        className: "text-gray-500"
+      }, " v", details.version))), /*#__PURE__*/React.createElement("span", {
+        className: "text-xs text-gray-400 whitespace-nowrap"
+      }, formatTime(activity.created_at))));
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "p-4 border-t border-gray-200 flex justify-end"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowActivityLog(false),
+      className: "px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+    }, "Close"))));
+  };
+
+  // =========================================================================
   // RENDER: Delete Folder Confirmation Modal
   // =========================================================================
   const DeleteFolderConfirmModal = () => {
@@ -37210,14 +37707,41 @@ const DrawingsModule = ({
     className: "text-sm text-gray-500 mt-1"
   }, "Splitting PDF and extracting title block metadata"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 mt-2"
-  }, "This may take several minutes for large files"))), showUploadModal && /*#__PURE__*/React.createElement(UploadModal, null), /*#__PURE__*/React.createElement(VersionHistoryModal, null), /*#__PURE__*/React.createElement(DeleteConfirmModal, null), /*#__PURE__*/React.createElement(DuplicatePromptModal, null), /*#__PURE__*/React.createElement(EditDrawingModal, null), /*#__PURE__*/React.createElement(BulkRenameModal, null), /*#__PURE__*/React.createElement(FileInfoModal, null), /*#__PURE__*/React.createElement(FolderModal, null), /*#__PURE__*/React.createElement(DeleteFolderConfirmModal, null), pdfViewerData && window.PDFViewerModal && /*#__PURE__*/React.createElement(window.PDFViewerModal, {
+  }, "This may take several minutes for large files"))), showUploadModal && /*#__PURE__*/React.createElement(UploadModal, null), /*#__PURE__*/React.createElement(VersionHistoryModal, null), /*#__PURE__*/React.createElement(DeleteConfirmModal, null), /*#__PURE__*/React.createElement(DuplicatePromptModal, null), /*#__PURE__*/React.createElement(EditDrawingModal, null), /*#__PURE__*/React.createElement(BulkRenameModal, null), /*#__PURE__*/React.createElement(FileInfoModal, null), /*#__PURE__*/React.createElement(FolderModal, null), /*#__PURE__*/React.createElement(DeleteFolderConfirmModal, null), /*#__PURE__*/React.createElement(ActivityLogModal, null), pdfViewerData && (isIOSSafari ?
+  /*#__PURE__*/
+  // Native Safari PDF viewer via iframe - much faster on iOS
+  React.createElement("div", {
+    className: "fixed inset-0 bg-black/80 flex flex-col z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between p-3 bg-gray-900 text-white"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-medium truncate flex-1 mr-4"
+  }, pdfViewerData.name), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("a", {
+    href: pdfViewerData.url,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+  }, "Open in New Tab"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPdfViewerData(null),
+    className: "p-2 hover:bg-gray-700 rounded-full"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-x w-5 h-5"
+  })))), /*#__PURE__*/React.createElement("iframe", {
+    src: pdfViewerData.url,
+    className: "flex-1 w-full bg-white",
+    title: pdfViewerData.name
+  })) :
+  // Custom PDF viewer with markup tools for desktop
+  window.PDFViewerModal && /*#__PURE__*/React.createElement(window.PDFViewerModal, {
     isOpen: true,
     onClose: () => setPdfViewerData(null),
     pdfUrl: pdfViewerData.url,
     drawingName: pdfViewerData.name,
     drawingId: pdfViewerData.drawingId,
     versionId: pdfViewerData.versionId
-  }), showDrawingStatusLog && window.DrawingStatusLog && /*#__PURE__*/React.createElement(window.DrawingStatusLog, {
+  })), showDrawingStatusLog && window.DrawingStatusLog && /*#__PURE__*/React.createElement(window.DrawingStatusLog, {
     project: selectedProject,
     drawings: currentDrawings,
     onClose: () => setShowDrawingStatusLog(false),
@@ -48565,6 +49089,10 @@ window.OnSiteTab = OnSiteTab;
         id: 'activityLog',
         title: 'Activity Log',
         description: 'View system activity and audit trail'
+      }, {
+        id: 'developerTools',
+        title: 'Developer Tools',
+        description: 'Debug console and developer options'
       }]
     }
   };
@@ -48623,6 +49151,35 @@ window.OnSiteTab = OnSiteTab;
     }, /*#__PURE__*/React.createElement("h2", {
       className: "text-xs font-bold uppercase tracking-wider text-gray-400"
     }, title));
+  }
+  function DeveloperToolsSection() {
+    const [erudaEnabled, setErudaEnabled] = useState(() => {
+      return window.MODA_ERUDA?.isEnabled() || false;
+    });
+    const handleToggleEruda = useCallback(() => {
+      if (window.MODA_ERUDA) {
+        window.MODA_ERUDA.toggle();
+        setErudaEnabled(window.MODA_ERUDA.isEnabled());
+      }
+    }, []);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "space-y-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+      className: "font-medium text-gray-900"
+    }, "Mobile Debug Console"), /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-gray-500 mt-1"
+    }, "Shows a floating gear icon for viewing console logs, network requests, and debugging on mobile devices.")), /*#__PURE__*/React.createElement("button", {
+      onClick: handleToggleEruda,
+      className: `relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${erudaEnabled ? 'bg-blue-600' : 'bg-gray-200'}`,
+      role: "switch",
+      "aria-checked": erudaEnabled
+    }, /*#__PURE__*/React.createElement("span", {
+      className: `pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${erudaEnabled ? 'translate-x-5' : 'translate-x-0'}`
+    }))), erudaEnabled && /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-amber-600 bg-amber-50 p-2 rounded"
+    }, "Debug console is enabled. A gear icon will appear in the bottom-right corner. Disabling will reload the page."));
   }
   function AdminPanel({
     auth,
@@ -48709,6 +49266,8 @@ window.OnSiteTab = OnSiteTab;
           }) : /*#__PURE__*/React.createElement("p", {
             className: "text-gray-500"
           }, "Activity logging module not loaded.");
+        case 'developerTools':
+          return /*#__PURE__*/React.createElement(DeveloperToolsSection, null);
         default:
           return /*#__PURE__*/React.createElement("p", {
             className: "text-gray-500"
@@ -51134,7 +51693,7 @@ function Dashboard({
   }, /*#__PURE__*/React.createElement("span", {
     className: "tab-icon icon-admin"
   }), "Admin")))), /*#__PURE__*/React.createElement("main", {
-    className: "max-w-7xl mx-auto px-4 py-6"
+    className: activeTab === 'production' || activeTab === 'drawings' || selectedProject ? "w-full px-2 py-4" : "max-w-7xl mx-auto px-4 py-6"
   }, activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (window.DashboardHome ? /*#__PURE__*/React.createElement(window.DashboardHome, {
     projects: projects,
     employees: employees,
@@ -51436,7 +51995,7 @@ function Dashboard({
     setTrashedEmployees: setTrashedEmployees,
     exportData: exportData,
     importData: importData
-  }), window.OCRProgressIndicator && /*#__PURE__*/React.createElement(window.OCRProgressIndicator, null), /*#__PURE__*/React.createElement("footer", {
+  }), window.OCRProgressIndicator && /*#__PURE__*/React.createElement(window.OCRProgressIndicator, null), window.UploadQueueIndicator && /*#__PURE__*/React.createElement(window.UploadQueueIndicator, null), /*#__PURE__*/React.createElement("footer", {
     className: "text-center py-3 text-xs text-gray-400 border-t bg-white",
     style: {
       marginTop: 'auto'
@@ -51673,16 +52232,7 @@ function ProductionDashboard({
     className: "flex items-center justify-between flex-wrap gap-4"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-2xl font-bold text-autovol-navy"
-  }, "Production Dashboard"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4"
-  }, activeProjects.length > 0 && /*#__PURE__*/React.createElement("select", {
-    value: selectedProjectId || '',
-    onChange: e => setSelectedProjectId(e.target.value),
-    className: "border rounded px-3 py-2 font-medium"
-  }, activeProjects.map(p => /*#__PURE__*/React.createElement("option", {
-    key: p.id,
-    value: p.id
-  }, p.name))))), activeProjects.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Production Dashboard")), activeProjects.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-lg shadow p-8 text-center"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-gray-500"
@@ -51691,7 +52241,7 @@ function ProductionDashboard({
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-gray-500"
   }, "Select a project to view production.")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg shadow"
+    className: "bg-white rounded-lg shadow mb-4 hide-mobile-tablet"
   }, /*#__PURE__*/React.createElement("div", {
     className: "border-b flex overflow-x-auto"
   }, [{
@@ -51714,7 +52264,7 @@ function ProductionDashboard({
     onClick: () => setProductionTab(tab.id),
     className: `px-6 py-3 text-sm font-medium transition ${productionTab === tab.id ? 'text-autovol-teal border-b-2 border-autovol-teal' : 'text-gray-500 hover:text-gray-700'}`
   }, tab.label))), /*#__PURE__*/React.createElement("div", {
-    className: "p-4"
+    className: "p-4 production-tab-content"
   }, productionTab === 'module-status' && /*#__PURE__*/React.createElement("div", {
     className: "space-y-6"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
@@ -53950,17 +54500,17 @@ function ModuleDetailModal({
     }
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4",
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 md:p-4",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto",
+    className: "bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col",
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("div", {
-    className: "p-6"
+    className: "flex justify-between items-start p-4 md:p-6 border-b bg-white rounded-t-lg flex-shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-between items-start mb-6 sticky top-0 bg-white pt-2 pb-4 -mt-2 border-b"
-  }, /*#__PURE__*/React.createElement("div", null, editMode ? /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-3 items-center"
+    className: "flex-1 min-w-0"
+  }, editMode ? /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-3 items-center flex-wrap"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "text-xs text-gray-500"
   }, "Serial Number"), /*#__PURE__*/React.createElement("input", {
@@ -53976,14 +54526,14 @@ function ModuleDetailModal({
     onChange: e => updateField('buildSequence', parseInt(e.target.value) || 0),
     className: "block text-lg px-2 py-1 border rounded w-20"
   }))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
-    className: "text-2xl font-bold text-autovol-navy"
+    className: "text-xl md:text-2xl font-bold text-autovol-navy truncate"
   }, displayModule.serialNumber), /*#__PURE__*/React.createElement("p", {
-    className: "text-gray-500"
+    className: "text-gray-500 text-sm"
   }, "Build Sequence: ", displayModule.buildSequence))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
+    className: "flex gap-2 items-center flex-shrink-0 ml-2"
   }, editMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     onClick: handleSave,
-    className: "px-3 py-1 btn-secondary rounded"
+    className: "px-3 py-1 btn-secondary rounded text-sm"
   }, "Save"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setEditMode(false);
@@ -53991,14 +54541,20 @@ function ModuleDetailModal({
         ...module
       });
     },
-    className: "px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+    className: "px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
   }, "Cancel")) : /*#__PURE__*/React.createElement("button", {
     onClick: () => setEditMode(true),
-    className: "px-3 py-1 btn-primary rounded"
+    className: "px-3 py-1 btn-primary rounded text-sm"
   }, "Edit"), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
-    className: "text-gray-400 hover:text-gray-600 text-2xl"
+    className: "w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full text-2xl",
+    "aria-label": "Close"
   }, "\xD7"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto p-4 md:p-6",
+    style: {
+      WebkitOverflowScrolling: 'touch'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
     className: "mb-6 grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleOpenShopDrawing,

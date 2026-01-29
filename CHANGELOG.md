@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.33**
+**Current Version: 1.5.34**
 
 ---
+
+## [1.5.34] - 2026-01-29
+### Background Upload Queue
+- **Global upload queue manager** - Uploads continue in background while navigating the app
+- **Floating progress indicator** - Persistent bottom-right indicator shows upload progress across all tabs
+- **Queue management** - View pending uploads, cancel individual items, minimize/expand indicator
+- **Auto-cleanup** - Completed uploads auto-remove from queue after 3 seconds
 
 ## [1.5.33] - 2026-01-29
 ### iOS Safari PDF Performance
