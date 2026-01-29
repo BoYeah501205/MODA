@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.32**
+**Current Version: 1.5.33**
 
 ---
+
+## [1.5.33] - 2026-01-29
+### iOS Safari PDF Performance
+- **Native PDF viewer for iOS Safari** - Uses iframe with Safari's built-in PDF renderer instead of JavaScript-based viewer
+- **Faster rendering on iPad/iPhone** - Eliminates slow PDF.js rendering, uses native WebKit PDF support
+- **Maintains desktop functionality** - Custom PDFViewerModal with markup tools still used on desktop browsers
 
 ## [1.5.32] - 2026-01-28
 ### Production Floor View Refinements (continued)
