@@ -17,8 +17,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.5.37">
-    <script>window.MODA_VERSION = '1.5.37'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.5.38">
+    <script>window.MODA_VERSION = '1.5.38'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -198,6 +198,26 @@
     <link href="./css/daily-report.css" rel="stylesheet">
 </head>
 <body class="min-h-screen" style="background-color: var(--autovol-gray-bg);">
+    <!-- Tablet Landscape Orientation Prompt -->
+    <div id="tablet-landscape-prompt" class="tablet-landscape-prompt">
+        <svg class="rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
+            <path d="M12 18h.01"/>
+            <path d="M2 12l2-2m0 0l2 2m-2-2v4"/>
+            <path d="M22 12l-2 2m0 0l-2-2m2 2v-4"/>
+        </svg>
+        <h2>Rotate for Best Experience</h2>
+        <p>MODA works best in landscape mode on tablets. Please rotate your device.</p>
+        <button class="dismiss-btn" onclick="this.parentElement.classList.add('dismissed'); sessionStorage.setItem('moda_landscape_dismissed', 'true');">
+            Continue in Portrait
+        </button>
+    </div>
+    <script>
+        // Check if user previously dismissed the prompt this session
+        if (sessionStorage.getItem('moda_landscape_dismissed') === 'true') {
+            document.getElementById('tablet-landscape-prompt').classList.add('dismissed');
+        }
+    </script>
     <div id="root">
         <!-- iOS Safari fallback loading indicator -->
         <div id="ios-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,system-ui,sans-serif;">

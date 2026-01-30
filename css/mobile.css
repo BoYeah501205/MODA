@@ -2129,12 +2129,81 @@ textarea {
     }
 }
 
+/* ===== TABLET LANDSCAPE PROMPT ===== */
+/* Show a gentle prompt when tablet is in portrait orientation */
+.tablet-landscape-prompt {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(30, 58, 95, 0.95);
+    z-index: 99999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-align: center;
+    padding: 2rem;
+}
+
+.tablet-landscape-prompt .rotate-icon {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1.5rem;
+    animation: rotate-hint 2s ease-in-out infinite;
+}
+
+.tablet-landscape-prompt h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.tablet-landscape-prompt p {
+    font-size: 1rem;
+    opacity: 0.9;
+    max-width: 300px;
+    line-height: 1.5;
+}
+
+.tablet-landscape-prompt .dismiss-btn {
+    margin-top: 1.5rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.tablet-landscape-prompt .dismiss-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes rotate-hint {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-15deg); }
+    75% { transform: rotate(15deg); }
+}
+
+/* Show prompt only on tablets (600px-1024px width) in portrait orientation */
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+    .tablet-landscape-prompt:not(.dismissed) {
+        display: flex;
+    }
+}
+
 /* ===== PRINT STYLES ===== */
 @media print {
     .mobile-nav-drawer,
     .bottom-nav,
     .mobile-menu-button,
-    .pull-to-refresh {
+    .pull-to-refresh,
+    .tablet-landscape-prompt {
         display: none !important;
     }
 }

@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.37**
+**Current Version: 1.5.38**
 
 ---
+
+## [1.5.38] - 2026-01-30
+### Tablet Landscape Orientation Prompt
+- **Landscape preference** - Updated manifest.json to suggest landscape orientation for PWA installs
+- **Portrait mode prompt** - Tablets (600-1024px) in portrait show a gentle overlay suggesting rotation
+- **Dismissible** - Users can tap "Continue in Portrait" to dismiss for the session
+- **Session memory** - Dismissed state persists until browser/tab is closed
+- **Animated icon** - Rotating device icon hints at the action needed
 
 ## [1.5.37] - 2026-01-30
 ### Auto-Redirect to First Visible Tab

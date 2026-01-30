@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#F0F2F5",
   "theme_color": "#1E3A5F",
-  "orientation": "portrait-primary",
+  "orientation": "landscape",
   "icons": [
     {
       "src": "./autovol-logo.png",
