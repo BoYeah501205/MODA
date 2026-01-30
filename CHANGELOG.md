@@ -2,9 +2,19 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.38**
+**Current Version: 1.5.39**
 
 ---
+
+## [1.5.39] - 2026-01-30
+### Background Upload Queue
+- **Close modal, continue uploading** - Click X to close upload modal while files continue uploading in background
+- **Floating progress indicator** - Bottom-right indicator shows upload progress across all navigation
+- **Duplicate file detection** - Queue pauses on duplicates with options: Skip, New Version, Skip All, Version All
+- **Toast notification** - Alert when uploads complete with "View Drawings" action
+- **Beforeunload warning** - Browser warns if you try to leave with uploads in progress
+- **Retry failed uploads** - Failed uploads can be retried from the progress indicator
+- **Queue multiple sessions** - Start new uploads while previous ones are still processing
 
 ## [1.5.38] - 2026-01-30
 ### Tablet Landscape Orientation Prompt

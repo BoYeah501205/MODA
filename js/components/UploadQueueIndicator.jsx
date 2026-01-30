@@ -3,6 +3,7 @@
  * 
  * Persistent indicator that shows upload progress across navigation.
  * Appears in bottom-right corner when uploads are in progress.
+ * Handles duplicate detection prompts and error handling.
  */
 
 function UploadQueueIndicator() {
@@ -18,8 +19,8 @@ function UploadQueueIndicator() {
 
         const unsubscribe = window.MODA_UPLOAD_QUEUE.subscribe((state) => {
             setQueueState(state);
-            // Auto-expand when new uploads start
-            if (state.isProcessing && state.totalInQueue > 0) {
+            // Auto-expand when new uploads start or when action needed
+            if ((state.isProcessing && state.totalInQueue > 0) || state.isPaused) {
                 setIsMinimized(false);
             }
         });
@@ -38,22 +39,27 @@ function UploadQueueIndicator() {
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }, []);
 
+    // Handle duplicate action
+    const handleDuplicateAction = useCallback((action) => {
+        window.MODA_UPLOAD_QUEUE?.resolveAction(action);
+    }, []);
+
     // Don't render if no queue or nothing in queue
     if (!queueState || (queueState.totalInQueue === 0 && queueState.completedCount === 0 && queueState.failedCount === 0)) {
         return null;
     }
 
-    const { queue, isProcessing, currentUpload, completedCount, failedCount, pendingCount } = queueState;
-    const totalCount = completedCount + failedCount + queue.length;
+    const { queue, isProcessing, isPaused, currentUpload, pendingAction, completedCount, failedCount, skippedCount, pendingCount } = queueState;
+    const totalCount = completedCount + failedCount + (skippedCount || 0) + queue.length;
 
     // Minimized view - just a small badge
-    if (isMinimized) {
+    if (isMinimized && !isPaused) {
         return (
             <div 
                 className="fixed bottom-4 right-4 z-50 cursor-pointer"
                 onClick={() => setIsMinimized(false)}
             >
-                <div className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:bg-blue-700 transition">
+                <div className={`${isPaused ? 'bg-amber-500' : 'bg-blue-600'} text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:opacity-90 transition`}>
                     {isProcessing ? (
                         <div className="relative">
                             <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24">
@@ -114,8 +120,49 @@ function UploadQueueIndicator() {
                 </div>
             </div>
 
+            {/* Duplicate File Prompt */}
+            {isPaused && pendingAction?.type === 'duplicate' && (
+                <div className="px-4 py-3 bg-amber-50 border-b border-amber-200">
+                    <div className="flex items-start gap-2 mb-2">
+                        <span className="icon-alert-triangle w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></span>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-amber-800">Duplicate File Found</p>
+                            <p className="text-xs text-amber-700 truncate mt-0.5">
+                                {pendingAction.task?.file?.name}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                        <button
+                            onClick={() => handleDuplicateAction('skip')}
+                            className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition"
+                        >
+                            Skip
+                        </button>
+                        <button
+                            onClick={() => handleDuplicateAction('newVersion')}
+                            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                        >
+                            New Version
+                        </button>
+                        <button
+                            onClick={() => handleDuplicateAction('skipAll')}
+                            className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition"
+                        >
+                            Skip All
+                        </button>
+                        <button
+                            onClick={() => handleDuplicateAction('newVersionAll')}
+                            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                        >
+                            Version All
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Current Upload Progress */}
-            {currentUpload && (
+            {currentUpload && currentUpload.status === 'uploading' && (
                 <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium text-gray-700 truncate flex-1 mr-2">
@@ -161,7 +208,9 @@ function UploadQueueIndicator() {
                             key={task.id}
                             className={`px-4 py-2 border-b border-gray-100 flex items-center gap-2 ${
                                 task.status === 'complete' ? 'bg-green-50' :
-                                task.status === 'failed' ? 'bg-red-50' : ''
+                                task.status === 'failed' ? 'bg-red-50' :
+                                task.status === 'skipped' ? 'bg-gray-50' :
+                                task.status === 'duplicate' ? 'bg-amber-50' : ''
                             }`}
                         >
                             {task.status === 'queued' && (
@@ -179,9 +228,17 @@ function UploadQueueIndicator() {
                             {task.status === 'failed' && (
                                 <span className="icon-x w-4 h-4 text-red-600"></span>
                             )}
+                            {task.status === 'skipped' && (
+                                <span className="icon-minus w-4 h-4 text-gray-400"></span>
+                            )}
+                            {task.status === 'duplicate' && (
+                                <span className="icon-alert-triangle w-4 h-4 text-amber-500"></span>
+                            )}
                             <span className={`text-sm truncate flex-1 ${
                                 task.status === 'failed' ? 'text-red-700' :
-                                task.status === 'complete' ? 'text-green-700' : 'text-gray-700'
+                                task.status === 'complete' ? 'text-green-700' :
+                                task.status === 'skipped' ? 'text-gray-500' :
+                                task.status === 'duplicate' ? 'text-amber-700' : 'text-gray-700'
                             }`}>
                                 {task.file.name}
                             </span>
@@ -200,13 +257,19 @@ function UploadQueueIndicator() {
             )}
 
             {/* Completed/Failed Summary */}
-            {(completedCount > 0 || failedCount > 0) && !isProcessing && queue.length === 0 && (
+            {(completedCount > 0 || failedCount > 0 || skippedCount > 0) && !isProcessing && queue.length === 0 && (
                 <div className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-4 text-sm">
+                    <div className="flex items-center justify-center gap-4 text-sm flex-wrap">
                         {completedCount > 0 && (
                             <span className="text-green-600 flex items-center gap-1">
                                 <span className="icon-check w-4 h-4"></span>
-                                {completedCount} completed
+                                {completedCount} uploaded
+                            </span>
+                        )}
+                        {skippedCount > 0 && (
+                            <span className="text-gray-500 flex items-center gap-1">
+                                <span className="icon-minus w-4 h-4"></span>
+                                {skippedCount} skipped
                             </span>
                         )}
                         {failedCount > 0 && (
@@ -216,6 +279,14 @@ function UploadQueueIndicator() {
                             </span>
                         )}
                     </div>
+                    {failedCount > 0 && (
+                        <button
+                            onClick={() => window.MODA_UPLOAD_QUEUE?.retryFailed()}
+                            className="mt-2 px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+                        >
+                            Retry Failed
+                        </button>
+                    )}
                 </div>
             )}
         </div>

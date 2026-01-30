@@ -39,6 +39,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
     const [uploadStartTime, setUploadStartTime] = useState(null); // Track upload start time for estimates
     const uploadCancelledRef = useRef(false); // Ref for cancel flag (refs update synchronously, unlike state)
+    const pendingFilesRef = useRef([]); // Track remaining files for background queue transfer
     const [showSheetBrowser, setShowSheetBrowser] = useState(false);
     const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
     const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
@@ -861,6 +862,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 // Local variable for bulk action (React state won't update mid-loop)
                 let localBulkAction = null;
                 
+                // Track pending files for background queue transfer
+                pendingFilesRef.current = Array.from(files);
+                
                 // Upload to Supabase (which now routes to SharePoint)
                 for (let i = 0; i < files.length; i++) {
                     // Check if upload was cancelled (using ref for synchronous check)
@@ -870,6 +874,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     }
                     
                     const file = files[i];
+                    
+                    // Update pending files (remove current file from pending)
+                    pendingFilesRef.current = Array.from(files).slice(i + 1);
                     
                     // Calculate time estimate
                     const elapsed = Date.now() - startTime;
@@ -1045,8 +1052,45 @@ const DrawingsModule = ({ projects = [], auth }) => {
             setShowUploadModal(false);
             uploadCancelledRef.current = false;
             setUploadStartTime(null);
+            pendingFilesRef.current = []; // Clear pending files
         }
     }, [selectedProject, selectedDiscipline, auth]);
+    
+    // Handle closing upload modal - transfers remaining files to background queue
+    const handleCloseUploadModal = useCallback(() => {
+        // If upload is in progress, transfer remaining files to background queue
+        if (uploadProgress && pendingFilesRef.current && pendingFilesRef.current.length > 0) {
+            const categoryObj = getCategories().find(c => c.id === selectedCategory);
+            const categoryName = categoryObj?.name || 'Shop Drawings';
+            
+            let disciplineName = selectedDiscipline;
+            const disciplines = getDisciplinesForCategory(selectedCategory);
+            const disciplineObj = disciplines.find(d => d.id === selectedDiscipline || d.name === selectedDiscipline);
+            if (disciplineObj) disciplineName = disciplineObj.name;
+            
+            // Add remaining files to background queue
+            if (window.MODA_UPLOAD_QUEUE) {
+                window.MODA_UPLOAD_QUEUE.addToQueue(pendingFilesRef.current, {
+                    projectId: selectedProject.id,
+                    projectName: selectedProject.name,
+                    categoryName,
+                    disciplineName,
+                    disciplineId: selectedDiscipline,
+                    createdBy: auth?.currentUser?.name || auth?.currentUser?.email || 'Unknown'
+                });
+                console.log('[Drawings] Transferred', pendingFilesRef.current.length, 'files to background queue');
+            }
+            
+            // Clear pending files
+            pendingFilesRef.current = [];
+        }
+        
+        // Cancel current upload in modal (it will continue in background queue)
+        uploadCancelledRef.current = true;
+        setUploadProgress(null);
+        setShowUploadModal(false);
+        setUploadStartTime(null);
+    }, [uploadProgress, selectedProject, selectedCategory, selectedDiscipline, auth]);
     
     // Handle new version upload
     const handleVersionUpload = useCallback(async (drawingId, file, notes) => {
@@ -2538,8 +2582,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                 Upload Drawings
                             </h2>
                             <button
-                                onClick={() => setShowUploadModal(false)}
+                                onClick={handleCloseUploadModal}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition"
+                                title={uploadProgress ? "Close and continue in background" : "Close"}
                             >
                                 <span className="icon-close w-5 h-5"></span>
                             </button>
@@ -2735,10 +2780,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     
                     <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
                         <button
-                            onClick={() => setShowUploadModal(false)}
+                            onClick={handleCloseUploadModal}
                             className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
                         >
-                            Cancel
+                            {uploadProgress ? 'Close' : 'Cancel'}
                         </button>
                         <button
                             onClick={() => {

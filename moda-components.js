@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-30T14:35:25.655Z
+ * Generated: 2026-01-30T16:33:49.151Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -32948,6 +32948,7 @@ window.ReportsHub = ReportsHub;
  * 
  * Persistent indicator that shows upload progress across navigation.
  * Appears in bottom-right corner when uploads are in progress.
+ * Handles duplicate detection prompts and error handling.
  */
 
 function UploadQueueIndicator() {
@@ -32961,8 +32962,8 @@ function UploadQueueIndicator() {
     if (!window.MODA_UPLOAD_QUEUE) return;
     const unsubscribe = window.MODA_UPLOAD_QUEUE.subscribe(state => {
       setQueueState(state);
-      // Auto-expand when new uploads start
-      if (state.isProcessing && state.totalInQueue > 0) {
+      // Auto-expand when new uploads start or when action needed
+      if (state.isProcessing && state.totalInQueue > 0 || state.isPaused) {
         setIsMinimized(false);
       }
     });
@@ -32980,6 +32981,11 @@ function UploadQueueIndicator() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }, []);
 
+  // Handle duplicate action
+  const handleDuplicateAction = useCallback(action => {
+    window.MODA_UPLOAD_QUEUE?.resolveAction(action);
+  }, []);
+
   // Don't render if no queue or nothing in queue
   if (!queueState || queueState.totalInQueue === 0 && queueState.completedCount === 0 && queueState.failedCount === 0) {
     return null;
@@ -32987,20 +32993,23 @@ function UploadQueueIndicator() {
   const {
     queue,
     isProcessing,
+    isPaused,
     currentUpload,
+    pendingAction,
     completedCount,
     failedCount,
+    skippedCount,
     pendingCount
   } = queueState;
-  const totalCount = completedCount + failedCount + queue.length;
+  const totalCount = completedCount + failedCount + (skippedCount || 0) + queue.length;
 
   // Minimized view - just a small badge
-  if (isMinimized) {
+  if (isMinimized && !isPaused) {
     return /*#__PURE__*/React.createElement("div", {
       className: "fixed bottom-4 right-4 z-50 cursor-pointer",
       onClick: () => setIsMinimized(false)
     }, /*#__PURE__*/React.createElement("div", {
-      className: "bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:bg-blue-700 transition"
+      className: `${isPaused ? 'bg-amber-500' : 'bg-blue-600'} text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:opacity-90 transition`
     }, isProcessing ? /*#__PURE__*/React.createElement("div", {
       className: "relative"
     }, /*#__PURE__*/React.createElement("svg", {
@@ -33070,7 +33079,33 @@ function UploadQueueIndicator() {
     title: "Clear"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-x w-4 h-4"
-  })))), currentUpload && /*#__PURE__*/React.createElement("div", {
+  })))), isPaused && pendingAction?.type === 'duplicate' && /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 bg-amber-50 border-b border-amber-200"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-2 mb-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-alert-triangle w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium text-amber-800"
+  }, "Duplicate File Found"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-amber-700 truncate mt-0.5"
+  }, pendingAction.task?.file?.name))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 mt-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleDuplicateAction('skip'),
+    className: "px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition"
+  }, "Skip"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleDuplicateAction('newVersion'),
+    className: "px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+  }, "New Version"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleDuplicateAction('skipAll'),
+    className: "px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition"
+  }, "Skip All"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleDuplicateAction('newVersionAll'),
+    className: "px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+  }, "Version All"))), currentUpload && currentUpload.status === 'uploading' && /*#__PURE__*/React.createElement("div", {
     className: "px-4 py-3 border-b border-gray-100"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
@@ -33097,7 +33132,7 @@ function UploadQueueIndicator() {
     className: "max-h-48 overflow-y-auto"
   }, queue.map(task => /*#__PURE__*/React.createElement("div", {
     key: task.id,
-    className: `px-4 py-2 border-b border-gray-100 flex items-center gap-2 ${task.status === 'complete' ? 'bg-green-50' : task.status === 'failed' ? 'bg-red-50' : ''}`
+    className: `px-4 py-2 border-b border-gray-100 flex items-center gap-2 ${task.status === 'complete' ? 'bg-green-50' : task.status === 'failed' ? 'bg-red-50' : task.status === 'skipped' ? 'bg-gray-50' : task.status === 'duplicate' ? 'bg-amber-50' : ''}`
   }, task.status === 'queued' && /*#__PURE__*/React.createElement("span", {
     className: "icon-clock w-4 h-4 text-gray-400"
   }), task.status === 'uploading' && /*#__PURE__*/React.createElement("svg", {
@@ -33119,27 +33154,38 @@ function UploadQueueIndicator() {
     className: "icon-check w-4 h-4 text-green-600"
   }), task.status === 'failed' && /*#__PURE__*/React.createElement("span", {
     className: "icon-x w-4 h-4 text-red-600"
+  }), task.status === 'skipped' && /*#__PURE__*/React.createElement("span", {
+    className: "icon-minus w-4 h-4 text-gray-400"
+  }), task.status === 'duplicate' && /*#__PURE__*/React.createElement("span", {
+    className: "icon-alert-triangle w-4 h-4 text-amber-500"
   }), /*#__PURE__*/React.createElement("span", {
-    className: `text-sm truncate flex-1 ${task.status === 'failed' ? 'text-red-700' : task.status === 'complete' ? 'text-green-700' : 'text-gray-700'}`
+    className: `text-sm truncate flex-1 ${task.status === 'failed' ? 'text-red-700' : task.status === 'complete' ? 'text-green-700' : task.status === 'skipped' ? 'text-gray-500' : task.status === 'duplicate' ? 'text-amber-700' : 'text-gray-700'}`
   }, task.file.name), task.status === 'queued' && /*#__PURE__*/React.createElement("button", {
     onClick: () => window.MODA_UPLOAD_QUEUE?.cancelUpload(task.id),
     className: "p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-red-600",
     title: "Cancel"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-x w-3 h-3"
-  }))))), (completedCount > 0 || failedCount > 0) && !isProcessing && queue.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }))))), (completedCount > 0 || failedCount > 0 || skippedCount > 0) && !isProcessing && queue.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "px-4 py-3 text-center"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-center gap-4 text-sm"
+    className: "flex items-center justify-center gap-4 text-sm flex-wrap"
   }, completedCount > 0 && /*#__PURE__*/React.createElement("span", {
     className: "text-green-600 flex items-center gap-1"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-check w-4 h-4"
-  }), completedCount, " completed"), failedCount > 0 && /*#__PURE__*/React.createElement("span", {
+  }), completedCount, " uploaded"), skippedCount > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-minus w-4 h-4"
+  }), skippedCount, " skipped"), failedCount > 0 && /*#__PURE__*/React.createElement("span", {
     className: "text-red-600 flex items-center gap-1"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-x w-4 h-4"
-  }), failedCount, " failed"))));
+  }), failedCount, " failed")), failedCount > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.MODA_UPLOAD_QUEUE?.retryFailed(),
+    className: "mt-2 px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+  }, "Retry Failed")));
 }
 
 // Export globally
@@ -34230,6 +34276,7 @@ const DrawingsModule = ({
   const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(null); // { file, existingDrawing, metadata, disciplineToUse, onAction }
   const [uploadStartTime, setUploadStartTime] = useState(null); // Track upload start time for estimates
   const uploadCancelledRef = useRef(false); // Ref for cancel flag (refs update synchronously, unlike state)
+  const pendingFilesRef = useRef([]); // Track remaining files for background queue transfer
   const [showSheetBrowser, setShowSheetBrowser] = useState(false);
   const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
   const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
@@ -35174,6 +35221,9 @@ const DrawingsModule = ({
         // Local variable for bulk action (React state won't update mid-loop)
         let localBulkAction = null;
 
+        // Track pending files for background queue transfer
+        pendingFilesRef.current = Array.from(files);
+
         // Upload to Supabase (which now routes to SharePoint)
         for (let i = 0; i < files.length; i++) {
           // Check if upload was cancelled (using ref for synchronous check)
@@ -35182,6 +35232,9 @@ const DrawingsModule = ({
             break;
           }
           const file = files[i];
+
+          // Update pending files (remove current file from pending)
+          pendingFilesRef.current = Array.from(files).slice(i + 1);
 
           // Calculate time estimate
           const elapsed = Date.now() - startTime;
@@ -35350,8 +35403,44 @@ const DrawingsModule = ({
       setShowUploadModal(false);
       uploadCancelledRef.current = false;
       setUploadStartTime(null);
+      pendingFilesRef.current = []; // Clear pending files
     }
   }, [selectedProject, selectedDiscipline, auth]);
+
+  // Handle closing upload modal - transfers remaining files to background queue
+  const handleCloseUploadModal = useCallback(() => {
+    // If upload is in progress, transfer remaining files to background queue
+    if (uploadProgress && pendingFilesRef.current && pendingFilesRef.current.length > 0) {
+      const categoryObj = getCategories().find(c => c.id === selectedCategory);
+      const categoryName = categoryObj?.name || 'Shop Drawings';
+      let disciplineName = selectedDiscipline;
+      const disciplines = getDisciplinesForCategory(selectedCategory);
+      const disciplineObj = disciplines.find(d => d.id === selectedDiscipline || d.name === selectedDiscipline);
+      if (disciplineObj) disciplineName = disciplineObj.name;
+
+      // Add remaining files to background queue
+      if (window.MODA_UPLOAD_QUEUE) {
+        window.MODA_UPLOAD_QUEUE.addToQueue(pendingFilesRef.current, {
+          projectId: selectedProject.id,
+          projectName: selectedProject.name,
+          categoryName,
+          disciplineName,
+          disciplineId: selectedDiscipline,
+          createdBy: auth?.currentUser?.name || auth?.currentUser?.email || 'Unknown'
+        });
+        console.log('[Drawings] Transferred', pendingFilesRef.current.length, 'files to background queue');
+      }
+
+      // Clear pending files
+      pendingFilesRef.current = [];
+    }
+
+    // Cancel current upload in modal (it will continue in background queue)
+    uploadCancelledRef.current = true;
+    setUploadProgress(null);
+    setShowUploadModal(false);
+    setUploadStartTime(null);
+  }, [uploadProgress, selectedProject, selectedCategory, selectedDiscipline, auth]);
 
   // Handle new version upload
   const handleVersionUpload = useCallback(async (drawingId, file, notes) => {
@@ -36545,8 +36634,9 @@ const DrawingsModule = ({
         color: 'var(--autovol-navy)'
       }
     }, "Upload Drawings"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowUploadModal(false),
-      className: "p-2 hover:bg-gray-100 rounded-lg transition"
+      onClick: handleCloseUploadModal,
+      className: "p-2 hover:bg-gray-100 rounded-lg transition",
+      title: uploadProgress ? "Close and continue in background" : "Close"
     }, /*#__PURE__*/React.createElement("span", {
       className: "icon-close w-5 h-5"
     })))), /*#__PURE__*/React.createElement("div", {
@@ -36686,9 +36776,9 @@ const DrawingsModule = ({
     }))), /*#__PURE__*/React.createElement("div", {
       className: "p-6 border-t border-gray-200 flex justify-end gap-3"
     }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowUploadModal(false),
+      onClick: handleCloseUploadModal,
       className: "px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
-    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    }, uploadProgress ? 'Close' : 'Cancel'), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         const targetDiscipline = selectedDiscipline || uploadDiscipline;
         if (!targetDiscipline) {
