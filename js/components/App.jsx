@@ -572,7 +572,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
     );
 }
 
-// ============================================================================
 // DASHBOARD ROLE MANAGER - EXTRACTED TO auth/RoleManager.jsx
 // ============================================================================
 
@@ -586,6 +585,23 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // Use URL navigation if available, otherwise fall back to local state
             const activeTab = useUrlNav ? urlActiveTab : localActiveTab;
             const setActiveTab = useUrlNav ? urlSetActiveTab : setLocalActiveTab;
+            
+            // Auto-redirect to first visible tab if current tab is not accessible
+            // This handles roles like production_floor that only have access to specific tabs
+            useEffect(() => {
+                if (!auth.visibleTabs || auth.visibleTabs.length === 0) return;
+                
+                // Check if current tab is accessible
+                const isHomeAccessible = activeTab === 'home' && isFeatureEnabled('enableDashboardHome', auth.currentUser?.email);
+                const isTabAccessible = auth.visibleTabs.includes(activeTab) || isHomeAccessible;
+                
+                if (!isTabAccessible) {
+                    // Redirect to first visible tab
+                    const firstTab = auth.visibleTabs[0];
+                    console.log(`[Dashboard] Tab '${activeTab}' not accessible, redirecting to '${firstTab}'`);
+                    setActiveTab(firstTab);
+                }
+            }, [activeTab, auth.visibleTabs, auth.currentUser?.email, setActiveTab]);
             
             // Projects state - loaded from Supabase with localStorage fallback
             const [projects, setProjectsState] = useState([]);

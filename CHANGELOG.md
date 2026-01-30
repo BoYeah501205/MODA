@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.36**
+**Current Version: 1.5.37**
 
 ---
+
+## [1.5.37] - 2026-01-30
+### Auto-Redirect to First Visible Tab
+- **Smart tab navigation** - Users are automatically redirected to their first accessible tab on login
+- **Fixes production_floor role** - Users with only Drawings access now land directly on Drawings tab instead of blank home page
+- **No more FAB hunting** - Eliminates need to use floating action button to find accessible tabs
 
 ## [1.5.36] - 2026-01-29
 ### Production Floor Role Fix
