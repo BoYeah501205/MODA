@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.40**
+**Current Version: 1.5.41**
 
 ---
+
+## [1.5.41] - 2026-02-01
+### Weekly Board CSS Fix
+- **Fixed header controls alignment** - Controls (Compact/Detailed, Reorder, Edit Week, etc.) now stay near the left side instead of being pushed to the far right on full-width layouts
 
 ## [1.5.40] - 2026-02-01
 ### Weekly Board Fix

@@ -4905,7 +4905,7 @@ const getProjectAcronym = (module) => {
             )}
             
             {/* Header with Week Info and Actions */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center flex-wrap gap-4">
                 <div className="flex items-center gap-4">
                     <div>
                         <h3 className="text-lg font-semibold text-autovol-navy">Weekly Board</h3>
