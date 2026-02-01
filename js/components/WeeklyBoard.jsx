@@ -2557,9 +2557,15 @@ function WeeklyBoardTab({
     // (modules that have already passed through upstream stations)
     const getStationStartingModule = (stationId) => {
         // Use auto-calculated starting module if no manual override
-        const weekStartingModule = displayWeek?.startingModule 
-            ? allModules.find(m => m.serialNumber === displayWeek.startingModule)
-            : autoStartingModule;
+        // Fall back to autoStartingModule if specified module not found (e.g., project not Active)
+        let weekStartingModule = autoStartingModule;
+        if (displayWeek?.startingModule) {
+            const foundModule = allModules.find(m => m.serialNumber === displayWeek.startingModule);
+            if (foundModule) {
+                weekStartingModule = foundModule;
+            }
+            // If not found, keep using autoStartingModule as fallback
+        }
             
         if (!weekStartingModule) return null;
         

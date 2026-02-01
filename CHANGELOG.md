@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.39**
+**Current Version: 1.5.40**
 
 ---
+
+## [1.5.40] - 2026-02-01
+### Weekly Board Fix
+- **Fixed "No modules" display** - Weekly Board now correctly shows modules when the configured starting module is not found in active projects (falls back to auto-calculated starting module)
 
 ## [1.5.39] - 2026-01-30
 ### Background Upload Queue
