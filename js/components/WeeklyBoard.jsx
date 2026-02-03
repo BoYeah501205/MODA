@@ -3139,15 +3139,19 @@ function WeeklyBoardTab({
     const computeDayLabelsForPDF = () => {
         const days = [];
         const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
+        const shift2Days = ['friday', 'saturday', 'sunday'];
         const dayNames = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+        const dayOffsets = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
         
         let moduleNum = 1;
+        
+        // Process Shift 1 days (Mon-Thu)
         shift1Days.forEach(day => {
             // Use displayWeek's shift config when viewing a specific week, fallback to scheduleSetup
             const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
             if (count > 0) {
                 const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
-                const dayOffset = shift1Days.indexOf(day);
+                const dayOffset = dayOffsets[day];
                 const dayDate = new Date(weekStart);
                 dayDate.setDate(dayDate.getDate() + dayOffset);
                 const monthStr = dayDate.toLocaleDateString('en-US', { month: 'short' });
@@ -3165,6 +3169,31 @@ function WeeklyBoardTab({
                 }
             }
         });
+        
+        // Process Shift 2 days (Fri-Sun)
+        shift2Days.forEach(day => {
+            const count = displayWeek?.shift2?.[day] ?? scheduleSetup?.shift2?.[day] ?? 0;
+            if (count > 0) {
+                const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
+                const dayOffset = dayOffsets[day];
+                const dayDate = new Date(weekStart);
+                dayDate.setDate(dayDate.getDate() + dayOffset);
+                const monthStr = dayDate.toLocaleDateString('en-US', { month: 'short' });
+                const dayNum = dayDate.getDate();
+                
+                for (let i = 0; i < count; i++) {
+                    days.push({ 
+                        day, 
+                        label: dayNames[day], 
+                        monthStr,
+                        dayNum,
+                        slotNum: i + 1,
+                        moduleNum: moduleNum++
+                    });
+                }
+            }
+        });
+        
         return days;
     };
     
@@ -4215,16 +4244,20 @@ const getProjectAcronym = (module) => {
     const getDayLabels = () => {
         const days = [];
         const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
+        const shift2Days = ['friday', 'saturday', 'sunday'];
         const dayNames = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+        const dayOffsets = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
         
         let moduleNum = 1;
+        
+        // Process Shift 1 days (Mon-Thu)
         shift1Days.forEach(day => {
             // Use displayWeek's shift config when viewing a specific week, fallback to scheduleSetup
             const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
             if (count > 0) {
                 // Calculate date for this day
                 const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
-                const dayOffset = shift1Days.indexOf(day);
+                const dayOffset = dayOffsets[day];
                 const dayDate = new Date(weekStart);
                 dayDate.setDate(dayDate.getDate() + dayOffset);
                 const monthStr = dayDate.toLocaleDateString('en-US', { month: 'short' });
@@ -4243,6 +4276,31 @@ const getProjectAcronym = (module) => {
                 }
             }
         });
+        
+        // Process Shift 2 days (Fri-Sun)
+        shift2Days.forEach(day => {
+            const count = displayWeek?.shift2?.[day] ?? scheduleSetup?.shift2?.[day] ?? 0;
+            if (count > 0) {
+                const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
+                const dayOffset = dayOffsets[day];
+                const dayDate = new Date(weekStart);
+                dayDate.setDate(dayDate.getDate() + dayOffset);
+                const monthStr = dayDate.toLocaleDateString('en-US', { month: 'short' });
+                const dayNum = dayDate.getDate();
+                
+                for (let i = 0; i < count; i++) {
+                    days.push({ 
+                        day, 
+                        label: dayNames[day], 
+                        monthStr,
+                        dayNum,
+                        slotNum: i + 1,
+                        moduleNum: moduleNum++
+                    });
+                }
+            }
+        });
+        
         return days;
     };
     

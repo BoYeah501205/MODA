@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.41**
+**Current Version: 1.5.42**
 
 ---
+
+## [1.5.42] - 2026-02-02
+### Weekly Board Shift #2 Fix
+- **Fixed Shift #2 (Fri-Sun) not showing** - Weekly Board now correctly displays Friday, Saturday, and Sunday dates and module allocations when Shift #2 has modules configured
+- **PDF export also fixed** - Shift #2 days now included in PDF exports
 
 ## [1.5.41] - 2026-02-01
 ### Weekly Board CSS Fix
