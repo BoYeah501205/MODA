@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.42**
+**Current Version: 1.5.43**
 
 ---
+
+## [1.5.43] - 2026-02-02
+### Weekly Board PREV/NEXT Row Controls
+- **Add/remove PREV rows** - Click + at top of PREV section to add rows, hover over last PREV row for - button to remove
+- **Add/remove NEXT rows** - Click + at bottom of NEXT section to add rows, hover over last NEXT row for - button to remove
+- **Hide/show sections** - Click - on divider to hide all PREV or NEXT rows, click "+ PREV" or "+ NEXT" to restore (default 5)
+- **Replaced minimize button** - Old NEXT minimize button replaced with consistent +/- controls
 
 ## [1.5.42] - 2026-02-02
 ### Weekly Board Shift #2 Fix
