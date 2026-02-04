@@ -377,9 +377,9 @@ function IssueSubmissionModal({
     };
 
     const handleBackdropClick = (e) => {
-        if (e.target === modalRef.current) {
-            onClose();
-        }
+        // Intentionally disabled - clicking outside should NOT close this modal
+        // Users must use Cancel button or X button to close
+        // This prevents accidental data loss when filling out the form
     };
 
     // ===== RENDER =====

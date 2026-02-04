@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.51**
+**Current Version: 1.5.52**
 
 ---
+
+## [1.5.52] - 2026-02-04
+### UX Improvement
+- **Report Issue modal** - Disabled click-outside-to-close behavior to prevent accidental data loss when filling out the form. Users must now use Cancel or X button to close.
 
 ## [1.5.51] - 2026-02-04
 ### UI Fix
