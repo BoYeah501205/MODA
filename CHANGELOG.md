@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.52**
+**Current Version: 1.5.53**
 
 ---
+
+## [1.5.53] - 2026-02-04
+### Bug Fix
+- **Engineering Issues not loading** - Fixed Supabase error caused by `drawing_discipline` column not existing in database. Removed field from Supabase insert query (kept for localStorage fallback).
 
 ## [1.5.52] - 2026-02-04
 ### UX Improvement

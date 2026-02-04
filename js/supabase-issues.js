@@ -210,6 +210,7 @@
             const submittedById = issueData.submitted_by_id && issueData.submitted_by_id !== '' ? issueData.submitted_by_id : null;
             const assignedToId = issueData.assigned_to_id && issueData.assigned_to_id !== '' ? issueData.assigned_to_id : null;
             
+            // Base issue object (fields that exist in Supabase)
             const newIssue = {
                 issue_number: issueNumber,
                 issue_display_id: formatIssueNumber(issueNumber),
@@ -237,7 +238,7 @@
                 // Module Linking
                 linked_module_ids: issueData.linked_module_ids || [],
                 linked_modules_display: issueData.linked_modules_display || '',
-                drawing_discipline: issueData.drawing_discipline || '',
+                // NOTE: drawing_discipline column not yet in Supabase - stored in localStorage only for now
                 
                 // Assignment & Tracking
                 submitted_by: issueData.submitted_by || 'Unknown User',
@@ -264,12 +265,18 @@
                 resolved_by_id: null,
                 resolution_notes: null
             };
+            
+            // Fields for localStorage only (not yet in Supabase schema)
+            const localOnlyFields = {
+                drawing_discipline: issueData.drawing_discipline || ''
+            };
 
             if (!isAvailable()) {
-                // For localStorage, add a generated id
+                // For localStorage, add a generated id and include local-only fields
                 const localIssue = {
                     id: `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    ...newIssue
+                    ...newIssue,
+                    ...localOnlyFields
                 };
                 const issues = loadFromLocalStorage();
                 issues.unshift(localIssue);
