@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T04:07:27.858Z
+ * Generated: 2026-02-04T04:29:18.749Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -42411,10 +42411,17 @@ function IssueSubmissionModal({
     label: 'RFI Required',
     color: '#4F46E5'
   }, {
+    id: 'automation',
+    label: 'Automation',
+    color: '#059669'
+  }, {
     id: 'other',
     label: 'Other',
     color: '#6B7280'
   }];
+
+  // Issue types that should show the module selector
+  const MODULE_SELECTOR_TYPES = ['shop-drawing', 'design-conflict', 'engineering-question', 'rfi', 'automation'];
   const PRIORITY_LEVELS = window.MODA_ISSUE_ROUTING?.PRIORITY_LEVELS || [{
     id: 'low',
     label: 'Low',
@@ -42831,17 +42838,7 @@ function IssueSubmissionModal({
       key: p.id,
       value: p.id
     }, p.project_number ? `#${p.project_number} - ` : '', p.name))));
-  })())), !context?.blm_id && formData.issue_type !== 'shop-drawing' && /*#__PURE__*/React.createElement("div", {
-    className: "mb-4"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm font-medium text-gray-700 mb-1"
-  }, "Module BLM ID (optional)"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: formData.blm_id,
-    onChange: e => handleChange('blm_id', e.target.value),
-    placeholder: "e.g., 21-0393",
-    className: "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  })), /*#__PURE__*/React.createElement("div", {
+  })())), /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
   }, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-2"
@@ -43126,6 +43123,10 @@ function IssueDetailModal({
     id: 'rfi',
     label: 'RFI Required',
     color: '#4F46E5'
+  }, {
+    id: 'automation',
+    label: 'Automation',
+    color: '#059669'
   }, {
     id: 'other',
     label: 'Other',

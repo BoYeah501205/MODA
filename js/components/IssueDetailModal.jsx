@@ -27,6 +27,7 @@ function IssueDetailModal({
         { id: 'quality', label: 'Quality Issue', color: '#DC2626' },
         { id: 'engineering-question', label: 'Engineering Question', color: '#0891B2' },
         { id: 'rfi', label: 'RFI Required', color: '#4F46E5' },
+        { id: 'automation', label: 'Automation', color: '#059669' },
         { id: 'other', label: 'Other', color: '#6B7280' }
     ];
 
