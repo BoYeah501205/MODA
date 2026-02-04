@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.45**
+**Current Version: 1.5.46**
 
 ---
+
+## [1.5.46] - 2026-02-03
+### Engineering Issue Edit/Delete for Admins
+- **Delete issues** - Admins and users with edit permissions can now delete issues from the Issue Detail modal
+- **Delete confirmation** - Confirmation dialog prevents accidental deletions
+- **SQL migration** - Added `create-issue-module-links-table.sql` for multi-module issue linking (run in Supabase)
 
 ## [1.5.45] - 2026-02-03
 ### Weekly Board PREV/NEXT Alignment Fix

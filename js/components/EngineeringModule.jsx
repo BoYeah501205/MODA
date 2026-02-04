@@ -334,6 +334,12 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
         setShowDetailModal(false);
         setSelectedIssue(null);
     };
+    
+    const handleIssueDeleted = (issueId) => {
+        setIssues(prev => prev.filter(i => i.id !== issueId));
+        setShowDetailModal(false);
+        setSelectedIssue(null);
+    };
 
     const clearFilters = () => {
         setFilters({
@@ -689,6 +695,7 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
                     employees={employees}
                     auth={auth}
                     onUpdate={handleIssueUpdated}
+                    onDelete={handleIssueDeleted}
                     onClose={handleCloseDetail}
                 />
             )}

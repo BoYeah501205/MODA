@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T02:57:32.906Z
+ * Generated: 2026-02-04T03:16:08.917Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -11898,47 +11898,25 @@ function WeeklyBoardTab({
       className: "flex justify-between text-xs mt-0.5 opacity-0"
     }, /*#__PURE__*/React.createElement("span", null, "0/0"), /*#__PURE__*/React.createElement("span", null, "0")))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white min-h-80 p-1 space-y-1 border-l border-b border-gray-200"
-    }, visiblePrevRows > 0 && previous.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "mb-1"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisiblePrevRows(prev => prev + 1),
-      className: "w-full rounded border-2 border-dashed border-red-300 bg-red-50/50 hover:bg-red-100 flex items-center justify-center text-center transition-colors",
-      style: {
-        height: `${CARD_HEIGHT * 0.6}px`
-      },
-      title: "Add another PREV row"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-lg font-bold text-red-400"
-    }, "+"))), previous.map((_, idx) => /*#__PURE__*/React.createElement("div", {
+    }, previous.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, previous.map((_, idx) => /*#__PURE__*/React.createElement("div", {
       key: `prev-${idx}`,
       className: "rounded border border-red-300 bg-red-50 flex items-center justify-center text-center relative group",
       style: {
         height: `${CARD_HEIGHT}px`
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, idx === 0 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisiblePrevRows(prev => prev + 1),
+      className: "absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-200 hover:bg-red-300 border border-red-400 rounded text-red-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity",
+      title: "Add one PREV row"
+    }, "+"), /*#__PURE__*/React.createElement("div", {
       className: "text-xs font-bold text-red-600"
-    }, "PREV"), idx === previous.length - 1 && visiblePrevRows > 1 && /*#__PURE__*/React.createElement("button", {
+    }, "PREV"), idx === previous.length - 1 && visiblePrevRows > 0 && /*#__PURE__*/React.createElement("button", {
       onClick: () => setVisiblePrevRows(prev => Math.max(0, prev - 1)),
-      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-200 hover:bg-red-300 border border-red-400 rounded text-red-700 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex",
+      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-200 hover:bg-red-300 border border-red-400 rounded text-red-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity",
       title: "Remove one PREV row"
     }, "-"))), /*#__PURE__*/React.createElement("div", {
-      className: "border-t border-dashed border-red-300 my-0.5 relative"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisiblePrevRows(0),
-      className: "absolute -bottom-2 right-0 w-4 h-4 bg-red-100 hover:bg-red-200 border border-red-300 rounded text-red-600 text-xs flex items-center justify-center",
-      title: "Hide all PREV rows"
-    }, "-"))), visiblePrevRows === 0 && /*#__PURE__*/React.createElement("div", {
-      className: "mb-1"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisiblePrevRows(5),
-      className: "w-full rounded border border-red-300 bg-red-50 hover:bg-red-100 flex items-center justify-center text-center transition-colors",
-      style: {
-        height: `${CARD_HEIGHT * 0.6}px`
-      },
-      title: "Show PREV rows (default 5)"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-xs font-bold text-red-600"
-    }, "+ PREV"))), dayLabels.map((dayInfo, idx) => /*#__PURE__*/React.createElement("div", {
+      className: "border-t border-dashed border-red-300 my-0.5"
+    })), dayLabels.map((dayInfo, idx) => /*#__PURE__*/React.createElement("div", {
       key: `${dayInfo.day}-${dayInfo.slotNum}`,
       className: "rounded border border-autovol-teal bg-white flex flex-col items-center justify-center text-center",
       style: {
@@ -11948,47 +11926,25 @@ function WeeklyBoardTab({
       className: "text-xs font-bold text-autovol-navy"
     }, dayInfo.label), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-gray-500"
-    }, dayInfo.monthStr, " ", dayInfo.dayNum))), visibleNextRows > 0 && next.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "border-t border-dashed border-green-300 my-0.5 relative"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisibleNextRows(0),
-      className: "absolute -top-2 right-0 w-4 h-4 bg-green-100 hover:bg-green-200 border border-green-300 rounded text-green-600 text-xs flex items-center justify-center",
-      title: "Hide all NEXT rows"
-    }, "-")), next.map((_, idx) => /*#__PURE__*/React.createElement("div", {
+    }, dayInfo.monthStr, " ", dayInfo.dayNum))), next.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "border-t border-dashed border-green-300 my-0.5"
+    }), next.map((_, idx) => /*#__PURE__*/React.createElement("div", {
       key: `next-${idx}`,
       className: "rounded border border-green-300 bg-green-50 flex items-center justify-center text-center relative group",
       style: {
         height: `${CARD_HEIGHT}px`
       }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-xs font-bold text-green-600"
-    }, "NEXT"), idx === next.length - 1 && visibleNextRows > 1 && /*#__PURE__*/React.createElement("button", {
+    }, idx === 0 && visibleNextRows > 0 && /*#__PURE__*/React.createElement("button", {
       onClick: () => setVisibleNextRows(prev => Math.max(0, prev - 1)),
-      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-200 hover:bg-green-300 border border-green-400 rounded text-green-700 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex",
+      className: "absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-200 hover:bg-green-300 border border-green-400 rounded text-green-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity",
       title: "Remove one NEXT row"
-    }, "-"))), /*#__PURE__*/React.createElement("div", {
-      className: "mt-1"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisibleNextRows(prev => prev + 1),
-      className: "w-full rounded border-2 border-dashed border-green-300 bg-green-50/50 hover:bg-green-100 flex items-center justify-center text-center transition-colors",
-      style: {
-        height: `${CARD_HEIGHT * 0.6}px`
-      },
-      title: "Add another NEXT row"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-lg font-bold text-green-400"
-    }, "+")))), visibleNextRows === 0 && /*#__PURE__*/React.createElement("div", {
-      className: "mt-1"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisibleNextRows(5),
-      className: "w-full rounded border border-green-300 bg-green-50 hover:bg-green-100 flex items-center justify-center text-center transition-colors",
-      style: {
-        height: `${CARD_HEIGHT * 0.6}px`
-      },
-      title: "Show NEXT rows (default 5)"
-    }, /*#__PURE__*/React.createElement("div", {
+    }, "-"), /*#__PURE__*/React.createElement("div", {
       className: "text-xs font-bold text-green-600"
-    }, "+ NEXT")))));
+    }, "NEXT"), idx === next.length - 1 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisibleNextRows(prev => prev + 1),
+      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-200 hover:bg-green-300 border border-green-400 rounded text-green-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity",
+      title: "Add one NEXT row"
+    }, "+"))))));
   };
 
   // Show configuration prompt if week not set up
@@ -43022,6 +42978,7 @@ function IssueDetailModal({
   employees = [],
   auth = {},
   onUpdate,
+  onDelete,
   onClose
 }) {
   // ===== CONSTANTS =====
@@ -43111,6 +43068,10 @@ function IssueDetailModal({
     description: issue?.description || '',
     priority: issue?.priority || 'medium'
   });
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const modalRef = useRef(null);
   const commentInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -43123,6 +43084,9 @@ function IssueDetailModal({
 
   // Check if user can edit
   const canEdit = auth.canEdit || window.canUserEditTab?.('engineering') || false;
+
+  // Check if user is admin (can delete)
+  const isAdmin = auth.isAdmin || window.MODA_AUTH?.hasPermission?.('admin') || window.MODA_SUPABASE?.userProfile?.role === 'admin' || false;
 
   // ===== EFFECTS =====
   useEffect(() => {
@@ -43444,6 +43408,37 @@ function IssueDetailModal({
     }
   };
 
+  // Handle delete issue
+  const handleDeleteIssue = async () => {
+    if (!isAdmin && !canEdit) return;
+    setIsDeleting(true);
+    try {
+      if (window.MODA_SUPABASE_ISSUES?.issues?.delete) {
+        await window.MODA_SUPABASE_ISSUES.issues.delete(issue.id);
+      } else {
+        // localStorage fallback
+        const stored = JSON.parse(localStorage.getItem('moda_engineering_issues') || '[]');
+        const filtered = stored.filter(i => i.id !== issue.id);
+        localStorage.setItem('moda_engineering_issues', JSON.stringify(filtered));
+      }
+
+      // Notify parent and close
+      if (onDelete) {
+        onDelete(issue.id);
+      }
+      onClose();
+
+      // Dispatch event to refresh issue list
+      window.dispatchEvent(new CustomEvent('moda-issues-updated'));
+    } catch (err) {
+      console.error('Error deleting issue:', err);
+      alert('Failed to delete issue: ' + err.message);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   // ===== RENDER =====
   const typeInfo = getTypeInfo(issue.issue_type);
   const statusInfo = ISSUE_STATUSES.find(s => s.id === issue.status) || {
@@ -43490,9 +43485,25 @@ function IssueDetailModal({
     }
   }, typeInfo.label)), /*#__PURE__*/React.createElement("h2", {
     className: "text-xl font-bold text-gray-900"
-  }, issue.title || issue.description?.substring(0, 60) || 'Untitled Issue')), /*#__PURE__*/React.createElement("button", {
+  }, issue.title || issue.description?.substring(0, 60) || 'Untitled Issue')), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 ml-4"
+  }, (isAdmin || canEdit) && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowDeleteConfirm(true),
+    className: "p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors",
+    title: "Delete Issue"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+  }))), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
-    className: "p-2 hover:bg-gray-200 rounded-lg transition-colors ml-4"
+    className: "p-2 hover:bg-gray-200 rounded-lg transition-colors"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-close",
     style: {
@@ -43500,7 +43511,41 @@ function IssueDetailModal({
       height: '20px',
       display: 'block'
     }
-  })))), /*#__PURE__*/React.createElement("div", {
+  }))))), showDeleteConfirm && /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50 rounded-xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl p-6 m-4 max-w-md"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-6 h-6 text-red-600",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "text-lg font-semibold text-gray-900"
+  }, "Delete Issue?"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500"
+  }, issue.issue_display_id))), /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-600 mb-6"
+  }, "Are you sure you want to delete this issue? This action cannot be undone."), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowDeleteConfirm(false),
+    disabled: isDeleting,
+    className: "px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleDeleteIssue,
+    disabled: isDeleting,
+    className: "px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+  }, isDeleting ? 'Deleting...' : 'Delete Issue')))), /*#__PURE__*/React.createElement("div", {
     className: "border-b border-gray-200 px-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex gap-6"
@@ -44196,6 +44241,11 @@ function EngineeringModule({
     setShowDetailModal(false);
     setSelectedIssue(null);
   };
+  const handleIssueDeleted = issueId => {
+    setIssues(prev => prev.filter(i => i.id !== issueId));
+    setShowDetailModal(false);
+    setSelectedIssue(null);
+  };
   const clearFilters = () => {
     setFilters({
       search: '',
@@ -44539,6 +44589,7 @@ function EngineeringModule({
     employees: employees,
     auth: auth,
     onUpdate: handleIssueUpdated,
+    onDelete: handleIssueDeleted,
     onClose: handleCloseDetail
   }));
 }

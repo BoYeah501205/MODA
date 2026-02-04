@@ -16,6 +16,7 @@ function IssueDetailModal({
     employees = [],
     auth = {},
     onUpdate,
+    onDelete,
     onClose
 }) {
     // ===== CONSTANTS =====
@@ -62,6 +63,10 @@ function IssueDetailModal({
         description: issue?.description || '',
         priority: issue?.priority || 'medium'
     });
+    
+    // Delete confirmation state
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const modalRef = useRef(null);
     const commentInputRef = useRef(null);
@@ -76,6 +81,10 @@ function IssueDetailModal({
 
     // Check if user can edit
     const canEdit = auth.canEdit || window.canUserEditTab?.('engineering') || false;
+    
+    // Check if user is admin (can delete)
+    const isAdmin = auth.isAdmin || window.MODA_AUTH?.hasPermission?.('admin') || 
+                    window.MODA_SUPABASE?.userProfile?.role === 'admin' || false;
 
     // ===== EFFECTS =====
     useEffect(() => {
@@ -434,6 +443,38 @@ function IssueDetailModal({
             onClose();
         }
     };
+    
+    // Handle delete issue
+    const handleDeleteIssue = async () => {
+        if (!isAdmin && !canEdit) return;
+        setIsDeleting(true);
+        
+        try {
+            if (window.MODA_SUPABASE_ISSUES?.issues?.delete) {
+                await window.MODA_SUPABASE_ISSUES.issues.delete(issue.id);
+            } else {
+                // localStorage fallback
+                const stored = JSON.parse(localStorage.getItem('moda_engineering_issues') || '[]');
+                const filtered = stored.filter(i => i.id !== issue.id);
+                localStorage.setItem('moda_engineering_issues', JSON.stringify(filtered));
+            }
+            
+            // Notify parent and close
+            if (onDelete) {
+                onDelete(issue.id);
+            }
+            onClose();
+            
+            // Dispatch event to refresh issue list
+            window.dispatchEvent(new CustomEvent('moda-issues-updated'));
+        } catch (err) {
+            console.error('Error deleting issue:', err);
+            alert('Failed to delete issue: ' + err.message);
+        } finally {
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
+        }
+    };
 
     // ===== RENDER =====
     const typeInfo = getTypeInfo(issue.issue_type);
@@ -487,14 +528,66 @@ function IssueDetailModal({
                                 {issue.title || issue.description?.substring(0, 60) || 'Untitled Issue'}
                             </h2>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-gray-200 rounded-lg transition-colors ml-4"
-                        >
-                            <span className="icon-close" style={{ width: '20px', height: '20px', display: 'block' }}></span>
-                        </button>
+                        <div className="flex items-center gap-2 ml-4">
+                            {/* Delete Button - Admin only */}
+                            {(isAdmin || canEdit) && (
+                                <button
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Delete Issue"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            )}
+                            <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                            >
+                                <span className="icon-close" style={{ width: '20px', height: '20px', display: 'block' }}></span>
+                            </button>
+                        </div>
                     </div>
                 </div>
+                
+                {/* Delete Confirmation Modal */}
+                {showDeleteConfirm && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50 rounded-xl">
+                        <div className="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900">Delete Issue?</h3>
+                                    <p className="text-sm text-gray-500">{issue.issue_display_id}</p>
+                                </div>
+                            </div>
+                            <p className="text-gray-600 mb-6">
+                                Are you sure you want to delete this issue? This action cannot be undone.
+                            </p>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    disabled={isDeleting}
+                                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteIssue}
+                                    disabled={isDeleting}
+                                    className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    {isDeleting ? 'Deleting...' : 'Delete Issue'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Tabs */}
                 <div className="border-b border-gray-200 px-6">
