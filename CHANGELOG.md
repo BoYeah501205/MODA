@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.57**
+**Current Version: 1.5.58**
 
 ---
+
+## [1.5.58] - 2026-02-04
+### Bug Fix
+- **Engineering Issues - Resilient Supabase insert** - Made issue creation resilient to missing database columns. Base fields insert first, then module linking fields (linked_module_ids, linked_modules_display, drawing_discipline) are attempted separately. If columns don't exist, data is backed up to localStorage.
 
 ## [1.5.57] - 2026-02-04
 ### Branding

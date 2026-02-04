@@ -235,10 +235,8 @@
                 description: issueData.description || 'No description provided',
                 photo_urls: issueData.photo_urls || [],
                 
-                // Module Linking
-                linked_module_ids: issueData.linked_module_ids || [],
-                linked_modules_display: issueData.linked_modules_display || '',
-                drawing_discipline: issueData.drawing_discipline || '',
+                // NOTE: Module linking fields stored separately to handle schema mismatches
+                // linked_module_ids, linked_modules_display, drawing_discipline added after base insert if columns exist
                 
                 // Assignment & Tracking
                 submitted_by: issueData.submitted_by || 'Unknown User',
@@ -266,13 +264,19 @@
                 resolution_notes: null
             };
             
-            // All fields now exist in Supabase schema - no local-only fields needed
+            // Module linking fields - may not exist in all Supabase schemas
+            const moduleLinkingFields = {
+                linked_module_ids: issueData.linked_module_ids || [],
+                linked_modules_display: issueData.linked_modules_display || '',
+                drawing_discipline: issueData.drawing_discipline || ''
+            };
 
             if (!isAvailable()) {
-                // For localStorage, add a generated id
+                // For localStorage, include all fields
                 const localIssue = {
                     id: `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    ...newIssue
+                    ...newIssue,
+                    ...moduleLinkingFields
                 };
                 const issues = loadFromLocalStorage();
                 issues.unshift(localIssue);
@@ -281,7 +285,7 @@
                 return localIssue;
             }
 
-            console.log('[Issues] Inserting to Supabase:', JSON.stringify(newIssue, null, 2));
+            console.log('[Issues] Inserting to Supabase (base fields):', JSON.stringify(newIssue, null, 2));
             
             const { data, error } = await getClient()
                 .from('engineering_issues')
@@ -295,6 +299,29 @@
             }
             
             console.log('[Issues] Created:', data.issue_display_id);
+            
+            // Try to update with module linking fields (may fail if columns don't exist)
+            if (moduleLinkingFields.linked_module_ids?.length > 0 || moduleLinkingFields.linked_modules_display || moduleLinkingFields.drawing_discipline) {
+                try {
+                    const { error: updateError } = await getClient()
+                        .from('engineering_issues')
+                        .update(moduleLinkingFields)
+                        .eq('id', data.id);
+                    
+                    if (updateError) {
+                        console.warn('[Issues] Could not save module linking fields (columns may not exist):', updateError.message);
+                        // Store in localStorage as backup
+                        const localBackup = JSON.parse(localStorage.getItem('moda_issue_module_links') || '{}');
+                        localBackup[data.id] = moduleLinkingFields;
+                        localStorage.setItem('moda_issue_module_links', JSON.stringify(localBackup));
+                    } else {
+                        // Merge the fields into returned data
+                        Object.assign(data, moduleLinkingFields);
+                    }
+                } catch (e) {
+                    console.warn('[Issues] Module linking update failed:', e.message);
+                }
+            }
             
             // Log activity
             if (window.ActivityLog) {
