@@ -41,12 +41,16 @@ function ModuleLinkSelector({
         return projectModules.filter(m => selectedModuleIds.includes(m.id));
     }, [projectModules, selectedModuleIds]);
     
-    // Format module display string: "SERIAL - HITCH BLM / REAR BLM"
+    // Format module display string: "SERIAL - HITCH BLM / REAR BLM" or "SERIAL - HITCH BLM" if identical
     const formatModuleDisplay = useCallback((module) => {
         if (!module) return '';
         const serial = module.serialNumber || module.serial_number || 'Unknown';
         const hitchBLM = module.hitchBLM || module.hitch_blm || '-';
         const rearBLM = module.rearBLM || module.rear_blm || '-';
+        // If Hitch and Rear BLM are identical, only show one
+        if (hitchBLM === rearBLM) {
+            return `${serial} - ${hitchBLM}`;
+        }
         return `${serial} - ${hitchBLM} / ${rearBLM}`;
     }, []);
     

@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T03:16:08.917Z
+ * Generated: 2026-02-04T03:31:19.823Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -42036,12 +42036,16 @@ function ModuleLinkSelector({
     return projectModules.filter(m => selectedModuleIds.includes(m.id));
   }, [projectModules, selectedModuleIds]);
 
-  // Format module display string: "SERIAL - HITCH BLM / REAR BLM"
+  // Format module display string: "SERIAL - HITCH BLM / REAR BLM" or "SERIAL - HITCH BLM" if identical
   const formatModuleDisplay = useCallback(module => {
     if (!module) return '';
     const serial = module.serialNumber || module.serial_number || 'Unknown';
     const hitchBLM = module.hitchBLM || module.hitch_blm || '-';
     const rearBLM = module.rearBLM || module.rear_blm || '-';
+    // If Hitch and Rear BLM are identical, only show one
+    if (hitchBLM === rearBLM) {
+      return `${serial} - ${hitchBLM}`;
+    }
     return `${serial} - ${hitchBLM} / ${rearBLM}`;
   }, []);
 
