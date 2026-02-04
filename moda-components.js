@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T03:34:50.412Z
+ * Generated: 2026-02-04T03:38:10.033Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -42277,7 +42277,7 @@ function ModuleLinkSelector({
     },
     onKeyDown: handleKeyDown,
     placeholder: "Search serial, BLM, unit type, room...",
-    className: "w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    className: "w-full pl-10 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
   }), searchTerm && /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: () => setSearchTerm(''),
