@@ -61,7 +61,11 @@ function IssueDetailModal({
     const [editForm, setEditForm] = useState({
         title: issue?.title || '',
         description: issue?.description || '',
-        priority: issue?.priority || 'medium'
+        priority: issue?.priority || 'medium',
+        issue_type: issue?.issue_type || '',
+        issue_category: issue?.issue_category || '',
+        linked_module_ids: issue?.linked_module_ids || [],
+        linked_modules_display: issue?.linked_modules_display || ''
     });
     
     // Delete confirmation state
@@ -221,7 +225,10 @@ function IssueDetailModal({
         // Check if anything changed
         const hasChanges = editForm.title !== issue.title ||
                           editForm.description !== issue.description ||
-                          editForm.priority !== issue.priority;
+                          editForm.priority !== issue.priority ||
+                          editForm.issue_type !== issue.issue_type ||
+                          editForm.issue_category !== issue.issue_category ||
+                          JSON.stringify(editForm.linked_module_ids) !== JSON.stringify(issue.linked_module_ids || []);
         
         if (!hasChanges) {
             setIsEditMode(false);
@@ -250,6 +257,15 @@ function IssueDetailModal({
             if (editForm.priority !== issue.priority) {
                 editEntry.changes.push({ field: 'priority', from: issue.priority, to: editForm.priority });
             }
+            if (editForm.issue_type !== issue.issue_type) {
+                editEntry.changes.push({ field: 'issue_type', from: issue.issue_type, to: editForm.issue_type });
+            }
+            if (editForm.issue_category !== issue.issue_category) {
+                editEntry.changes.push({ field: 'issue_category', from: issue.issue_category, to: editForm.issue_category });
+            }
+            if (JSON.stringify(editForm.linked_module_ids) !== JSON.stringify(issue.linked_module_ids || [])) {
+                editEntry.changes.push({ field: 'linked_modules', from: issue.linked_module_ids?.length || 0, to: editForm.linked_module_ids.length });
+            }
 
             let updates;
 
@@ -259,6 +275,10 @@ function IssueDetailModal({
                     title: editForm.title,
                     description: editForm.description,
                     priority: editForm.priority,
+                    issue_type: editForm.issue_type,
+                    issue_category: editForm.issue_category,
+                    linked_module_ids: editForm.linked_module_ids,
+                    linked_modules_display: editForm.linked_modules_display,
                     edit_history: [...(issue.edit_history || []), editEntry]
                 });
             } else {
@@ -268,6 +288,10 @@ function IssueDetailModal({
                     title: editForm.title,
                     description: editForm.description,
                     priority: editForm.priority,
+                    issue_type: editForm.issue_type,
+                    issue_category: editForm.issue_category,
+                    linked_module_ids: editForm.linked_module_ids,
+                    linked_modules_display: editForm.linked_modules_display,
                     updated_at: now,
                     edit_history: [...(issue.edit_history || []), editEntry]
                 };
@@ -295,7 +319,11 @@ function IssueDetailModal({
         setEditForm({
             title: issue?.title || '',
             description: issue?.description || '',
-            priority: issue?.priority || 'medium'
+            priority: issue?.priority || 'medium',
+            issue_type: issue?.issue_type || '',
+            issue_category: issue?.issue_category || '',
+            linked_module_ids: issue?.linked_module_ids || [],
+            linked_modules_display: issue?.linked_modules_display || ''
         });
         setIsEditMode(false);
     };
@@ -657,6 +685,30 @@ function IssueDetailModal({
                                                 />
                                             </div>
                                             <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Issue Type</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {ISSUE_TYPES.map(type => (
+                                                        <button
+                                                            key={type.id}
+                                                            type="button"
+                                                            onClick={() => setEditForm(prev => ({ ...prev, issue_type: type.id }))}
+                                                            className={`px-3 py-1.5 rounded-lg border-2 text-sm font-medium transition ${
+                                                                editForm.issue_type === type.id
+                                                                    ? 'border-current'
+                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                            }`}
+                                                            style={{
+                                                                borderColor: editForm.issue_type === type.id ? type.color : undefined,
+                                                                backgroundColor: editForm.issue_type === type.id ? `${type.color}15` : undefined,
+                                                                color: type.color
+                                                            }}
+                                                        >
+                                                            {type.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                                                 <div className="flex gap-2">
                                                     {PRIORITY_LEVELS.map(level => (
@@ -752,12 +804,6 @@ function IssueDetailModal({
                                                     <span className="font-medium text-gray-900">{issue.project_name}</span>
                                                 </div>
                                             )}
-                                            {issue.blm_id && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-500">Module</span>
-                                                    <span className="font-medium text-gray-900">{issue.blm_id}</span>
-                                                </div>
-                                            )}
                                             {issue.unit_type && (
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-500">Unit Type</span>
@@ -778,6 +824,28 @@ function IssueDetailModal({
                                             )}
                                         </div>
                                     </div>
+                                    
+                                    {/* Linked Modules */}
+                                    {(issue.linked_module_ids?.length > 0 || issue.blm_id) && (
+                                        <div className="bg-blue-50 rounded-lg p-4">
+                                            <h3 className="text-sm font-medium text-blue-700 mb-3">
+                                                Linked Modules {issue.linked_module_ids?.length > 0 && `(${issue.linked_module_ids.length})`}
+                                            </h3>
+                                            {issue.linked_modules_display ? (
+                                                <div className="space-y-1">
+                                                    {issue.linked_modules_display.split(', ').map((module, idx) => (
+                                                        <div key={idx} className="text-sm bg-white px-2 py-1 rounded border border-blue-200">
+                                                            {module}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : issue.blm_id ? (
+                                                <div className="text-sm bg-white px-2 py-1 rounded border border-blue-200">
+                                                    {issue.blm_id}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    )}
 
                                     {/* Assignment */}
                                     <div className="bg-gray-50 rounded-lg p-4">
