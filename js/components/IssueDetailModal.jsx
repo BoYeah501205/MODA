@@ -878,6 +878,16 @@ function IssueDetailModal({
                                             ) : null}
                                         </div>
                                     )}
+                                    
+                                    {/* Drawing Discipline */}
+                                    {issue.drawing_discipline && (
+                                        <div className="bg-purple-50 rounded-lg p-4">
+                                            <h3 className="text-sm font-medium text-purple-700 mb-2">Drawing Discipline</h3>
+                                            <div className="text-sm bg-white px-2 py-1 rounded border border-purple-200">
+                                                {issue.drawing_discipline}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Assignment */}
                                     <div className="bg-gray-50 rounded-lg p-4">

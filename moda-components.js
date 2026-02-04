@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T04:39:13.019Z
+ * Generated: 2026-02-04T04:43:45.308Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -42436,6 +42436,12 @@ function IssueSubmissionModal({
 
   // Issue types that should show the module selector
   const MODULE_SELECTOR_TYPES = ['shop-drawing', 'design-conflict', 'engineering-question', 'rfi', 'automation'];
+
+  // Issue types that should show the drawing discipline selector
+  const DRAWING_DISCIPLINE_TYPES = ['shop-drawing', 'design-conflict', 'engineering-question', 'rfi'];
+
+  // Drawing discipline options (from permit drawings folders)
+  const DRAWING_DISCIPLINES = ['AOR Reference Submittal', 'Architectural General Submittal', 'Assembly Book Submittal', 'Electrical Submittal', 'Fire Alarm Data Submittal', 'Fire Alarm Submittal', 'Fire Sprinkler Submittal', 'Mechanical Submittal', 'Modular Architect Submittal', 'Plumbing Submittal', 'Sprinkler Submittal Plans', 'Structural Documents', 'Structural Plans Submittal', 'Title 24'];
   const PRIORITY_LEVELS = window.MODA_ISSUE_ROUTING?.PRIORITY_LEVELS || [{
     id: 'low',
     label: 'Low',
@@ -42484,7 +42490,9 @@ function IssueSubmissionModal({
     // Array of module IDs for Shop Drawing issues
     linked_modules_display: '',
     // Display string for selected modules
-    applies_to_unit_type: false // If true, applies to all modules of selected unit type
+    applies_to_unit_type: false,
+    // If true, applies to all modules of selected unit type
+    drawing_discipline: '' // Drawing discipline for permit drawing linkage
   });
   const [photos, setPhotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42931,7 +42939,24 @@ function IssueSubmissionModal({
     className: "text-sm text-gray-500 p-3 bg-gray-50 rounded-lg"
   }, "Module selector loading..."), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500 mt-1"
-  }, "Link this issue to specific modules. Issues will appear in module history and can be traced to shop drawings.")), /*#__PURE__*/React.createElement("div", {
+  }, "Link this issue to specific modules. Issues will appear in module history and can be traced to shop drawings.")), formData.project_id && DRAWING_DISCIPLINE_TYPES.includes(formData.issue_type) && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Link to Drawing Discipline ", /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-400 font-normal"
+  }, "(optional)")), /*#__PURE__*/React.createElement("select", {
+    value: formData.drawing_discipline,
+    onChange: e => handleChange('drawing_discipline', e.target.value),
+    className: "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Select a drawing discipline..."), DRAWING_DISCIPLINES.map(discipline => /*#__PURE__*/React.createElement("option", {
+    key: discipline,
+    value: discipline
+  }, discipline))), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Link this issue to a specific permit drawing discipline for reference.")), /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
   }, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-2"
@@ -43909,7 +43934,13 @@ function IssueDetailModal({
     className: "text-sm bg-white px-2 py-1 rounded border border-blue-200"
   }, module))) : issue.blm_id ? /*#__PURE__*/React.createElement("div", {
     className: "text-sm bg-white px-2 py-1 rounded border border-blue-200"
-  }, issue.blm_id) : null), /*#__PURE__*/React.createElement("div", {
+  }, issue.blm_id) : null), issue.drawing_discipline && /*#__PURE__*/React.createElement("div", {
+    className: "bg-purple-50 rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-medium text-purple-700 mb-2"
+  }, "Drawing Discipline"), /*#__PURE__*/React.createElement("div", {
+    className: "text-sm bg-white px-2 py-1 rounded border border-purple-200"
+  }, issue.drawing_discipline)), /*#__PURE__*/React.createElement("div", {
     className: "bg-gray-50 rounded-lg p-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-2"

@@ -30,6 +30,27 @@ function IssueSubmissionModal({
     
     // Issue types that should show the module selector
     const MODULE_SELECTOR_TYPES = ['shop-drawing', 'design-conflict', 'engineering-question', 'rfi', 'automation'];
+    
+    // Issue types that should show the drawing discipline selector
+    const DRAWING_DISCIPLINE_TYPES = ['shop-drawing', 'design-conflict', 'engineering-question', 'rfi'];
+    
+    // Drawing discipline options (from permit drawings folders)
+    const DRAWING_DISCIPLINES = [
+        'AOR Reference Submittal',
+        'Architectural General Submittal',
+        'Assembly Book Submittal',
+        'Electrical Submittal',
+        'Fire Alarm Data Submittal',
+        'Fire Alarm Submittal',
+        'Fire Sprinkler Submittal',
+        'Mechanical Submittal',
+        'Modular Architect Submittal',
+        'Plumbing Submittal',
+        'Sprinkler Submittal Plans',
+        'Structural Documents',
+        'Structural Plans Submittal',
+        'Title 24'
+    ];
 
     const PRIORITY_LEVELS = window.MODA_ISSUE_ROUTING?.PRIORITY_LEVELS || [
         { id: 'low', label: 'Low', color: '#10B981', description: 'Can wait' },
@@ -61,7 +82,8 @@ function IssueSubmissionModal({
         assigned_to: '',
         linked_module_ids: [],      // Array of module IDs for Shop Drawing issues
         linked_modules_display: '', // Display string for selected modules
-        applies_to_unit_type: false // If true, applies to all modules of selected unit type
+        applies_to_unit_type: false, // If true, applies to all modules of selected unit type
+        drawing_discipline: ''      // Drawing discipline for permit drawing linkage
     });
 
     const [photos, setPhotos] = useState([]);
@@ -595,6 +617,30 @@ function IssueSubmissionModal({
                             )}
                             <p className="text-xs text-gray-500 mt-1">
                                 Link this issue to specific modules. Issues will appear in module history and can be traced to shop drawings.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Drawing Discipline Selector - shown for specific issue types */}
+                    {formData.project_id && DRAWING_DISCIPLINE_TYPES.includes(formData.issue_type) && (
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Link to Drawing Discipline <span className="text-gray-400 font-normal">(optional)</span>
+                            </label>
+                            <select
+                                value={formData.drawing_discipline}
+                                onChange={(e) => handleChange('drawing_discipline', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">Select a drawing discipline...</option>
+                                {DRAWING_DISCIPLINES.map(discipline => (
+                                    <option key={discipline} value={discipline}>
+                                        {discipline}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Link this issue to a specific permit drawing discipline for reference.
                             </p>
                         </div>
                     )}

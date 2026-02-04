@@ -237,6 +237,7 @@
                 // Module Linking
                 linked_module_ids: issueData.linked_module_ids || [],
                 linked_modules_display: issueData.linked_modules_display || '',
+                drawing_discipline: issueData.drawing_discipline || '',
                 
                 // Assignment & Tracking
                 submitted_by: issueData.submitted_by || 'Unknown User',
