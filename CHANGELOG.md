@@ -2,9 +2,21 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.46**
+**Current Version: 1.5.47**
 
 ---
+
+## [1.5.47] - 2026-02-03
+### Engineering Issue Tracker Enhancements
+- **Automation issue type** - New issue type for automation-related issues
+- **Removed Module BLM ID field** - Module selector now handles module linking for all issue types
+- **Module selector for all types** - Shop Drawing, Design Conflict, Engineering Question, RFI Required, Automation all support module linking
+- **Smart title suggestions** - Auto-generated title suggestions based on issue type, category, and linked modules
+- **Linked Modules display** - Issue detail modal now shows all linked modules in dedicated section
+- **Edit issue type** - Can now change issue type when editing an issue
+- **Project dropdown sorting** - Projects sorted by project number (descending)
+- **Module search fix** - "M23" only matches BLM IDs, "23" matches both BLM and build sequence
+- **Search input fix** - Fixed text overlap with magnifying glass icon
 
 ## [1.5.46] - 2026-02-03
 ### Engineering Issue Edit/Delete for Admins
