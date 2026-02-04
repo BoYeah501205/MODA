@@ -372,13 +372,19 @@ function IssueSubmissionModal({
                             >
                                 <option value="">Select a project...</option>
                                 {(() => {
-                                    // Separate active and completed projects
+                                    // Separate active and completed projects, sort by project number numerically
+                                    const sortByProjectNumber = (a, b) => {
+                                        const numA = parseInt(a.projectNumber) || 0;
+                                        const numB = parseInt(b.projectNumber) || 0;
+                                        if (numA !== numB) return numA - numB;
+                                        return (a.name || '').localeCompare(b.name || '');
+                                    };
                                     const activeProjects = projects
                                         .filter(p => p.status !== 'Completed' && p.status !== 'completed')
-                                        .sort((a, b) => (a.projectNumber || a.name || '').localeCompare(b.projectNumber || b.name || ''));
+                                        .sort(sortByProjectNumber);
                                     const completedProjects = projects
                                         .filter(p => p.status === 'Completed' || p.status === 'completed')
-                                        .sort((a, b) => (a.projectNumber || a.name || '').localeCompare(b.projectNumber || b.name || ''));
+                                        .sort(sortByProjectNumber);
                                     
                                     return (
                                         <>

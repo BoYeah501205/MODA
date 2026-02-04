@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T03:31:19.823Z
+ * Generated: 2026-02-04T03:34:50.412Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -42726,9 +42726,15 @@ function IssueSubmissionModal({
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
   }, "Select a project..."), (() => {
-    // Separate active and completed projects
-    const activeProjects = projects.filter(p => p.status !== 'Completed' && p.status !== 'completed').sort((a, b) => (a.projectNumber || a.name || '').localeCompare(b.projectNumber || b.name || ''));
-    const completedProjects = projects.filter(p => p.status === 'Completed' || p.status === 'completed').sort((a, b) => (a.projectNumber || a.name || '').localeCompare(b.projectNumber || b.name || ''));
+    // Separate active and completed projects, sort by project number numerically
+    const sortByProjectNumber = (a, b) => {
+      const numA = parseInt(a.projectNumber) || 0;
+      const numB = parseInt(b.projectNumber) || 0;
+      if (numA !== numB) return numA - numB;
+      return (a.name || '').localeCompare(b.name || '');
+    };
+    const activeProjects = projects.filter(p => p.status !== 'Completed' && p.status !== 'completed').sort(sortByProjectNumber);
+    const completedProjects = projects.filter(p => p.status === 'Completed' || p.status === 'completed').sort(sortByProjectNumber);
     return /*#__PURE__*/React.createElement(React.Fragment, null, activeProjects.length > 0 && /*#__PURE__*/React.createElement("optgroup", {
       label: "Active Projects"
     }, activeProjects.map(p => /*#__PURE__*/React.createElement("option", {
