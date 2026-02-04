@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.49**
+**Current Version: 1.5.50**
 
 ---
+
+## [1.5.50] - 2026-02-04
+### UI Fix
+- **Dropdown z-index fix (v2)** - Added z-index to entire nav container so dropdowns appear above all page content including project number badges
 
 ## [1.5.49] - 2026-02-04
 ### UI Fix
