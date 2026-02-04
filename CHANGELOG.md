@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.50**
+**Current Version: 1.5.51**
 
 ---
+
+## [1.5.51] - 2026-02-04
+### UI Fix
+- **Dropdown z-index fix (v3)** - Fixed CSS z-index hierarchy in styles.css - nav increased from 30 to 100, dropdowns from 40 to 200. The `!important` rules in styles.css were overriding all other z-index settings.
 
 ## [1.5.50] - 2026-02-04
 ### UI Fix
