@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T03:57:29.133Z
+ * Generated: 2026-02-04T04:04:01.487Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -42471,6 +42471,8 @@ function IssueSubmissionModal({
   const [showProjectSelect, setShowProjectSelect] = useState(!context?.project_id);
   const [issueCategories, setIssueCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [titleSuggestions, setTitleSuggestions] = useState([]);
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
   // moduleSearchTerm removed - now handled by ModuleLinkSelector component
 
   const fileInputRef = useRef(null);
@@ -42542,6 +42544,73 @@ function IssueSubmissionModal({
     if (!issueType) return [];
     return issueCategories.filter(c => c.issue_type === issueType);
   }, [issueCategories]);
+
+  // Generate title suggestions based on form data
+  const generateTitleSuggestions = useCallback(() => {
+    const suggestions = [];
+    const issueTypeLabel = ISSUE_TYPES.find(t => t.id === formData.issue_type)?.label || '';
+    const categoryObj = issueCategories.find(c => c.id === formData.issue_category);
+    const categoryLabel = categoryObj?.name || '';
+
+    // Get selected modules info
+    const selectedProject = projects.find(p => p.id === formData.project_id);
+    const modules = selectedProject?.modules || [];
+    const selectedModules = modules.filter(m => formData.linked_module_ids.includes(m.id));
+    const moduleCount = selectedModules.length;
+
+    // Extract common BLM pattern (e.g., "M23" from B1L2M23, B1L3M23)
+    const blmSuffixes = selectedModules.map(m => {
+      const blm = m.hitchBLM || m.hitch_blm || '';
+      const match = blm.match(/M\d+$/i);
+      return match ? match[0].toUpperCase() : null;
+    }).filter(Boolean);
+    const uniqueSuffixes = [...new Set(blmSuffixes)];
+    const commonSuffix = uniqueSuffixes.length === 1 ? uniqueSuffixes[0] : null;
+
+    // Option 1: Issue Type + Category (primary recommendation)
+    if (issueTypeLabel && categoryLabel) {
+      suggestions.push(`${issueTypeLabel}: ${categoryLabel}`);
+    }
+
+    // Option 2: Category + Module info
+    if (categoryLabel && moduleCount > 0) {
+      if (moduleCount === 1) {
+        const m = selectedModules[0];
+        const serial = m.serialNumber || m.serial_number || '';
+        suggestions.push(`${categoryLabel} - ${serial}`);
+      } else if (commonSuffix) {
+        suggestions.push(`${categoryLabel} - ${commonSuffix} modules (${moduleCount})`);
+      } else {
+        suggestions.push(`${categoryLabel} - ${moduleCount} modules`);
+      }
+    }
+
+    // Option 3: Issue Type + Module pattern
+    if (issueTypeLabel && commonSuffix && moduleCount > 1) {
+      suggestions.push(`${issueTypeLabel}: ${commonSuffix} series`);
+    }
+
+    // Option 4: Just category if no modules
+    if (categoryLabel && moduleCount === 0) {
+      suggestions.push(categoryLabel);
+    }
+
+    // Option 5: Description-based (first 50 chars if description exists)
+    if (formData.description && formData.description.length >= 10) {
+      const descPreview = formData.description.substring(0, 50).trim();
+      const truncated = descPreview.length < formData.description.length ? descPreview + '...' : descPreview;
+      if (!suggestions.includes(truncated)) {
+        suggestions.push(truncated);
+      }
+    }
+    return suggestions.filter(Boolean).slice(0, 4); // Max 4 suggestions
+  }, [formData, issueCategories, projects, ISSUE_TYPES]);
+
+  // Update suggestions when relevant fields change
+  useEffect(() => {
+    const suggestions = generateTitleSuggestions();
+    setTitleSuggestions(suggestions);
+  }, [formData.issue_type, formData.issue_category, formData.linked_module_ids, formData.description, generateTitleSuggestions]);
 
   // ===== HANDLERS =====
   const handleChange = (field, value) => {
@@ -42877,14 +42946,39 @@ function IssueSubmissionModal({
     className: "mb-4"
   }, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-1"
-  }, "Title (optional)"), /*#__PURE__*/React.createElement("input", {
+  }, "Title (optional)"), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: formData.title,
     onChange: e => handleChange('title', e.target.value),
+    onFocus: () => setShowTitleSuggestions(true),
+    onBlur: () => setTimeout(() => setShowTitleSuggestions(false), 200),
     placeholder: "Brief summary of the issue",
     maxLength: 100,
     className: "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  })), /*#__PURE__*/React.createElement("div", {
+  }), showTitleSuggestions && titleSuggestions.length > 0 && !formData.title && /*#__PURE__*/React.createElement("div", {
+    className: "absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-3 py-2 bg-gray-50 border-b border-gray-200"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-medium text-gray-500"
+  }, "Suggested titles:")), titleSuggestions.map((suggestion, idx) => /*#__PURE__*/React.createElement("button", {
+    key: idx,
+    type: "button",
+    onMouseDown: e => {
+      e.preventDefault();
+      handleChange('title', suggestion);
+      setShowTitleSuggestions(false);
+    },
+    className: "w-full px-3 py-2 text-left text-sm hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-800"
+  }, suggestion), idx === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "ml-2 text-xs text-blue-600 font-medium"
+  }, "Recommended"))))), titleSuggestions.length > 0 && !formData.title && !showTitleSuggestions && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Click to see suggested titles based on your selections")), /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
   }, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-1"
