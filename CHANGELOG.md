@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.54**
+**Current Version: 1.5.55**
 
 ---
+
+## [1.5.55] - 2026-02-04
+### Bug Fix
+- **Engineering Issues** - Re-added module linking fields to Supabase insert now that columns exist in database (linked_module_ids, linked_modules_display, drawing_discipline)
 
 ## [1.5.54] - 2026-02-04
 ### Bug Fix

@@ -235,8 +235,10 @@
                 description: issueData.description || 'No description provided',
                 photo_urls: issueData.photo_urls || [],
                 
-                // NOTE: Module linking fields (linked_module_ids, linked_modules_display, drawing_discipline) 
-                // are in localOnlyFields - not yet in Supabase schema
+                // Module Linking
+                linked_module_ids: issueData.linked_module_ids || [],
+                linked_modules_display: issueData.linked_modules_display || '',
+                drawing_discipline: issueData.drawing_discipline || '',
                 
                 // Assignment & Tracking
                 submitted_by: issueData.submitted_by || 'Unknown User',
@@ -264,19 +266,13 @@
                 resolution_notes: null
             };
             
-            // Fields for localStorage only (not yet in Supabase schema)
-            const localOnlyFields = {
-                linked_module_ids: issueData.linked_module_ids || [],
-                linked_modules_display: issueData.linked_modules_display || '',
-                drawing_discipline: issueData.drawing_discipline || ''
-            };
+            // All fields now exist in Supabase schema - no local-only fields needed
 
             if (!isAvailable()) {
-                // For localStorage, add a generated id and include local-only fields
+                // For localStorage, add a generated id
                 const localIssue = {
                     id: `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    ...newIssue,
-                    ...localOnlyFields
+                    ...newIssue
                 };
                 const issues = loadFromLocalStorage();
                 issues.unshift(localIssue);
