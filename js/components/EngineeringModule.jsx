@@ -626,10 +626,14 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
                                         </h3>
 
                                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
-                                            {issue.blm_id && (
+                                            {/* Show linked modules - if multiple, just show count; if single, show the BLM */}
+                                            {(issue.linked_module_ids?.length > 0 || issue.blm_id) && (
                                                 <span className="flex items-center gap-1">
                                                     <span className="icon-module" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span>
-                                                    {issue.blm_id}
+                                                    {issue.linked_module_ids?.length > 1 
+                                                        ? `${issue.linked_module_ids.length} Linked Modules`
+                                                        : issue.linked_modules_display || issue.blm_id || 'Module Linked'
+                                                    }
                                                 </span>
                                             )}
                                             {issue.project_name && (

@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.55**
+**Current Version: 1.5.56**
 
 ---
+
+## [1.5.56] - 2026-02-04
+### UI Improvement
+- **Engineering Issues list** - When multiple modules are linked, shows "X Linked Modules" instead of listing all BLMs. Single module still shows the BLM ID. Click issue to see full module list in detail modal.
 
 ## [1.5.55] - 2026-02-04
 ### Bug Fix
