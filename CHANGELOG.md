@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.53**
+**Current Version: 1.5.54**
 
 ---
+
+## [1.5.54] - 2026-02-04
+### Bug Fix
+- **Engineering Issues not loading (v2)** - Also removed `linked_module_ids` and `linked_modules_display` from Supabase insert - these columns don't exist in database schema yet.
 
 ## [1.5.53] - 2026-02-04
 ### Bug Fix

@@ -235,10 +235,8 @@
                 description: issueData.description || 'No description provided',
                 photo_urls: issueData.photo_urls || [],
                 
-                // Module Linking
-                linked_module_ids: issueData.linked_module_ids || [],
-                linked_modules_display: issueData.linked_modules_display || '',
-                // NOTE: drawing_discipline column not yet in Supabase - stored in localStorage only for now
+                // NOTE: Module linking fields (linked_module_ids, linked_modules_display, drawing_discipline) 
+                // are in localOnlyFields - not yet in Supabase schema
                 
                 // Assignment & Tracking
                 submitted_by: issueData.submitted_by || 'Unknown User',
@@ -268,6 +266,8 @@
             
             // Fields for localStorage only (not yet in Supabase schema)
             const localOnlyFields = {
+                linked_module_ids: issueData.linked_module_ids || [],
+                linked_modules_display: issueData.linked_modules_display || '',
                 drawing_discipline: issueData.drawing_discipline || ''
             };
 
