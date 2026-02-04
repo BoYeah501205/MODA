@@ -2,9 +2,19 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.43**
+**Current Version: 1.5.44**
 
 ---
+
+## [1.5.44] - 2026-02-03
+### Module Link Selector for Issues
+- **New ModuleLinkSelector component** - Reusable multi-select module picker with comprehensive search
+- **Search across all module fields** - Serial number, Hitch BLM, Rear BLM, Unit Type, Room Number, Room Type, Difficulty Indicators
+- **Multi-module linking** - Link single issues to multiple modules
+- **Linked modules display** - Shows selected modules in format "SERIAL - HITCH BLM / REAR BLM"
+- **Available for all issue types** - Module linking now works for all issue types, not just Shop Drawing issues
+- **Keyboard navigation** - Arrow keys and Enter for accessibility
+- **Clear all / remove individual** - Easy management of linked modules
 
 ## [1.5.43] - 2026-02-02
 ### Weekly Board PREV/NEXT Row Controls

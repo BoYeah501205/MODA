@@ -95,6 +95,7 @@ const FILE_ORDER = [
     'ToastNotification.jsx',
     'IssueTypesManager.jsx',
     'IssueCategoriesManager.jsx',
+    'ModuleLinkSelector.jsx',
     'IssueSubmissionModal.jsx',
     'IssueDetailModal.jsx',
     'EngineeringModule.jsx',

@@ -66,7 +66,7 @@ function IssueSubmissionModal({
     const [showProjectSelect, setShowProjectSelect] = useState(!context?.project_id);
     const [issueCategories, setIssueCategories] = useState([]);
     const [loadingCategories, setLoadingCategories] = useState(true);
-    const [moduleSearchTerm, setModuleSearchTerm] = useState(''); // Search filter for modules
+    // moduleSearchTerm removed - now handled by ModuleLinkSelector component
 
     const fileInputRef = useRef(null);
     const modalRef = useRef(null);
@@ -488,163 +488,49 @@ function IssueSubmissionModal({
                         </div>
                     )}
 
-                    {/* Shop Drawing Module Link - shown only for shop-drawing issue type */}
-                    {formData.issue_type === 'shop-drawing' && (
-                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="text-sm font-medium text-blue-800 mb-3">Link to Module Shop Drawing Package(s)</div>
-                            
-                            {formData.project_id ? (
-                                <div className="space-y-3">
-                                    {/* Unit Type Checkbox */}
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.applies_to_unit_type}
-                                            onChange={(e) => {
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    applies_to_unit_type: e.target.checked,
-                                                    linked_module_ids: e.target.checked ? [] : prev.linked_module_ids
-                                                }));
-                                            }}
-                                            className="w-4 h-4 text-blue-600 rounded"
-                                        />
-                                        <span className="text-sm text-gray-700">
-                                            Applies to all modules of unit type: <strong>{formData.unit_type || 'All'}</strong>
-                                        </span>
-                                    </label>
-
-                                    {/* Module Search & Selection - hidden if applies_to_unit_type */}
-                                    {!formData.applies_to_unit_type && (
-                                        <>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Search & Select Modules
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={moduleSearchTerm}
-                                                    onChange={(e) => setModuleSearchTerm(e.target.value)}
-                                                    placeholder="Search by M#, BLM, serial..."
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                            </div>
-
-                                            {/* Module Checkboxes */}
-                                            <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white">
-                                                {(() => {
-                                                    const selectedProject = projects.find(p => p.id === formData.project_id);
-                                                    const modules = selectedProject?.modules || [];
-                                                    const searchLower = moduleSearchTerm.toLowerCase();
-                                                    
-                                                    const filteredModules = modules
-                                                        .filter(m => {
-                                                            if (!moduleSearchTerm) return true;
-                                                            const searchFields = [
-                                                                m.serialNumber,
-                                                                m.hitchBLM,
-                                                                m.rearBLM,
-                                                                `M${m.buildSequence}`,
-                                                                `#${m.buildSequence}`,
-                                                                m.unitType
-                                                            ].filter(Boolean).map(s => s.toLowerCase());
-                                                            return searchFields.some(f => f.includes(searchLower));
-                                                        })
-                                                        .sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
-
-                                                    if (filteredModules.length === 0) {
-                                                        return (
-                                                            <div className="p-3 text-sm text-gray-500 text-center">
-                                                                {moduleSearchTerm ? 'No modules match your search' : 'No modules in this project'}
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    return filteredModules.map(m => (
-                                                        <label
-                                                            key={m.id}
-                                                            className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                                                                formData.linked_module_ids.includes(m.id) ? 'bg-blue-50' : ''
-                                                            }`}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={formData.linked_module_ids.includes(m.id)}
-                                                                onChange={(e) => {
-                                                                    const isChecked = e.target.checked;
-                                                                    setFormData(prev => {
-                                                                        const newIds = isChecked
-                                                                            ? [...prev.linked_module_ids, m.id]
-                                                                            : prev.linked_module_ids.filter(id => id !== m.id);
-                                                                        
-                                                                        // Build display string from selected modules
-                                                                        const selectedModules = modules.filter(mod => newIds.includes(mod.id));
-                                                                        const displayStr = selectedModules.map(mod => mod.hitchBLM || mod.serialNumber).join(', ');
-                                                                        
-                                                                        // Auto-populate blm_id from first selected module
-                                                                        const firstModule = selectedModules[0];
-                                                                        
-                                                                        return {
-                                                                            ...prev,
-                                                                            linked_module_ids: newIds,
-                                                                            linked_modules_display: displayStr,
-                                                                            blm_id: firstModule?.hitchBLM || firstModule?.serialNumber || ''
-                                                                        };
-                                                                    });
-                                                                }}
-                                                                className="w-4 h-4 text-blue-600 rounded"
-                                                            />
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="text-sm font-medium text-gray-900">
-                                                                    #{m.buildSequence} - {m.serialNumber}
-                                                                </div>
-                                                                <div className="text-xs text-gray-500">
-                                                                    {m.hitchBLM || 'No BLM'} {m.unitType ? `| ${m.unitType}` : ''}
-                                                                </div>
-                                                            </div>
-                                                        </label>
-                                                    ));
-                                                })()}
-                                            </div>
-
-                                            {/* Selected Count */}
-                                            {formData.linked_module_ids.length > 0 && (
-                                                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
-                                                    <div>
-                                                        <span className="text-xs text-blue-600">Selected: </span>
-                                                        <span className="text-xs font-medium text-blue-800">
-                                                            {formData.linked_module_ids.length} module{formData.linked_module_ids.length > 1 ? 's' : ''}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setFormData(prev => ({
-                                                            ...prev,
-                                                            linked_module_ids: [],
-                                                            linked_modules_display: '',
-                                                            blm_id: ''
-                                                        }))}
-                                                        className="text-xs text-red-600 hover:text-red-800"
-                                                    >
-                                                        Clear all
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-
-                                    <p className="text-xs text-gray-500">
-                                        {formData.applies_to_unit_type 
-                                            ? 'Issue will apply to all modules of the selected unit type'
-                                            : 'Select one or more modules to link this issue to their shop drawing packages'
-                                        }
-                                    </p>
-                                </div>
+                    {/* Module Link Selector - shown for all issue types when project is selected */}
+                    {formData.project_id && (
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Link to Module(s) <span className="text-gray-400 font-normal">(optional)</span>
+                            </label>
+                            {window.ModuleLinkSelector ? (
+                                <ModuleLinkSelector
+                                    projectId={formData.project_id}
+                                    projects={projects}
+                                    selectedModuleIds={formData.linked_module_ids}
+                                    onSelectionChange={(newIds) => {
+                                        // Get selected modules for display and auto-populate blm_id
+                                        const selectedProject = projects.find(p => p.id === formData.project_id);
+                                        const modules = selectedProject?.modules || [];
+                                        const selectedModules = modules.filter(m => newIds.includes(m.id));
+                                        const firstModule = selectedModules[0];
+                                        
+                                        // Build display string: "SERIAL - HITCH / REAR"
+                                        const displayStr = selectedModules.map(m => {
+                                            const serial = m.serialNumber || m.serial_number || 'Unknown';
+                                            const hitch = m.hitchBLM || m.hitch_blm || '-';
+                                            const rear = m.rearBLM || m.rear_blm || '-';
+                                            return `${serial} - ${hitch} / ${rear}`;
+                                        }).join(', ');
+                                        
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            linked_module_ids: newIds,
+                                            linked_modules_display: displayStr,
+                                            blm_id: firstModule?.hitchBLM || firstModule?.hitch_blm || firstModule?.serialNumber || prev.blm_id
+                                        }));
+                                    }}
+                                    placeholder="Search by serial, BLM, unit type, room..."
+                                />
                             ) : (
-                                <p className="text-sm text-amber-600 py-2">
-                                    Please select a project first to choose modules
-                                </p>
+                                <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
+                                    Module selector loading...
+                                </div>
                             )}
+                            <p className="text-xs text-gray-500 mt-1">
+                                Link this issue to specific modules. Issues will appear in module history and can be traced to shop drawings.
+                            </p>
                         </div>
                     )}
 

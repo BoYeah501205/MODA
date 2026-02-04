@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-01-30T16:33:49.151Z
+ * Generated: 2026-02-04T02:57:32.906Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -9563,8 +9563,9 @@ function WeeklyBoardTab({
 
   const supabaseSyncTimeoutsRef = useRef({});
 
-  // ===== DYNAMIC NEXT ROW COUNT =====
-  // Controls how many NEXT (upcoming) rows are visible. Default 5, can be expanded or collapsed.
+  // ===== DYNAMIC PREV/NEXT ROW COUNTS =====
+  // Controls how many PREV (previous) and NEXT (upcoming) rows are visible. Default 5 each.
+  const [visiblePrevRows, setVisiblePrevRows] = useState(5);
   const [visibleNextRows, setVisibleNextRows] = useState(5);
 
   // ===== WEEK SELECTOR =====
@@ -10012,7 +10013,15 @@ function WeeklyBoardTab({
   // (modules that have already passed through upstream stations)
   const getStationStartingModule = stationId => {
     // Use auto-calculated starting module if no manual override
-    const weekStartingModule = displayWeek?.startingModule ? allModules.find(m => m.serialNumber === displayWeek.startingModule) : autoStartingModule;
+    // Fall back to autoStartingModule if specified module not found (e.g., project not Active)
+    let weekStartingModule = autoStartingModule;
+    if (displayWeek?.startingModule) {
+      const foundModule = allModules.find(m => m.serialNumber === displayWeek.startingModule);
+      if (foundModule) {
+        weekStartingModule = foundModule;
+      }
+      // If not found, keep using autoStartingModule as fallback
+    }
     if (!weekStartingModule) return null;
     const stagger = staggerConfig?.[stationId] || 0;
     const startIdx = allModules.findIndex(m => m.id === weekStartingModule.id);
@@ -10065,8 +10074,8 @@ function WeeklyBoardTab({
       });
     };
 
-    // Previous week: 5 modules before starting module (or fewer if at beginning)
-    const prevCount = Math.min(5, startIdx); // Can't go negative
+    // Previous week: dynamic count based on visiblePrevRows (or fewer if at beginning)
+    const prevCount = Math.min(visiblePrevRows, startIdx); // Can't go negative
     const prevStartIdx = startIdx - prevCount;
     const previousModules = allModules.slice(prevStartIdx, startIdx);
 
@@ -10578,6 +10587,7 @@ function WeeklyBoardTab({
   const computeDayLabelsForPDF = () => {
     const days = [];
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
+    const shift2Days = ['friday', 'saturday', 'sunday'];
     const dayNames = {
       monday: 'Mon',
       tuesday: 'Tue',
@@ -10587,13 +10597,49 @@ function WeeklyBoardTab({
       saturday: 'Sat',
       sunday: 'Sun'
     };
+    const dayOffsets = {
+      monday: 0,
+      tuesday: 1,
+      wednesday: 2,
+      thursday: 3,
+      friday: 4,
+      saturday: 5,
+      sunday: 6
+    };
     let moduleNum = 1;
+
+    // Process Shift 1 days (Mon-Thu)
     shift1Days.forEach(day => {
       // Use displayWeek's shift config when viewing a specific week, fallback to scheduleSetup
       const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
       if (count > 0) {
         const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
-        const dayOffset = shift1Days.indexOf(day);
+        const dayOffset = dayOffsets[day];
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(dayDate.getDate() + dayOffset);
+        const monthStr = dayDate.toLocaleDateString('en-US', {
+          month: 'short'
+        });
+        const dayNum = dayDate.getDate();
+        for (let i = 0; i < count; i++) {
+          days.push({
+            day,
+            label: dayNames[day],
+            monthStr,
+            dayNum,
+            slotNum: i + 1,
+            moduleNum: moduleNum++
+          });
+        }
+      }
+    });
+
+    // Process Shift 2 days (Fri-Sun)
+    shift2Days.forEach(day => {
+      const count = displayWeek?.shift2?.[day] ?? scheduleSetup?.shift2?.[day] ?? 0;
+      if (count > 0) {
+        const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
+        const dayOffset = dayOffsets[day];
         const dayDate = new Date(weekStart);
         dayDate.setDate(dayDate.getDate() + dayOffset);
         const monthStr = dayDate.toLocaleDateString('en-US', {
@@ -11657,6 +11703,7 @@ function WeeklyBoardTab({
   const getDayLabels = () => {
     const days = [];
     const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
+    const shift2Days = ['friday', 'saturday', 'sunday'];
     const dayNames = {
       monday: 'Mon',
       tuesday: 'Tue',
@@ -11666,14 +11713,25 @@ function WeeklyBoardTab({
       saturday: 'Sat',
       sunday: 'Sun'
     };
+    const dayOffsets = {
+      monday: 0,
+      tuesday: 1,
+      wednesday: 2,
+      thursday: 3,
+      friday: 4,
+      saturday: 5,
+      sunday: 6
+    };
     let moduleNum = 1;
+
+    // Process Shift 1 days (Mon-Thu)
     shift1Days.forEach(day => {
       // Use displayWeek's shift config when viewing a specific week, fallback to scheduleSetup
       const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
       if (count > 0) {
         // Calculate date for this day
         const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
-        const dayOffset = shift1Days.indexOf(day);
+        const dayOffset = dayOffsets[day];
         const dayDate = new Date(weekStart);
         dayDate.setDate(dayDate.getDate() + dayOffset);
         const monthStr = dayDate.toLocaleDateString('en-US', {
@@ -11682,6 +11740,31 @@ function WeeklyBoardTab({
         const dayNum = dayDate.getDate();
 
         // Create an entry for each module slot on this day
+        for (let i = 0; i < count; i++) {
+          days.push({
+            day,
+            label: dayNames[day],
+            monthStr,
+            dayNum,
+            slotNum: i + 1,
+            moduleNum: moduleNum++
+          });
+        }
+      }
+    });
+
+    // Process Shift 2 days (Fri-Sun)
+    shift2Days.forEach(day => {
+      const count = displayWeek?.shift2?.[day] ?? scheduleSetup?.shift2?.[day] ?? 0;
+      if (count > 0) {
+        const weekStart = displayWeek?.weekStart ? parseLocalDate(displayWeek.weekStart) : new Date();
+        const dayOffset = dayOffsets[day];
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(dayDate.getDate() + dayOffset);
+        const monthStr = dayDate.toLocaleDateString('en-US', {
+          month: 'short'
+        });
+        const dayNum = dayDate.getDate();
         for (let i = 0; i < count; i++) {
           days.push({
             day,
@@ -11815,17 +11898,47 @@ function WeeklyBoardTab({
       className: "flex justify-between text-xs mt-0.5 opacity-0"
     }, /*#__PURE__*/React.createElement("span", null, "0/0"), /*#__PURE__*/React.createElement("span", null, "0")))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white min-h-80 p-1 space-y-1 border-l border-b border-gray-200"
-    }, previous.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, previous.map((_, idx) => /*#__PURE__*/React.createElement("div", {
+    }, visiblePrevRows > 0 && previous.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "mb-1"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisiblePrevRows(prev => prev + 1),
+      className: "w-full rounded border-2 border-dashed border-red-300 bg-red-50/50 hover:bg-red-100 flex items-center justify-center text-center transition-colors",
+      style: {
+        height: `${CARD_HEIGHT * 0.6}px`
+      },
+      title: "Add another PREV row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-lg font-bold text-red-400"
+    }, "+"))), previous.map((_, idx) => /*#__PURE__*/React.createElement("div", {
       key: `prev-${idx}`,
-      className: "rounded border border-red-300 bg-red-50 flex items-center justify-center text-center",
+      className: "rounded border border-red-300 bg-red-50 flex items-center justify-center text-center relative group",
       style: {
         height: `${CARD_HEIGHT}px`
       }
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-xs font-bold text-red-600"
-    }, "PREV"))), /*#__PURE__*/React.createElement("div", {
-      className: "border-t border-dashed border-red-300 my-0.5"
-    })), dayLabels.map((dayInfo, idx) => /*#__PURE__*/React.createElement("div", {
+    }, "PREV"), idx === previous.length - 1 && visiblePrevRows > 1 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisiblePrevRows(prev => Math.max(0, prev - 1)),
+      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-200 hover:bg-red-300 border border-red-400 rounded text-red-700 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex",
+      title: "Remove one PREV row"
+    }, "-"))), /*#__PURE__*/React.createElement("div", {
+      className: "border-t border-dashed border-red-300 my-0.5 relative"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisiblePrevRows(0),
+      className: "absolute -bottom-2 right-0 w-4 h-4 bg-red-100 hover:bg-red-200 border border-red-300 rounded text-red-600 text-xs flex items-center justify-center",
+      title: "Hide all PREV rows"
+    }, "-"))), visiblePrevRows === 0 && /*#__PURE__*/React.createElement("div", {
+      className: "mb-1"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisiblePrevRows(5),
+      className: "w-full rounded border border-red-300 bg-red-50 hover:bg-red-100 flex items-center justify-center text-center transition-colors",
+      style: {
+        height: `${CARD_HEIGHT * 0.6}px`
+      },
+      title: "Show PREV rows (default 5)"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-xs font-bold text-red-600"
+    }, "+ PREV"))), dayLabels.map((dayInfo, idx) => /*#__PURE__*/React.createElement("div", {
       key: `${dayInfo.day}-${dayInfo.slotNum}`,
       className: "rounded border border-autovol-teal bg-white flex flex-col items-center justify-center text-center",
       style: {
@@ -11835,9 +11948,9 @@ function WeeklyBoardTab({
       className: "text-xs font-bold text-autovol-navy"
     }, dayInfo.label), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-gray-500"
-    }, dayInfo.monthStr, " ", dayInfo.dayNum))), visibleNextRows > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    }, dayInfo.monthStr, " ", dayInfo.dayNum))), visibleNextRows > 0 && next.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "border-t border-dashed border-green-300 my-0.5 relative"
-    }, visibleNextRows > 0 && /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("button", {
       onClick: () => setVisibleNextRows(0),
       className: "absolute -top-2 right-0 w-4 h-4 bg-green-100 hover:bg-green-200 border border-green-300 rounded text-green-600 text-xs flex items-center justify-center",
       title: "Hide all NEXT rows"
@@ -11850,32 +11963,32 @@ function WeeklyBoardTab({
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-xs font-bold text-green-600"
     }, "NEXT"), idx === next.length - 1 && visibleNextRows > 1 && /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisibleNextRows(prev => Math.max(1, prev - 1)),
-      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-100 hover:bg-red-200 border border-red-300 rounded text-red-600 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex",
+      onClick: () => setVisibleNextRows(prev => Math.max(0, prev - 1)),
+      className: "absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-200 hover:bg-green-300 border border-green-400 rounded text-green-700 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex",
       title: "Remove one NEXT row"
-    }, "-")))), /*#__PURE__*/React.createElement("div", {
+    }, "-"))), /*#__PURE__*/React.createElement("div", {
       className: "mt-1"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => setVisibleNextRows(prev => prev + 1),
       className: "w-full rounded border-2 border-dashed border-green-300 bg-green-50/50 hover:bg-green-100 flex items-center justify-center text-center transition-colors",
       style: {
-        height: `${CARD_HEIGHT}px`
+        height: `${CARD_HEIGHT * 0.6}px`
       },
       title: "Add another NEXT row"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "text-lg font-bold text-green-500"
-    }, "+"))), visibleNextRows === 0 && /*#__PURE__*/React.createElement("div", {
+      className: "text-lg font-bold text-green-400"
+    }, "+")))), visibleNextRows === 0 && /*#__PURE__*/React.createElement("div", {
       className: "mt-1"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => setVisibleNextRows(5),
       className: "w-full rounded border border-green-300 bg-green-50 hover:bg-green-100 flex items-center justify-center text-center transition-colors",
       style: {
-        height: `${CARD_HEIGHT}px`
+        height: `${CARD_HEIGHT * 0.6}px`
       },
       title: "Show NEXT rows (default 5)"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-xs font-bold text-green-600"
-    }, "Show NEXT")))));
+    }, "+ NEXT")))));
   };
 
   // Show configuration prompt if week not set up
@@ -12218,7 +12331,7 @@ function WeeklyBoardTab({
   }, "View-Only Mode"), /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-amber-700"
   }, "You have read-only access to this tab. Contact an administrator to request edit permissions."))), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between flex-wrap gap-4"
+    className: "flex items-center flex-wrap gap-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
@@ -41923,6 +42036,360 @@ window.IssueCategoriesManager = IssueCategoriesManager;
 
 
 // ============================================================================
+// FILE: ModuleLinkSelector.jsx
+// ============================================================================
+(function() {
+/**
+ * ModuleLinkSelector Component for MODA
+ * 
+ * Multi-select module picker with comprehensive search functionality.
+ * Searches across: Serial Number, Hitch BLM, Rear BLM, Unit Type, 
+ * Room Number, Room Type, Difficulty Indicators, and other module details.
+ * 
+ * Displays linked modules in format: "SERIAL - HITCH BLM / REAR BLM"
+ */
+// [Removed duplicate React destructuring]
+function ModuleLinkSelector({
+  projectId,
+  projects = [],
+  selectedModuleIds = [],
+  onSelectionChange,
+  maxSelections = null,
+  disabled = false,
+  placeholder = "Search modules by serial, BLM, unit type, room..."
+}) {
+  // State
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+
+  // Refs
+  const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const listRef = useRef(null);
+
+  // Get modules from selected project
+  const projectModules = useMemo(() => {
+    if (!projectId) return [];
+    const project = projects.find(p => p.id === projectId);
+    return project?.modules || [];
+  }, [projectId, projects]);
+
+  // Get selected module objects
+  const selectedModules = useMemo(() => {
+    return projectModules.filter(m => selectedModuleIds.includes(m.id));
+  }, [projectModules, selectedModuleIds]);
+
+  // Format module display string: "SERIAL - HITCH BLM / REAR BLM"
+  const formatModuleDisplay = useCallback(module => {
+    if (!module) return '';
+    const serial = module.serialNumber || module.serial_number || 'Unknown';
+    const hitchBLM = module.hitchBLM || module.hitch_blm || '-';
+    const rearBLM = module.rearBLM || module.rear_blm || '-';
+    return `${serial} - ${hitchBLM} / ${rearBLM}`;
+  }, []);
+
+  // Search/filter modules
+  const filteredModules = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return projectModules.sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+    }
+    const search = searchTerm.toLowerCase().trim();
+    return projectModules.filter(m => {
+      // Build searchable fields array
+      const searchFields = [
+      // Primary identifiers
+      m.serialNumber || m.serial_number, m.hitchBLM || m.hitch_blm, m.rearBLM || m.rear_blm, m.blm_id || m.blmId,
+      // Build sequence variations
+      `M${m.buildSequence}`, `#${m.buildSequence}`, `${m.buildSequence}`,
+      // Unit/Room info
+      m.unitType || m.unit_type, m.roomNumber || m.room_number, m.roomType || m.room_type, m.hitchUnit || m.hitch_unit, m.rearUnit || m.rear_unit,
+      // Difficulty indicators (if present)
+      ...(m.difficultyIndicators || []), m.difficulty,
+      // Additional searchable fields
+      m.building, m.level, m.floor, m.wing, m.notes, m.description].filter(Boolean).map(s => String(s).toLowerCase());
+
+      // Check if any field contains the search term
+      return searchFields.some(field => field.includes(search));
+    }).sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
+  }, [projectModules, searchTerm]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = e => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Keyboard navigation
+  const handleKeyDown = e => {
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+    switch (e.key) {
+      case 'Escape':
+        setIsOpen(false);
+        setFocusedIndex(-1);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        setFocusedIndex(prev => prev < filteredModules.length - 1 ? prev + 1 : prev);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedIndex(prev => prev > 0 ? prev - 1 : 0);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (focusedIndex >= 0 && focusedIndex < filteredModules.length) {
+          toggleModule(filteredModules[focusedIndex]);
+        }
+        break;
+    }
+  };
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex >= 0 && listRef.current) {
+      const items = listRef.current.querySelectorAll('[data-module-item]');
+      if (items[focusedIndex]) {
+        items[focusedIndex].scrollIntoView({
+          block: 'nearest'
+        });
+      }
+    }
+  }, [focusedIndex]);
+
+  // Toggle module selection
+  const toggleModule = module => {
+    const isSelected = selectedModuleIds.includes(module.id);
+    if (isSelected) {
+      // Remove from selection
+      onSelectionChange(selectedModuleIds.filter(id => id !== module.id));
+    } else {
+      // Add to selection (check max limit)
+      if (maxSelections && selectedModuleIds.length >= maxSelections) {
+        return; // At max capacity
+      }
+      onSelectionChange([...selectedModuleIds, module.id]);
+    }
+  };
+
+  // Remove a specific module from selection
+  const removeModule = moduleId => {
+    onSelectionChange(selectedModuleIds.filter(id => id !== moduleId));
+  };
+
+  // Clear all selections
+  const clearAll = () => {
+    onSelectionChange([]);
+  };
+
+  // Get module details for display in dropdown
+  const getModuleDetails = module => {
+    const details = [];
+    if (module.unitType || module.unit_type) {
+      details.push(module.unitType || module.unit_type);
+    }
+    if (module.roomNumber || module.room_number) {
+      details.push(`Room ${module.roomNumber || module.room_number}`);
+    }
+    if (module.roomType || module.room_type) {
+      details.push(module.roomType || module.room_type);
+    }
+    return details.join(' | ');
+  };
+
+  // Render
+  return /*#__PURE__*/React.createElement("div", {
+    ref: containerRef,
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => !disabled && setIsOpen(!isOpen),
+    onKeyDown: handleKeyDown,
+    tabIndex: disabled ? -1 : 0,
+    className: `
+                    w-full min-h-[42px] px-3 py-2 border rounded-lg cursor-pointer
+                    flex items-center justify-between gap-2
+                    ${disabled ? 'bg-gray-100 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500'}
+                    ${isOpen ? 'border-blue-500 ring-2 ring-blue-500' : ''}
+                `
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, selectedModuleIds.length === 0 ? /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-400 text-sm"
+  }, placeholder) : /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-700"
+  }, selectedModuleIds.length, " module", selectedModuleIds.length !== 1 ? 's' : '', " selected")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1"
+  }, selectedModuleIds.length > 0 && !disabled && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: e => {
+      e.stopPropagation();
+      clearAll();
+    },
+    className: "p-1 text-gray-400 hover:text-red-500 transition-colors",
+    title: "Clear all"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  }))), /*#__PURE__*/React.createElement("svg", {
+    className: `w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`,
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M19 9l-7 7-7-7"
+  })))), selectedModules.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-xs font-medium text-blue-700 mb-2"
+  }, "Linked Modules:"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, selectedModules.map(module => /*#__PURE__*/React.createElement("div", {
+    key: module.id,
+    className: "inline-flex items-center gap-1.5 px-2 py-1 bg-white border border-blue-300 rounded-md text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-800 font-medium"
+  }, formatModuleDisplay(module)), !disabled && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => removeModule(module.id),
+    className: "p-0.5 text-gray-400 hover:text-red-500 transition-colors",
+    title: "Remove"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-3.5 h-3.5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  }))))))), isOpen && !disabled && /*#__PURE__*/React.createElement("div", {
+    className: "absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-2 border-b border-gray-200"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+  })), /*#__PURE__*/React.createElement("input", {
+    ref: searchInputRef,
+    type: "text",
+    value: searchTerm,
+    onChange: e => {
+      setSearchTerm(e.target.value);
+      setFocusedIndex(-1);
+    },
+    onKeyDown: handleKeyDown,
+    placeholder: "Search serial, BLM, unit type, room...",
+    className: "w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }), searchTerm && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setSearchTerm(''),
+    className: "absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  }))))), /*#__PURE__*/React.createElement("div", {
+    ref: listRef,
+    className: "max-h-64 overflow-y-auto"
+  }, filteredModules.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "p-4 text-center text-sm text-gray-500"
+  }, searchTerm ? 'No modules match your search' : 'No modules available in this project') : filteredModules.map((module, index) => {
+    const isSelected = selectedModuleIds.includes(module.id);
+    const isFocused = index === focusedIndex;
+    const details = getModuleDetails(module);
+    return /*#__PURE__*/React.createElement("div", {
+      key: module.id,
+      "data-module-item": true,
+      onClick: () => toggleModule(module),
+      className: `
+                                            flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors
+                                            ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                                            ${isFocused ? 'bg-blue-100' : ''}
+                                            border-b border-gray-100 last:border-b-0
+                                        `
+    }, /*#__PURE__*/React.createElement("div", {
+      className: `
+                                            w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0
+                                            ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}
+                                        `
+    }, isSelected && /*#__PURE__*/React.createElement("svg", {
+      className: "w-3 h-3 text-white",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24"
+    }, /*#__PURE__*/React.createElement("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 3,
+      d: "M5 13l4 4L19 7"
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs font-medium text-gray-500"
+    }, "#", module.buildSequence || '?'), /*#__PURE__*/React.createElement("span", {
+      className: "text-sm font-semibold text-gray-900"
+    }, formatModuleDisplay(module))), details && /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-gray-500 mt-0.5 truncate"
+    }, details)), isSelected && /*#__PURE__*/React.createElement("span", {
+      className: "text-xs font-medium text-blue-600 flex-shrink-0"
+    }, "Selected"));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "px-3 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500"
+  }, /*#__PURE__*/React.createElement("span", null, filteredModules.length, " module", filteredModules.length !== 1 ? 's' : '', searchTerm && ' found'), maxSelections && /*#__PURE__*/React.createElement("span", null, selectedModuleIds.length, "/", maxSelections, " selected"))));
+}
+
+// Export to window for global access
+window.ModuleLinkSelector = ModuleLinkSelector;
+})();
+
+
+// ============================================================================
 // FILE: IssueSubmissionModal.jsx
 // ============================================================================
 (function() {
@@ -42028,7 +42495,7 @@ function IssueSubmissionModal({
   const [showProjectSelect, setShowProjectSelect] = useState(!context?.project_id);
   const [issueCategories, setIssueCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
-  const [moduleSearchTerm, setModuleSearchTerm] = useState(''); // Search filter for modules
+  // moduleSearchTerm removed - now handled by ModuleLinkSelector component
 
   const fileInputRef = useRef(null);
   const modalRef = useRef(null);
@@ -42366,104 +42833,43 @@ function IssueSubmissionModal({
     className: "text-sm text-gray-400 py-2 italic"
   }, "No categories defined for this issue type"), formData.issue_category && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500 mt-1"
-  }, getCategoriesForType(formData.issue_type).find(c => c.name === formData.issue_category)?.description)), formData.issue_type === 'shop-drawing' && /*#__PURE__*/React.createElement("div", {
-    className: "mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-medium text-blue-800 mb-3"
-  }, "Link to Module Shop Drawing Package(s)"), formData.project_id ? /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
+  }, getCategoriesForType(formData.issue_type).find(c => c.name === formData.issue_category)?.description)), formData.project_id && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2 cursor-pointer"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: formData.applies_to_unit_type,
-    onChange: e => {
+    className: "block text-sm font-medium text-gray-700 mb-2"
+  }, "Link to Module(s) ", /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-400 font-normal"
+  }, "(optional)")), window.ModuleLinkSelector ? /*#__PURE__*/React.createElement(ModuleLinkSelector, {
+    projectId: formData.project_id,
+    projects: projects,
+    selectedModuleIds: formData.linked_module_ids,
+    onSelectionChange: newIds => {
+      // Get selected modules for display and auto-populate blm_id
+      const selectedProject = projects.find(p => p.id === formData.project_id);
+      const modules = selectedProject?.modules || [];
+      const selectedModules = modules.filter(m => newIds.includes(m.id));
+      const firstModule = selectedModules[0];
+
+      // Build display string: "SERIAL - HITCH / REAR"
+      const displayStr = selectedModules.map(m => {
+        const serial = m.serialNumber || m.serial_number || 'Unknown';
+        const hitch = m.hitchBLM || m.hitch_blm || '-';
+        const rear = m.rearBLM || m.rear_blm || '-';
+        return `${serial} - ${hitch} / ${rear}`;
+      }).join(', ');
       setFormData(prev => ({
         ...prev,
-        applies_to_unit_type: e.target.checked,
-        linked_module_ids: e.target.checked ? [] : prev.linked_module_ids
+        linked_module_ids: newIds,
+        linked_modules_display: displayStr,
+        blm_id: firstModule?.hitchBLM || firstModule?.hitch_blm || firstModule?.serialNumber || prev.blm_id
       }));
     },
-    className: "w-4 h-4 text-blue-600 rounded"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-700"
-  }, "Applies to all modules of unit type: ", /*#__PURE__*/React.createElement("strong", null, formData.unit_type || 'All'))), !formData.applies_to_unit_type && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm font-medium text-gray-700 mb-1"
-  }, "Search & Select Modules"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: moduleSearchTerm,
-    onChange: e => setModuleSearchTerm(e.target.value),
-    placeholder: "Search by M#, BLM, serial...",
-    className: "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white"
-  }, (() => {
-    const selectedProject = projects.find(p => p.id === formData.project_id);
-    const modules = selectedProject?.modules || [];
-    const searchLower = moduleSearchTerm.toLowerCase();
-    const filteredModules = modules.filter(m => {
-      if (!moduleSearchTerm) return true;
-      const searchFields = [m.serialNumber, m.hitchBLM, m.rearBLM, `M${m.buildSequence}`, `#${m.buildSequence}`, m.unitType].filter(Boolean).map(s => s.toLowerCase());
-      return searchFields.some(f => f.includes(searchLower));
-    }).sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
-    if (filteredModules.length === 0) {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "p-3 text-sm text-gray-500 text-center"
-      }, moduleSearchTerm ? 'No modules match your search' : 'No modules in this project');
-    }
-    return filteredModules.map(m => /*#__PURE__*/React.createElement("label", {
-      key: m.id,
-      className: `flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 ${formData.linked_module_ids.includes(m.id) ? 'bg-blue-50' : ''}`
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "checkbox",
-      checked: formData.linked_module_ids.includes(m.id),
-      onChange: e => {
-        const isChecked = e.target.checked;
-        setFormData(prev => {
-          const newIds = isChecked ? [...prev.linked_module_ids, m.id] : prev.linked_module_ids.filter(id => id !== m.id);
-
-          // Build display string from selected modules
-          const selectedModules = modules.filter(mod => newIds.includes(mod.id));
-          const displayStr = selectedModules.map(mod => mod.hitchBLM || mod.serialNumber).join(', ');
-
-          // Auto-populate blm_id from first selected module
-          const firstModule = selectedModules[0];
-          return {
-            ...prev,
-            linked_module_ids: newIds,
-            linked_modules_display: displayStr,
-            blm_id: firstModule?.hitchBLM || firstModule?.serialNumber || ''
-          };
-        });
-      },
-      className: "w-4 h-4 text-blue-600 rounded"
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-sm font-medium text-gray-900"
-    }, "#", m.buildSequence, " - ", m.serialNumber), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-gray-500"
-    }, m.hitchBLM || 'No BLM', " ", m.unitType ? `| ${m.unitType}` : ''))));
-  })()), formData.linked_module_ids.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between p-2 bg-white rounded border border-blue-200"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-blue-600"
-  }, "Selected: "), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-medium text-blue-800"
-  }, formData.linked_module_ids.length, " module", formData.linked_module_ids.length > 1 ? 's' : '')), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: () => setFormData(prev => ({
-      ...prev,
-      linked_module_ids: [],
-      linked_modules_display: '',
-      blm_id: ''
-    })),
-    className: "text-xs text-red-600 hover:text-red-800"
-  }, "Clear all"))), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-gray-500"
-  }, formData.applies_to_unit_type ? 'Issue will apply to all modules of the selected unit type' : 'Select one or more modules to link this issue to their shop drawing packages')) : /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-amber-600 py-2"
-  }, "Please select a project first to choose modules")), /*#__PURE__*/React.createElement("div", {
+    placeholder: "Search by serial, BLM, unit type, room..."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "text-sm text-gray-500 p-3 bg-gray-50 rounded-lg"
+  }, "Module selector loading..."), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Link this issue to specific modules. Issues will appear in module history and can be traced to shop drawings.")), /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
   }, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-2"
