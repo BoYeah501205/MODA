@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.47**
+**Current Version: 1.5.48**
 
 ---
+
+## [1.5.48] - 2026-02-03
+### Weekly Board Keyboard Navigation Performance Fix
+- **Instant scroll** - Changed scrollIntoView from 'smooth' to 'instant' for responsive arrow key navigation
+- **Key throttling** - Added 50ms throttle on arrow keys and 100ms on progress keys (0-4) to prevent lag from rapid key presses
+- **Backup plan** - If issues persist, throttle can be adjusted via `KEY_THROTTLE_MS` constant (currently 50ms)
 
 ## [1.5.47] - 2026-02-03
 ### Engineering Issue Tracker Enhancements

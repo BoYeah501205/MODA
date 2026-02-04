@@ -2296,6 +2296,8 @@ function WeeklyBoardTab({
     const [focusedCell, setFocusedCell] = useState(null); // { moduleId, stationId, rowIndex, colIndex } for keyboard nav
     const boardRef = useRef(null);
     const longPressTimer = useRef(null);
+    const lastKeyPressTime = useRef(0); // Throttle rapid key presses
+    const KEY_THROTTLE_MS = 50; // Minimum ms between key actions
     
     // Generate unique key for module-station combination (use | as separator since IDs may contain dashes)
     const getSelectionKey = (moduleId, stationId) => `${moduleId}|${stationId}`;
@@ -3773,11 +3775,19 @@ function WeeklyBoardTab({
         const { rows, stationCount } = navigationGrid;
         if (!rows.length || !stationCount) return;
         
+        // Throttle rapid key presses to prevent lag
+        const now = Date.now();
+        const timeSinceLastKey = now - lastKeyPressTime.current;
+        
         // Progress shortcuts: 0-4 keys when a cell is focused (single selection only)
         if (focusedCell && selectedModules.size === 1 && canEdit) {
             const progressMap = { '0': 0, '1': 25, '2': 50, '3': 75, '4': 100 };
             if (progressMap[e.key] !== undefined) {
                 e.preventDefault();
+                // Throttle progress updates (allow slightly longer interval for DB writes)
+                if (timeSinceLastKey < KEY_THROTTLE_MS * 2) return;
+                lastKeyPressTime.current = now;
+                
                 // Get the cell data which now contains moduleId and projectId
                 const focusedRow = rows[focusedCell.rowIndex];
                 if (focusedRow) {
@@ -3793,6 +3803,10 @@ function WeeklyBoardTab({
         // Arrow key navigation when a cell is focused
         if (focusedCell && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
             e.preventDefault();
+            
+            // Throttle arrow navigation
+            if (timeSinceLastKey < KEY_THROTTLE_MS) return;
+            lastKeyPressTime.current = now;
             
             let newRowIndex = focusedCell.rowIndex;
             let newColIndex = focusedCell.colIndex;
@@ -3831,12 +3845,12 @@ function WeeklyBoardTab({
                         setSelectedModules(new Set([getSelectionKey(newCell.moduleId, newCell.stationId)]));
                     }
                     
-                    // Scroll the cell into view
+                    // Scroll the cell into view - use 'instant' for responsive keyboard nav
                     const cellElement = document.querySelector(
                         `[data-cell-key="${getSelectionKey(newCell.moduleId, newCell.stationId)}"]`
                     );
                     if (cellElement) {
-                        cellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                        cellElement.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' });
                     }
                 }
             }
@@ -3847,10 +3861,10 @@ function WeeklyBoardTab({
         if (!focusedCell) {
             const scrollAmount = 200;
             if (e.key === 'ArrowLeft') {
-                scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'instant' });
                 e.preventDefault();
             } else if (e.key === 'ArrowRight') {
-                scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                scrollContainer.scrollBy({ left: scrollAmount, behavior: 'instant' });
                 e.preventDefault();
             }
         }
