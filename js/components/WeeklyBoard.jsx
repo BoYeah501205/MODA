@@ -4447,33 +4447,32 @@ const getProjectAcronym = (module) => {
                 {/* Row markers - aligned with module cards */}
                 <div className="bg-white min-h-80 p-1 space-y-1 border-l border-b border-gray-200">
                     
-                    {/* Previous Week row markers */}
                     {/* PREV Section with +/- controls */}
-                    {visiblePrevRows > 0 && previous.length > 0 && (
+                    {previous.length > 0 && (
                         <>
-                            {/* Add more PREV rows button at top */}
-                            <div className="mb-1">
-                                <button
-                                    onClick={() => setVisiblePrevRows(prev => prev + 1)}
-                                    className="w-full rounded border-2 border-dashed border-red-300 bg-red-50/50 hover:bg-red-100 flex items-center justify-center text-center transition-colors"
-                                    style={{ height: `${CARD_HEIGHT * 0.6}px` }}
-                                    title="Add another PREV row"
-                                >
-                                    <div className="text-lg font-bold text-red-400">+</div>
-                                </button>
-                            </div>
+                            {/* First PREV row has + button to add more */}
                             {previous.map((_, idx) => (
                                 <div 
                                     key={`prev-${idx}`}
                                     className="rounded border border-red-300 bg-red-50 flex items-center justify-center text-center relative group"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
+                                    {/* + button on first PREV row */}
+                                    {idx === 0 && (
+                                        <button
+                                            onClick={() => setVisiblePrevRows(prev => prev + 1)}
+                                            className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-200 hover:bg-red-300 border border-red-400 rounded text-red-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Add one PREV row"
+                                        >
+                                            +
+                                        </button>
+                                    )}
                                     <div className="text-xs font-bold text-red-600">PREV</div>
-                                    {/* Remove row button on last PREV item */}
-                                    {idx === previous.length - 1 && visiblePrevRows > 1 && (
+                                    {/* - button on last PREV row */}
+                                    {idx === previous.length - 1 && visiblePrevRows > 0 && (
                                         <button
                                             onClick={() => setVisiblePrevRows(prev => Math.max(0, prev - 1))}
-                                            className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-200 hover:bg-red-300 border border-red-400 rounded text-red-700 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                                            className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-200 hover:bg-red-300 border border-red-400 rounded text-red-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                             title="Remove one PREV row"
                                         >
                                             -
@@ -4481,31 +4480,9 @@ const getProjectAcronym = (module) => {
                                     )}
                                 </div>
                             ))}
-                            {/* Divider with hide all button */}
-                            <div className="border-t border-dashed border-red-300 my-0.5 relative">
-                                <button
-                                    onClick={() => setVisiblePrevRows(0)}
-                                    className="absolute -bottom-2 right-0 w-4 h-4 bg-red-100 hover:bg-red-200 border border-red-300 rounded text-red-600 text-xs flex items-center justify-center"
-                                    title="Hide all PREV rows"
-                                >
-                                    -
-                                </button>
-                            </div>
+                            {/* Divider */}
+                            <div className="border-t border-dashed border-red-300 my-0.5"></div>
                         </>
-                    )}
-                    
-                    {/* Show collapsed PREV indicator when hidden */}
-                    {visiblePrevRows === 0 && (
-                        <div className="mb-1">
-                            <button
-                                onClick={() => setVisiblePrevRows(5)}
-                                className="w-full rounded border border-red-300 bg-red-50 hover:bg-red-100 flex items-center justify-center text-center transition-colors"
-                                style={{ height: `${CARD_HEIGHT * 0.6}px` }}
-                                title="Show PREV rows (default 5)"
-                            >
-                                <div className="text-xs font-bold text-red-600">+ PREV</div>
-                            </button>
-                        </div>
                     )}
                     
                     {/* Current week day markers */}
@@ -4521,63 +4498,40 @@ const getProjectAcronym = (module) => {
                     ))}
                     
                     {/* NEXT Section with +/- controls */}
-                    {visibleNextRows > 0 && next.length > 0 && (
+                    {next.length > 0 && (
                         <>
-                            {/* Divider with hide all button */}
-                            <div className="border-t border-dashed border-green-300 my-0.5 relative">
-                                <button
-                                    onClick={() => setVisibleNextRows(0)}
-                                    className="absolute -top-2 right-0 w-4 h-4 bg-green-100 hover:bg-green-200 border border-green-300 rounded text-green-600 text-xs flex items-center justify-center"
-                                    title="Hide all NEXT rows"
-                                >
-                                    -
-                                </button>
-                            </div>
+                            {/* Divider */}
+                            <div className="border-t border-dashed border-green-300 my-0.5"></div>
                             {next.map((_, idx) => (
                                 <div 
                                     key={`next-${idx}`}
                                     className="rounded border border-green-300 bg-green-50 flex items-center justify-center text-center relative group"
                                     style={{ height: `${CARD_HEIGHT}px` }}
                                 >
-                                    <div className="text-xs font-bold text-green-600">NEXT</div>
-                                    {/* Remove row button on last NEXT item */}
-                                    {idx === next.length - 1 && visibleNextRows > 1 && (
+                                    {/* - button on first NEXT row */}
+                                    {idx === 0 && visibleNextRows > 0 && (
                                         <button
                                             onClick={() => setVisibleNextRows(prev => Math.max(0, prev - 1))}
-                                            className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-200 hover:bg-green-300 border border-green-400 rounded text-green-700 text-xs items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                                            className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-200 hover:bg-green-300 border border-green-400 rounded text-green-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                             title="Remove one NEXT row"
                                         >
                                             -
                                         </button>
                                     )}
+                                    <div className="text-xs font-bold text-green-600">NEXT</div>
+                                    {/* + button on last NEXT row */}
+                                    {idx === next.length - 1 && (
+                                        <button
+                                            onClick={() => setVisibleNextRows(prev => prev + 1)}
+                                            className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-200 hover:bg-green-300 border border-green-400 rounded text-green-700 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Add one NEXT row"
+                                        >
+                                            +
+                                        </button>
+                                    )}
                                 </div>
                             ))}
-                            {/* Add more NEXT rows button at bottom */}
-                            <div className="mt-1">
-                                <button
-                                    onClick={() => setVisibleNextRows(prev => prev + 1)}
-                                    className="w-full rounded border-2 border-dashed border-green-300 bg-green-50/50 hover:bg-green-100 flex items-center justify-center text-center transition-colors"
-                                    style={{ height: `${CARD_HEIGHT * 0.6}px` }}
-                                    title="Add another NEXT row"
-                                >
-                                    <div className="text-lg font-bold text-green-400">+</div>
-                                </button>
-                            </div>
                         </>
-                    )}
-                    
-                    {/* Show collapsed NEXT indicator when hidden */}
-                    {visibleNextRows === 0 && (
-                        <div className="mt-1">
-                            <button
-                                onClick={() => setVisibleNextRows(5)}
-                                className="w-full rounded border border-green-300 bg-green-50 hover:bg-green-100 flex items-center justify-center text-center transition-colors"
-                                style={{ height: `${CARD_HEIGHT * 0.6}px` }}
-                                title="Show NEXT rows (default 5)"
-                            >
-                                <div className="text-xs font-bold text-green-600">+ NEXT</div>
-                            </button>
-                        </div>
                     )}
                 </div>
             </div>

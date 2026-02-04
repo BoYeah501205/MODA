@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.44**
+**Current Version: 1.5.45**
 
 ---
+
+## [1.5.45] - 2026-02-03
+### Weekly Board PREV/NEXT Alignment Fix
+- **Removed hide-all buttons** - No more "hide all PREV/NEXT" buttons that caused misalignment
+- **Simplified +/- controls** - + on first PREV row (add more), - on last PREV row (remove one); - on first NEXT row (remove one), + on last NEXT row (add more)
+- **Fixed Day/Module alignment** - Day column now always matches station column row counts
 
 ## [1.5.44] - 2026-02-03
 ### Module Link Selector for Issues
