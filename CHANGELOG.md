@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.48**
+**Current Version: 1.5.49**
 
 ---
+
+## [1.5.49] - 2026-02-04
+### UI Fix
+- **Dropdown z-index fix** - Navigation dropdown menus now appear above project cards instead of behind them
 
 ## [1.5.48] - 2026-02-03
 ### Weekly Board Keyboard Navigation Performance Fix

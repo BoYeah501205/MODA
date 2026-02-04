@@ -213,7 +213,7 @@ function NavigationGroups({
                     
                     {/* Grouped Navigation */}
                     {visibleGroups.map(group => (
-                        <div key={group.id} className="nav-group relative">
+                        <div key={group.id} className="nav-group relative z-50">
                             {/* Group has single tab - render as regular tab */}
                             {group.tabs.length === 1 ? (
                                 <button
