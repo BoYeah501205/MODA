@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.56**
+**Current Version: 1.5.57**
 
 ---
+
+## [1.5.57] - 2026-02-04
+### Branding
+- **New MODA favicon** - Added Concept 1 "Modular Blocks" icon as browser tab favicon and PWA icons. SVG-based for crisp display at all sizes.
 
 ## [1.5.56] - 2026-02-04
 ### UI Improvement
