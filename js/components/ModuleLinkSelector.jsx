@@ -62,6 +62,15 @@ function ModuleLinkSelector({
         
         const search = searchTerm.toLowerCase().trim();
         
+        // Check if search starts with "m" followed by digits (like "m23")
+        // In this case, do NOT match build sequence - only match BLM IDs
+        const startsWithM = /^m\d/.test(search);
+        
+        // Check if search is just digits or starts with # (like "23" or "#23")
+        // In this case, also match build sequence
+        const pureNumberMatch = search.match(/^#?(\d+)$/);
+        const searchNumber = pureNumberMatch ? parseInt(pureNumberMatch[1]) : null;
+        
         return projectModules.filter(m => {
             // Build searchable fields array
             const searchFields = [
@@ -70,11 +79,6 @@ function ModuleLinkSelector({
                 m.hitchBLM || m.hitch_blm,
                 m.rearBLM || m.rear_blm,
                 m.blm_id || m.blmId,
-                
-                // Build sequence variations
-                `M${m.buildSequence}`,
-                `#${m.buildSequence}`,
-                `${m.buildSequence}`,
                 
                 // Unit/Room info
                 m.unitType || m.unit_type,
@@ -97,7 +101,17 @@ function ModuleLinkSelector({
             ].filter(Boolean).map(s => String(s).toLowerCase());
             
             // Check if any field contains the search term
-            return searchFields.some(field => field.includes(search));
+            const matchesField = searchFields.some(field => field.includes(search));
+            
+            // Build sequence matching:
+            // - "23" or "#23" → match build sequence #23
+            // - "m23" → do NOT match build sequence, only BLM IDs containing "m23"
+            let matchesBuildSeq = false;
+            if (searchNumber !== null && !startsWithM) {
+                matchesBuildSeq = m.buildSequence === searchNumber;
+            }
+            
+            return matchesField || matchesBuildSeq;
         }).sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
     }, [projectModules, searchTerm]);
     
