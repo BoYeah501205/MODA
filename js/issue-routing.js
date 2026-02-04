@@ -231,11 +231,60 @@
         };
     }
 
+    // ===== CACHED ISSUES FOR SHOP DRAWING STATUS =====
+    // Cache to avoid repeated Supabase calls - refreshed when issues change
+    let cachedShopDrawingIssues = null;
+    let cacheTimestamp = 0;
+    const CACHE_TTL = 30000; // 30 seconds cache
+
+    // Listen for issue updates to invalidate cache
+    window.addEventListener('moda-issues-updated', () => {
+        cachedShopDrawingIssues = null;
+        cacheTimestamp = 0;
+        console.log('[IssueRouting] Cache invalidated due to issue update');
+    });
+
+    // ===== LOAD OPEN SHOP-DRAWING ISSUES (from Supabase or localStorage) =====
+    async function loadOpenShopDrawingIssues() {
+        const now = Date.now();
+        
+        // Return cached if still valid
+        if (cachedShopDrawingIssues && (now - cacheTimestamp) < CACHE_TTL) {
+            return cachedShopDrawingIssues;
+        }
+
+        // Try Supabase first
+        if (window.MODA_SUPABASE_ISSUES?.isAvailable?.()) {
+            try {
+                const allIssues = await window.MODA_SUPABASE_ISSUES.issues.getAll({
+                    status: 'open',
+                    issueType: 'shop-drawing'
+                });
+                cachedShopDrawingIssues = allIssues || [];
+                cacheTimestamp = now;
+                console.log('[IssueRouting] Loaded', cachedShopDrawingIssues.length, 'open shop-drawing issues from Supabase');
+                return cachedShopDrawingIssues;
+            } catch (err) {
+                console.warn('[IssueRouting] Supabase load failed, falling back to localStorage:', err);
+            }
+        }
+
+        // Fallback to localStorage
+        const issues = loadIssues('moda_engineering_issues');
+        cachedShopDrawingIssues = issues.filter(i => i.issue_type === 'shop-drawing' && i.status === 'open');
+        cacheTimestamp = now;
+        return cachedShopDrawingIssues;
+    }
+
     // ===== GET OPEN SHOP-DRAWING ISSUES FOR MODULE =====
     // Returns open issues of type 'shop-drawing' linked to a specific module
+    // Note: This is synchronous for UI rendering - uses cached data
     function getOpenShopDrawingIssuesForModule(moduleId) {
         if (!moduleId) return [];
-        const issues = loadIssues('moda_engineering_issues');
+        
+        // Use cached issues (synchronous for UI)
+        const issues = cachedShopDrawingIssues || [];
+        
         return issues.filter(issue => {
             if (issue.issue_type !== 'shop-drawing' || issue.status !== 'open') {
                 return false;
@@ -255,6 +304,14 @@
     // ===== CHECK IF MODULE HAS OPEN SHOP-DRAWING ISSUES =====
     function moduleHasOpenShopDrawingIssue(moduleId) {
         return getOpenShopDrawingIssuesForModule(moduleId).length > 0;
+    }
+
+    // ===== REFRESH SHOP DRAWING ISSUES CACHE =====
+    // Call this when entering the Drawings module to ensure fresh data
+    async function refreshShopDrawingIssuesCache() {
+        cachedShopDrawingIssues = null;
+        cacheTimestamp = 0;
+        return await loadOpenShopDrawingIssues();
     }
 
     // ===== UPDATE ISSUE =====
@@ -300,7 +357,9 @@
         getIssuesForDashboard,
         getIssueCounts,
         getOpenShopDrawingIssuesForModule,
-        moduleHasOpenShopDrawingIssue
+        moduleHasOpenShopDrawingIssue,
+        loadOpenShopDrawingIssues,
+        refreshShopDrawingIssuesCache
     };
 
     if (window.MODA_DEBUG) console.log('[IssueRouting] Issue routing system initialized');

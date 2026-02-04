@@ -209,6 +209,11 @@ const DrawingsModule = ({ projects = [], auth }) => {
             
             setIsLoading(true);
             try {
+                // Refresh shop drawing issues cache for status indicators (Module Packages view)
+                if (selectedDiscipline === 'shop-drawings' && window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
+                    await window.MODA_ISSUE_ROUTING.refreshShopDrawingIssuesCache();
+                }
+                
                 if (isSupabaseAvailable()) {
                     const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
                         selectedProject.id, 

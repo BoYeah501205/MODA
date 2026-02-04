@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.58**
+**Current Version: 1.5.59**
 
 ---
+
+## [1.5.59] - 2026-02-04
+### Feature
+- **Shop Drawing Issue Status Indicators** - Module Packages view now shows yellow status light when a module has open Shop Drawing issues linked to it. Green light indicates no outstanding issues. Data is fetched from Supabase with 30-second caching for performance.
 
 ## [1.5.58] - 2026-02-04
 ### Bug Fix
