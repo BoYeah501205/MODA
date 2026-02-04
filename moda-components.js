@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T04:29:18.749Z
+ * Generated: 2026-02-04T04:39:13.019Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -9757,6 +9757,8 @@ function WeeklyBoardTab({
   const [focusedCell, setFocusedCell] = useState(null); // { moduleId, stationId, rowIndex, colIndex } for keyboard nav
   const boardRef = useRef(null);
   const longPressTimer = useRef(null);
+  const lastKeyPressTime = useRef(0); // Throttle rapid key presses
+  const KEY_THROTTLE_MS = 50; // Minimum ms between key actions
 
   // Generate unique key for module-station combination (use | as separator since IDs may contain dashes)
   const getSelectionKey = (moduleId, stationId) => `${moduleId}|${stationId}`;
@@ -11272,6 +11274,10 @@ function WeeklyBoardTab({
     } = navigationGrid;
     if (!rows.length || !stationCount) return;
 
+    // Throttle rapid key presses to prevent lag
+    const now = Date.now();
+    const timeSinceLastKey = now - lastKeyPressTime.current;
+
     // Progress shortcuts: 0-4 keys when a cell is focused (single selection only)
     if (focusedCell && selectedModules.size === 1 && canEdit) {
       const progressMap = {
@@ -11283,6 +11289,10 @@ function WeeklyBoardTab({
       };
       if (progressMap[e.key] !== undefined) {
         e.preventDefault();
+        // Throttle progress updates (allow slightly longer interval for DB writes)
+        if (timeSinceLastKey < KEY_THROTTLE_MS * 2) return;
+        lastKeyPressTime.current = now;
+
         // Get the cell data which now contains moduleId and projectId
         const focusedRow = rows[focusedCell.rowIndex];
         if (focusedRow) {
@@ -11298,6 +11308,10 @@ function WeeklyBoardTab({
     // Arrow key navigation when a cell is focused
     if (focusedCell && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
+
+      // Throttle arrow navigation
+      if (timeSinceLastKey < KEY_THROTTLE_MS) return;
+      lastKeyPressTime.current = now;
       let newRowIndex = focusedCell.rowIndex;
       let newColIndex = focusedCell.colIndex;
       switch (e.key) {
@@ -11333,11 +11347,11 @@ function WeeklyBoardTab({
             setSelectedModules(new Set([getSelectionKey(newCell.moduleId, newCell.stationId)]));
           }
 
-          // Scroll the cell into view
+          // Scroll the cell into view - use 'instant' for responsive keyboard nav
           const cellElement = document.querySelector(`[data-cell-key="${getSelectionKey(newCell.moduleId, newCell.stationId)}"]`);
           if (cellElement) {
             cellElement.scrollIntoView({
-              behavior: 'smooth',
+              behavior: 'instant',
               block: 'nearest',
               inline: 'nearest'
             });
@@ -11353,13 +11367,13 @@ function WeeklyBoardTab({
       if (e.key === 'ArrowLeft') {
         scrollContainer.scrollBy({
           left: -scrollAmount,
-          behavior: 'smooth'
+          behavior: 'instant'
         });
         e.preventDefault();
       } else if (e.key === 'ArrowRight') {
         scrollContainer.scrollBy({
           left: scrollAmount,
-          behavior: 'smooth'
+          behavior: 'instant'
         });
         e.preventDefault();
       }
@@ -43093,6 +43107,7 @@ window.IssueSubmissionModal = IssueSubmissionModal;
 function IssueDetailModal({
   issue,
   employees = [],
+  projects = [],
   auth = {},
   onUpdate,
   onDelete,
@@ -43793,7 +43808,30 @@ function IssueDetailModal({
       backgroundColor: editForm.priority === level.id ? `${level.color}15` : undefined,
       color: level.color
     }
-  }, level.label)))), /*#__PURE__*/React.createElement("div", {
+  }, level.label)))), issue.project_id && window.ModuleLinkSelector && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Linked Modules"), /*#__PURE__*/React.createElement(ModuleLinkSelector, {
+    projectId: issue.project_id,
+    projects: projects,
+    selectedModuleIds: editForm.linked_module_ids,
+    onSelectionChange: newIds => {
+      const selectedProject = projects.find(p => p.id === issue.project_id);
+      const modules = selectedProject?.modules || [];
+      const selectedModules = modules.filter(m => newIds.includes(m.id));
+      const displayStr = selectedModules.map(m => {
+        const serial = m.serialNumber || m.serial_number || 'Unknown';
+        const hitch = m.hitchBLM || m.hitch_blm || '-';
+        const rear = m.rearBLM || m.rear_blm || '-';
+        return hitch === rear ? `${serial} - ${hitch}` : `${serial} - ${hitch} / ${rear}`;
+      }).join(', ');
+      setEditForm(prev => ({
+        ...prev,
+        linked_module_ids: newIds,
+        linked_modules_display: displayStr
+      }));
+    },
+    placeholder: "Search modules..."
+  })), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-end gap-2 pt-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleCancelEdit,
@@ -44767,6 +44805,7 @@ function EngineeringModule({
   }), showDetailModal && selectedIssue && /*#__PURE__*/React.createElement(IssueDetailModal, {
     issue: selectedIssue,
     employees: employees,
+    projects: projects,
     auth: auth,
     onUpdate: handleIssueUpdated,
     onDelete: handleIssueDeleted,

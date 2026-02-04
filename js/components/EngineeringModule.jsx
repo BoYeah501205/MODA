@@ -693,6 +693,7 @@ function EngineeringModule({ projects = [], employees = [], auth = {} }) {
                 <IssueDetailModal
                     issue={selectedIssue}
                     employees={employees}
+                    projects={projects}
                     auth={auth}
                     onUpdate={handleIssueUpdated}
                     onDelete={handleIssueDeleted}

@@ -228,10 +228,15 @@
                 
                 // Issue Details
                 issue_type: issueData.issue_type || 'other',
+                issue_category: issueData.issue_category || '',
                 priority: issueData.priority || 'medium',
                 title: issueData.title || '',
                 description: issueData.description || 'No description provided',
                 photo_urls: issueData.photo_urls || [],
+                
+                // Module Linking
+                linked_module_ids: issueData.linked_module_ids || [],
+                linked_modules_display: issueData.linked_modules_display || '',
                 
                 // Assignment & Tracking
                 submitted_by: issueData.submitted_by || 'Unknown User',

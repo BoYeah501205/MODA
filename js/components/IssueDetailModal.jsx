@@ -14,6 +14,7 @@ const { useState, useEffect, useRef } = React;
 function IssueDetailModal({
     issue,
     employees = [],
+    projects = [],
     auth = {},
     onUpdate,
     onDelete,
@@ -733,6 +734,36 @@ function IssueDetailModal({
                                                     ))}
                                                 </div>
                                             </div>
+                                            {/* Module Link Selector in Edit Mode */}
+                                            {issue.project_id && window.ModuleLinkSelector && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Linked Modules</label>
+                                                    <ModuleLinkSelector
+                                                        projectId={issue.project_id}
+                                                        projects={projects}
+                                                        selectedModuleIds={editForm.linked_module_ids}
+                                                        onSelectionChange={(newIds) => {
+                                                            const selectedProject = projects.find(p => p.id === issue.project_id);
+                                                            const modules = selectedProject?.modules || [];
+                                                            const selectedModules = modules.filter(m => newIds.includes(m.id));
+                                                            
+                                                            const displayStr = selectedModules.map(m => {
+                                                                const serial = m.serialNumber || m.serial_number || 'Unknown';
+                                                                const hitch = m.hitchBLM || m.hitch_blm || '-';
+                                                                const rear = m.rearBLM || m.rear_blm || '-';
+                                                                return hitch === rear ? `${serial} - ${hitch}` : `${serial} - ${hitch} / ${rear}`;
+                                                            }).join(', ');
+                                                            
+                                                            setEditForm(prev => ({
+                                                                ...prev,
+                                                                linked_module_ids: newIds,
+                                                                linked_modules_display: displayStr
+                                                            }));
+                                                        }}
+                                                        placeholder="Search modules..."
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="flex justify-end gap-2 pt-2">
                                                 <button
                                                     onClick={handleCancelEdit}
