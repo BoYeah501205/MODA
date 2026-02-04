@@ -372,11 +372,11 @@ function IssueSubmissionModal({
                             >
                                 <option value="">Select a project...</option>
                                 {(() => {
-                                    // Separate active and completed projects, sort by project number numerically
+                                    // Separate active and completed projects, sort by project number (# column) descending
                                     const sortByProjectNumber = (a, b) => {
-                                        const numA = parseInt(a.projectNumber) || 0;
-                                        const numB = parseInt(b.projectNumber) || 0;
-                                        if (numA !== numB) return numA - numB;
+                                        const numA = parseInt(a.project_number) || 0;
+                                        const numB = parseInt(b.project_number) || 0;
+                                        if (numA !== numB) return numB - numA; // Descending (highest first)
                                         return (a.name || '').localeCompare(b.name || '');
                                     };
                                     const activeProjects = projects
@@ -392,7 +392,7 @@ function IssueSubmissionModal({
                                                 <optgroup label="Active Projects">
                                                     {activeProjects.map(p => (
                                                         <option key={p.id} value={p.id}>
-                                                            {p.projectNumber ? `${p.projectNumber} - ` : ''}{p.name}
+                                                            {p.project_number ? `#${p.project_number} - ` : ''}{p.name}
                                                         </option>
                                                     ))}
                                                 </optgroup>
@@ -401,7 +401,7 @@ function IssueSubmissionModal({
                                                 <optgroup label="Completed Projects">
                                                     {completedProjects.map(p => (
                                                         <option key={p.id} value={p.id}>
-                                                            {p.projectNumber ? `${p.projectNumber} - ` : ''}{p.name}
+                                                            {p.project_number ? `#${p.project_number} - ` : ''}{p.name}
                                                         </option>
                                                     ))}
                                                 </optgroup>

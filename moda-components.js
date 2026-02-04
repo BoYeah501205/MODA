@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T03:38:10.033Z
+ * Generated: 2026-02-04T03:50:45.711Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -42726,11 +42726,11 @@ function IssueSubmissionModal({
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
   }, "Select a project..."), (() => {
-    // Separate active and completed projects, sort by project number numerically
+    // Separate active and completed projects, sort by project number (# column) descending
     const sortByProjectNumber = (a, b) => {
-      const numA = parseInt(a.projectNumber) || 0;
-      const numB = parseInt(b.projectNumber) || 0;
-      if (numA !== numB) return numA - numB;
+      const numA = parseInt(a.project_number) || 0;
+      const numB = parseInt(b.project_number) || 0;
+      if (numA !== numB) return numB - numA; // Descending (highest first)
       return (a.name || '').localeCompare(b.name || '');
     };
     const activeProjects = projects.filter(p => p.status !== 'Completed' && p.status !== 'completed').sort(sortByProjectNumber);
@@ -42740,12 +42740,12 @@ function IssueSubmissionModal({
     }, activeProjects.map(p => /*#__PURE__*/React.createElement("option", {
       key: p.id,
       value: p.id
-    }, p.projectNumber ? `${p.projectNumber} - ` : '', p.name))), completedProjects.length > 0 && /*#__PURE__*/React.createElement("optgroup", {
+    }, p.project_number ? `#${p.project_number} - ` : '', p.name))), completedProjects.length > 0 && /*#__PURE__*/React.createElement("optgroup", {
       label: "Completed Projects"
     }, completedProjects.map(p => /*#__PURE__*/React.createElement("option", {
       key: p.id,
       value: p.id
-    }, p.projectNumber ? `${p.projectNumber} - ` : '', p.name))));
+    }, p.project_number ? `#${p.project_number} - ` : '', p.name))));
   })())), !context?.blm_id && formData.issue_type !== 'shop-drawing' && /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
   }, /*#__PURE__*/React.createElement("label", {
