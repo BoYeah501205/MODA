@@ -248,12 +248,16 @@
     async function loadOpenShopDrawingIssues() {
         const now = Date.now();
         
+        console.log('[IssueRouting] loadOpenShopDrawingIssues called, cache valid:', cachedShopDrawingIssues && (now - cacheTimestamp) < CACHE_TTL);
+        
         // Return cached if still valid
         if (cachedShopDrawingIssues && (now - cacheTimestamp) < CACHE_TTL) {
+            console.log('[IssueRouting] Returning cached issues:', cachedShopDrawingIssues.length);
             return cachedShopDrawingIssues;
         }
 
         // Try Supabase first
+        console.log('[IssueRouting] Supabase available:', !!window.MODA_SUPABASE_ISSUES?.isAvailable?.());
         if (window.MODA_SUPABASE_ISSUES?.isAvailable?.()) {
             try {
                 const allIssues = await window.MODA_SUPABASE_ISSUES.issues.getAll({
@@ -263,6 +267,10 @@
                 cachedShopDrawingIssues = allIssues || [];
                 cacheTimestamp = now;
                 console.log('[IssueRouting] Loaded', cachedShopDrawingIssues.length, 'open shop-drawing issues from Supabase');
+                // Log the first issue to see its structure
+                if (cachedShopDrawingIssues.length > 0) {
+                    console.log('[IssueRouting] Sample issue:', JSON.stringify(cachedShopDrawingIssues[0], null, 2));
+                }
                 return cachedShopDrawingIssues;
             } catch (err) {
                 console.warn('[IssueRouting] Supabase load failed, falling back to localStorage:', err);
@@ -270,9 +278,11 @@
         }
 
         // Fallback to localStorage
+        console.log('[IssueRouting] Falling back to localStorage');
         const issues = loadIssues('moda_engineering_issues');
         cachedShopDrawingIssues = issues.filter(i => i.issue_type === 'shop-drawing' && i.status === 'open');
         cacheTimestamp = now;
+        console.log('[IssueRouting] Loaded', cachedShopDrawingIssues.length, 'open shop-drawing issues from localStorage');
         return cachedShopDrawingIssues;
     }
 
@@ -287,6 +297,8 @@
         const issues = cachedShopDrawingIssues || [];
         const normalizedSerial = serialNumber.toUpperCase().trim();
         
+        console.log('[IssueRouting] Checking serial:', normalizedSerial, 'against', issues.length, 'cached issues');
+        
         return issues.filter(issue => {
             if (issue.issue_type !== 'shop-drawing' || issue.status !== 'open') {
                 return false;
@@ -296,10 +308,12 @@
             // Format is "SERIAL - HITCH / REAR, SERIAL - HITCH / REAR, ..."
             if (issue.linked_modules_display) {
                 const displayUpper = issue.linked_modules_display.toUpperCase();
+                console.log('[IssueRouting] Comparing', normalizedSerial, 'to display:', displayUpper);
                 // Check if serial number appears at start of any module entry
                 if (displayUpper.includes(normalizedSerial + ' -') || 
                     displayUpper.includes(', ' + normalizedSerial + ' -') ||
                     displayUpper.startsWith(normalizedSerial + ' -')) {
+                    console.log('[IssueRouting] MATCH FOUND for', normalizedSerial);
                     return true;
                 }
             }

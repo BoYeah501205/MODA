@@ -210,7 +210,9 @@ const DrawingsModule = ({ projects = [], auth }) => {
             setIsLoading(true);
             try {
                 // Refresh shop drawing issues cache for status indicators (Module Packages view)
-                if (selectedDiscipline === 'shop-drawings' && window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
+                const isModulePkgs = selectedDiscipline === 'shop-module-packages' || selectedDiscipline === 'Module Packages';
+                if (isModulePkgs && window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
+                    console.log('[Drawings] Refreshing shop drawing issues cache for Module Packages view');
                     await window.MODA_ISSUE_ROUTING.refreshShopDrawingIssuesCache();
                 }
                 
