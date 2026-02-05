@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.60**
+**Current Version: 1.5.62**
 
 ---
+
+## [1.5.62] - 2026-02-04
+### Feature
+- **Click-to-View Issues from Status Light** - Yellow status lights in Module Packages view are now clickable. Clicking shows a popover with all open issues for that module, including issue ID, title, priority, and age. Click any issue to open the full Issue Detail Modal. Mobile-responsive design with bottom sheet on small screens.
+
+## [1.5.61] - 2026-02-04
+### Bug Fix
+- **Fixed Module Packages discipline detection** - Shop drawing issues cache now correctly refreshes when entering Module Packages view (was checking wrong discipline name).
 
 ## [1.5.60] - 2026-02-04
 ### Improvement

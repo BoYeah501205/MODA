@@ -56,6 +56,8 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const [showAIMenu, setShowAIMenu] = useState(false); // AI Analysis dropdown menu
     const [showAnalysisBrowser, setShowAnalysisBrowser] = useState(null); // 'walls' | 'fixtures' | 'changes' | null
     const [showActivityLog, setShowActivityLog] = useState(false); // Drawing activity log modal
+    const [issuePopover, setIssuePopover] = useState(null); // { serialNumber, issues, position } for issue status popover
+    const [selectedIssueForDetail, setSelectedIssueForDetail] = useState(null); // Issue object to show in detail modal
     
     // Custom folders state (loaded from Supabase)
     const [customCategories, setCustomCategories] = useState([]);
@@ -212,7 +214,6 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 // Refresh shop drawing issues cache for status indicators (Module Packages view)
                 const isModulePkgs = selectedDiscipline === 'shop-module-packages' || selectedDiscipline === 'Module Packages';
                 if (isModulePkgs && window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
-                    console.log('[Drawings] Refreshing shop drawing issues cache for Module Packages view');
                     await window.MODA_ISSUE_ROUTING.refreshShopDrawingIssuesCache();
                 }
                 
@@ -2393,16 +2394,31 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                         // Check if this module has open shop-drawing issues
                                                         // Match by Serial Number for consistent cross-tab matching
                                                         const moduleSerial = linkedModule?.serialNumber || linkedModule?.serial_number;
-                                                        const hasOpenIssue = moduleSerial && 
-                                                            window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(moduleSerial);
-                                                        const issueCount = hasOpenIssue ? 
-                                                            window.MODA_ISSUE_ROUTING?.getOpenShopDrawingIssuesForModule?.(moduleSerial)?.length || 0 : 0;
+                                                        const openIssues = moduleSerial ? 
+                                                            window.MODA_ISSUE_ROUTING?.getOpenShopDrawingIssuesForModule?.(moduleSerial) || [] : [];
+                                                        const hasOpenIssue = openIssues.length > 0;
+                                                        const issueCount = openIssues.length;
                                                         
                                                         return hasOpenIssue ? (
-                                                            <span 
-                                                                className="inline-block w-3 h-3 rounded-full bg-amber-400 border border-amber-500"
-                                                                title={`${issueCount} open shop drawing issue${issueCount > 1 ? 's' : ''}`}
-                                                            ></span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                    setIssuePopover({
+                                                                        serialNumber: moduleSerial,
+                                                                        issues: openIssues,
+                                                                        position: {
+                                                                            top: rect.bottom + window.scrollY,
+                                                                            left: rect.left + window.scrollX,
+                                                                            right: window.innerWidth - rect.right
+                                                                        }
+                                                                    });
+                                                                }}
+                                                                className="inline-block w-4 h-4 rounded-full bg-amber-400 border-2 border-amber-500 hover:bg-amber-300 hover:scale-125 transition-all cursor-pointer touch-manipulation"
+                                                                title={`${issueCount} open issue${issueCount > 1 ? 's' : ''} - Click to view`}
+                                                                style={{ WebkitTapHighlightColor: 'transparent' }}
+                                                            />
                                                         ) : (
                                                             <span 
                                                                 className="inline-block w-3 h-3 rounded-full bg-green-300/50 border border-green-400/30"
@@ -4138,6 +4154,130 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     projectName={selectedProject?.name}
                     analysisType={showAnalysisBrowser}
                     onClose={() => setShowAnalysisBrowser(null)}
+                    auth={auth}
+                />
+            )}
+            
+            {/* Issue Status Popover - Shows open issues for a module */}
+            {issuePopover && (
+                <>
+                    {/* Backdrop to close popover */}
+                    <div 
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIssuePopover(null)}
+                    />
+                    {/* Popover content - responsive positioning */}
+                    <div 
+                        className={`fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden ${
+                            isMobile 
+                                ? 'inset-x-4 bottom-4 max-h-[60vh]' 
+                                : 'w-80 max-h-96'
+                        }`}
+                        style={!isMobile ? {
+                            top: Math.min(issuePopover.position.top + 8, window.innerHeight - 400),
+                            left: issuePopover.position.left < window.innerWidth / 2 
+                                ? issuePopover.position.left 
+                                : 'auto',
+                            right: issuePopover.position.left >= window.innerWidth / 2 
+                                ? issuePopover.position.right 
+                                : 'auto'
+                        } : undefined}
+                    >
+                        {/* Header */}
+                        <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="font-semibold text-gray-900 text-sm">
+                                    {issuePopover.issues.length} Open Issue{issuePopover.issues.length !== 1 ? 's' : ''}
+                                </h3>
+                                <p className="text-xs text-gray-500">Module {issuePopover.serialNumber}</p>
+                            </div>
+                            <button
+                                onClick={() => setIssuePopover(null)}
+                                className="p-1 hover:bg-amber-100 rounded-full transition"
+                            >
+                                <span className="icon-x w-4 h-4 text-gray-500"></span>
+                            </button>
+                        </div>
+                        
+                        {/* Issue List */}
+                        <div className="overflow-y-auto max-h-64 divide-y divide-gray-100">
+                            {issuePopover.issues.map((issue, idx) => {
+                                const priorityColors = {
+                                    'low': 'bg-green-100 text-green-700',
+                                    'medium': 'bg-amber-100 text-amber-700',
+                                    'high': 'bg-orange-100 text-orange-700',
+                                    'critical': 'bg-red-100 text-red-700'
+                                };
+                                const timeAgo = (dateStr) => {
+                                    if (!dateStr) return '';
+                                    const diff = Date.now() - new Date(dateStr).getTime();
+                                    const mins = Math.floor(diff / 60000);
+                                    if (mins < 1) return 'Just now';
+                                    if (mins < 60) return `${mins}m ago`;
+                                    const hours = Math.floor(mins / 60);
+                                    if (hours < 24) return `${hours}h ago`;
+                                    const days = Math.floor(hours / 24);
+                                    return `${days}d ago`;
+                                };
+                                
+                                return (
+                                    <button
+                                        key={issue.id || idx}
+                                        onClick={() => {
+                                            setSelectedIssueForDetail(issue);
+                                            setIssuePopover(null);
+                                        }}
+                                        className="w-full px-4 py-3 text-left hover:bg-gray-50 transition flex items-start gap-3 touch-manipulation"
+                                        style={{ WebkitTapHighlightColor: 'transparent' }}
+                                    >
+                                        <span className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"></span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-mono text-blue-600">{issue.issue_display_id}</span>
+                                                <span className={`text-xs px-1.5 py-0.5 rounded ${priorityColors[issue.priority] || 'bg-gray-100 text-gray-600'}`}>
+                                                    {issue.priority}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-medium text-gray-900 truncate">{issue.title}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5">{timeAgo(issue.created_at)}</p>
+                                        </div>
+                                        <span className="icon-chevron-right w-4 h-4 text-gray-400 flex-shrink-0 mt-1"></span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        
+                        {/* Footer - View in Engineering */}
+                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                            <button
+                                onClick={() => {
+                                    // Navigate to Engineering dashboard
+                                    setIssuePopover(null);
+                                    if (window.MODA_NAVIGATE) {
+                                        window.MODA_NAVIGATE('engineering');
+                                    }
+                                }}
+                                className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium transition"
+                            >
+                                View All in Engineering Dashboard
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+            
+            {/* Issue Detail Modal */}
+            {selectedIssueForDetail && window.IssueDetailModal && (
+                <window.IssueDetailModal
+                    issue={selectedIssueForDetail}
+                    onClose={() => setSelectedIssueForDetail(null)}
+                    onUpdate={(updatedIssue) => {
+                        // Refresh the issues cache after update
+                        if (window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
+                            window.MODA_ISSUE_ROUTING.refreshShopDrawingIssuesCache();
+                        }
+                        setSelectedIssueForDetail(null);
+                    }}
                     auth={auth}
                 />
             )}
