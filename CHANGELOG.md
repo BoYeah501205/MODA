@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.59**
+**Current Version: 1.5.60**
 
 ---
+
+## [1.5.60] - 2026-02-04
+### Improvement
+- **Shop Drawing Issue Matching by Serial Number** - Changed issue-to-module matching to use Serial Number instead of UUID for consistent cross-tab matching. The system now parses the `linked_modules_display` field (format: "SERIAL - HITCH / REAR") to match modules.
 
 ## [1.5.59] - 2026-02-04
 ### Feature

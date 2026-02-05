@@ -278,32 +278,52 @@
 
     // ===== GET OPEN SHOP-DRAWING ISSUES FOR MODULE =====
     // Returns open issues of type 'shop-drawing' linked to a specific module
+    // Matches by Serial Number (from linked_modules_display) for consistent cross-tab matching
     // Note: This is synchronous for UI rendering - uses cached data
-    function getOpenShopDrawingIssuesForModule(moduleId) {
-        if (!moduleId) return [];
+    function getOpenShopDrawingIssuesForModule(serialNumber) {
+        if (!serialNumber) return [];
         
         // Use cached issues (synchronous for UI)
         const issues = cachedShopDrawingIssues || [];
+        const normalizedSerial = serialNumber.toUpperCase().trim();
         
         return issues.filter(issue => {
             if (issue.issue_type !== 'shop-drawing' || issue.status !== 'open') {
                 return false;
             }
-            // Check array format (new)
-            if (Array.isArray(issue.linked_module_ids)) {
-                return issue.linked_module_ids.includes(moduleId);
+            
+            // Primary: Check linked_modules_display string for serial number match
+            // Format is "SERIAL - HITCH / REAR, SERIAL - HITCH / REAR, ..."
+            if (issue.linked_modules_display) {
+                const displayUpper = issue.linked_modules_display.toUpperCase();
+                // Check if serial number appears at start of any module entry
+                if (displayUpper.includes(normalizedSerial + ' -') || 
+                    displayUpper.includes(', ' + normalizedSerial + ' -') ||
+                    displayUpper.startsWith(normalizedSerial + ' -')) {
+                    return true;
+                }
             }
-            // Fallback for legacy single ID format
-            if (issue.linked_module_id === moduleId) {
+            
+            // Fallback: Check linked_module_ids array (for UUID matching if needed)
+            if (Array.isArray(issue.linked_module_ids)) {
+                if (issue.linked_module_ids.includes(serialNumber)) {
+                    return true;
+                }
+            }
+            
+            // Legacy: Check single linked_module_id
+            if (issue.linked_module_id === serialNumber) {
                 return true;
             }
+            
             return false;
         });
     }
 
     // ===== CHECK IF MODULE HAS OPEN SHOP-DRAWING ISSUES =====
-    function moduleHasOpenShopDrawingIssue(moduleId) {
-        return getOpenShopDrawingIssuesForModule(moduleId).length > 0;
+    // Pass the module's Serial Number for matching
+    function moduleHasOpenShopDrawingIssue(serialNumber) {
+        return getOpenShopDrawingIssuesForModule(serialNumber).length > 0;
     }
 
     // ===== REFRESH SHOP DRAWING ISSUES CACHE =====

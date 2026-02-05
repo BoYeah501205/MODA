@@ -693,8 +693,10 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
                 const linkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
                 
-                const hasOpenIssue = linkedModule?.id && 
-                    window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(linkedModule.id);
+                // Match by Serial Number for consistent cross-tab matching
+                const moduleSerial = linkedModule?.serialNumber || linkedModule?.serial_number;
+                const hasOpenIssue = moduleSerial && 
+                    window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(moduleSerial);
                 
                 if (issueStatusFilter === 'yellow') {
                     return hasOpenIssue === true;
@@ -2387,10 +2389,12 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                 <td className="px-2 py-4 text-center">
                                                     {(() => {
                                                         // Check if this module has open shop-drawing issues
-                                                        const hasOpenIssue = linkedModule?.id && 
-                                                            window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(linkedModule.id);
+                                                        // Match by Serial Number for consistent cross-tab matching
+                                                        const moduleSerial = linkedModule?.serialNumber || linkedModule?.serial_number;
+                                                        const hasOpenIssue = moduleSerial && 
+                                                            window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(moduleSerial);
                                                         const issueCount = hasOpenIssue ? 
-                                                            window.MODA_ISSUE_ROUTING?.getOpenShopDrawingIssuesForModule?.(linkedModule.id)?.length || 0 : 0;
+                                                            window.MODA_ISSUE_ROUTING?.getOpenShopDrawingIssuesForModule?.(moduleSerial)?.length || 0 : 0;
                                                         
                                                         return hasOpenIssue ? (
                                                             <span 
