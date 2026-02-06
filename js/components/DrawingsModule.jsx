@@ -2310,7 +2310,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                             />
                                         </th>
                                     )}
-                                    {isModulePackages && drawingPermissions.canEdit && (
+                                    {isModulePackages && (
                                         <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                                             Status
                                         </th>
@@ -2388,7 +2388,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                                     )}
                                                 </td>
                                             )}
-                                            {isModulePackages && drawingPermissions.canEdit && (
+                                            {isModulePackages && (
                                                 <td className="px-2 py-4 text-center">
                                                     {(() => {
                                                         // Check if this module has open shop-drawing issues

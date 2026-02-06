@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.63**
+**Current Version: 1.5.64**
 
 ---
+
+## [1.5.64] - 2026-02-06
+### Bug Fix
+- **Status indicator visible on mobile/iPad** - Removed edit permission requirement from status indicator column in Module Packages view. The issue status light is now visible to all users who can view the drawings, not just those with edit permissions.
 
 ## [1.5.63] - 2026-02-06
 ### Feature
