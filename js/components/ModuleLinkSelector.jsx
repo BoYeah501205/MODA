@@ -204,6 +204,25 @@ function ModuleLinkSelector({
         onSelectionChange([]);
     };
     
+    // Select all visible/filtered modules
+    const selectAllVisible = () => {
+        const visibleIds = filteredModules.map(m => m.id);
+        // Merge with existing selections (avoid duplicates)
+        const newSelection = [...new Set([...selectedModuleIds, ...visibleIds])];
+        // Respect max selections if set
+        if (maxSelections && newSelection.length > maxSelections) {
+            onSelectionChange(newSelection.slice(0, maxSelections));
+        } else {
+            onSelectionChange(newSelection);
+        }
+    };
+    
+    // Check if all visible modules are already selected
+    const allVisibleSelected = useMemo(() => {
+        if (filteredModules.length === 0) return true;
+        return filteredModules.every(m => selectedModuleIds.includes(m.id));
+    }, [filteredModules, selectedModuleIds]);
+    
     // Get module details for display in dropdown
     const getModuleDetails = (module) => {
         const details = [];
@@ -418,17 +437,31 @@ function ModuleLinkSelector({
                         )}
                     </div>
                     
-                    {/* Footer with count */}
+                    {/* Footer with count and Select All */}
                     <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
                         <span>
                             {filteredModules.length} module{filteredModules.length !== 1 ? 's' : ''} 
                             {searchTerm && ' found'}
                         </span>
-                        {maxSelections && (
-                            <span>
-                                {selectedModuleIds.length}/{maxSelections} selected
-                            </span>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {filteredModules.length > 0 && !allVisibleSelected && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        selectAllVisible();
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                    Select All
+                                </button>
+                            )}
+                            {maxSelections && (
+                                <span>
+                                    {selectedModuleIds.length}/{maxSelections} selected
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

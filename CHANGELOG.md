@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.62**
+**Current Version: 1.5.63**
 
 ---
+
+## [1.5.63] - 2026-02-06
+### Feature
+- **Select All in Module Link Selector** - Added "Select All" button to the module search dropdown footer. When searching/filtering modules (e.g., "M22"), clicking "Select All" selects all visible filtered results. Button only appears when there are unselected modules in the current view.
 
 ## [1.5.62] - 2026-02-04
 ### Feature
