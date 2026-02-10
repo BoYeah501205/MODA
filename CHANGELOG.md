@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.64**
+**Current Version: 1.5.65**
 
 ---
+
+## [1.5.65] - 2026-02-09
+### Bug Fix
+- **Fixed drawing count mismatch between folder grid and discipline view** - Discipline folders with UUID IDs (from custom folders) now correctly resolve to static discipline IDs when querying drawings. Added complete mapping for all Permit Drawings disciplines (was only mapping Shop Drawings).
 
 ## [1.5.64] - 2026-02-06
 ### Bug Fix

@@ -164,6 +164,34 @@ const DrawingsModule = ({ projects = [], auth }) => {
     // Storage key for localStorage fallback
     const STORAGE_KEY = 'moda_drawings_data';
     
+    // Static ID mapping for discipline names (used when folders have UUID IDs but drawings use static IDs)
+    const DISCIPLINE_NAME_TO_STATIC_ID = {
+        // Permit Drawings
+        'AOR Reference Submittal': 'aor-reference',
+        'Architectural General Submittal': 'architectural-general',
+        'Assembly Book Submittal': 'assembly-book',
+        'Electrical Submittal': 'electrical',
+        'Fire Alarm Data Submittal': 'fire-alarm-data',
+        'Fire Alarm Submittal': 'fire-alarm',
+        'Fire Sprinkler Submittal': 'fire-sprinkler',
+        'Mechanical Submittal': 'mechanical',
+        'Modular Architect Submittal': 'modular-architect',
+        'Plumbing Submittal': 'plumbing',
+        'Sprinkler Submittal Plans': 'sprinkler-plans',
+        'Structural Documents': 'structural-documents',
+        'Structural Plans Submittal': 'structural-plans',
+        'Title 24': 'title-24',
+        // Shop Drawings
+        'Module Packages': 'shop-module-packages',
+        'Soffits': 'shop-soffits',
+        'Reference Sheets': 'shop-reference',
+        'Prototype Drawings': 'shop-prototype',
+        'Interior Walls': 'shop-interior-walls',
+        'End Walls': 'shop-end-walls',
+        'Corridor Walls': 'shop-corridor-walls',
+        '3HR Walls': 'shop-3hr-walls'
+    };
+    
     // Load drawing counts when project is selected
     useEffect(() => {
         const loadDrawingCounts = async () => {
@@ -201,6 +229,25 @@ const DrawingsModule = ({ projects = [], auth }) => {
         loadDrawingCounts();
     }, [selectedProject]);
     
+    // Resolve discipline ID to static ID for querying (handles UUID folder IDs)
+    const resolveDisciplineId = useCallback((disciplineId) => {
+        // If it's already a static ID, return as-is
+        if (disciplineId && disciplineId.includes('-') && !disciplineId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/i)) {
+            return disciplineId;
+        }
+        
+        // Look up the folder name from custom disciplines and map to static ID
+        for (const categoryId of Object.keys(customDisciplines)) {
+            const folder = customDisciplines[categoryId]?.find(d => d.id === disciplineId);
+            if (folder?.name && DISCIPLINE_NAME_TO_STATIC_ID[folder.name]) {
+                return DISCIPLINE_NAME_TO_STATIC_ID[folder.name];
+            }
+        }
+        
+        // Fallback: return original ID
+        return disciplineId;
+    }, [customDisciplines]);
+    
     // Load drawings when discipline is selected
     useEffect(() => {
         const loadDrawings = async () => {
@@ -211,8 +258,11 @@ const DrawingsModule = ({ projects = [], auth }) => {
             
             setIsLoading(true);
             try {
+                // Resolve UUID to static discipline ID for querying
+                const queryDiscipline = resolveDisciplineId(selectedDiscipline);
+                
                 // Refresh shop drawing issues cache for status indicators (Module Packages view)
-                const isModulePkgs = selectedDiscipline === 'shop-module-packages' || selectedDiscipline === 'Module Packages';
+                const isModulePkgs = queryDiscipline === 'shop-module-packages' || selectedDiscipline === 'Module Packages';
                 if (isModulePkgs && window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
                     await window.MODA_ISSUE_ROUTING.refreshShopDrawingIssuesCache();
                 }
@@ -220,7 +270,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                 if (isSupabaseAvailable()) {
                     const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
                         selectedProject.id, 
-                        selectedDiscipline
+                        queryDiscipline
                     );
                     setCurrentDrawings(drawings);
                 } else {
@@ -229,7 +279,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     if (stored) {
                         const data = JSON.parse(stored);
                         const projectDrawings = data[selectedProject.id] || {};
-                        setCurrentDrawings(projectDrawings[selectedDiscipline] || []);
+                        setCurrentDrawings(projectDrawings[queryDiscipline] || []);
                     } else {
                         setCurrentDrawings([]);
                     }
@@ -243,7 +293,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
         };
         
         loadDrawings();
-    }, [selectedProject, selectedDiscipline]);
+    }, [selectedProject, selectedDiscipline, resolveDisciplineId]);
     
     // Load custom folders when project is selected
     useEffect(() => {
@@ -451,17 +501,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
         // Try matching by static ID pattern based on discipline name
         // This handles the case where folders have UUID IDs but drawings were uploaded with static IDs
         if (disciplineName) {
-            const staticIdMap = {
-                'Module Packages': 'shop-module-packages',
-                'Soffits': 'shop-soffits',
-                'Reference Sheets': 'shop-reference',
-                'Prototype Drawings': 'shop-prototype',
-                'Interior Walls': 'shop-interior-walls',
-                'End Walls': 'shop-endwalls',
-                'Corridor Walls': 'shop-corridor-walls',
-                '3HR Walls': 'shop-3hr-walls'
-            };
-            const staticId = staticIdMap[disciplineName];
+            const staticId = DISCIPLINE_NAME_TO_STATIC_ID[disciplineName];
             if (staticId && drawingCounts[staticId]) {
                 return drawingCounts[staticId];
             }
