@@ -86,6 +86,7 @@ const FILE_ORDER = [
     'PDFViewerModal.jsx',
     'DrawingStatusLog.jsx',
     'SheetBrowser.jsx',
+    'PermitPackageBrowser.jsx',
     'AnalysisBrowser.jsx',
     'OCRProgressIndicator.jsx',
     'ModuleDrawingsViewer.jsx',

@@ -1,7 +1,12 @@
 // ============================================================================
-// Mobile PDF Viewer
-// Fast image-based PDF viewer for mobile devices
-// Falls back to native iframe if images aren't ready
+// Mobile PDF Viewer - Hybrid Approach
+// 
+// Strategy for shop floor iPad users:
+// 1. FIRST VIEW: Open PDF natively in Safari immediately (no waiting)
+// 2. BACKGROUND: Check for cached images, trigger generation if needed
+// 3. SUBSEQUENT VIEWS: If images are ready, use fast image-based viewer
+//
+// This ensures instant access on first view while optimizing repeat views.
 // ============================================================================
 
 const MobilePdfViewer = ({ 
@@ -12,102 +17,105 @@ const MobilePdfViewer = ({
     drawingId,
     versionId 
 }) => {
-    const [viewMode, setViewMode] = React.useState('loading'); // 'loading' | 'images' | 'native' | 'generating'
+    // 'checking' = quick check for cached images (< 500ms)
+    // 'images' = cached images available, use fast viewer
+    // 'native' = no cached images, show native Safari viewer
+    const [viewMode, setViewMode] = React.useState('checking');
     const [pageImages, setPageImages] = React.useState([]);
     const [currentPage, setCurrentPage] = React.useState(1);
     const [pageUrls, setPageUrls] = React.useState({});
-    const [generationProgress, setGenerationProgress] = React.useState(null);
-    const [error, setError] = React.useState(null);
+    const [isOptimizing, setIsOptimizing] = React.useState(false);
     const containerRef = React.useRef(null);
+    
+    // Track if we've triggered background generation
+    const generationTriggeredRef = React.useRef(false);
 
-    // Load page images or trigger generation
+    // Quick check for cached images on open - timeout after 500ms to avoid blocking
     React.useEffect(() => {
         if (!isOpen || !drawingId || !versionId) return;
 
         let cancelled = false;
-        let pollInterval = null;
+        const checkTimeout = setTimeout(() => {
+            if (!cancelled && viewMode === 'checking') {
+                console.log('[MobilePdfViewer] Check timeout, using native viewer');
+                setViewMode('native');
+                triggerBackgroundGeneration();
+            }
+        }, 500); // Max 500ms wait for cache check
 
-        const loadImages = async () => {
-            setViewMode('loading');
-            setError(null);
-
+        const checkForCachedImages = async () => {
             try {
-                // Check if MODA_PDF_IMAGES service is available
                 if (!window.MODA_PDF_IMAGES) {
-                    console.log('[MobilePdfViewer] PDF Images service not available, using native viewer');
-                    setViewMode('native');
+                    console.log('[MobilePdfViewer] PDF Images service not available');
+                    if (!cancelled) setViewMode('native');
                     return;
                 }
 
-                // Try to get or generate page images
-                const result = await window.MODA_PDF_IMAGES.getOrGeneratePageImages(
-                    drawingId,
-                    versionId,
-                    pdfUrl
-                );
-
+                // Quick check if images already exist (no generation)
+                const status = await window.MODA_PDF_IMAGES.checkImagesExist(versionId);
+                
                 if (cancelled) return;
+                clearTimeout(checkTimeout);
 
-                if (result.ready && result.images?.length > 0) {
-                    console.log(`[MobilePdfViewer] Got ${result.images.length} page images`);
-                    setPageImages(result.images);
-                    setViewMode('images');
-                    
-                    // Pre-load first few page URLs
-                    loadPageUrls(result.images.slice(0, 3));
-                } else if (result.generating) {
-                    console.log('[MobilePdfViewer] Images generating, showing native viewer with progress');
-                    setGenerationProgress({ 
-                        total: result.totalPages || 0, 
-                        processed: 0,
-                        jobId: result.jobId 
-                    });
-                    setViewMode('generating');
-                    
-                    // Poll for completion
-                    pollInterval = setInterval(async () => {
-                        const job = await window.MODA_PDF_IMAGES.getJobStatus(versionId);
-                        if (!job) return;
-
-                        if (job.status === 'completed') {
-                            clearInterval(pollInterval);
-                            const images = await window.MODA_PDF_IMAGES.getPageImages(versionId);
-                            if (!cancelled && images.length > 0) {
-                                setPageImages(images);
-                                setViewMode('images');
-                                loadPageUrls(images.slice(0, 3));
-                            }
-                        } else if (job.status === 'failed') {
-                            clearInterval(pollInterval);
-                            console.log('[MobilePdfViewer] Generation failed, using native viewer');
-                            setViewMode('native');
-                        } else {
-                            setGenerationProgress({
-                                total: job.total_pages || 0,
-                                processed: job.processed_pages || 0,
-                                jobId: job.id
-                            });
-                        }
-                    }, 2000);
-                } else {
-                    console.log('[MobilePdfViewer] No images available, using native viewer');
-                    setViewMode('native');
+                if (status.hasImages && status.pageCount > 0) {
+                    console.log(`[MobilePdfViewer] Found ${status.pageCount} cached images - using fast viewer`);
+                    const images = await window.MODA_PDF_IMAGES.getPageImages(versionId);
+                    if (!cancelled && images.length > 0) {
+                        setPageImages(images);
+                        setViewMode('images');
+                        loadPageUrls(images.slice(0, 3));
+                        return;
+                    }
                 }
+
+                // No cached images - use native viewer and trigger background generation
+                console.log('[MobilePdfViewer] No cached images, using native viewer');
+                setViewMode('native');
+                triggerBackgroundGeneration();
+
             } catch (err) {
-                console.error('[MobilePdfViewer] Error:', err);
+                console.error('[MobilePdfViewer] Cache check error:', err);
                 if (!cancelled) {
                     setViewMode('native');
+                    triggerBackgroundGeneration();
                 }
             }
         };
 
-        loadImages();
+        checkForCachedImages();
 
         return () => {
             cancelled = true;
-            if (pollInterval) clearInterval(pollInterval);
+            clearTimeout(checkTimeout);
         };
-    }, [isOpen, drawingId, versionId, pdfUrl]);
+    }, [isOpen, drawingId, versionId]);
+
+    // Trigger background image generation (fire and forget)
+    const triggerBackgroundGeneration = async () => {
+        if (generationTriggeredRef.current) return;
+        if (!window.MODA_PDF_IMAGES || !drawingId || !versionId) return;
+        
+        generationTriggeredRef.current = true;
+        setIsOptimizing(true);
+        
+        try {
+            console.log('[MobilePdfViewer] Triggering background image generation...');
+            const result = await window.MODA_PDF_IMAGES.triggerGeneration(drawingId, versionId, pdfUrl);
+            
+            if (result.success) {
+                if (result.cached) {
+                    console.log('[MobilePdfViewer] Images were already cached');
+                } else {
+                    console.log('[MobilePdfViewer] Generation started in background');
+                }
+            }
+        } catch (err) {
+            console.error('[MobilePdfViewer] Background generation error:', err);
+        } finally {
+            // Keep optimizing indicator for a bit so user knows it's working
+            setTimeout(() => setIsOptimizing(false), 3000);
+        }
+    };
 
     // Load signed URLs for page images
     const loadPageUrls = async (images) => {
@@ -163,59 +171,70 @@ const MobilePdfViewer = ({
 
     if (!isOpen) return null;
 
-    // Native iframe viewer (fallback or while generating)
-    if (viewMode === 'native' || viewMode === 'generating') {
+    // Checking state - show minimal loading while checking cache (max 500ms)
+    if (viewMode === 'checking') {
+        return (
+            <div className="fixed inset-0 bg-black/90 flex flex-col z-50">
+                {/* Header */}
+                <div className="flex items-center justify-between p-3 bg-gray-900 text-white shrink-0">
+                    <h3 className="font-medium truncate flex-1 mr-4 text-sm">{drawingName}</h3>
+                    <button
+                        onClick={onClose}
+                        className="p-2 hover:bg-gray-700 rounded-full"
+                        aria-label="Close"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                </div>
+            </div>
+        );
+    }
+
+    // Native viewer - shows PDF in iframe with iOS Safari's native viewer
+    if (viewMode === 'native') {
         return (
             <div className="fixed inset-0 bg-black/90 flex flex-col z-50">
                 {/* Header */}
                 <div className="flex items-center justify-between p-3 bg-gray-900 text-white shrink-0">
                     <h3 className="font-medium truncate flex-1 mr-4 text-sm">{drawingName}</h3>
                     <div className="flex items-center gap-2">
-                        {viewMode === 'generating' && generationProgress && (
-                            <span className="text-xs text-blue-400">
-                                Optimizing: {generationProgress.processed}/{generationProgress.total || '?'}
+                        {isOptimizing && (
+                            <span className="text-xs text-blue-400 flex items-center gap-1">
+                                <span className="animate-pulse">Optimizing for faster viewing...</span>
                             </span>
                         )}
                         <a
                             href={pdfUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium"
                         >
-                            New Tab
+                            Open Full
                         </a>
                         <button
                             onClick={onClose}
                             className="p-2 hover:bg-gray-700 rounded-full"
                             aria-label="Close"
                         >
-                            <span className="icon-x w-5 h-5"></span>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                         </button>
                     </div>
                 </div>
                 
-                {/* Native PDF iframe */}
+                {/* Native PDF iframe - iOS Safari handles this well */}
                 <iframe
                     src={pdfUrl}
                     className="flex-1 w-full bg-white"
                     title={drawingName}
+                    style={{ border: 'none' }}
                 />
-            </div>
-        );
-    }
-
-    // Loading state
-    if (viewMode === 'loading') {
-        return (
-            <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
-                <p className="text-white text-sm">Loading...</p>
-                <button
-                    onClick={onClose}
-                    className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded"
-                >
-                    Cancel
-                </button>
             </div>
         );
     }

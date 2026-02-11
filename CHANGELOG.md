@@ -2,9 +2,27 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.65**
+**Current Version: 1.5.66**
 
 ---
+
+## [1.5.66] - 2026-02-10
+### Feature
+- **Permit Sheet Versioning System** - New system for tracking individual sheet updates within permit drawing packages. When abbreviated update packages are uploaded, OCR extracts sheet numbers from title blocks and automatically manages version chains. Features include:
+  - Upload full packages or update packages (partial sets)
+  - OCR extraction of sheet number, revision, date, drawn by, checked by from title blocks
+  - Automatic version chain management (new sheets supersede old versions)
+  - Compiled "current" view showing latest version of each sheet
+  - Sheet version history view
+  - Download individual sheets or all current sheets
+  - Statistics dashboard (total packages, updates, sheets with revisions)
+
+### Files Added
+- `backend/create-permit-sheet-versioning.sql` - Database schema
+- `js/supabase-permit-sheets.js` - Data access layer
+- `js/components/PermitPackageBrowser.jsx` - UI component
+- `supabase/functions/process-permit-sheets/index.ts` - OCR Edge Function
+- `docs/PERMIT_SHEET_VERSIONING.md` - Documentation
 
 ## [1.5.65] - 2026-02-09
 ### Bug Fix

@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-04T04:43:45.308Z
+ * Generated: 2026-02-11T01:48:08.183Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -16464,7 +16464,7 @@ function NavigationGroups({
   };
   return /*#__PURE__*/React.createElement("nav", {
     ref: navRef,
-    className: "nav-groups bg-white border-b nav-groups-container hide-mobile-tablet"
+    className: "nav-groups bg-white border-b nav-groups-container hide-mobile-tablet relative z-50"
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-7xl mx-auto px-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -16494,7 +16494,7 @@ function NavigationGroups({
     className: `tab-icon ${tab.iconClass}`
   }), tab.label)), visibleGroups.map(group => /*#__PURE__*/React.createElement("div", {
     key: group.id,
-    className: "nav-group relative"
+    className: "nav-group relative z-50"
   }, group.tabs.length === 1 ? /*#__PURE__*/React.createElement("button", {
     onClick: () => handleTabClick(group.tabs[0].id),
     className: `nav-tab px-4 py-3 text-sm font-medium transition rounded-t-lg whitespace-nowrap ${activeTab === group.tabs[0].id ? 'active' : ''}`,
@@ -34380,6 +34380,8 @@ const DrawingsModule = ({
   const [showAIMenu, setShowAIMenu] = useState(false); // AI Analysis dropdown menu
   const [showAnalysisBrowser, setShowAnalysisBrowser] = useState(null); // 'walls' | 'fixtures' | 'changes' | null
   const [showActivityLog, setShowActivityLog] = useState(false); // Drawing activity log modal
+  const [issuePopover, setIssuePopover] = useState(null); // { serialNumber, issues, position } for issue status popover
+  const [selectedIssueForDetail, setSelectedIssueForDetail] = useState(null); // Issue object to show in detail modal
 
   // Custom folders state (loaded from Supabase)
   const [customCategories, setCustomCategories] = useState([]);
@@ -34641,6 +34643,34 @@ const DrawingsModule = ({
   // Storage key for localStorage fallback
   const STORAGE_KEY = 'moda_drawings_data';
 
+  // Static ID mapping for discipline names (used when folders have UUID IDs but drawings use static IDs)
+  const DISCIPLINE_NAME_TO_STATIC_ID = {
+    // Permit Drawings
+    'AOR Reference Submittal': 'aor-reference',
+    'Architectural General Submittal': 'architectural-general',
+    'Assembly Book Submittal': 'assembly-book',
+    'Electrical Submittal': 'electrical',
+    'Fire Alarm Data Submittal': 'fire-alarm-data',
+    'Fire Alarm Submittal': 'fire-alarm',
+    'Fire Sprinkler Submittal': 'fire-sprinkler',
+    'Mechanical Submittal': 'mechanical',
+    'Modular Architect Submittal': 'modular-architect',
+    'Plumbing Submittal': 'plumbing',
+    'Sprinkler Submittal Plans': 'sprinkler-plans',
+    'Structural Documents': 'structural-documents',
+    'Structural Plans Submittal': 'structural-plans',
+    'Title 24': 'title-24',
+    // Shop Drawings
+    'Module Packages': 'shop-module-packages',
+    'Soffits': 'shop-soffits',
+    'Reference Sheets': 'shop-reference',
+    'Prototype Drawings': 'shop-prototype',
+    'Interior Walls': 'shop-interior-walls',
+    'End Walls': 'shop-end-walls',
+    'Corridor Walls': 'shop-corridor-walls',
+    '3HR Walls': 'shop-3hr-walls'
+  };
+
   // Load drawing counts when project is selected
   useEffect(() => {
     const loadDrawingCounts = async () => {
@@ -34678,6 +34708,25 @@ const DrawingsModule = ({
     loadDrawingCounts();
   }, [selectedProject]);
 
+  // Resolve discipline ID to static ID for querying (handles UUID folder IDs)
+  const resolveDisciplineId = useCallback(disciplineId => {
+    // If it's already a static ID, return as-is
+    if (disciplineId && disciplineId.includes('-') && !disciplineId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/i)) {
+      return disciplineId;
+    }
+
+    // Look up the folder name from custom disciplines and map to static ID
+    for (const categoryId of Object.keys(customDisciplines)) {
+      const folder = customDisciplines[categoryId]?.find(d => d.id === disciplineId);
+      if (folder?.name && DISCIPLINE_NAME_TO_STATIC_ID[folder.name]) {
+        return DISCIPLINE_NAME_TO_STATIC_ID[folder.name];
+      }
+    }
+
+    // Fallback: return original ID
+    return disciplineId;
+  }, [customDisciplines]);
+
   // Load drawings when discipline is selected
   useEffect(() => {
     const loadDrawings = async () => {
@@ -34687,8 +34736,16 @@ const DrawingsModule = ({
       }
       setIsLoading(true);
       try {
+        // Resolve UUID to static discipline ID for querying
+        const queryDiscipline = resolveDisciplineId(selectedDiscipline);
+
+        // Refresh shop drawing issues cache for status indicators (Module Packages view)
+        const isModulePkgs = queryDiscipline === 'shop-module-packages' || selectedDiscipline === 'Module Packages';
+        if (isModulePkgs && window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
+          await window.MODA_ISSUE_ROUTING.refreshShopDrawingIssuesCache();
+        }
         if (isSupabaseAvailable()) {
-          const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(selectedProject.id, selectedDiscipline);
+          const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(selectedProject.id, queryDiscipline);
           setCurrentDrawings(drawings);
         } else {
           // Fallback to localStorage
@@ -34696,7 +34753,7 @@ const DrawingsModule = ({
           if (stored) {
             const data = JSON.parse(stored);
             const projectDrawings = data[selectedProject.id] || {};
-            setCurrentDrawings(projectDrawings[selectedDiscipline] || []);
+            setCurrentDrawings(projectDrawings[queryDiscipline] || []);
           } else {
             setCurrentDrawings([]);
           }
@@ -34709,7 +34766,7 @@ const DrawingsModule = ({
       }
     };
     loadDrawings();
-  }, [selectedProject, selectedDiscipline]);
+  }, [selectedProject, selectedDiscipline, resolveDisciplineId]);
 
   // Load custom folders when project is selected
   useEffect(() => {
@@ -34894,17 +34951,7 @@ const DrawingsModule = ({
     // Try matching by static ID pattern based on discipline name
     // This handles the case where folders have UUID IDs but drawings were uploaded with static IDs
     if (disciplineName) {
-      const staticIdMap = {
-        'Module Packages': 'shop-module-packages',
-        'Soffits': 'shop-soffits',
-        'Reference Sheets': 'shop-reference',
-        'Prototype Drawings': 'shop-prototype',
-        'Interior Walls': 'shop-interior-walls',
-        'End Walls': 'shop-endwalls',
-        'Corridor Walls': 'shop-corridor-walls',
-        '3HR Walls': 'shop-3hr-walls'
-      };
-      const staticId = staticIdMap[disciplineName];
+      const staticId = DISCIPLINE_NAME_TO_STATIC_ID[disciplineName];
       if (staticId && drawingCounts[staticId]) {
         return drawingCounts[staticId];
       }
@@ -35144,7 +35191,10 @@ const DrawingsModule = ({
       results = results.filter(drawing => {
         const parsedModule = window.MODA_SUPABASE_DRAWINGS?.utils?.parseModuleFromFilename?.(drawing.name);
         const linkedModule = parsedModule ? findModuleByBLM(parsedModule) : null;
-        const hasOpenIssue = linkedModule?.id && window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(linkedModule.id);
+
+        // Match by Serial Number for consistent cross-tab matching
+        const moduleSerial = linkedModule?.serialNumber || linkedModule?.serial_number;
+        const hasOpenIssue = moduleSerial && window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(moduleSerial);
         if (issueStatusFilter === 'yellow') {
           return hasOpenIssue === true;
         } else if (issueStatusFilter === 'green') {
@@ -36511,7 +36561,7 @@ const DrawingsModule = ({
       },
       className: "w-4 h-4 text-purple-600 rounded cursor-pointer",
       title: "Select all PDFs"
-    })), isModulePackages && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("th", {
+    })), isModulePackages && /*#__PURE__*/React.createElement("th", {
       className: "px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12"
     }, "Status"), /*#__PURE__*/React.createElement("th", {
       className: "px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none",
@@ -36563,15 +36613,35 @@ const DrawingsModule = ({
         },
         className: "w-4 h-4 text-purple-600 rounded cursor-pointer",
         title: "Select for Claude Vision OCR"
-      })), isModulePackages && drawingPermissions.canEdit && /*#__PURE__*/React.createElement("td", {
+      })), isModulePackages && /*#__PURE__*/React.createElement("td", {
         className: "px-2 py-4 text-center"
       }, (() => {
         // Check if this module has open shop-drawing issues
-        const hasOpenIssue = linkedModule?.id && window.MODA_ISSUE_ROUTING?.moduleHasOpenShopDrawingIssue?.(linkedModule.id);
-        const issueCount = hasOpenIssue ? window.MODA_ISSUE_ROUTING?.getOpenShopDrawingIssuesForModule?.(linkedModule.id)?.length || 0 : 0;
-        return hasOpenIssue ? /*#__PURE__*/React.createElement("span", {
-          className: "inline-block w-3 h-3 rounded-full bg-amber-400 border border-amber-500",
-          title: `${issueCount} open shop drawing issue${issueCount > 1 ? 's' : ''}`
+        // Match by Serial Number for consistent cross-tab matching
+        const moduleSerial = linkedModule?.serialNumber || linkedModule?.serial_number;
+        const openIssues = moduleSerial ? window.MODA_ISSUE_ROUTING?.getOpenShopDrawingIssuesForModule?.(moduleSerial) || [] : [];
+        const hasOpenIssue = openIssues.length > 0;
+        const issueCount = openIssues.length;
+        return hasOpenIssue ? /*#__PURE__*/React.createElement("button", {
+          type: "button",
+          onClick: e => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setIssuePopover({
+              serialNumber: moduleSerial,
+              issues: openIssues,
+              position: {
+                top: rect.bottom + window.scrollY,
+                left: rect.left + window.scrollX,
+                right: window.innerWidth - rect.right
+              }
+            });
+          },
+          className: "inline-block w-4 h-4 rounded-full bg-amber-400 border-2 border-amber-500 hover:bg-amber-300 hover:scale-125 transition-all cursor-pointer touch-manipulation",
+          title: `${issueCount} open issue${issueCount > 1 ? 's' : ''} - Click to view`,
+          style: {
+            WebkitTapHighlightColor: 'transparent'
+          }
         }) : /*#__PURE__*/React.createElement("span", {
           className: "inline-block w-3 h-3 rounded-full bg-green-300/50 border border-green-400/30",
           title: "No issues reported"
@@ -37927,6 +37997,96 @@ const DrawingsModule = ({
     analysisType: showAnalysisBrowser,
     onClose: () => setShowAnalysisBrowser(null),
     auth: auth
+  }), issuePopover && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-40",
+    onClick: () => setIssuePopover(null)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: `fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden ${isMobile ? 'inset-x-4 bottom-4 max-h-[60vh]' : 'w-80 max-h-96'}`,
+    style: !isMobile ? {
+      top: Math.min(issuePopover.position.top + 8, window.innerHeight - 400),
+      left: issuePopover.position.left < window.innerWidth / 2 ? issuePopover.position.left : 'auto',
+      right: issuePopover.position.left >= window.innerWidth / 2 ? issuePopover.position.right : 'auto'
+    } : undefined
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold text-gray-900 text-sm"
+  }, issuePopover.issues.length, " Open Issue", issuePopover.issues.length !== 1 ? 's' : ''), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Module ", issuePopover.serialNumber)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIssuePopover(null),
+    className: "p-1 hover:bg-amber-100 rounded-full transition"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-x w-4 h-4 text-gray-500"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "overflow-y-auto max-h-64 divide-y divide-gray-100"
+  }, issuePopover.issues.map((issue, idx) => {
+    const priorityColors = {
+      'low': 'bg-green-100 text-green-700',
+      'medium': 'bg-amber-100 text-amber-700',
+      'high': 'bg-orange-100 text-orange-700',
+      'critical': 'bg-red-100 text-red-700'
+    };
+    const timeAgo = dateStr => {
+      if (!dateStr) return '';
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    };
+    return /*#__PURE__*/React.createElement("button", {
+      key: issue.id || idx,
+      onClick: () => {
+        setSelectedIssueForDetail(issue);
+        setIssuePopover(null);
+      },
+      className: "w-full px-4 py-3 text-left hover:bg-gray-50 transition flex items-start gap-3 touch-manipulation",
+      style: {
+        WebkitTapHighlightColor: 'transparent'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 mb-1"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs font-mono text-blue-600"
+    }, issue.issue_display_id), /*#__PURE__*/React.createElement("span", {
+      className: `text-xs px-1.5 py-0.5 rounded ${priorityColors[issue.priority] || 'bg-gray-100 text-gray-600'}`
+    }, issue.priority)), /*#__PURE__*/React.createElement("p", {
+      className: "text-sm font-medium text-gray-900 truncate"
+    }, issue.title), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-gray-500 mt-0.5"
+    }, timeAgo(issue.created_at))), /*#__PURE__*/React.createElement("span", {
+      className: "icon-chevron-right w-4 h-4 text-gray-400 flex-shrink-0 mt-1"
+    }));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 bg-gray-50 border-t border-gray-100"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      // Navigate to Engineering dashboard
+      setIssuePopover(null);
+      if (window.MODA_NAVIGATE) {
+        window.MODA_NAVIGATE('engineering');
+      }
+    },
+    className: "w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium transition"
+  }, "View All in Engineering Dashboard")))), selectedIssueForDetail && window.IssueDetailModal && /*#__PURE__*/React.createElement(window.IssueDetailModal, {
+    issue: selectedIssueForDetail,
+    onClose: () => setSelectedIssueForDetail(null),
+    onUpdate: updatedIssue => {
+      // Refresh the issues cache after update
+      if (window.MODA_ISSUE_ROUTING?.refreshShopDrawingIssuesCache) {
+        window.MODA_ISSUE_ROUTING.refreshShopDrawingIssuesCache();
+      }
+      setSelectedIssueForDetail(null);
+    },
+    auth: auth
   }), !selectedProject && renderProjectsView(), selectedProject && !selectedCategory && renderCategoriesView(), selectedProject && selectedCategory && !selectedDiscipline && renderDisciplinesView(), selectedProject && selectedCategory && selectedDiscipline && renderDrawingsView());
 };
 
@@ -37940,9 +38100,14 @@ window.DrawingsModule = DrawingsModule;
 // ============================================================================
 (function() {
 // ============================================================================
-// Mobile PDF Viewer
-// Fast image-based PDF viewer for mobile devices
-// Falls back to native iframe if images aren't ready
+// Mobile PDF Viewer - Hybrid Approach
+// 
+// Strategy for shop floor iPad users:
+// 1. FIRST VIEW: Open PDF natively in Safari immediately (no waiting)
+// 2. BACKGROUND: Check for cached images, trigger generation if needed
+// 3. SUBSEQUENT VIEWS: If images are ready, use fast image-based viewer
+//
+// This ensures instant access on first view while optimizing repeat views.
 // ============================================================================
 
 const MobilePdfViewer = ({
@@ -37953,90 +38118,96 @@ const MobilePdfViewer = ({
   drawingId,
   versionId
 }) => {
-  const [viewMode, setViewMode] = React.useState('loading'); // 'loading' | 'images' | 'native' | 'generating'
+  // 'checking' = quick check for cached images (< 500ms)
+  // 'images' = cached images available, use fast viewer
+  // 'native' = no cached images, show native Safari viewer
+  const [viewMode, setViewMode] = React.useState('checking');
   const [pageImages, setPageImages] = React.useState([]);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageUrls, setPageUrls] = React.useState({});
-  const [generationProgress, setGenerationProgress] = React.useState(null);
-  const [error, setError] = React.useState(null);
+  const [isOptimizing, setIsOptimizing] = React.useState(false);
   const containerRef = React.useRef(null);
 
-  // Load page images or trigger generation
+  // Track if we've triggered background generation
+  const generationTriggeredRef = React.useRef(false);
+
+  // Quick check for cached images on open - timeout after 500ms to avoid blocking
   React.useEffect(() => {
     if (!isOpen || !drawingId || !versionId) return;
     let cancelled = false;
-    let pollInterval = null;
-    const loadImages = async () => {
-      setViewMode('loading');
-      setError(null);
+    const checkTimeout = setTimeout(() => {
+      if (!cancelled && viewMode === 'checking') {
+        console.log('[MobilePdfViewer] Check timeout, using native viewer');
+        setViewMode('native');
+        triggerBackgroundGeneration();
+      }
+    }, 500); // Max 500ms wait for cache check
+
+    const checkForCachedImages = async () => {
       try {
-        // Check if MODA_PDF_IMAGES service is available
         if (!window.MODA_PDF_IMAGES) {
-          console.log('[MobilePdfViewer] PDF Images service not available, using native viewer');
-          setViewMode('native');
+          console.log('[MobilePdfViewer] PDF Images service not available');
+          if (!cancelled) setViewMode('native');
           return;
         }
 
-        // Try to get or generate page images
-        const result = await window.MODA_PDF_IMAGES.getOrGeneratePageImages(drawingId, versionId, pdfUrl);
+        // Quick check if images already exist (no generation)
+        const status = await window.MODA_PDF_IMAGES.checkImagesExist(versionId);
         if (cancelled) return;
-        if (result.ready && result.images?.length > 0) {
-          console.log(`[MobilePdfViewer] Got ${result.images.length} page images`);
-          setPageImages(result.images);
-          setViewMode('images');
-
-          // Pre-load first few page URLs
-          loadPageUrls(result.images.slice(0, 3));
-        } else if (result.generating) {
-          console.log('[MobilePdfViewer] Images generating, showing native viewer with progress');
-          setGenerationProgress({
-            total: result.totalPages || 0,
-            processed: 0,
-            jobId: result.jobId
-          });
-          setViewMode('generating');
-
-          // Poll for completion
-          pollInterval = setInterval(async () => {
-            const job = await window.MODA_PDF_IMAGES.getJobStatus(versionId);
-            if (!job) return;
-            if (job.status === 'completed') {
-              clearInterval(pollInterval);
-              const images = await window.MODA_PDF_IMAGES.getPageImages(versionId);
-              if (!cancelled && images.length > 0) {
-                setPageImages(images);
-                setViewMode('images');
-                loadPageUrls(images.slice(0, 3));
-              }
-            } else if (job.status === 'failed') {
-              clearInterval(pollInterval);
-              console.log('[MobilePdfViewer] Generation failed, using native viewer');
-              setViewMode('native');
-            } else {
-              setGenerationProgress({
-                total: job.total_pages || 0,
-                processed: job.processed_pages || 0,
-                jobId: job.id
-              });
-            }
-          }, 2000);
-        } else {
-          console.log('[MobilePdfViewer] No images available, using native viewer');
-          setViewMode('native');
+        clearTimeout(checkTimeout);
+        if (status.hasImages && status.pageCount > 0) {
+          console.log(`[MobilePdfViewer] Found ${status.pageCount} cached images - using fast viewer`);
+          const images = await window.MODA_PDF_IMAGES.getPageImages(versionId);
+          if (!cancelled && images.length > 0) {
+            setPageImages(images);
+            setViewMode('images');
+            loadPageUrls(images.slice(0, 3));
+            return;
+          }
         }
+
+        // No cached images - use native viewer and trigger background generation
+        console.log('[MobilePdfViewer] No cached images, using native viewer');
+        setViewMode('native');
+        triggerBackgroundGeneration();
       } catch (err) {
-        console.error('[MobilePdfViewer] Error:', err);
+        console.error('[MobilePdfViewer] Cache check error:', err);
         if (!cancelled) {
           setViewMode('native');
+          triggerBackgroundGeneration();
         }
       }
     };
-    loadImages();
+    checkForCachedImages();
     return () => {
       cancelled = true;
-      if (pollInterval) clearInterval(pollInterval);
+      clearTimeout(checkTimeout);
     };
-  }, [isOpen, drawingId, versionId, pdfUrl]);
+  }, [isOpen, drawingId, versionId]);
+
+  // Trigger background image generation (fire and forget)
+  const triggerBackgroundGeneration = async () => {
+    if (generationTriggeredRef.current) return;
+    if (!window.MODA_PDF_IMAGES || !drawingId || !versionId) return;
+    generationTriggeredRef.current = true;
+    setIsOptimizing(true);
+    try {
+      console.log('[MobilePdfViewer] Triggering background image generation...');
+      const result = await window.MODA_PDF_IMAGES.triggerGeneration(drawingId, versionId, pdfUrl);
+      if (result.success) {
+        if (result.cached) {
+          console.log('[MobilePdfViewer] Images were already cached');
+        } else {
+          console.log('[MobilePdfViewer] Generation started in background');
+        }
+      }
+    } catch (err) {
+      console.error('[MobilePdfViewer] Background generation error:', err);
+    } finally {
+      // Keep optimizing indicator for a bit so user knows it's working
+      setTimeout(() => setIsOptimizing(false), 3000);
+    }
+  };
 
   // Load signed URLs for page images
   const loadPageUrls = async images => {
@@ -38098,8 +38269,37 @@ const MobilePdfViewer = ({
   };
   if (!isOpen) return null;
 
-  // Native iframe viewer (fallback or while generating)
-  if (viewMode === 'native' || viewMode === 'generating') {
+  // Checking state - show minimal loading while checking cache (max 500ms)
+  if (viewMode === 'checking') {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed inset-0 bg-black/90 flex flex-col z-50"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between p-3 bg-gray-900 text-white shrink-0"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "font-medium truncate flex-1 mr-4 text-sm"
+    }, drawingName), /*#__PURE__*/React.createElement("button", {
+      onClick: onClose,
+      className: "p-2 hover:bg-gray-700 rounded-full",
+      "aria-label": "Close"
+    }, /*#__PURE__*/React.createElement("svg", {
+      className: "w-5 h-5",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24"
+    }, /*#__PURE__*/React.createElement("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M6 18L18 6M6 6l12 12"
+    })))), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 flex items-center justify-center"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "animate-spin rounded-full h-8 w-8 border-b-2 border-white"
+    })));
+  }
+
+  // Native viewer - shows PDF in iframe with iOS Safari's native viewer
+  if (viewMode === 'native') {
     return /*#__PURE__*/React.createElement("div", {
       className: "fixed inset-0 bg-black/90 flex flex-col z-50"
     }, /*#__PURE__*/React.createElement("div", {
@@ -38108,38 +38308,37 @@ const MobilePdfViewer = ({
       className: "font-medium truncate flex-1 mr-4 text-sm"
     }, drawingName), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
-    }, viewMode === 'generating' && generationProgress && /*#__PURE__*/React.createElement("span", {
-      className: "text-xs text-blue-400"
-    }, "Optimizing: ", generationProgress.processed, "/", generationProgress.total || '?'), /*#__PURE__*/React.createElement("a", {
+    }, isOptimizing && /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-blue-400 flex items-center gap-1"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "animate-pulse"
+    }, "Optimizing for faster viewing...")), /*#__PURE__*/React.createElement("a", {
       href: pdfUrl,
       target: "_blank",
       rel: "noopener noreferrer",
-      className: "px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm"
-    }, "New Tab"), /*#__PURE__*/React.createElement("button", {
+      className: "px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium"
+    }, "Open Full"), /*#__PURE__*/React.createElement("button", {
       onClick: onClose,
       className: "p-2 hover:bg-gray-700 rounded-full",
       "aria-label": "Close"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "icon-x w-5 h-5"
-    })))), /*#__PURE__*/React.createElement("iframe", {
+    }, /*#__PURE__*/React.createElement("svg", {
+      className: "w-5 h-5",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24"
+    }, /*#__PURE__*/React.createElement("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M6 18L18 6M6 6l12 12"
+    }))))), /*#__PURE__*/React.createElement("iframe", {
       src: pdfUrl,
       className: "flex-1 w-full bg-white",
-      title: drawingName
+      title: drawingName,
+      style: {
+        border: 'none'
+      }
     }));
-  }
-
-  // Loading state
-  if (viewMode === 'loading') {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"
-    }), /*#__PURE__*/React.createElement("p", {
-      className: "text-white text-sm"
-    }, "Loading..."), /*#__PURE__*/React.createElement("button", {
-      onClick: onClose,
-      className: "mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded"
-    }, "Cancel"));
   }
 
   // Image-based viewer
@@ -39909,6 +40108,583 @@ const SheetBrowser = ({
   }, sortedSheets.map(renderSheetList)))))));
 };
 window.SheetBrowser = SheetBrowser;
+})();
+
+
+// ============================================================================
+// FILE: PermitPackageBrowser.jsx
+// ============================================================================
+(function() {
+/**
+ * PermitPackageBrowser Component
+ * 
+ * Displays permit drawing packages with version tracking and compiled current view.
+ * Features:
+ * - View all package versions (full sets and updates)
+ * - View compiled current sheets (latest version of each sheet)
+ * - View individual sheet version history
+ * - Upload new packages (full or update)
+ * - Download individual sheets or compiled package
+ */
+// [Removed duplicate React destructuring]
+function PermitPackageBrowser({
+  projectId,
+  discipline,
+  disciplineName,
+  onClose,
+  auth
+}) {
+  // State
+  const [activeTab, setActiveTab] = useState('current'); // 'current' | 'packages' | 'history'
+  const [packages, setPackages] = useState([]);
+  const [currentSheets, setCurrentSheets] = useState([]);
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [sheetHistory, setSheetHistory] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Upload state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadType, setUploadType] = useState('update'); // 'full' | 'update'
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
+
+  // Check if permit sheets module is available
+  const isAvailable = () => window.MODA_PERMIT_SHEETS?.isAvailable?.();
+
+  // Load data
+  const loadData = useCallback(async () => {
+    if (!isAvailable() || !projectId || !discipline) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [pkgs, sheets, statsData] = await Promise.all([window.MODA_PERMIT_SHEETS.getPackages(projectId, discipline), window.MODA_PERMIT_SHEETS.getCurrentSheets(projectId, discipline), window.MODA_PERMIT_SHEETS.getStats(projectId, discipline)]);
+      setPackages(pkgs);
+      setCurrentSheets(sheets);
+      setStats(statsData);
+    } catch (err) {
+      console.error('[PermitPackageBrowser] Error loading data:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId, discipline]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Load sheet history when sheet selected
+  const loadSheetHistory = useCallback(async sheetNumber => {
+    if (!isAvailable() || !projectId || !sheetNumber) return;
+    try {
+      const history = await window.MODA_PERMIT_SHEETS.getSheetHistory(projectId, sheetNumber);
+      setSheetHistory(history);
+    } catch (err) {
+      console.error('[PermitPackageBrowser] Error loading sheet history:', err);
+    }
+  }, [projectId]);
+
+  // Handle package selection
+  const handleSelectPackage = useCallback(async pkg => {
+    if (!isAvailable()) return;
+    try {
+      const pkgWithSheets = await window.MODA_PERMIT_SHEETS.getPackageWithSheets(pkg.id);
+      setSelectedPackage(pkgWithSheets);
+    } catch (err) {
+      console.error('[PermitPackageBrowser] Error loading package:', err);
+    }
+  }, []);
+
+  // Handle sheet selection for history view
+  const handleSelectSheet = useCallback(sheet => {
+    setSelectedSheet(sheet);
+    loadSheetHistory(sheet.sheet_number);
+    setActiveTab('history');
+  }, [loadSheetHistory]);
+
+  // Handle file upload
+  const handleUpload = useCallback(async () => {
+    if (!isAvailable() || !uploadFile || !projectId) return;
+    setIsProcessing(true);
+    setUploadProgress({
+      status: 'uploading',
+      percent: 0
+    });
+    try {
+      // Get next version number
+      const nextVersion = await window.MODA_PERMIT_SHEETS.getNextVersion(projectId, discipline);
+
+      // Upload file to storage
+      const storagePath = `permit-packages/${projectId}/${discipline}/${Date.now()}_${uploadFile.name}`;
+      const {
+        error: uploadError
+      } = await window.MODA_SUPABASE.client.storage.from('drawings').upload(storagePath, uploadFile, {
+        contentType: 'application/pdf'
+      });
+      if (uploadError) throw uploadError;
+      setUploadProgress({
+        status: 'creating',
+        percent: 30
+      });
+
+      // Create package record
+      const pkg = await window.MODA_PERMIT_SHEETS.createPackage({
+        projectId,
+        discipline,
+        packageName: disciplineName || discipline,
+        packageVersion: nextVersion,
+        packageType: uploadType,
+        storagePath,
+        fileSize: uploadFile.size,
+        uploadedBy: auth?.currentUser?.name || 'Unknown'
+      });
+      setUploadProgress({
+        status: 'processing',
+        percent: 50
+      });
+
+      // Process package (split PDF and OCR)
+      await window.MODA_PERMIT_SHEETS.processPackage(pkg.id);
+      setUploadProgress({
+        status: 'complete',
+        percent: 100
+      });
+
+      // Reload data
+      await loadData();
+      setShowUploadModal(false);
+      setUploadFile(null);
+      setUploadProgress(null);
+    } catch (err) {
+      console.error('[PermitPackageBrowser] Upload error:', err);
+      setError(err.message);
+      setUploadProgress(null);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [uploadFile, uploadType, projectId, discipline, disciplineName, auth, loadData]);
+
+  // Download sheet
+  const handleDownloadSheet = useCallback(async sheet => {
+    if (!isAvailable()) return;
+    try {
+      await window.MODA_PERMIT_SHEETS.downloadSheet(sheet);
+    } catch (err) {
+      console.error('[PermitPackageBrowser] Download error:', err);
+      setError(err.message);
+    }
+  }, []);
+
+  // Download all current sheets
+  const handleDownloadCurrent = useCallback(async () => {
+    if (!isAvailable() || !projectId) return;
+    try {
+      await window.MODA_PERMIT_SHEETS.downloadCurrentSheets(projectId, discipline);
+    } catch (err) {
+      console.error('[PermitPackageBrowser] Download error:', err);
+      setError(err.message);
+    }
+  }, [projectId, discipline]);
+
+  // View sheet in new tab
+  const handleViewSheet = useCallback(sheet => {
+    if (!isAvailable() || !sheet.storage_path) return;
+    const url = window.MODA_PERMIT_SHEETS.getSheetUrl(sheet.storage_path);
+    if (url) {
+      window.open(url, '_blank');
+    }
+  }, []);
+
+  // Format date
+  const formatDate = dateStr => {
+    if (!dateStr) return '-';
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Render stats summary
+  const renderStats = () => {
+    if (!stats) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-blue-50 rounded-lg p-4 text-center"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-2xl font-bold text-blue-700"
+    }, stats.currentSheets), /*#__PURE__*/React.createElement("div", {
+      className: "text-sm text-blue-600"
+    }, "Current Sheets")), /*#__PURE__*/React.createElement("div", {
+      className: "bg-green-50 rounded-lg p-4 text-center"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-2xl font-bold text-green-700"
+    }, stats.totalPackages), /*#__PURE__*/React.createElement("div", {
+      className: "text-sm text-green-600"
+    }, "Total Packages")), /*#__PURE__*/React.createElement("div", {
+      className: "bg-amber-50 rounded-lg p-4 text-center"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-2xl font-bold text-amber-700"
+    }, stats.updatePackages), /*#__PURE__*/React.createElement("div", {
+      className: "text-sm text-amber-600"
+    }, "Updates")), /*#__PURE__*/React.createElement("div", {
+      className: "bg-purple-50 rounded-lg p-4 text-center"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-2xl font-bold text-purple-700"
+    }, stats.sheetsWithUpdates), /*#__PURE__*/React.createElement("div", {
+      className: "text-sm text-purple-600"
+    }, "Sheets Updated")));
+  };
+
+  // Render current sheets tab (compiled package)
+  const renderCurrentSheets = () => {
+    if (currentSheets.length === 0) {
+      return /*#__PURE__*/React.createElement("div", {
+        className: "text-center py-12 text-gray-500"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-lg mb-2"
+      }, "No sheets found"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm"
+      }, "Upload a package to get started"));
+    }
+    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between items-center mb-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-sm text-gray-600"
+    }, "Showing latest version of each sheet (", currentSheets.length, " sheets)"), /*#__PURE__*/React.createElement("button", {
+      onClick: handleDownloadCurrent,
+      className: "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+    }, "Download All")), /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-lg border overflow-hidden"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "w-full text-sm"
+    }, /*#__PURE__*/React.createElement("thead", {
+      className: "bg-gray-50 border-b"
+    }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Sheet #"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Title"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Rev"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Date"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "From Package"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-right font-medium text-gray-700"
+    }, "Actions"))), /*#__PURE__*/React.createElement("tbody", {
+      className: "divide-y"
+    }, currentSheets.map(sheet => /*#__PURE__*/React.createElement("tr", {
+      key: sheet.sheet_id,
+      className: "hover:bg-gray-50"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 font-mono font-medium text-blue-600"
+    }, sheet.sheet_number), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-gray-900"
+    }, sheet.sheet_title || '-'), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3"
+    }, sheet.revision ? /*#__PURE__*/React.createElement("span", {
+      className: "px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium"
+    }, sheet.revision) : '-'), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-gray-600"
+    }, formatDate(sheet.revision_date)), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-gray-500 text-xs"
+    }, sheet.package_version), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-right"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-end gap-2"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => handleViewSheet(sheet),
+      className: "p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded",
+      title: "View"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-eye w-4 h-4"
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: () => handleDownloadSheet(sheet),
+      className: "p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded",
+      title: "Download"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-download w-4 h-4"
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: () => handleSelectSheet(sheet),
+      className: "p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded",
+      title: "View History"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-history w-4 h-4"
+    }))))))))));
+  };
+
+  // Render packages tab
+  const renderPackages = () => {
+    if (packages.length === 0) {
+      return /*#__PURE__*/React.createElement("div", {
+        className: "text-center py-12 text-gray-500"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-lg mb-2"
+      }, "No packages uploaded"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm"
+      }, "Upload a full package to get started"));
+    }
+    return /*#__PURE__*/React.createElement("div", {
+      className: "space-y-4"
+    }, packages.map(pkg => /*#__PURE__*/React.createElement("div", {
+      key: pkg.id,
+      className: `bg-white rounded-lg border p-4 cursor-pointer hover:border-blue-300 transition-colors ${selectedPackage?.id === pkg.id ? 'border-blue-500 ring-2 ring-blue-100' : ''}`,
+      onClick: () => handleSelectPackage(pkg)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between items-start"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "font-medium text-gray-900"
+    }, pkg.package_name), /*#__PURE__*/React.createElement("span", {
+      className: "px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium"
+    }, pkg.package_version), /*#__PURE__*/React.createElement("span", {
+      className: `px-2 py-0.5 rounded text-xs font-medium ${pkg.package_type === 'full' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`
+    }, pkg.package_type === 'full' ? 'Full Set' : 'Update')), /*#__PURE__*/React.createElement("div", {
+      className: "text-sm text-gray-500 mt-1"
+    }, pkg.total_sheets || '?', " sheets | Uploaded ", formatDate(pkg.created_at), pkg.uploaded_by && ` by ${pkg.uploaded_by}`)), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, pkg.ocr_status === 'processing' && /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-blue-600"
+    }, "Processing..."), pkg.ocr_status === 'failed' && /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-red-600"
+    }, "OCR Failed"))), selectedPackage?.id === pkg.id && selectedPackage.sheets && /*#__PURE__*/React.createElement("div", {
+      className: "mt-4 pt-4 border-t"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-sm font-medium text-gray-700 mb-2"
+    }, "Sheets in this package:"), /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-2 md:grid-cols-4 gap-2"
+    }, selectedPackage.sheets.map(sheet => /*#__PURE__*/React.createElement("div", {
+      key: sheet.id,
+      className: "p-2 bg-gray-50 rounded text-sm hover:bg-blue-50 cursor-pointer",
+      onClick: e => {
+        e.stopPropagation();
+        handleViewSheet(sheet);
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "font-mono text-blue-600"
+    }, sheet.sheet_number), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-gray-500 truncate"
+    }, sheet.sheet_title || '-'))))))));
+  };
+
+  // Render sheet history tab
+  const renderSheetHistory = () => {
+    if (!selectedSheet) {
+      return /*#__PURE__*/React.createElement("div", {
+        className: "text-center py-12 text-gray-500"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-lg mb-2"
+      }, "Select a sheet to view history"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm"
+      }, "Click the history icon on any sheet in the Current tab"));
+    }
+    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-4 mb-4"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setSelectedSheet(null);
+        setSheetHistory([]);
+        setActiveTab('current');
+      },
+      className: "text-blue-600 hover:text-blue-700"
+    }, "Back to Current"), /*#__PURE__*/React.createElement("div", {
+      className: "text-lg font-medium"
+    }, "History: ", /*#__PURE__*/React.createElement("span", {
+      className: "font-mono"
+    }, selectedSheet.sheet_number))), /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-lg border overflow-hidden"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "w-full text-sm"
+    }, /*#__PURE__*/React.createElement("thead", {
+      className: "bg-gray-50 border-b"
+    }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Version"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Rev"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Date"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Package"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-left font-medium text-gray-700"
+    }, "Status"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-3 text-right font-medium text-gray-700"
+    }, "Actions"))), /*#__PURE__*/React.createElement("tbody", {
+      className: "divide-y"
+    }, sheetHistory.map((version, idx) => /*#__PURE__*/React.createElement("tr", {
+      key: version.sheet_id,
+      className: `hover:bg-gray-50 ${version.is_current ? 'bg-green-50' : ''}`
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 font-mono"
+    }, sheetHistory.length - idx), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3"
+    }, version.revision ? /*#__PURE__*/React.createElement("span", {
+      className: "px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium"
+    }, version.revision) : '-'), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-gray-600"
+    }, formatDate(version.revision_date)), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-gray-500"
+    }, version.package_version), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3"
+    }, version.is_current ? /*#__PURE__*/React.createElement("span", {
+      className: "px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium"
+    }, "Current") : /*#__PURE__*/React.createElement("span", {
+      className: "px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs"
+    }, "Superseded")), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-right"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-end gap-2"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => handleViewSheet(version),
+      className: "p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded",
+      title: "View"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-eye w-4 h-4"
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: () => handleDownloadSheet(version),
+      className: "p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded",
+      title: "Download"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "icon-download w-4 h-4"
+    }))))))))));
+  };
+
+  // Render upload modal
+  const renderUploadModal = () => {
+    if (!showUploadModal) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-xl shadow-xl w-full max-w-md mx-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "p-6 border-b"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "text-lg font-semibold"
+    }, "Upload Package")), /*#__PURE__*/React.createElement("div", {
+      className: "p-6 space-y-4"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+      className: "block text-sm font-medium text-gray-700 mb-2"
+    }, "Package Type"), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-4"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "flex items-center gap-2 cursor-pointer"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "radio",
+      name: "uploadType",
+      value: "full",
+      checked: uploadType === 'full',
+      onChange: e => setUploadType(e.target.value),
+      className: "text-blue-600"
+    }), /*#__PURE__*/React.createElement("span", null, "Full Set")), /*#__PURE__*/React.createElement("label", {
+      className: "flex items-center gap-2 cursor-pointer"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "radio",
+      name: "uploadType",
+      value: "update",
+      checked: uploadType === 'update',
+      onChange: e => setUploadType(e.target.value),
+      className: "text-blue-600"
+    }), /*#__PURE__*/React.createElement("span", null, "Update Package"))), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-gray-500 mt-1"
+    }, uploadType === 'full' ? 'Complete drawing set - will establish baseline sheets' : 'Partial update - only contains revised sheets')), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+      className: "block text-sm font-medium text-gray-700 mb-2"
+    }, "PDF File"), /*#__PURE__*/React.createElement("input", {
+      type: "file",
+      accept: ".pdf",
+      onChange: e => setUploadFile(e.target.files?.[0] || null),
+      className: "w-full text-sm border rounded-lg p-2"
+    })), uploadProgress && /*#__PURE__*/React.createElement("div", {
+      className: "bg-blue-50 rounded-lg p-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between text-sm mb-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-blue-700 capitalize"
+    }, uploadProgress.status, "..."), /*#__PURE__*/React.createElement("span", {
+      className: "text-blue-600"
+    }, uploadProgress.percent, "%")), /*#__PURE__*/React.createElement("div", {
+      className: "h-2 bg-blue-200 rounded-full overflow-hidden"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "h-full bg-blue-600 transition-all duration-300",
+      style: {
+        width: `${uploadProgress.percent}%`
+      }
+    }))), error && /*#__PURE__*/React.createElement("div", {
+      className: "bg-red-50 text-red-700 rounded-lg p-3 text-sm"
+    }, error)), /*#__PURE__*/React.createElement("div", {
+      className: "p-6 border-t flex justify-end gap-3"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setShowUploadModal(false);
+        setUploadFile(null);
+        setUploadProgress(null);
+        setError(null);
+      },
+      className: "px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg",
+      disabled: isProcessing
+    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+      onClick: handleUpload,
+      disabled: !uploadFile || isProcessing,
+      className: "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+    }, isProcessing ? 'Processing...' : 'Upload & Process'))));
+  };
+
+  // Main render
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-50 rounded-xl shadow-xl w-full max-w-6xl mx-4 max-h-[90vh] flex flex-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-6 border-b bg-white rounded-t-xl flex justify-between items-center"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-semibold text-gray-900"
+  }, disciplineName || discipline), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500"
+  }, "Permit Drawing Package Browser")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowUploadModal(true),
+    className: "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+  }, "Upload Package"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-close w-5 h-5"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 bg-white border-b"
+  }, renderStats()), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 bg-white border-b"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActiveTab('current'),
+    className: `px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'current' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'}`
+  }, "Current Sheets"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActiveTab('packages'),
+    className: `px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'packages' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'}`
+  }, "Package Versions"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActiveTab('history'),
+    className: `px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'}`
+  }, "Sheet History"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-auto p-6"
+  }, isLoading ? /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center py-12"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+  })) : /*#__PURE__*/React.createElement(React.Fragment, null, activeTab === 'current' && renderCurrentSheets(), activeTab === 'packages' && renderPackages(), activeTab === 'history' && renderSheetHistory()))), renderUploadModal());
+}
+
+// Export for use
+window.PermitPackageBrowser = PermitPackageBrowser;
 })();
 
 
@@ -42190,6 +42966,25 @@ function ModuleLinkSelector({
     onSelectionChange([]);
   };
 
+  // Select all visible/filtered modules
+  const selectAllVisible = () => {
+    const visibleIds = filteredModules.map(m => m.id);
+    // Merge with existing selections (avoid duplicates)
+    const newSelection = [...new Set([...selectedModuleIds, ...visibleIds])];
+    // Respect max selections if set
+    if (maxSelections && newSelection.length > maxSelections) {
+      onSelectionChange(newSelection.slice(0, maxSelections));
+    } else {
+      onSelectionChange(newSelection);
+    }
+  };
+
+  // Check if all visible modules are already selected
+  const allVisibleSelected = useMemo(() => {
+    if (filteredModules.length === 0) return true;
+    return filteredModules.every(m => selectedModuleIds.includes(m.id));
+  }, [filteredModules, selectedModuleIds]);
+
   // Get module details for display in dropdown
   const getModuleDetails = module => {
     const details = [];
@@ -42371,7 +43166,16 @@ function ModuleLinkSelector({
     }, "Selected"));
   })), /*#__PURE__*/React.createElement("div", {
     className: "px-3 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500"
-  }, /*#__PURE__*/React.createElement("span", null, filteredModules.length, " module", filteredModules.length !== 1 ? 's' : '', searchTerm && ' found'), maxSelections && /*#__PURE__*/React.createElement("span", null, selectedModuleIds.length, "/", maxSelections, " selected"))));
+  }, /*#__PURE__*/React.createElement("span", null, filteredModules.length, " module", filteredModules.length !== 1 ? 's' : '', searchTerm && ' found'), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, filteredModules.length > 0 && !allVisibleSelected && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: e => {
+      e.stopPropagation();
+      selectAllVisible();
+    },
+    className: "text-blue-600 hover:text-blue-800 font-medium"
+  }, "Select All"), maxSelections && /*#__PURE__*/React.createElement("span", null, selectedModuleIds.length, "/", maxSelections, " selected")))));
 }
 
 // Export to window for global access
@@ -42769,9 +43573,9 @@ function IssueSubmissionModal({
     }
   };
   const handleBackdropClick = e => {
-    if (e.target === modalRef.current) {
-      onClose();
-    }
+    // Intentionally disabled - clicking outside should NOT close this modal
+    // Users must use Cancel button or X button to close
+    // This prevents accidental data loss when filling out the form
   };
 
   // ===== RENDER =====
@@ -44768,7 +45572,7 @@ function EngineeringModule({
     className: "font-medium text-gray-900 truncate"
   }, issue.title || issue.description?.substring(0, 60) || 'Untitled Issue'), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500"
-  }, issue.blm_id && /*#__PURE__*/React.createElement("span", {
+  }, (issue.linked_module_ids?.length > 0 || issue.blm_id) && /*#__PURE__*/React.createElement("span", {
     className: "flex items-center gap-1"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-module",
@@ -44777,7 +45581,7 @@ function EngineeringModule({
       height: '14px',
       display: 'inline-block'
     }
-  }), issue.blm_id), issue.project_name && /*#__PURE__*/React.createElement("span", {
+  }), issue.linked_module_ids?.length > 1 ? `${issue.linked_module_ids.length} Linked Modules` : issue.linked_modules_display || issue.blm_id || 'Module Linked'), issue.project_name && /*#__PURE__*/React.createElement("span", {
     className: "flex items-center gap-1"
   }, /*#__PURE__*/React.createElement("span", {
     className: "icon-folder",
