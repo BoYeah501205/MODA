@@ -368,8 +368,21 @@
             
             try {
                 // Get files from SharePoint
-                const folderPath = buildFolderPath(projectName, categoryName, disciplineName);
-                const spFiles = await this.listFiles(folderPath);
+                // Try both with and without MODA Drawings prefix
+                let folderPath = buildFolderPath(projectName, categoryName, disciplineName);
+                console.log('[SharePoint] Trying path:', folderPath);
+                
+                let spFiles = await this.listFiles(folderPath);
+                
+                // If no files found, try without MODA Drawings prefix
+                if (!spFiles || spFiles.length === 0) {
+                    const altPath = `${projectName}/${categoryName}/${disciplineName}`;
+                    console.log('[SharePoint] No files found, trying alternate path:', altPath);
+                    spFiles = await this.listFiles(altPath);
+                    if (spFiles && spFiles.length > 0) {
+                        folderPath = altPath;
+                    }
+                }
                 
                 if (!spFiles || spFiles.length === 0) {
                     console.log('[SharePoint] No files found in folder');
