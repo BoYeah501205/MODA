@@ -7,16 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-/**
- * Process Permit Sheets Edge Function
- * 
- * Handles permit drawing packages with sheet-level version tracking.
- * Uses OCR to extract sheet numbers from title blocks for matching.
- * 
- * Actions:
- * - process: Split PDF and OCR each sheet, create version chain
- */
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -141,18 +131,18 @@ serve(async (req) => {
 
         // OCR the sheet for title block extraction
         let ocrResult = {
-          sheet_number: null,
-          sheet_title: null,
-          revision: null,
-          revision_date: null,
-          drawn_by: null,
-          checked_by: null,
-          designed_by: null,
-          job_number: null,
-          discipline_code: null,
-          discipline_name: null,
-          confidence: null,
-          raw_text: null
+          sheet_number: null as string | null,
+          sheet_title: null as string | null,
+          revision: null as string | null,
+          revision_date: null as string | null,
+          drawn_by: null as string | null,
+          checked_by: null as string | null,
+          designed_by: null as string | null,
+          job_number: null as string | null,
+          discipline_code: null as string | null,
+          discipline_name: null as string | null,
+          confidence: null as number | null,
+          raw_text: null as string | null
         };
 
         try {
@@ -178,20 +168,14 @@ serve(async (req) => {
                     text: `Extract title block information from this PERMIT DRAWING sheet. Look for a title block (usually bottom-right corner) containing sheet identification.
 
 COMMON PERMIT DRAWING TITLE BLOCK FORMAT:
-┌─────────────────┬──────────────────┐
-│ REVISION:       │ DATE:            │
-│ A               │ 10/07/2025       │
-├─────────────────┼──────────────────┤
-│ DRAWN BY:       │ CHECKED BY:      │
-│ BP              │ KR               │
-├─────────────────┼──────────────────┤
-│ DESIGNED BY:    │ JOB NUMBER:      │
-│ AM              │ A24-082          │
-├─────────────────┴──────────────────┤
-│     STRUCTURAL COVER SHEET         │  ← Sheet title
-├────────────────────────────────────┤
-│           S0.01M                   │  ← Sheet number (PRIMARY KEY)
-└────────────────────────────────────┘
+- REVISION: A, B, 1, 2
+- DATE: 10/07/2025
+- DRAWN BY: BP
+- CHECKED BY: KR
+- DESIGNED BY: AM
+- JOB NUMBER: A24-082
+- SHEET TITLE: STRUCTURAL COVER SHEET
+- SHEET NUMBER: S0.01M (PRIMARY KEY)
 
 SHEET NUMBER FORMATS:
 - S0.01M, S1.01, S2.03 (Structural)
@@ -257,9 +241,10 @@ Return ONLY the JSON object, no other text.`,
               raw_text: responseText
             };
           }
-        } catch (ocrError: any) {
+        } catch (ocrError: unknown) {
+          const errMsg = ocrError instanceof Error ? ocrError.message : String(ocrError);
           console.error(`[ProcessPermitSheets] OCR failed for page ${pageIndex}:`, ocrError);
-          ocrResult.raw_text = `OCR Error: ${ocrError?.message || ocrError}`;
+          ocrResult.raw_text = `OCR Error: ${errMsg}`;
         }
 
         // Insert sheet version record
@@ -329,24 +314,26 @@ Return ONLY the JSON object, no other text.`,
         }
       );
 
-    } catch (processingError: any) {
+    } catch (processingError: unknown) {
+      const errMsg = processingError instanceof Error ? processingError.message : String(processingError);
       // Mark package as failed
       await supabaseClient
         .from('permit_packages')
         .update({
           ocr_status: 'failed',
-          ocr_error: String(processingError?.message || processingError)
+          ocr_error: errMsg
         })
         .eq('id', packageId);
 
       throw processingError;
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     console.error('[ProcessPermitSheets] Error:', error);
     return new Response(
       JSON.stringify({
-        error: String(error?.message || error),
+        error: errMsg,
         details: String(error)
       }),
       {
