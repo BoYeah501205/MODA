@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-11T01:48:08.183Z
+ * Generated: 2026-02-12T03:04:45.890Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -34361,6 +34361,7 @@ const DrawingsModule = ({
   const uploadCancelledRef = useRef(false); // Ref for cancel flag (refs update synchronously, unlike state)
   const pendingFilesRef = useRef([]); // Track remaining files for background queue transfer
   const [showSheetBrowser, setShowSheetBrowser] = useState(false);
+  const [showPermitPackageBrowser, setShowPermitPackageBrowser] = useState(null); // { discipline, disciplineName }
   const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
   const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
   const [showFileInfo, setShowFileInfo] = useState(null); // Drawing object for file info modal
@@ -36180,7 +36181,21 @@ const DrawingsModule = ({
         className: "font-medium text-gray-900 text-sm leading-tight"
       }, discipline.name), /*#__PURE__*/React.createElement("p", {
         className: "text-xs text-gray-500 mt-1"
-      }, count, " file", count !== 1 ? 's' : '')))), canManageFolders && discipline.isCustom && /*#__PURE__*/React.createElement("div", {
+      }, count, " file", count !== 1 ? 's' : '')))), (currentCategory?.name === 'Permit Drawings' || selectedCategory === 'permit-drawings') && window.PermitPackageBrowser && /*#__PURE__*/React.createElement("div", {
+        className: "absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition flex gap-1"
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: e => {
+          e.stopPropagation();
+          setShowPermitPackageBrowser({
+            discipline: discipline.id,
+            disciplineName: discipline.name
+          });
+        },
+        className: "p-1.5 bg-white rounded shadow hover:bg-purple-50 transition",
+        title: "Version Browser"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "icon-history w-3 h-3"
+      }))), canManageFolders && discipline.isCustom && /*#__PURE__*/React.createElement("div", {
         className: "absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition flex gap-1"
       }, /*#__PURE__*/React.createElement("button", {
         onClick: e => {
@@ -37996,6 +38011,12 @@ const DrawingsModule = ({
     projectName: selectedProject?.name,
     analysisType: showAnalysisBrowser,
     onClose: () => setShowAnalysisBrowser(null),
+    auth: auth
+  }), showPermitPackageBrowser && window.PermitPackageBrowser && /*#__PURE__*/React.createElement(window.PermitPackageBrowser, {
+    projectId: selectedProject?.id,
+    discipline: showPermitPackageBrowser.discipline,
+    disciplineName: showPermitPackageBrowser.disciplineName,
+    onClose: () => setShowPermitPackageBrowser(null),
     auth: auth
   }), issuePopover && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-40",

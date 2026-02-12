@@ -41,6 +41,7 @@ const DrawingsModule = ({ projects = [], auth }) => {
     const uploadCancelledRef = useRef(false); // Ref for cancel flag (refs update synchronously, unlike state)
     const pendingFilesRef = useRef([]); // Track remaining files for background queue transfer
     const [showSheetBrowser, setShowSheetBrowser] = useState(false);
+    const [showPermitPackageBrowser, setShowPermitPackageBrowser] = useState(null); // { discipline, disciplineName }
     const [showEditDrawing, setShowEditDrawing] = useState(null); // Drawing object to edit
     const [showDeletedDrawings, setShowDeletedDrawings] = useState(false); // Show deleted drawings for recovery
     const [showFileInfo, setShowFileInfo] = useState(null); // Drawing object for file info modal
@@ -1854,6 +1855,18 @@ const DrawingsModule = ({ projects = [], auth }) => {
                                         </div>
                                     </div>
                                 </button>
+                                {/* Version Browser button for Permit Drawings */}
+                                {(currentCategory?.name === 'Permit Drawings' || selectedCategory === 'permit-drawings') && window.PermitPackageBrowser && (
+                                    <div className="absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition flex gap-1">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setShowPermitPackageBrowser({ discipline: discipline.id, disciplineName: discipline.name }); }}
+                                            className="p-1.5 bg-white rounded shadow hover:bg-purple-50 transition"
+                                            title="Version Browser"
+                                        >
+                                            <span className="icon-history w-3 h-3"></span>
+                                        </button>
+                                    </div>
+                                )}
                                 {/* Edit/Delete buttons for admins */}
                                 {canManageFolders && discipline.isCustom && (
                                     <div className="absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition flex gap-1">
@@ -4194,6 +4207,17 @@ const DrawingsModule = ({ projects = [], auth }) => {
                     projectName={selectedProject?.name}
                     analysisType={showAnalysisBrowser}
                     onClose={() => setShowAnalysisBrowser(null)}
+                    auth={auth}
+                />
+            )}
+            
+            {/* Permit Package Browser */}
+            {showPermitPackageBrowser && window.PermitPackageBrowser && (
+                <window.PermitPackageBrowser
+                    projectId={selectedProject?.id}
+                    discipline={showPermitPackageBrowser.discipline}
+                    disciplineName={showPermitPackageBrowser.disciplineName}
+                    onClose={() => setShowPermitPackageBrowser(null)}
                     auth={auth}
                 />
             )}

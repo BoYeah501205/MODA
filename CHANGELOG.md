@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.66**
+**Current Version: 1.5.67**
 
 ---
+
+## [1.5.67] - 2026-02-11
+### Feature
+- **Permit Package Browser Integration** - Added Version Browser button to Permit Drawings discipline folders. Hover over any discipline folder to see the history icon - click to open the Permit Package Browser for that discipline.
 
 ## [1.5.66] - 2026-02-10
 ### Feature
