@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.67**
+**Current Version: 1.5.68**
 
 ---
+
+## [1.5.68] - 2026-02-11
+### Feature
+- **SharePoint Sync** - Added "Sync SharePoint" button to drawings view (Admin only). Scans SharePoint folder and indexes files that were uploaded directly to SharePoint into MODA database. Appears in the header when viewing drawings inside a discipline folder.
 
 ## [1.5.67] - 2026-02-11
 ### Feature

@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-12T03:04:45.890Z
+ * Generated: 2026-02-12T03:14:10.250Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -34381,6 +34381,7 @@ const DrawingsModule = ({
   const [showAIMenu, setShowAIMenu] = useState(false); // AI Analysis dropdown menu
   const [showAnalysisBrowser, setShowAnalysisBrowser] = useState(null); // 'walls' | 'fixtures' | 'changes' | null
   const [showActivityLog, setShowActivityLog] = useState(false); // Drawing activity log modal
+  const [isSyncingSharePoint, setIsSyncingSharePoint] = useState(false); // SharePoint sync in progress
   const [issuePopover, setIssuePopover] = useState(null); // { serialNumber, issues, position } for issue status popover
   const [selectedIssueForDetail, setSelectedIssueForDetail] = useState(null); // Issue object to show in detail modal
 
@@ -36299,7 +36300,30 @@ const DrawingsModule = ({
       className: "px-4 py-2 bg-amber-500 text-white rounded-lg transition flex items-center gap-2 hover:bg-amber-600"
     }, /*#__PURE__*/React.createElement("span", {
       className: "icon-alert-triangle w-4 h-4"
-    }), "Fix Unlinked (", unlinkedDrawings.length, ")"), !isMobile && drawingPermissions.canCreate && /*#__PURE__*/React.createElement("button", {
+    }), "Fix Unlinked (", unlinkedDrawings.length, ")"), canManageFolders && window.MODA_SHAREPOINT?.syncFromSharePoint && /*#__PURE__*/React.createElement("button", {
+      onClick: async () => {
+        if (isSyncingSharePoint) return;
+        setIsSyncingSharePoint(true);
+        try {
+          const result = await window.MODA_SHAREPOINT.syncFromSharePoint(selectedProject.id, selectedProject.name, currentCategory?.name || 'Permit Drawings', resolveDisciplineId(selectedDiscipline), currentDiscipline?.name || selectedDiscipline);
+          alert(`Sync complete!\nSynced: ${result.synced}\nSkipped: ${result.skipped}\nErrors: ${result.errors.length}`);
+          // Reload drawings
+          const queryDiscipline = resolveDisciplineId(selectedDiscipline);
+          const drawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(selectedProject.id, queryDiscipline);
+          setCurrentDrawings(drawings);
+        } catch (err) {
+          console.error('[Drawings] SharePoint sync error:', err);
+          alert('Sync failed: ' + err.message);
+        } finally {
+          setIsSyncingSharePoint(false);
+        }
+      },
+      disabled: isSyncingSharePoint,
+      className: "px-4 py-2 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition flex items-center gap-2 disabled:opacity-50",
+      title: "Sync files from SharePoint that were uploaded directly"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: `icon-refresh w-4 h-4 ${isSyncingSharePoint ? 'animate-spin' : ''}`
+    }), isSyncingSharePoint ? 'Syncing...' : 'Sync SharePoint'), !isMobile && drawingPermissions.canCreate && /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowUploadModal(true),
       className: "px-4 py-2 text-white rounded-lg transition flex items-center gap-2",
       style: {

@@ -349,7 +349,101 @@
         /**
          * Get the folder path for a drawing
          */
-        buildFolderPath
+        buildFolderPath,
+
+        /**
+         * Sync files from SharePoint to MODA database
+         * Scans a discipline folder and creates database records for files not already tracked
+         * @param {string} projectId - Project UUID
+         * @param {string} projectName - Project name (for folder path)
+         * @param {string} categoryName - Category name (e.g., "Permit Drawings")
+         * @param {string} disciplineId - Discipline ID for database
+         * @param {string} disciplineName - Discipline name (for folder path)
+         * @returns {object} { synced: number, skipped: number, errors: array }
+         */
+        async syncFromSharePoint(projectId, projectName, categoryName, disciplineId, disciplineName) {
+            console.log('[SharePoint] Syncing files from:', projectName, categoryName, disciplineName);
+            
+            const results = { synced: 0, skipped: 0, errors: [] };
+            
+            try {
+                // Get files from SharePoint
+                const folderPath = buildFolderPath(projectName, categoryName, disciplineName);
+                const spFiles = await this.listFiles(folderPath);
+                
+                if (!spFiles || spFiles.length === 0) {
+                    console.log('[SharePoint] No files found in folder');
+                    return results;
+                }
+                
+                console.log('[SharePoint] Found', spFiles.length, 'files in SharePoint');
+                
+                // Get existing drawings from database
+                const existingDrawings = await window.MODA_SUPABASE_DRAWINGS.drawings.getByProjectAndDiscipline(
+                    projectId, 
+                    disciplineId
+                );
+                const existingNames = new Set(existingDrawings.map(d => d.name.toLowerCase()));
+                
+                // Process each file
+                for (const spFile of spFiles) {
+                    // Skip folders
+                    if (spFile.folder) {
+                        continue;
+                    }
+                    
+                    const fileName = spFile.name;
+                    
+                    // Skip if already exists in database
+                    if (existingNames.has(fileName.toLowerCase())) {
+                        console.log('[SharePoint] Skipping (exists):', fileName);
+                        results.skipped++;
+                        continue;
+                    }
+                    
+                    try {
+                        // Create drawing record in database
+                        const drawingData = {
+                            project_id: projectId,
+                            discipline: disciplineId,
+                            name: fileName,
+                            file_type: fileName.split('.').pop()?.toLowerCase() || 'unknown',
+                            storage_type: 'sharepoint',
+                            storage_path: `${folderPath}/${fileName}`,
+                            sharepoint_id: spFile.id,
+                            sharepoint_url: spFile.webUrl,
+                            file_size: spFile.size || 0,
+                            uploaded_by: 'SharePoint Sync',
+                            created_at: spFile.createdDateTime || new Date().toISOString(),
+                            updated_at: spFile.lastModifiedDateTime || new Date().toISOString()
+                        };
+                        
+                        const { error } = await window.MODA_SUPABASE.client
+                            .from('drawings')
+                            .insert(drawingData);
+                        
+                        if (error) {
+                            console.error('[SharePoint] Error inserting:', fileName, error);
+                            results.errors.push({ file: fileName, error: error.message });
+                        } else {
+                            console.log('[SharePoint] Synced:', fileName);
+                            results.synced++;
+                        }
+                    } catch (err) {
+                        console.error('[SharePoint] Error processing:', fileName, err);
+                        results.errors.push({ file: fileName, error: err.message });
+                    }
+                }
+                
+                console.log('[SharePoint] Sync complete:', results);
+                return results;
+                
+            } catch (err) {
+                console.error('[SharePoint] Sync error:', err);
+                results.errors.push({ file: 'folder', error: err.message });
+                return results;
+            }
+        }
     };
 
     // Export to window
