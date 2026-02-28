@@ -702,103 +702,98 @@ function DashboardRoleManager({ auth }) {
                                 </div>
                             </div>
 
-                            {/* Tab Visibility */}
+                            {/* Tab Order - Only shows visible tabs for reordering */}
                             <div style={{ marginBottom: '25px' }}>
                                 <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--autovol-navy)', marginBottom: '12px' }}>
-                                    Tab Visibility & Order
+                                    Tab Order
                                 </div>
                                 <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>
-                                    Check to enable, use arrows to reorder tabs
+                                    Reorder visible tabs using arrows. Visibility is controlled by the View permission above.
                                 </p>
 
                                 <div style={{ border: '2px solid #E5E7EB', borderRadius: '6px', overflow: 'hidden' }}>
-                                    {ALL_AVAILABLE_TABS.map((tab) => {
-                                        const isEnabled = selectedRole.tabs.includes(tab.id);
-                                        const enabledIndex = selectedRole.tabs.indexOf(tab.id);
-                                        const isFirst = enabledIndex === 0;
-                                        const isLast = enabledIndex === selectedRole.tabs.length - 1;
+                                    {selectedRole.tabs.length === 0 ? (
+                                        <div style={{ padding: '20px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>
+                                            No tabs enabled. Check "View" in the Permission Matrix above to add tabs.
+                                        </div>
+                                    ) : (
+                                        selectedRole.tabs.map((tabId, index) => {
+                                            const tab = ALL_AVAILABLE_TABS.find(t => t.id === tabId);
+                                            if (!tab) return null;
+                                            const isFirst = index === 0;
+                                            const isLast = index === selectedRole.tabs.length - 1;
 
-                                        return (
-                                            <div 
-                                                key={tab.id} 
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '12px',
-                                                    padding: '12px',
-                                                    borderBottom: '1px solid #E5E7EB',
-                                                    background: 'white',
-                                                    opacity: isEnabled ? 1 : 0.5
-                                                }}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isEnabled}
-                                                    onChange={() => toggleTab(selectedRole.id, tab.id)}
-                                                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                                                />
-                                                
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: '14px', fontWeight: '500', color: 'var(--autovol-navy)' }}>
-                                                        {tab.label}
+                                            return (
+                                                <div 
+                                                    key={tab.id} 
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px',
+                                                        padding: '12px',
+                                                        borderBottom: '1px solid #E5E7EB',
+                                                        background: 'white'
+                                                    }}
+                                                >
+                                                    <div style={{
+                                                        fontSize: '12px',
+                                                        fontWeight: '600',
+                                                        color: 'var(--autovol-teal)',
+                                                        minWidth: '28px',
+                                                        textAlign: 'center'
+                                                    }}>
+                                                        #{index + 1}
                                                     </div>
-                                                    <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
-                                                        {tab.description}
+                                                    
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: '14px', fontWeight: '500', color: 'var(--autovol-navy)' }}>
+                                                            {tab.label}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
+                                                            {tab.description}
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                        <button
+                                                            onClick={() => moveTab(selectedRole.id, tab.id, 'up')}
+                                                            disabled={isFirst}
+                                                            style={{
+                                                                width: '28px',
+                                                                height: '28px',
+                                                                border: '1px solid #D1D5DB',
+                                                                background: 'white',
+                                                                borderRadius: '4px',
+                                                                cursor: isFirst ? 'not-allowed' : 'pointer',
+                                                                fontSize: '12px',
+                                                                opacity: isFirst ? 0.3 : 1
+                                                            }}
+                                                            title="Move up"
+                                                        >
+                                                            ▲
+                                                        </button>
+                                                        <button
+                                                            onClick={() => moveTab(selectedRole.id, tab.id, 'down')}
+                                                            disabled={isLast}
+                                                            style={{
+                                                                width: '28px',
+                                                                height: '28px',
+                                                                border: '1px solid #D1D5DB',
+                                                                background: 'white',
+                                                                borderRadius: '4px',
+                                                                cursor: isLast ? 'not-allowed' : 'pointer',
+                                                                fontSize: '12px',
+                                                                opacity: isLast ? 0.3 : 1
+                                                            }}
+                                                            title="Move down"
+                                                        >
+                                                            ▼
+                                                        </button>
                                                     </div>
                                                 </div>
-
-                                                {isEnabled && (
-                                                    <>
-                                                        <div style={{
-                                                            fontSize: '12px',
-                                                            fontWeight: '600',
-                                                            color: 'var(--autovol-navy)',
-                                                            minWidth: '20px',
-                                                            textAlign: 'center'
-                                                        }}>
-                                                            #{enabledIndex + 1}
-                                                        </div>
-                                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                                            <button
-                                                                onClick={() => moveTab(selectedRole.id, tab.id, 'up')}
-                                                                disabled={isFirst}
-                                                                style={{
-                                                                    width: '28px',
-                                                                    height: '28px',
-                                                                    border: '1px solid #D1D5DB',
-                                                                    background: 'white',
-                                                                    borderRadius: '4px',
-                                                                    cursor: isFirst ? 'not-allowed' : 'pointer',
-                                                                    fontSize: '12px',
-                                                                    opacity: isFirst ? 0.3 : 1
-                                                                }}
-                                                                title="Move up"
-                                                            >
-                                                                ▲
-                                                            </button>
-                                                            <button
-                                                                onClick={() => moveTab(selectedRole.id, tab.id, 'down')}
-                                                                disabled={isLast}
-                                                                style={{
-                                                                    width: '28px',
-                                                                    height: '28px',
-                                                                    border: '1px solid #D1D5DB',
-                                                                    background: 'white',
-                                                                    borderRadius: '4px',
-                                                                    cursor: isLast ? 'not-allowed' : 'pointer',
-                                                                    fontSize: '12px',
-                                                                    opacity: isLast ? 0.3 : 1
-                                                                }}
-                                                                title="Move down"
-                                                            >
-                                                                ▼
-                                                            </button>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </div>
                         </>

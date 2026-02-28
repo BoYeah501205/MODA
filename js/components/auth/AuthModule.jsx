@@ -317,6 +317,7 @@ function useDashboardRoles() {
     const canDeleteInTab = useCallback((roleId, tabId) => hasTabPermission(roleId, tabId, 'canDelete'), [hasTabPermission]);
 
     // Toggle a specific permission for a tab
+    // Option A: Auto-sync tabs visibility with canView permission
     const toggleTabPermission = useCallback((roleId, tabId, permission = 'canEdit') => {
         const role = roles.find(r => r.id === roleId);
         if (!role) return;
@@ -329,12 +330,28 @@ function useDashboardRoles() {
             canDelete: false 
         };
         
+        const newValue = !currentTabPerm[permission];
+        const newTabPerm = { ...currentTabPerm, [permission]: newValue };
+        
         const tabPermissions = {
             ...currentPermissions,
-            [tabId]: { ...currentTabPerm, [permission]: !currentTabPerm[permission] }
+            [tabId]: newTabPerm
         };
 
-        updateRole(roleId, { tabPermissions });
+        // Auto-sync tabs array with canView permission
+        let tabs = [...(role.tabs || [])];
+        if (permission === 'canView') {
+            if (newValue && !tabs.includes(tabId)) {
+                // canView turned ON - add to visible tabs (at end)
+                tabs.push(tabId);
+            } else if (!newValue && tabs.includes(tabId)) {
+                // canView turned OFF - remove from visible tabs
+                tabs = tabs.filter(t => t !== tabId);
+            }
+            updateRole(roleId, { tabPermissions, tabs });
+        } else {
+            updateRole(roleId, { tabPermissions });
+        }
     }, [roles, updateRole]);
 
     // Set all permissions for a tab at once

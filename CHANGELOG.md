@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.68**
+**Current Version: 1.5.69**
 
 ---
+
+## [1.5.69] - 2026-02-28
+### Improvement
+- **Admin Role Permissions Simplified** - Removed redundant Tab Visibility checkboxes. Tab visibility is now automatically controlled by the "View" permission in the Tab Permission Matrix. The Tab Visibility section is now "Tab Order" - only for reordering visible tabs. Single source of truth for permissions.
 
 ## [1.5.68] - 2026-02-11
 ### Feature
