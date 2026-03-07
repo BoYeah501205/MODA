@@ -1100,12 +1100,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         onLogout={auth.logout}
                                     />
                                 )}
-                                {/* Autovol Logo */}
+                                {/* Autovol Logo - HIDDEN but preserving layout space */}
                                 <img 
                                     src={AUTOVOL_LOGO}
                                     alt="Autovol Volumetric Modular" 
                                     className="mobile-logo"
-                                    style={{height: '45px', width: 'auto'}}
+                                    style={{height: '45px', width: 'auto', visibility: 'hidden'}}
                                 />
                                 <div className="border-l pl-4 hide-mobile" style={{borderColor: 'var(--autovol-teal)'}}>
                                     <h1 className="text-lg font-bold" style={{color: 'var(--autovol-navy)'}}>Modular Operations Dashboard</h1>

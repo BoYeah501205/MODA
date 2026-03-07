@@ -28,12 +28,13 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
             return (
                 <>
                     <div className="text-center mb-8">
+                        {/* Logo HIDDEN but preserving layout space */}
                         <img 
                             src={AUTOVOL_LOGO} 
                             alt="Autovol Volumetric Modular" 
-                            style={{height: '60px', width: 'auto', margin: '0 auto'}}
+                            style={{height: '60px', width: 'auto', margin: '0 auto', visibility: 'hidden'}}
                         />
-                        <p className="text-gray-500 text-xs mt-3">Making Smart Construction Brilliant™</p>
+                        {/* <p className="text-gray-500 text-xs mt-3">Making Smart Construction Brilliant™</p> */}
                     </div>
                     <h2 style={{color: '#1E3A5F'}} className="text-xl font-semibold text-center mb-6">Sign in to MODA</h2>
                     {error && <div className="mb-4 p-3 rounded-lg text-sm" style={{backgroundColor: '#FDEAEA', color: '#E31B23'}}>{error}</div>}
@@ -217,12 +218,13 @@ const AUTOVOL_LOGO = window.AUTOVOL_LOGO || "./public/autovol-logo.png";
             return (
                 <>
                     <div className="text-center mb-8">
+                        {/* Logo HIDDEN but preserving layout space */}
                         <img 
                             src={AUTOVOL_LOGO} 
                             alt="Autovol Volumetric Modular" 
-                            style={{height: '60px', width: 'auto', margin: '0 auto'}}
+                            style={{height: '60px', width: 'auto', margin: '0 auto', visibility: 'hidden'}}
                         />
-                        <p className="text-gray-500 text-xs mt-3">Making Smart Construction Brilliant™</p>
+                        {/* <p className="text-gray-500 text-xs mt-3">Making Smart Construction Brilliant™</p> */}
                     </div>
                     <h2 style={{color: '#1E3A5F'}} className="text-xl font-semibold text-center mb-2">Welcome to MODA!</h2>
                     <p className="text-gray-500 text-sm text-center mb-6">Set your password to complete your account setup.</p>
