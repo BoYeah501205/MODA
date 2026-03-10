@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.70**
+**Current Version: 1.5.71**
 
 ---
+
+## [1.5.71] - 2026-03-10
+### Fix
+- **ES Module Syntax Removed** - Fixed `sequenceBuilderConstants.js` which was using ES module `export` syntax instead of the window pattern. MODA does not use ES modules - all components must be exposed via `window.ComponentName`. This was causing "Unexpected token 'export'" error on load.
 
 ## [1.5.70] - 2026-03-10
 ### Feature
