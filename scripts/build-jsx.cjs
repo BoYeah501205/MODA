@@ -122,6 +122,19 @@ const FILE_ORDER = [
     // Build Sequence
     'BuildSequenceHistory.jsx',
     
+    // Sequence Builder
+    'sequenceBuilder/sequenceBuilderConstants.js',
+    'sequenceBuilder/SetupDialog.jsx',
+    'sequenceBuilder/SetOrderModal.jsx',
+    'sequenceBuilder/FilterBar.jsx',
+    'sequenceBuilder/BulkEditModal.jsx',
+    'sequenceBuilder/AddModuleModal.jsx',
+    'sequenceBuilder/TagEditModal.jsx',
+    'sequenceBuilder/ModuleTable.jsx',
+    'sequenceBuilder/ModuleGrid.jsx',
+    'sequenceBuilder/SequenceBuilderHeader.jsx',
+    'sequenceBuilder/ProductionSequenceBuilder.jsx',
+    
     // Main App (must be last)
     'App.jsx'
 ];

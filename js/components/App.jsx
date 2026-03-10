@@ -158,17 +158,23 @@ const DEFAULT_DASHBOARD_ROLES = window.DEFAULT_DASHBOARD_ROLES || [];
             sidewall: 'bg-orange-100 text-orange-800',
             stair: 'bg-purple-100 text-purple-800',
             hr3Wall: 'bg-red-100 text-red-800',
+            hr2Wall: 'bg-lime-100 text-lime-800',
             short: 'bg-yellow-100 text-yellow-800',
             doubleStudio: 'bg-indigo-100 text-indigo-800',
-            sawbox: 'bg-pink-100 text-pink-800'
+            common: 'bg-cyan-100 text-cyan-800',
+            tile: 'bg-pink-100 text-pink-800',
+            sawbox: 'bg-violet-100 text-violet-800'
         };
 
         const difficultyLabels = {
-            sidewall: 'Sidewall',
+            sidewall: 'Ext Sidewall',
             stair: 'Stair',
             hr3Wall: '3HR-Wall',
+            hr2Wall: '2HR-Wall',
             short: 'Short',
             doubleStudio: 'Dbl Studio',
+            common: 'Common Area',
+            tile: 'Tile',
             sawbox: 'Sawbox'
         };
 
@@ -2290,6 +2296,19 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [showHeatMapMatrix, setShowHeatMapMatrix] = useState(false);
             const [editingAbbreviation, setEditingAbbreviation] = useState(false);
             const [abbreviationValue, setAbbreviationValue] = useState(project.abbreviation || '');
+            const [showImportDropdown, setShowImportDropdown] = useState(false);
+            const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
+            
+            // Close dropdown when clicking outside
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (showImportDropdown && !e.target.closest('.import-dropdown-container')) {
+                        setShowImportDropdown(false);
+                    }
+                };
+                document.addEventListener('click', handleClickOutside);
+                return () => document.removeEventListener('click', handleClickOutside);
+            }, [showImportDropdown]);
 
             // Report Issue State
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
@@ -2306,8 +2325,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 sidewall: false,
                 stair: false,
                 hr3Wall: false,
+                hr2Wall: false,
                 short: false,
                 doubleStudio: false,
+                common: false,
+                tile: false,
                 sawbox: false
             });
             
@@ -2343,8 +2365,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     (difficultyFilters.sidewall && m.difficulties?.sidewall) ||
                     (difficultyFilters.stair && m.difficulties?.stair) ||
                     (difficultyFilters.hr3Wall && m.difficulties?.hr3Wall) ||
+                    (difficultyFilters.hr2Wall && m.difficulties?.hr2Wall) ||
                     (difficultyFilters.short && m.difficulties?.short) ||
                     (difficultyFilters.doubleStudio && m.difficulties?.doubleStudio) ||
+                    (difficultyFilters.common && m.difficulties?.common) ||
+                    (difficultyFilters.tile && m.difficulties?.tile) ||
                     (difficultyFilters.sawbox && m.difficulties?.sawbox)
                 );
                 
@@ -2673,12 +2698,39 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     >
                                         Export Template
                                     </button>
-                                    <button
-                                        onClick={() => setShowImportModal(true)}
-                                        className="px-4 py-2 btn-primary rounded-lg transition"
-                                    >
-                                        Import Modules
-                                    </button>
+                                    <div className="relative import-dropdown-container">
+                                        <button
+                                            onClick={() => setShowImportDropdown(!showImportDropdown)}
+                                            className="px-4 py-2 btn-primary rounded-lg transition flex items-center gap-2"
+                                        >
+                                            Import Modules
+                                            <span className="text-xs">&#9662;</span>
+                                        </button>
+                                        {showImportDropdown && (
+                                            <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border z-30">
+                                                <button
+                                                    onClick={() => { setShowImportModal(true); setShowImportDropdown(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 border-b"
+                                                >
+                                                    <span className="icon-upload w-5 h-5"></span>
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">Import from Excel</div>
+                                                        <div className="text-xs text-gray-500">Upload CSV or XLSX file</div>
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    onClick={() => { setShowSequenceBuilder(true); setShowImportDropdown(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 rounded-b-lg"
+                                                >
+                                                    <span className="icon-grid w-5 h-5"></span>
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">Build Production Sequence</div>
+                                                        <div className="text-xs text-gray-500">Create sequence in MODA</div>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -2755,7 +2807,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 onClick={() => toggleDifficultyFilter('sidewall')}
                                 className={`px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.sidewall ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'}`}
                             >
-                                Sidewall
+                                Ext Sidewall
                             </button>
                             <button
                                 onClick={() => toggleDifficultyFilter('stair')}
@@ -2782,14 +2834,26 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 Dbl Studio
                             </button>
                             <button
+                                onClick={() => toggleDifficultyFilter('common')}
+                                className={`px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.common ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white text-gray-600 border-gray-300 hover:border-cyan-400'}`}
+                            >
+                                Common Area
+                            </button>
+                            <button
+                                onClick={() => toggleDifficultyFilter('tile')}
+                                className={`px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.tile ? 'bg-pink-500 text-white border-pink-500' : 'bg-white text-gray-600 border-gray-300 hover:border-pink-400'}`}
+                            >
+                                Tile
+                            </button>
+                            <button
                                 onClick={() => toggleDifficultyFilter('sawbox')}
-                                className={`px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.sawbox ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'}`}
+                                className={`px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.sawbox ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-gray-600 border-gray-300 hover:border-violet-400'}`}
                             >
                                 Sawbox
                             </button>
                             {anyDifficultyFilterActive && (
                                 <button
-                                    onClick={() => setDifficultyFilters({ sidewall: false, stair: false, hr3Wall: false, short: false, doubleStudio: false, sawbox: false })}
+                                    onClick={() => setDifficultyFilters({ sidewall: false, stair: false, hr3Wall: false, hr2Wall: false, short: false, doubleStudio: false, common: false, tile: false, sawbox: false })}
                                     className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 underline"
                                 >
                                     Clear filters
@@ -3114,6 +3178,15 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             productionStages={productionStages}
                             onClose={() => setShowHeatMapMatrix(false)}
                             canEdit={canManageImports}
+                        />
+                    )}
+                    
+                    {/* Production Sequence Builder */}
+                    {showSequenceBuilder && window.ProductionSequenceBuilder && (
+                        <window.ProductionSequenceBuilder
+                            projectId={currentProject?.id}
+                            projectName={currentProject?.name}
+                            onClose={() => setShowSequenceBuilder(false)}
                         />
                     )}
                     

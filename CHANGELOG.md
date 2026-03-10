@@ -2,9 +2,24 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.69**
+**Current Version: 1.5.70**
 
 ---
+
+## [1.5.70] - 2026-03-10
+### Feature
+- **Production Sequence Builder Phase 1** - New tool for building module production sequences directly in MODA. Access via Import Modules dropdown on Project Detail page.
+  - 12 sub-components: SetupDialog, SetOrderModal, FilterBar, BulkEditModal, AddModuleModal, TagEditModal, ModuleTable, ModuleGrid, SequenceBuilderHeader, ProductionSequenceBuilder
+  - Drag-and-drop reordering with auto-renumbering (integers only)
+  - Inline cell editing with double-click
+  - Bulk edit selected modules
+  - Filter by building, level, unit type, tags
+  - Build sequence history snapshots saved on each save
+  - Supabase integration for read/write
+
+### Fix
+- **Difficulty Tags Corrected** - Updated difficulty tags to correct list: Ext Sidewall, Stair, 3HR-Wall, 2HR-Wall, Short, Dbl Studio, Common Area, Tile, Sawbox
+- **build_sequence as INTEGER** - All sequence values now use Math.round() to ensure integer storage
 
 ## [1.5.69] - 2026-02-28
 ### Improvement

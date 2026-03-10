@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-02-12T03:14:10.250Z
+ * Generated: 2026-03-10T16:21:13.310Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -2605,6 +2605,7 @@ function useDashboardRoles() {
   const canDeleteInTab = useCallback((roleId, tabId) => hasTabPermission(roleId, tabId, 'canDelete'), [hasTabPermission]);
 
   // Toggle a specific permission for a tab
+  // Option A: Auto-sync tabs visibility with canView permission
   const toggleTabPermission = useCallback((roleId, tabId, permission = 'canEdit') => {
     const role = roles.find(r => r.id === roleId);
     if (!role) return;
@@ -2615,16 +2616,35 @@ function useDashboardRoles() {
       canCreate: false,
       canDelete: false
     };
+    const newValue = !currentTabPerm[permission];
+    const newTabPerm = {
+      ...currentTabPerm,
+      [permission]: newValue
+    };
     const tabPermissions = {
       ...currentPermissions,
-      [tabId]: {
-        ...currentTabPerm,
-        [permission]: !currentTabPerm[permission]
-      }
+      [tabId]: newTabPerm
     };
-    updateRole(roleId, {
-      tabPermissions
-    });
+
+    // Auto-sync tabs array with canView permission
+    let tabs = [...(role.tabs || [])];
+    if (permission === 'canView') {
+      if (newValue && !tabs.includes(tabId)) {
+        // canView turned ON - add to visible tabs (at end)
+        tabs.push(tabId);
+      } else if (!newValue && tabs.includes(tabId)) {
+        // canView turned OFF - remove from visible tabs
+        tabs = tabs.filter(t => t !== tabId);
+      }
+      updateRole(roleId, {
+        tabPermissions,
+        tabs
+      });
+    } else {
+      updateRole(roleId, {
+        tabPermissions
+      });
+    }
   }, [roles, updateRole]);
 
   // Set all permissions for a tab at once
@@ -3192,11 +3212,10 @@ function LoginForm({
     style: {
       height: '60px',
       width: 'auto',
-      margin: '0 auto'
+      margin: '0 auto',
+      visibility: 'hidden'
     }
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-gray-500 text-xs mt-3"
-  }, "Making Smart Construction Brilliant\u2122")), /*#__PURE__*/React.createElement("h2", {
+  })), /*#__PURE__*/React.createElement("h2", {
     style: {
       color: '#1E3A5F'
     },
@@ -3418,11 +3437,10 @@ function SetPasswordForm({
     style: {
       height: '60px',
       width: 'auto',
-      margin: '0 auto'
+      margin: '0 auto',
+      visibility: 'hidden'
     }
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-gray-500 text-xs mt-3"
-  }, "Making Smart Construction Brilliant\u2122")), /*#__PURE__*/React.createElement("h2", {
+  })), /*#__PURE__*/React.createElement("h2", {
     style: {
       color: '#1E3A5F'
     },
@@ -4459,23 +4477,30 @@ function DashboardRoleManager({
       color: 'var(--autovol-navy)',
       marginBottom: '12px'
     }
-  }, "Tab Visibility & Order"), /*#__PURE__*/React.createElement("p", {
+  }, "Tab Order"), /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: '12px',
       color: '#6B7280',
       marginBottom: '12px'
     }
-  }, "Check to enable, use arrows to reorder tabs"), /*#__PURE__*/React.createElement("div", {
+  }, "Reorder visible tabs using arrows. Visibility is controlled by the View permission above."), /*#__PURE__*/React.createElement("div", {
     style: {
       border: '2px solid #E5E7EB',
       borderRadius: '6px',
       overflow: 'hidden'
     }
-  }, ALL_AVAILABLE_TABS.map(tab => {
-    const isEnabled = selectedRole.tabs.includes(tab.id);
-    const enabledIndex = selectedRole.tabs.indexOf(tab.id);
-    const isFirst = enabledIndex === 0;
-    const isLast = enabledIndex === selectedRole.tabs.length - 1;
+  }, selectedRole.tabs.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '20px',
+      textAlign: 'center',
+      color: '#9CA3AF',
+      fontSize: '13px'
+    }
+  }, "No tabs enabled. Check \"View\" in the Permission Matrix above to add tabs.") : selectedRole.tabs.map((tabId, index) => {
+    const tab = ALL_AVAILABLE_TABS.find(t => t.id === tabId);
+    if (!tab) return null;
+    const isFirst = index === 0;
+    const isLast = index === selectedRole.tabs.length - 1;
     return /*#__PURE__*/React.createElement("div", {
       key: tab.id,
       style: {
@@ -4484,19 +4509,17 @@ function DashboardRoleManager({
         gap: '12px',
         padding: '12px',
         borderBottom: '1px solid #E5E7EB',
-        background: 'white',
-        opacity: isEnabled ? 1 : 0.5
+        background: 'white'
       }
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "checkbox",
-      checked: isEnabled,
-      onChange: () => toggleTab(selectedRole.id, tab.id),
+    }, /*#__PURE__*/React.createElement("div", {
       style: {
-        width: '20px',
-        height: '20px',
-        cursor: 'pointer'
+        fontSize: '12px',
+        fontWeight: '600',
+        color: 'var(--autovol-teal)',
+        minWidth: '28px',
+        textAlign: 'center'
       }
-    }), /*#__PURE__*/React.createElement("div", {
+    }, "#", index + 1), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1
       }
@@ -4512,15 +4535,7 @@ function DashboardRoleManager({
         color: '#9CA3AF',
         marginTop: '2px'
       }
-    }, tab.description)), isEnabled && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: '12px',
-        fontWeight: '600',
-        color: 'var(--autovol-navy)',
-        minWidth: '20px',
-        textAlign: 'center'
-      }
-    }, "#", enabledIndex + 1), /*#__PURE__*/React.createElement("div", {
+    }, tab.description)), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: '4px'
@@ -4553,7 +4568,7 @@ function DashboardRoleManager({
         opacity: isLast ? 0.3 : 1
       },
       title: "Move down"
-    }, "\u25BC"))));
+    }, "\u25BC")));
   })))) : /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: 'center',
@@ -52079,6 +52094,3219 @@ window.BuildSequenceHistory = BuildSequenceHistory;
 
 
 // ============================================================================
+// FILE: sequenceBuilder/sequenceBuilderConstants.js
+// ============================================================================
+(function() {
+/**
+ * Sequence Builder Constants
+ * Shared constants for the Production Sequence Builder feature
+ */
+
+// Difficulty indicator tags with display names and colors
+// Auto-calculated tags: dbl-studio (both Hitch & Rear Room Type contain "Studio"), sawbox (Hitch BLM ≠ Rear BLM)
+export const DIFFICULTY_TAGS = [{
+  id: 'ext-sidewall',
+  name: 'Ext Sidewall',
+  color: '#ef4444',
+  bgColor: '#fef2f2',
+  autoCalc: false
+}, {
+  id: 'stair',
+  name: 'Stair',
+  color: '#f97316',
+  bgColor: '#fff7ed',
+  autoCalc: false
+}, {
+  id: 'three-hr',
+  name: '3HR-Wall',
+  color: '#eab308',
+  bgColor: '#fefce8',
+  autoCalc: false
+}, {
+  id: 'two-hr',
+  name: '2HR-Wall',
+  color: '#a3e635',
+  bgColor: '#f7fee7',
+  autoCalc: false
+}, {
+  id: 'short',
+  name: 'Short',
+  color: '#22c55e',
+  bgColor: '#f0fdf4',
+  autoCalc: false
+}, {
+  id: 'dbl-studio',
+  name: 'Dbl Studio',
+  color: '#3b82f6',
+  bgColor: '#eff6ff',
+  autoCalc: true
+}, {
+  id: 'common',
+  name: 'Common Area',
+  color: '#06b6d4',
+  bgColor: '#ecfeff',
+  autoCalc: false
+}, {
+  id: 'tile',
+  name: 'Tile',
+  color: '#ec4899',
+  bgColor: '#fdf2f8',
+  autoCalc: false
+}, {
+  id: 'sawbox',
+  name: 'Sawbox',
+  color: '#8b5cf6',
+  bgColor: '#f5f3ff',
+  autoCalc: true
+}];
+
+// Map tag IDs to their full objects for quick lookup
+export const DIFFICULTY_TAG_MAP = DIFFICULTY_TAGS.reduce((acc, tag) => {
+  acc[tag.id] = tag;
+  return acc;
+}, {});
+
+// Default columns for the module grid
+export const DEFAULT_COLUMNS = [{
+  id: 'checkbox',
+  label: '',
+  width: 40,
+  sortable: false
+}, {
+  id: 'build_sequence',
+  label: 'Seq #',
+  width: 70,
+  sortable: true
+}, {
+  id: 'set_sequence',
+  label: 'Set #',
+  width: 70,
+  sortable: true
+}, {
+  id: 'serial_number',
+  label: 'Serial #',
+  width: 120,
+  sortable: true
+}, {
+  id: 'blm_id',
+  label: 'BLM',
+  width: 100,
+  sortable: true
+}, {
+  id: 'unit_type',
+  label: 'Unit Type',
+  width: 120,
+  sortable: true
+}, {
+  id: 'building',
+  label: 'Building',
+  width: 80,
+  sortable: true
+}, {
+  id: 'level',
+  label: 'Level',
+  width: 70,
+  sortable: true
+}, {
+  id: 'difficulty_tags',
+  label: 'Difficulty Tags',
+  width: 200,
+  sortable: false
+}, {
+  id: 'notes',
+  label: 'Notes',
+  width: 150,
+  sortable: false
+}, {
+  id: 'actions',
+  label: '',
+  width: 80,
+  sortable: false
+}];
+
+// Building configuration presets
+export const BUILDING_PRESETS = {
+  single: {
+    buildings: 1,
+    label: 'Single Building'
+  },
+  dual: {
+    buildings: 2,
+    label: 'Two Buildings'
+  },
+  multi: {
+    buildings: 3,
+    label: 'Three+ Buildings'
+  }
+};
+
+// Level configuration (typical for modular construction)
+export const LEVEL_OPTIONS = [{
+  value: 1,
+  label: 'Level 1'
+}, {
+  value: 2,
+  label: 'Level 2'
+}, {
+  value: 3,
+  label: 'Level 3'
+}, {
+  value: 4,
+  label: 'Level 4'
+}, {
+  value: 5,
+  label: 'Level 5'
+}, {
+  value: 6,
+  label: 'Level 6'
+}];
+
+// Unit type categories
+export const UNIT_TYPE_CATEGORIES = ['Studio', '1BR', '1BR+Den', '2BR', '2BR+Den', '3BR', 'Corridor', 'Stair', 'Elevator', 'Mechanical', 'Common', 'Other'];
+
+// Sort directions
+export const SORT_DIRECTIONS = {
+  ASC: 'asc',
+  DESC: 'desc',
+  NONE: null
+};
+
+// Filter operators for advanced filtering
+export const FILTER_OPERATORS = {
+  EQUALS: 'equals',
+  CONTAINS: 'contains',
+  STARTS_WITH: 'startsWith',
+  ENDS_WITH: 'endsWith',
+  GREATER_THAN: 'greaterThan',
+  LESS_THAN: 'lessThan',
+  BETWEEN: 'between',
+  IN: 'in',
+  NOT_IN: 'notIn'
+};
+
+// Bulk edit field options
+export const BULK_EDIT_FIELDS = [{
+  id: 'building',
+  label: 'Building',
+  type: 'select'
+}, {
+  id: 'level',
+  label: 'Level',
+  type: 'select'
+}, {
+  id: 'unit_type',
+  label: 'Unit Type',
+  type: 'select'
+}, {
+  id: 'difficulty_tags',
+  label: 'Difficulty Tags',
+  type: 'tags'
+}, {
+  id: 'notes',
+  label: 'Notes',
+  type: 'text'
+}];
+
+// Serial number generation patterns
+export const SERIAL_PATTERNS = {
+  SEQUENTIAL: 'sequential',
+  // 001, 002, 003...
+  BLM_BASED: 'blm_based',
+  // B1L2M01, B1L2M02...
+  CUSTOM: 'custom' // User-defined pattern
+};
+
+// Undo/Redo stack limits
+export const HISTORY_LIMIT = 50;
+
+// Auto-save debounce delay (ms)
+export const AUTO_SAVE_DELAY = 2000;
+
+// Pagination options
+export const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+export const DEFAULT_PAGE_SIZE = 50;
+
+// Export formats
+export const EXPORT_FORMATS = {
+  CSV: 'csv',
+  EXCEL: 'xlsx',
+  JSON: 'json'
+};
+
+// Status indicators for sequence builder workflow
+export const WORKFLOW_STEPS = [{
+  id: 'setup',
+  label: 'Project Setup',
+  description: 'Configure buildings and levels'
+}, {
+  id: 'generate',
+  label: 'Generate Modules',
+  description: 'Create module entries'
+}, {
+  id: 'sequence',
+  label: 'Set Sequence',
+  description: 'Assign build order'
+}, {
+  id: 'tags',
+  label: 'Add Tags',
+  description: 'Apply difficulty indicators'
+}, {
+  id: 'review',
+  label: 'Review & Save',
+  description: 'Finalize and save to project'
+}];
+
+// Keyboard shortcuts
+export const KEYBOARD_SHORTCUTS = {
+  UNDO: {
+    key: 'z',
+    ctrl: true,
+    description: 'Undo last action'
+  },
+  REDO: {
+    key: 'y',
+    ctrl: true,
+    description: 'Redo last action'
+  },
+  SAVE: {
+    key: 's',
+    ctrl: true,
+    description: 'Save changes'
+  },
+  SELECT_ALL: {
+    key: 'a',
+    ctrl: true,
+    description: 'Select all modules'
+  },
+  DELETE: {
+    key: 'Delete',
+    ctrl: false,
+    description: 'Delete selected modules'
+  },
+  ESCAPE: {
+    key: 'Escape',
+    ctrl: false,
+    description: 'Clear selection / Close modal'
+  },
+  BULK_EDIT: {
+    key: 'e',
+    ctrl: true,
+    description: 'Open bulk edit'
+  },
+  FILTER: {
+    key: 'f',
+    ctrl: true,
+    description: 'Focus filter'
+  }
+};
+
+// Validation rules
+export const VALIDATION_RULES = {
+  SERIAL_NUMBER: {
+    minLength: 1,
+    maxLength: 20,
+    pattern: /^[A-Za-z0-9-_]+$/,
+    message: 'Serial number must be alphanumeric with dashes or underscores'
+  },
+  BLM_ID: {
+    pattern: /^B\d+L\d+M\d+$/i,
+    message: 'BLM must follow format: B1L2M01 (Building, Level, Module)'
+  },
+  BUILD_SEQUENCE: {
+    min: 1,
+    max: 9999,
+    message: 'Build sequence must be between 1 and 9999'
+  },
+  SET_SEQUENCE: {
+    min: 1,
+    max: 9999,
+    message: 'Set sequence must be between 1 and 9999'
+  }
+};
+
+// Default module template
+export const DEFAULT_MODULE = {
+  id: null,
+  serial_number: '',
+  blm_id: '',
+  unit_type: '',
+  building: 1,
+  level: 1,
+  build_sequence: null,
+  set_sequence: null,
+  difficulty_tags: [],
+  notes: '',
+  created_at: null,
+  updated_at: null
+};
+
+// Helper function to parse BLM ID into components
+export function parseBLM(blmId) {
+  if (!blmId) return null;
+  const match = blmId.match(/^B(\d+)L(\d+)M(\d+)$/i);
+  if (!match) return null;
+  return {
+    building: parseInt(match[1], 10),
+    level: parseInt(match[2], 10),
+    module: parseInt(match[3], 10)
+  };
+}
+
+// Helper function to generate BLM ID from components
+export function generateBLM(building, level, module) {
+  const b = String(building).padStart(1, '0');
+  const l = String(level).padStart(1, '0');
+  const m = String(module).padStart(2, '0');
+  return `B${b}L${l}M${m}`;
+}
+
+// Helper function to get tag by ID
+export function getTagById(tagId) {
+  return DIFFICULTY_TAG_MAP[tagId] || null;
+}
+
+// Helper function to get multiple tags by IDs
+export function getTagsByIds(tagIds) {
+  if (!Array.isArray(tagIds)) return [];
+  return tagIds.map(id => DIFFICULTY_TAG_MAP[id]).filter(Boolean);
+}
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/SetupDialog.jsx
+// ============================================================================
+(function() {
+/**
+ * SetupDialog.jsx
+ * Initial setup dialog for configuring buildings, levels, and module generation
+ */
+// [Removed duplicate React destructuring]
+function SetupDialog({
+  projectId,
+  projectName,
+  onGenerate,
+  onImportExisting,
+  onClose,
+  existingModuleCount = 0
+}) {
+  // Building configuration state
+  const [numBuildings, setNumBuildings] = useState(1);
+  const [buildingConfigs, setBuildingConfigs] = useState([{
+    building: 1,
+    levels: 4,
+    modulesPerLevel: 10
+  }]);
+
+  // Serial number configuration
+  const [serialPrefix, setSerialPrefix] = useState('');
+  const [startingSerial, setStartingSerial] = useState(1);
+
+  // UI state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Calculate total modules
+  const totalModules = buildingConfigs.reduce((sum, config) => {
+    return sum + config.levels * config.modulesPerLevel;
+  }, 0);
+
+  // Handle building count change
+  const handleBuildingCountChange = useCallback(count => {
+    const newCount = Math.max(1, Math.min(10, parseInt(count) || 1));
+    setNumBuildings(newCount);
+
+    // Adjust building configs array
+    const newConfigs = [...buildingConfigs];
+    while (newConfigs.length < newCount) {
+      newConfigs.push({
+        building: newConfigs.length + 1,
+        levels: 4,
+        modulesPerLevel: 10
+      });
+    }
+    while (newConfigs.length > newCount) {
+      newConfigs.pop();
+    }
+    setBuildingConfigs(newConfigs);
+  }, [buildingConfigs]);
+
+  // Handle individual building config change
+  const handleConfigChange = useCallback((index, field, value) => {
+    const newConfigs = [...buildingConfigs];
+    newConfigs[index] = {
+      ...newConfigs[index],
+      [field]: Math.max(1, parseInt(value) || 1)
+    };
+    setBuildingConfigs(newConfigs);
+  }, [buildingConfigs]);
+
+  // Apply same config to all buildings
+  const applyToAll = useCallback(() => {
+    if (buildingConfigs.length === 0) return;
+    const template = buildingConfigs[0];
+    const newConfigs = buildingConfigs.map((config, index) => ({
+      ...config,
+      levels: template.levels,
+      modulesPerLevel: template.modulesPerLevel
+    }));
+    setBuildingConfigs(newConfigs);
+  }, [buildingConfigs]);
+
+  // Handle generate
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      await onGenerate({
+        buildingConfigs,
+        serialPrefix: serialPrefix.trim(),
+        startingSerial
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to generate modules');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-semibold text-gray-900"
+  }, "Setup Production Sequence"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500 mt-1"
+  }, projectName)), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-gray-400 hover:text-gray-600 p-1",
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-6 h-6",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto px-6 py-4"
+  }, existingModuleCount > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-2"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium text-amber-800"
+  }, "This project has ", existingModuleCount, " existing modules"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-amber-700 mt-1"
+  }, "You can import them or generate new modules (existing will be preserved)."), /*#__PURE__*/React.createElement("button", {
+    onClick: onImportExisting,
+    className: "mt-2 text-sm font-medium text-amber-700 hover:text-amber-900 underline"
+  }, "Import existing modules")))), /*#__PURE__*/React.createElement("div", {
+    className: "mb-6"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-2"
+  }, "Number of Buildings"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleBuildingCountChange(numBuildings - 1),
+    disabled: numBuildings <= 1,
+    className: "w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+  }, "-"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: numBuildings,
+    onChange: e => handleBuildingCountChange(e.target.value),
+    min: "1",
+    max: "10",
+    className: "w-20 text-center border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleBuildingCountChange(numBuildings + 1),
+    disabled: numBuildings >= 10,
+    className: "w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+  }, "+"))), /*#__PURE__*/React.createElement("div", {
+    className: "mb-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700"
+  }, "Building Configuration"), numBuildings > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: applyToAll,
+    className: "text-sm text-blue-600 hover:text-blue-800"
+  }, "Apply Building 1 settings to all")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, buildingConfigs.map((config, index) => /*#__PURE__*/React.createElement("div", {
+    key: config.building,
+    className: "flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-medium text-gray-700 w-24"
+  }, "Building ", config.building), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm text-gray-600"
+  }, "Levels:"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: config.levels,
+    onChange: e => handleConfigChange(index, 'levels', e.target.value),
+    min: "1",
+    max: "20",
+    className: "w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm text-gray-600"
+  }, "Modules/Level:"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: config.modulesPerLevel,
+    onChange: e => handleConfigChange(index, 'modulesPerLevel', e.target.value),
+    min: "1",
+    max: "100",
+    className: "w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-500 ml-auto"
+  }, "= ", config.levels * config.modulesPerLevel, " modules"))))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAdvanced(!showAdvanced),
+    className: "flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-4"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: `w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`,
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M9 5l7 7-7 7"
+  })), "Advanced Options"), showAdvanced && /*#__PURE__*/React.createElement("div", {
+    className: "mb-6 p-4 bg-gray-50 rounded-lg space-y-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Serial Number Prefix (optional)"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: serialPrefix,
+    onChange: e => setSerialPrefix(e.target.value),
+    placeholder: "e.g., MOD, PRJ-001",
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Preview: ", serialPrefix ? `${serialPrefix}-001` : '001')), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Starting Serial Number"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: startingSerial,
+    onChange: e => setStartingSerial(Math.max(1, parseInt(e.target.value) || 1)),
+    min: "1",
+    className: "w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }))), error && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4 p-3 bg-red-50 border border-red-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-red-700"
+  }, error))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm text-gray-600"
+  }, "Total: ", /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-gray-900"
+  }, totalModules), " modules will be generated"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerate,
+    disabled: isGenerating || totalModules === 0,
+    className: "px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  }, isGenerating ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin w-4 h-4",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), "Generating...") : 'Generate Modules')))));
+}
+
+// Expose to window for script tag usage
+window.SetupDialog = SetupDialog;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/SetOrderModal.jsx
+// ============================================================================
+(function() {
+/**
+ * SetOrderModal.jsx
+ * Modal for configuring stack/set order - groups modules by set for crane placement
+ */
+// [Removed duplicate React destructuring]
+function SetOrderModal({
+  modules,
+  onSave,
+  onClose
+}) {
+  // Group modules by building and level for set assignment
+  const [setAssignments, setSetAssignments] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [sortBy, setSortBy] = useState('blm_id');
+
+  // Initialize set assignments from modules
+  useEffect(() => {
+    const assignments = {};
+    modules.forEach(module => {
+      assignments[module.id] = module.set_sequence || null;
+    });
+    setSetAssignments(assignments);
+  }, [modules]);
+
+  // Group modules by building and level
+  const groupedModules = useMemo(() => {
+    const groups = {};
+    modules.forEach(module => {
+      const building = module.building || 1;
+      const level = module.level || 1;
+      const key = `B${building}L${level}`;
+      if (!groups[key]) {
+        groups[key] = {
+          building,
+          level,
+          key,
+          modules: []
+        };
+      }
+      groups[key].modules.push(module);
+    });
+
+    // Sort modules within each group
+    Object.values(groups).forEach(group => {
+      group.modules.sort((a, b) => {
+        const aVal = a[sortBy] || '';
+        const bVal = b[sortBy] || '';
+        return String(aVal).localeCompare(String(bVal), undefined, {
+          numeric: true
+        });
+      });
+    });
+
+    // Sort groups by building then level
+    return Object.values(groups).sort((a, b) => {
+      if (a.building !== b.building) return a.building - b.building;
+      return a.level - b.level;
+    });
+  }, [modules, sortBy]);
+
+  // Handle individual set assignment change
+  const handleSetChange = useCallback((moduleId, value) => {
+    const numValue = value === '' ? null : Math.max(1, parseInt(value) || 1);
+    setSetAssignments(prev => ({
+      ...prev,
+      [moduleId]: numValue
+    }));
+    setIsDirty(true);
+  }, []);
+
+  // Auto-assign set numbers for a group (level)
+  const autoAssignGroup = useCallback((groupKey, startingSet = 1) => {
+    const group = groupedModules.find(g => g.key === groupKey);
+    if (!group) return;
+    const newAssignments = {
+      ...setAssignments
+    };
+    group.modules.forEach((module, index) => {
+      newAssignments[module.id] = startingSet + index;
+    });
+    setSetAssignments(newAssignments);
+    setIsDirty(true);
+  }, [groupedModules, setAssignments]);
+
+  // Auto-assign all sets sequentially
+  const autoAssignAll = useCallback(() => {
+    const newAssignments = {};
+    let setNumber = 1;
+    groupedModules.forEach(group => {
+      group.modules.forEach(module => {
+        newAssignments[module.id] = setNumber++;
+      });
+    });
+    setSetAssignments(newAssignments);
+    setIsDirty(true);
+  }, [groupedModules]);
+
+  // Clear all set assignments
+  const clearAll = useCallback(() => {
+    const newAssignments = {};
+    modules.forEach(module => {
+      newAssignments[module.id] = null;
+    });
+    setSetAssignments(newAssignments);
+    setIsDirty(true);
+  }, [modules]);
+
+  // Handle save
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      // Convert to array of updates
+      const updates = Object.entries(setAssignments).map(([id, set_sequence]) => ({
+        id,
+        set_sequence
+      }));
+      await onSave(updates);
+    } catch (err) {
+      setError(err.message || 'Failed to save set order');
+      setIsSaving(false);
+    }
+  };
+
+  // Get stats
+  const stats = useMemo(() => {
+    const assigned = Object.values(setAssignments).filter(v => v != null).length;
+    const total = modules.length;
+    const maxSet = Math.max(0, ...Object.values(setAssignments).filter(v => v != null));
+    return {
+      assigned,
+      total,
+      maxSet
+    };
+  }, [setAssignments, modules]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-semibold text-gray-900"
+  }, "Set Order Configuration"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500 mt-1"
+  }, "Assign set numbers for crane placement sequence")), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-gray-400 hover:text-gray-600 p-1",
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-6 h-6",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm text-gray-600"
+  }, "Sort by:"), /*#__PURE__*/React.createElement("select", {
+    value: sortBy,
+    onChange: e => setSortBy(e.target.value),
+    className: "text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "blm_id"
+  }, "BLM ID"), /*#__PURE__*/React.createElement("option", {
+    value: "serial_number"
+  }, "Serial #"), /*#__PURE__*/React.createElement("option", {
+    value: "build_sequence"
+  }, "Build Seq")))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: autoAssignAll,
+    className: "px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+  }, "Auto-Assign All"), /*#__PURE__*/React.createElement("button", {
+    onClick: clearAll,
+    className: "px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+  }, "Clear All"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto px-6 py-4"
+  }, groupedModules.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "text-center py-12 text-gray-500"
+  }, "No modules to configure") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-6"
+  }, groupedModules.map(group => /*#__PURE__*/React.createElement("div", {
+    key: group.key,
+    className: "border border-gray-200 rounded-lg overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-medium text-gray-900"
+  }, "Building ", group.building, ", Level ", group.level), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-500"
+  }, group.modules.length, " modules"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => autoAssignGroup(group.key),
+    className: "text-sm text-blue-600 hover:text-blue-800"
+  }, "Auto-assign"))), /*#__PURE__*/React.createElement("table", {
+    className: "w-full"
+  }, /*#__PURE__*/React.createElement("thead", {
+    className: "bg-gray-50 text-xs text-gray-500 uppercase"
+  }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-left font-medium"
+  }, "Serial #"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-left font-medium"
+  }, "BLM"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-left font-medium"
+  }, "Unit Type"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-left font-medium"
+  }, "Build Seq"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-center font-medium w-24"
+  }, "Set #"))), /*#__PURE__*/React.createElement("tbody", {
+    className: "divide-y divide-gray-100"
+  }, group.modules.map(module => /*#__PURE__*/React.createElement("tr", {
+    key: module.id,
+    className: "hover:bg-gray-50"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-sm text-gray-900"
+  }, module.serial_number || '-'), /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-sm text-gray-600"
+  }, module.blm_id || '-'), /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-sm text-gray-600"
+  }, module.unit_type || '-'), /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-sm text-gray-600"
+  }, module.build_sequence || '-'), /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-center"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: setAssignments[module.id] || '',
+    onChange: e => handleSetChange(module.id, e.target.value),
+    min: "1",
+    placeholder: "-",
+    className: "w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }))))))))), error && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-red-700"
+  }, error))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm text-gray-600"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium"
+  }, stats.assigned), " of ", stats.total, " modules assigned", stats.maxSet > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "ml-3"
+  }, "Max set: ", /*#__PURE__*/React.createElement("span", {
+    className: "font-medium"
+  }, stats.maxSet))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSave,
+    disabled: isSaving || !isDirty,
+    className: "px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  }, isSaving ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin w-4 h-4",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), "Saving...") : 'Save Set Order')))));
+}
+
+// Expose to window for script tag usage
+window.SetOrderModal = SetOrderModal;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/FilterBar.jsx
+// ============================================================================
+(function() {
+/**
+ * FilterBar.jsx
+ * Filter controls for the module grid - building, level, unit type, tags, search
+ */
+// [Removed duplicate React destructuring]
+function FilterBar({
+  modules,
+  filters,
+  onFilterChange,
+  onClearFilters
+}) {
+  const [searchText, setSearchText] = useState(filters.search || '');
+
+  // Extract unique values from modules for filter dropdowns
+  const filterOptions = useMemo(() => {
+    const buildings = new Set();
+    const levels = new Set();
+    const unitTypes = new Set();
+    const tags = new Set();
+    modules.forEach(module => {
+      if (module.building) buildings.add(module.building);
+      if (module.level) levels.add(module.level);
+      if (module.unit_type) unitTypes.add(module.unit_type);
+      (module.difficulty_tags || []).forEach(tag => tags.add(tag));
+    });
+    return {
+      buildings: Array.from(buildings).sort((a, b) => a - b),
+      levels: Array.from(levels).sort((a, b) => a - b),
+      unitTypes: Array.from(unitTypes).sort(),
+      tags: Array.from(tags).sort()
+    };
+  }, [modules]);
+
+  // Handle search with debounce
+  const handleSearchChange = useCallback(value => {
+    setSearchText(value);
+    // Debounce the actual filter update
+    clearTimeout(window._filterSearchTimeout);
+    window._filterSearchTimeout = setTimeout(() => {
+      onFilterChange({
+        ...filters,
+        search: value
+      });
+    }, 300);
+  }, [filters, onFilterChange]);
+
+  // Handle filter change
+  const handleFilterChange = useCallback((key, value) => {
+    onFilterChange({
+      ...filters,
+      [key]: value === '' ? null : value
+    });
+  }, [filters, onFilterChange]);
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return filters.building || filters.level || filters.unitType || filters.tag || filters.search || filters.hasSequence !== null;
+  }, [filters]);
+
+  // Get tag display info
+  const getTagInfo = tagId => {
+    const tagMap = {
+      'ext_sidewall': {
+        name: 'Ext Sidewall',
+        color: '#ef4444'
+      },
+      'stair': {
+        name: 'Stair',
+        color: '#f97316'
+      },
+      '3hr_wall': {
+        name: '3HR-Wall',
+        color: '#eab308'
+      },
+      'short': {
+        name: 'Short',
+        color: '#22c55e'
+      },
+      'dbl_studio': {
+        name: 'Dbl Studio',
+        color: '#3b82f6'
+      },
+      'sawbox': {
+        name: 'Sawbox',
+        color: '#8b5cf6'
+      },
+      'ada': {
+        name: 'ADA',
+        color: '#06b6d4'
+      },
+      'corner': {
+        name: 'Corner',
+        color: '#ec4899'
+      },
+      'penthouse': {
+        name: 'Penthouse',
+        color: '#14b8a6'
+      },
+      'mep_heavy': {
+        name: 'MEP Heavy',
+        color: '#f59e0b'
+      }
+    };
+    return tagMap[tagId] || {
+      name: tagId,
+      color: '#6b7280'
+    };
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-gray-200 rounded-lg p-3 mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative flex-1 min-w-[200px] max-w-xs"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+  })), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: searchText,
+    onChange: e => handleSearchChange(e.target.value),
+    placeholder: "Search serial, BLM, notes...",
+    className: "w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }), searchText && /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleSearchChange(''),
+    className: "absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), /*#__PURE__*/React.createElement("select", {
+    value: filters.building || '',
+    onChange: e => handleFilterChange('building', e.target.value),
+    className: "text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Buildings"), filterOptions.buildings.map(b => /*#__PURE__*/React.createElement("option", {
+    key: b,
+    value: b
+  }, "Building ", b))), /*#__PURE__*/React.createElement("select", {
+    value: filters.level || '',
+    onChange: e => handleFilterChange('level', e.target.value),
+    className: "text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Levels"), filterOptions.levels.map(l => /*#__PURE__*/React.createElement("option", {
+    key: l,
+    value: l
+  }, "Level ", l))), /*#__PURE__*/React.createElement("select", {
+    value: filters.unitType || '',
+    onChange: e => handleFilterChange('unitType', e.target.value),
+    className: "text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Unit Types"), filterOptions.unitTypes.map(ut => /*#__PURE__*/React.createElement("option", {
+    key: ut,
+    value: ut
+  }, ut))), /*#__PURE__*/React.createElement("select", {
+    value: filters.tag || '',
+    onChange: e => handleFilterChange('tag', e.target.value),
+    className: "text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Tags"), filterOptions.tags.map(tagId => {
+    const tagInfo = getTagInfo(tagId);
+    return /*#__PURE__*/React.createElement("option", {
+      key: tagId,
+      value: tagId
+    }, tagInfo.name);
+  })), /*#__PURE__*/React.createElement("select", {
+    value: filters.hasSequence === null ? '' : filters.hasSequence ? 'yes' : 'no',
+    onChange: e => {
+      const val = e.target.value;
+      handleFilterChange('hasSequence', val === '' ? null : val === 'yes');
+    },
+    className: "text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Sequence: All"), /*#__PURE__*/React.createElement("option", {
+    value: "yes"
+  }, "Has Sequence"), /*#__PURE__*/React.createElement("option", {
+    value: "no"
+  }, "No Sequence")), hasActiveFilters && /*#__PURE__*/React.createElement("button", {
+    onClick: onClearFilters,
+    className: "flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })), "Clear")), hasActiveFilters && /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-500"
+  }, "Active filters:"), filters.search && /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+  }, "Search: \"", filters.search, "\"", /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleSearchChange(''),
+    className: "hover:text-gray-900"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-3 h-3",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), filters.building && /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+  }, "Building ", filters.building, /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleFilterChange('building', ''),
+    className: "hover:text-blue-900"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-3 h-3",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), filters.level && /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full"
+  }, "Level ", filters.level, /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleFilterChange('level', ''),
+    className: "hover:text-green-900"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-3 h-3",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), filters.unitType && /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full"
+  }, filters.unitType, /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleFilterChange('unitType', ''),
+    className: "hover:text-purple-900"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-3 h-3",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), filters.tag && /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full",
+    style: {
+      backgroundColor: `${getTagInfo(filters.tag).color}20`,
+      color: getTagInfo(filters.tag).color
+    }
+  }, getTagInfo(filters.tag).name, /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleFilterChange('tag', ''),
+    className: "hover:opacity-70"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-3 h-3",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), filters.hasSequence !== null && /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full"
+  }, filters.hasSequence ? 'Has Sequence' : 'No Sequence', /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleFilterChange('hasSequence', null),
+    className: "hover:text-amber-900"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-3 h-3",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  }))))));
+}
+
+// Expose to window for script tag usage
+window.FilterBar = FilterBar;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/BulkEditModal.jsx
+// ============================================================================
+(function() {
+/**
+ * BulkEditModal.jsx
+ * Modal for bulk editing selected modules - change building, level, unit type, tags
+ */
+// [Removed duplicate React destructuring]
+function BulkEditModal({
+  selectedModules,
+  onApply,
+  onClose
+}) {
+  const [field, setField] = useState('');
+  const [value, setValue] = useState('');
+  const [tagMode, setTagMode] = useState('replace'); // replace, add, remove
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [isApplying, setIsApplying] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Available fields for bulk edit
+  const fields = [{
+    id: 'building',
+    label: 'Building',
+    type: 'number'
+  }, {
+    id: 'level',
+    label: 'Level',
+    type: 'number'
+  }, {
+    id: 'unit_type',
+    label: 'Unit Type',
+    type: 'select'
+  }, {
+    id: 'difficulty_tags',
+    label: 'Difficulty Tags',
+    type: 'tags'
+  }, {
+    id: 'notes',
+    label: 'Notes',
+    type: 'text'
+  }];
+
+  // Unit type options
+  const unitTypes = ['Studio', '1BR', '1BR+Den', '2BR', '2BR+Den', '3BR', 'Corridor', 'Stair', 'Elevator', 'Mechanical', 'Common', 'Other'];
+
+  // Difficulty tags
+  const difficultyTags = [{
+    id: 'ext_sidewall',
+    name: 'Ext Sidewall',
+    color: '#ef4444'
+  }, {
+    id: 'stair',
+    name: 'Stair',
+    color: '#f97316'
+  }, {
+    id: '3hr_wall',
+    name: '3HR-Wall',
+    color: '#eab308'
+  }, {
+    id: 'short',
+    name: 'Short',
+    color: '#22c55e'
+  }, {
+    id: 'dbl_studio',
+    name: 'Dbl Studio',
+    color: '#3b82f6'
+  }, {
+    id: 'sawbox',
+    name: 'Sawbox',
+    color: '#8b5cf6'
+  }, {
+    id: 'ada',
+    name: 'ADA',
+    color: '#06b6d4'
+  }, {
+    id: 'corner',
+    name: 'Corner',
+    color: '#ec4899'
+  }, {
+    id: 'penthouse',
+    name: 'Penthouse',
+    color: '#14b8a6'
+  }, {
+    id: 'mep_heavy',
+    name: 'MEP Heavy',
+    color: '#f59e0b'
+  }];
+
+  // Toggle tag selection
+  const toggleTag = useCallback(tagId => {
+    setSelectedTags(prev => prev.includes(tagId) ? prev.filter(t => t !== tagId) : [...prev, tagId]);
+  }, []);
+
+  // Handle apply
+  const handleApply = async () => {
+    if (!field) {
+      setError('Please select a field to edit');
+      return;
+    }
+    const selectedField = fields.find(f => f.id === field);
+    if (selectedField.type === 'tags') {
+      if (selectedTags.length === 0) {
+        setError('Please select at least one tag');
+        return;
+      }
+    } else if (!value && value !== 0) {
+      setError('Please enter a value');
+      return;
+    }
+    setIsApplying(true);
+    setError(null);
+    try {
+      const updates = {};
+      if (selectedField.type === 'tags') {
+        updates.difficulty_tags = selectedTags;
+        updates._tagMode = tagMode;
+      } else if (selectedField.type === 'number') {
+        updates[field] = parseInt(value, 10);
+      } else {
+        updates[field] = value;
+      }
+      await onApply(updates);
+    } catch (err) {
+      setError(err.message || 'Failed to apply changes');
+      setIsApplying(false);
+    }
+  };
+
+  // Get current field config
+  const currentField = fields.find(f => f.id === field);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-semibold text-gray-900"
+  }, "Bulk Edit"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500 mt-0.5"
+  }, selectedModules.length, " module", selectedModules.length !== 1 ? 's' : '', " selected")), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-gray-400 hover:text-gray-600 p-1",
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Field to Edit"), /*#__PURE__*/React.createElement("select", {
+    value: field,
+    onChange: e => {
+      setField(e.target.value);
+      setValue('');
+      setSelectedTags([]);
+    },
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Select a field..."), fields.map(f => /*#__PURE__*/React.createElement("option", {
+    key: f.id,
+    value: f.id
+  }, f.label)))), currentField && currentField.type === 'number' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "New Value"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: value,
+    onChange: e => setValue(e.target.value),
+    min: "1",
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), currentField && currentField.type === 'text' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "New Value"), /*#__PURE__*/React.createElement("textarea", {
+    value: value,
+    onChange: e => setValue(e.target.value),
+    rows: 3,
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), currentField && currentField.type === 'select' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "New Value"), /*#__PURE__*/React.createElement("select", {
+    value: value,
+    onChange: e => setValue(e.target.value),
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Select..."), unitTypes.map(ut => /*#__PURE__*/React.createElement("option", {
+    key: ut,
+    value: ut
+  }, ut)))), currentField && currentField.type === 'tags' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "mb-3"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Tag Action"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setTagMode('replace'),
+    className: `px-3 py-1.5 text-sm rounded-lg border ${tagMode === 'replace' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`
+  }, "Replace"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setTagMode('add'),
+    className: `px-3 py-1.5 text-sm rounded-lg border ${tagMode === 'add' ? 'bg-green-50 border-green-300 text-green-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`
+  }, "Add"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setTagMode('remove'),
+    className: `px-3 py-1.5 text-sm rounded-lg border ${tagMode === 'remove' ? 'bg-red-50 border-red-300 text-red-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`
+  }, "Remove"))), /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-2"
+  }, "Select Tags"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, difficultyTags.map(tag => /*#__PURE__*/React.createElement("button", {
+    key: tag.id,
+    onClick: () => toggleTag(tag.id),
+    className: `px-3 py-1.5 text-sm rounded-full border transition-colors ${selectedTags.includes(tag.id) ? 'border-transparent text-white' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`,
+    style: selectedTags.includes(tag.id) ? {
+      backgroundColor: tag.color
+    } : {}
+  }, tag.name)))), error && /*#__PURE__*/React.createElement("div", {
+    className: "p-3 bg-red-50 border border-red-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-red-700"
+  }, error))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleApply,
+    disabled: isApplying || !field,
+    className: "px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  }, isApplying ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin w-4 h-4",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), "Applying...") : 'Apply to Selected'))));
+}
+
+// Expose to window for script tag usage
+window.BulkEditModal = BulkEditModal;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/AddModuleModal.jsx
+// ============================================================================
+(function() {
+/**
+ * AddModuleModal.jsx
+ * Modal for adding a new module manually
+ */
+// [Removed duplicate React destructuring]
+function AddModuleModal({
+  projectId,
+  existingModules,
+  onAdd,
+  onClose
+}) {
+  const [formData, setFormData] = useState({
+    serial_number: '',
+    blm_id: '',
+    unit_type: '',
+    building: 1,
+    level: 1,
+    build_sequence: '',
+    notes: ''
+  });
+  const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Unit type options
+  const unitTypes = ['Studio', '1BR', '1BR+Den', '2BR', '2BR+Den', '3BR', 'Corridor', 'Stair', 'Elevator', 'Mechanical', 'Common', 'Other'];
+
+  // Handle form field change
+  const handleChange = useCallback((field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    setError(null);
+  }, []);
+
+  // Auto-generate BLM from building/level
+  const generateBLM = useCallback(() => {
+    const {
+      building,
+      level
+    } = formData;
+    // Find next available module number for this building/level
+    const existingBLMs = existingModules.filter(m => m.building === building && m.level === level).map(m => {
+      const match = m.blm_id?.match(/M(\d+)$/i);
+      return match ? parseInt(match[1], 10) : 0;
+    });
+    const nextModule = existingBLMs.length > 0 ? Math.max(...existingBLMs) + 1 : 1;
+    const blm = `B${building}L${level}M${String(nextModule).padStart(2, '0')}`;
+    setFormData(prev => ({
+      ...prev,
+      blm_id: blm
+    }));
+  }, [formData.building, formData.level, existingModules]);
+
+  // Validate form
+  const validate = useCallback(() => {
+    if (!formData.serial_number.trim()) {
+      return 'Serial number is required';
+    }
+
+    // Check for duplicate serial
+    if (existingModules.some(m => m.serial_number === formData.serial_number.trim())) {
+      return 'Serial number already exists';
+    }
+
+    // Check for duplicate BLM if provided
+    if (formData.blm_id && existingModules.some(m => m.blm_id === formData.blm_id)) {
+      return 'BLM ID already exists';
+    }
+
+    // Validate BLM format if provided
+    if (formData.blm_id && !/^B\d+L\d+M\d+$/i.test(formData.blm_id)) {
+      return 'BLM must follow format: B1L2M01';
+    }
+    return null;
+  }, [formData, existingModules]);
+
+  // Handle add
+  const handleAdd = async () => {
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setIsAdding(true);
+    setError(null);
+    try {
+      const moduleData = {
+        project_id: projectId,
+        serial_number: formData.serial_number.trim(),
+        blm_id: formData.blm_id.trim() || null,
+        unit_type: formData.unit_type || null,
+        building: parseInt(formData.building, 10) || 1,
+        level: parseInt(formData.level, 10) || 1,
+        build_sequence: formData.build_sequence ? parseInt(formData.build_sequence, 10) : null,
+        set_sequence: null,
+        difficulty_tags: [],
+        notes: formData.notes.trim() || null
+      };
+      await onAdd(moduleData);
+    } catch (err) {
+      setError(err.message || 'Failed to add module');
+      setIsAdding(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-semibold text-gray-900"
+  }, "Add Module"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-gray-400 hover:text-gray-600 p-1",
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Serial Number ", /*#__PURE__*/React.createElement("span", {
+    className: "text-red-500"
+  }, "*")), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: formData.serial_number,
+    onChange: e => handleChange('serial_number', e.target.value),
+    placeholder: "e.g., 001 or MOD-001",
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Building"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: formData.building,
+    onChange: e => handleChange('building', e.target.value),
+    min: "1",
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Level"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: formData.level,
+    onChange: e => handleChange('level', e.target.value),
+    min: "1",
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "BLM ID"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: formData.blm_id,
+    onChange: e => handleChange('blm_id', e.target.value.toUpperCase()),
+    placeholder: "e.g., B1L2M01",
+    className: "flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: generateBLM,
+    className: "px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg border border-blue-200"
+  }, "Auto"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Unit Type"), /*#__PURE__*/React.createElement("select", {
+    value: formData.unit_type,
+    onChange: e => handleChange('unit_type', e.target.value),
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Select..."), unitTypes.map(ut => /*#__PURE__*/React.createElement("option", {
+    key: ut,
+    value: ut
+  }, ut)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Build Sequence"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: formData.build_sequence,
+    onChange: e => handleChange('build_sequence', e.target.value),
+    min: "1",
+    placeholder: "Optional - assign later",
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-1"
+  }, "Notes"), /*#__PURE__*/React.createElement("textarea", {
+    value: formData.notes,
+    onChange: e => handleChange('notes', e.target.value),
+    rows: 2,
+    placeholder: "Optional notes...",
+    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), error && /*#__PURE__*/React.createElement("div", {
+    className: "p-3 bg-red-50 border border-red-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-red-700"
+  }, error))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleAdd,
+    disabled: isAdding,
+    className: "px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  }, isAdding ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin w-4 h-4",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), "Adding...") : 'Add Module'))));
+}
+
+// Expose to window for script tag usage
+window.AddModuleModal = AddModuleModal;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/TagEditModal.jsx
+// ============================================================================
+(function() {
+/**
+ * TagEditModal.jsx
+ * Modal for editing difficulty tags on a single module
+ */
+// [Removed duplicate React destructuring]
+function TagEditModal({
+  module,
+  onSave,
+  onClose
+}) {
+  const [selectedTags, setSelectedTags] = useState(module.difficulty_tags || []);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Difficulty tags with colors
+  const difficultyTags = [{
+    id: 'ext_sidewall',
+    name: 'Ext Sidewall',
+    color: '#ef4444',
+    description: 'External sidewall module'
+  }, {
+    id: 'stair',
+    name: 'Stair',
+    color: '#f97316',
+    description: 'Contains stairwell'
+  }, {
+    id: '3hr_wall',
+    name: '3HR-Wall',
+    color: '#eab308',
+    description: '3-hour fire rated wall'
+  }, {
+    id: 'short',
+    name: 'Short',
+    color: '#22c55e',
+    description: 'Shorter than standard height'
+  }, {
+    id: 'dbl_studio',
+    name: 'Dbl Studio',
+    color: '#3b82f6',
+    description: 'Double studio unit'
+  }, {
+    id: 'sawbox',
+    name: 'Sawbox',
+    color: '#8b5cf6',
+    description: 'Sawbox configuration'
+  }, {
+    id: 'ada',
+    name: 'ADA',
+    color: '#06b6d4',
+    description: 'ADA accessible unit'
+  }, {
+    id: 'corner',
+    name: 'Corner',
+    color: '#ec4899',
+    description: 'Corner module'
+  }, {
+    id: 'penthouse',
+    name: 'Penthouse',
+    color: '#14b8a6',
+    description: 'Penthouse level'
+  }, {
+    id: 'mep_heavy',
+    name: 'MEP Heavy',
+    color: '#f59e0b',
+    description: 'Heavy MEP requirements'
+  }];
+
+  // Toggle tag selection
+  const toggleTag = useCallback(tagId => {
+    setSelectedTags(prev => prev.includes(tagId) ? prev.filter(t => t !== tagId) : [...prev, tagId]);
+  }, []);
+
+  // Clear all tags
+  const clearAll = useCallback(() => {
+    setSelectedTags([]);
+  }, []);
+
+  // Handle save
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await onSave(module.id, selectedTags);
+    } catch (err) {
+      setError(err.message || 'Failed to save tags');
+      setIsSaving(false);
+    }
+  };
+
+  // Check if tags changed
+  const hasChanges = JSON.stringify(selectedTags.sort()) !== JSON.stringify((module.difficulty_tags || []).sort());
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-gray-200"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-semibold text-gray-900"
+  }, "Edit Difficulty Tags"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500 mt-0.5"
+  }, module.serial_number, " ", module.blm_id && `(${module.blm_id})`)), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-medium text-gray-700"
+  }, "Select Tags"), selectedTags.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: clearAll,
+    className: "text-sm text-gray-500 hover:text-gray-700"
+  }, "Clear all")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, difficultyTags.map(tag => /*#__PURE__*/React.createElement("button", {
+    key: tag.id,
+    onClick: () => toggleTag(tag.id),
+    className: `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors text-left ${selectedTags.includes(tag.id) ? 'border-transparent bg-opacity-20' : 'border-gray-200 hover:bg-gray-50'}`,
+    style: selectedTags.includes(tag.id) ? {
+      backgroundColor: `${tag.color}20`,
+      borderColor: tag.color
+    } : {}
+  }, /*#__PURE__*/React.createElement("div", {
+    className: `w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${selectedTags.includes(tag.id) ? 'border-current' : 'border-gray-300'}`,
+    style: selectedTags.includes(tag.id) ? {
+      borderColor: tag.color,
+      color: tag.color
+    } : {}
+  }, selectedTags.includes(tag.id) && /*#__PURE__*/React.createElement("svg", {
+    className: "w-3 h-3",
+    fill: "currentColor",
+    viewBox: "0 0 20 20"
+  }, /*#__PURE__*/React.createElement("path", {
+    fillRule: "evenodd",
+    d: "M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z",
+    clipRule: "evenodd"
+  }))), /*#__PURE__*/React.createElement("span", {
+    className: "w-3 h-3 rounded-full flex-shrink-0",
+    style: {
+      backgroundColor: tag.color
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-medium text-gray-900"
+  }, tag.name), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-gray-500 truncate"
+  }, tag.description))))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 text-sm text-gray-500"
+  }, selectedTags.length === 0 ? 'No tags selected' : `${selectedTags.length} tag${selectedTags.length !== 1 ? 's' : ''} selected`), error && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-red-700"
+  }, error))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSave,
+    disabled: isSaving || !hasChanges,
+    className: "px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  }, isSaving ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin w-4 h-4",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), "Saving...") : 'Save Tags'))));
+}
+
+// Expose to window for script tag usage
+window.TagEditModal = TagEditModal;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/ModuleTable.jsx
+// ============================================================================
+(function() {
+/**
+ * ModuleTable.jsx
+ * The actual table component displaying module rows with sorting, selection, inline editing
+ * Includes drag-and-drop reordering with auto-renumbering
+ */
+// [Removed duplicate React destructuring]
+function ModuleTable({
+  modules,
+  selectedIds,
+  onSelectionChange,
+  onModuleUpdate,
+  onModuleDelete,
+  onTagEdit,
+  onReorder,
+  sortConfig,
+  onSort
+}) {
+  const [editingCell, setEditingCell] = useState(null); // { moduleId, field }
+  const [editValue, setEditValue] = useState('');
+
+  // Drag-and-drop state
+  const [draggedId, setDraggedId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+  const dragCounter = useRef(0);
+
+  // Difficulty tags lookup (matches sequenceBuilderConstants.js)
+  const tagInfo = {
+    'ext-sidewall': {
+      name: 'Ext Sidewall',
+      color: '#ef4444'
+    },
+    'stair': {
+      name: 'Stair',
+      color: '#f97316'
+    },
+    'three-hr': {
+      name: '3HR-Wall',
+      color: '#eab308'
+    },
+    'two-hr': {
+      name: '2HR-Wall',
+      color: '#a3e635'
+    },
+    'short': {
+      name: 'Short',
+      color: '#22c55e'
+    },
+    'dbl-studio': {
+      name: 'Dbl Studio',
+      color: '#3b82f6'
+    },
+    'common': {
+      name: 'Common Area',
+      color: '#06b6d4'
+    },
+    'tile': {
+      name: 'Tile',
+      color: '#ec4899'
+    },
+    'sawbox': {
+      name: 'Sawbox',
+      color: '#8b5cf6'
+    }
+  };
+
+  // Drag-and-drop handlers
+  const handleDragStart = useCallback((e, moduleId) => {
+    setDraggedId(moduleId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', moduleId);
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.5';
+  }, []);
+  const handleDragEnd = useCallback(e => {
+    setDraggedId(null);
+    setDragOverId(null);
+    dragCounter.current = 0;
+    e.currentTarget.style.opacity = '1';
+  }, []);
+  const handleDragEnter = useCallback((e, moduleId) => {
+    e.preventDefault();
+    dragCounter.current++;
+    if (moduleId !== draggedId) {
+      setDragOverId(moduleId);
+    }
+  }, [draggedId]);
+  const handleDragLeave = useCallback(e => {
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setDragOverId(null);
+    }
+  }, []);
+  const handleDragOver = useCallback(e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+  const handleDrop = useCallback((e, targetId) => {
+    e.preventDefault();
+    setDragOverId(null);
+    dragCounter.current = 0;
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      return;
+    }
+
+    // Find indices
+    const draggedIndex = modules.findIndex(m => m.id === draggedId);
+    const targetIndex = modules.findIndex(m => m.id === targetId);
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null);
+      return;
+    }
+
+    // Create new order
+    const newModules = [...modules];
+    const [draggedModule] = newModules.splice(draggedIndex, 1);
+    newModules.splice(targetIndex, 0, draggedModule);
+
+    // Auto-renumber sequentially (integers only)
+    const reorderedModules = newModules.map((m, idx) => ({
+      ...m,
+      build_sequence: idx + 1
+    }));
+
+    // Call onReorder with the new order
+    if (onReorder) {
+      onReorder(reorderedModules);
+    }
+    setDraggedId(null);
+  }, [draggedId, modules, onReorder]);
+
+  // Column definitions
+  const columns = [{
+    id: 'checkbox',
+    label: '',
+    width: 40,
+    sortable: false
+  }, {
+    id: 'build_sequence',
+    label: 'Seq #',
+    width: 70,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'set_sequence',
+    label: 'Set #',
+    width: 70,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'serial_number',
+    label: 'Serial #',
+    width: 120,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'blm_id',
+    label: 'BLM',
+    width: 100,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'unit_type',
+    label: 'Unit Type',
+    width: 120,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'building',
+    label: 'Bldg',
+    width: 60,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'level',
+    label: 'Lvl',
+    width: 50,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'difficulty_tags',
+    label: 'Difficulty Tags',
+    width: 200,
+    sortable: false
+  }, {
+    id: 'notes',
+    label: 'Notes',
+    width: 150,
+    sortable: false,
+    editable: true
+  }, {
+    id: 'actions',
+    label: '',
+    width: 60,
+    sortable: false
+  }];
+
+  // Handle select all
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.length === modules.length) {
+      onSelectionChange([]);
+    } else {
+      onSelectionChange(modules.map(m => m.id));
+    }
+  }, [modules, selectedIds, onSelectionChange]);
+
+  // Handle row selection
+  const handleRowSelect = useCallback((moduleId, event) => {
+    if (event.shiftKey && selectedIds.length > 0) {
+      // Shift-click: select range
+      const lastSelected = selectedIds[selectedIds.length - 1];
+      const lastIndex = modules.findIndex(m => m.id === lastSelected);
+      const currentIndex = modules.findIndex(m => m.id === moduleId);
+      const start = Math.min(lastIndex, currentIndex);
+      const end = Math.max(lastIndex, currentIndex);
+      const rangeIds = modules.slice(start, end + 1).map(m => m.id);
+      const newSelection = [...new Set([...selectedIds, ...rangeIds])];
+      onSelectionChange(newSelection);
+    } else if (event.ctrlKey || event.metaKey) {
+      // Ctrl/Cmd-click: toggle single
+      if (selectedIds.includes(moduleId)) {
+        onSelectionChange(selectedIds.filter(id => id !== moduleId));
+      } else {
+        onSelectionChange([...selectedIds, moduleId]);
+      }
+    } else {
+      // Regular click: toggle single
+      if (selectedIds.includes(moduleId)) {
+        onSelectionChange(selectedIds.filter(id => id !== moduleId));
+      } else {
+        onSelectionChange([...selectedIds, moduleId]);
+      }
+    }
+  }, [modules, selectedIds, onSelectionChange]);
+
+  // Handle sort click
+  const handleSortClick = useCallback(columnId => {
+    const column = columns.find(c => c.id === columnId);
+    if (!column?.sortable) return;
+    let direction = 'asc';
+    if (sortConfig.column === columnId) {
+      if (sortConfig.direction === 'asc') direction = 'desc';else if (sortConfig.direction === 'desc') direction = null;
+    }
+    onSort({
+      column: direction ? columnId : null,
+      direction
+    });
+  }, [sortConfig, onSort, columns]);
+
+  // Handle cell double-click to edit
+  const handleCellDoubleClick = useCallback((moduleId, field, currentValue) => {
+    const column = columns.find(c => c.id === field);
+    if (!column?.editable) return;
+    setEditingCell({
+      moduleId,
+      field
+    });
+    setEditValue(currentValue ?? '');
+  }, [columns]);
+
+  // Handle edit save
+  const handleEditSave = useCallback(async () => {
+    if (!editingCell) return;
+    const {
+      moduleId,
+      field
+    } = editingCell;
+    let value = editValue;
+
+    // Type conversion
+    if (field === 'build_sequence' || field === 'set_sequence' || field === 'building' || field === 'level') {
+      value = value === '' ? null : parseInt(value, 10);
+      if (value !== null && isNaN(value)) {
+        setEditingCell(null);
+        return;
+      }
+    }
+    try {
+      await onModuleUpdate(moduleId, {
+        [field]: value
+      });
+    } catch (err) {
+      console.error('Failed to update module:', err);
+    }
+    setEditingCell(null);
+    setEditValue('');
+  }, [editingCell, editValue, onModuleUpdate]);
+
+  // Handle edit cancel
+  const handleEditCancel = useCallback(() => {
+    setEditingCell(null);
+    setEditValue('');
+  }, []);
+
+  // Handle key down in edit mode
+  const handleEditKeyDown = useCallback(e => {
+    if (e.key === 'Enter') {
+      handleEditSave();
+    } else if (e.key === 'Escape') {
+      handleEditCancel();
+    }
+  }, [handleEditSave, handleEditCancel]);
+
+  // Render sort indicator
+  const renderSortIndicator = columnId => {
+    if (sortConfig.column !== columnId) {
+      return /*#__PURE__*/React.createElement("span", {
+        className: "text-gray-300 ml-1"
+      }, "\u2195");
+    }
+    return /*#__PURE__*/React.createElement("span", {
+      className: "text-blue-600 ml-1"
+    }, sortConfig.direction === 'asc' ? '↑' : '↓');
+  };
+
+  // Render cell content
+  const renderCell = (module, column) => {
+    const isEditing = editingCell?.moduleId === module.id && editingCell?.field === column.id;
+    if (column.id === 'checkbox') {
+      return /*#__PURE__*/React.createElement("input", {
+        type: "checkbox",
+        checked: selectedIds.includes(module.id),
+        onChange: e => handleRowSelect(module.id, e),
+        className: "w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+      });
+    }
+    if (column.id === 'difficulty_tags') {
+      const tags = module.difficulty_tags || [];
+      return /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-wrap gap-1"
+      }, tags.length === 0 ? /*#__PURE__*/React.createElement("button", {
+        onClick: () => onTagEdit(module),
+        className: "text-xs text-gray-400 hover:text-gray-600"
+      }, "+ Add tags") : /*#__PURE__*/React.createElement(React.Fragment, null, tags.slice(0, 3).map(tagId => {
+        const tag = tagInfo[tagId];
+        if (!tag) return null;
+        return /*#__PURE__*/React.createElement("span", {
+          key: tagId,
+          className: "px-1.5 py-0.5 text-xs rounded",
+          style: {
+            backgroundColor: `${tag.color}20`,
+            color: tag.color
+          }
+        }, tag.name);
+      }), tags.length > 3 && /*#__PURE__*/React.createElement("span", {
+        className: "text-xs text-gray-500"
+      }, "+", tags.length - 3), /*#__PURE__*/React.createElement("button", {
+        onClick: () => onTagEdit(module),
+        className: "text-xs text-gray-400 hover:text-gray-600 ml-1"
+      }, "Edit")));
+    }
+    if (column.id === 'actions') {
+      return /*#__PURE__*/React.createElement("button", {
+        onClick: () => onModuleDelete(module.id),
+        className: "p-1 text-gray-400 hover:text-red-600 rounded",
+        title: "Delete module"
+      }, /*#__PURE__*/React.createElement("svg", {
+        className: "w-4 h-4",
+        fill: "none",
+        stroke: "currentColor",
+        viewBox: "0 0 24 24"
+      }, /*#__PURE__*/React.createElement("path", {
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        strokeWidth: 2,
+        d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      })));
+    }
+
+    // Editable cell
+    if (isEditing) {
+      return /*#__PURE__*/React.createElement("input", {
+        type: column.id.includes('sequence') || column.id === 'building' || column.id === 'level' ? 'number' : 'text',
+        value: editValue,
+        onChange: e => setEditValue(e.target.value),
+        onBlur: handleEditSave,
+        onKeyDown: handleEditKeyDown,
+        autoFocus: true,
+        className: "w-full px-1 py-0.5 text-sm border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+      });
+    }
+    const value = module[column.id];
+    const displayValue = value ?? '-';
+    if (column.editable) {
+      return /*#__PURE__*/React.createElement("span", {
+        onDoubleClick: () => handleCellDoubleClick(module.id, column.id, value),
+        className: "cursor-text hover:bg-gray-100 px-1 py-0.5 rounded -mx-1",
+        title: "Double-click to edit"
+      }, displayValue);
+    }
+    return displayValue;
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "overflow-x-auto border border-gray-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full"
+  }, /*#__PURE__*/React.createElement("thead", {
+    className: "bg-gray-50 sticky top-0"
+  }, /*#__PURE__*/React.createElement("tr", null, columns.map(column => /*#__PURE__*/React.createElement("th", {
+    key: column.id,
+    className: `px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 ${column.sortable ? 'cursor-pointer hover:bg-gray-100 select-none' : ''}`,
+    style: {
+      width: column.width,
+      minWidth: column.width
+    },
+    onClick: () => column.sortable && handleSortClick(column.id)
+  }, column.id === 'checkbox' ? /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: modules.length > 0 && selectedIds.length === modules.length,
+    onChange: handleSelectAll,
+    className: "w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+  }) : /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center"
+  }, column.label, column.sortable && renderSortIndicator(column.id)))))), /*#__PURE__*/React.createElement("tbody", {
+    className: "bg-white divide-y divide-gray-100"
+  }, modules.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: columns.length,
+    className: "px-6 py-12 text-center text-gray-500"
+  }, "No modules found")) : modules.map((module, index) => /*#__PURE__*/React.createElement("tr", {
+    key: module.id,
+    draggable: true,
+    onDragStart: e => handleDragStart(e, module.id),
+    onDragEnd: handleDragEnd,
+    onDragEnter: e => handleDragEnter(e, module.id),
+    onDragLeave: handleDragLeave,
+    onDragOver: handleDragOver,
+    onDrop: e => handleDrop(e, module.id),
+    className: `hover:bg-gray-50 cursor-grab active:cursor-grabbing transition-all ${selectedIds.includes(module.id) ? 'bg-blue-50' : ''} ${draggedId === module.id ? 'opacity-50' : ''} ${dragOverId === module.id ? 'border-t-2 border-blue-500' : ''}`
+  }, columns.map(column => /*#__PURE__*/React.createElement("td", {
+    key: column.id,
+    className: "px-3 py-2 text-sm text-gray-900 whitespace-nowrap",
+    style: {
+      width: column.width,
+      minWidth: column.width
+    }
+  }, renderCell(module, column))))))));
+}
+
+// Expose to window for script tag usage
+window.ModuleTable = ModuleTable;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/ModuleGrid.jsx
+// ============================================================================
+(function() {
+/**
+ * ModuleGrid.jsx
+ * Container component with toolbar, filter bar, bulk action bar, and module table
+ */
+// [Removed duplicate React destructuring]
+function ModuleGrid({
+  modules,
+  projectId,
+  onModuleUpdate,
+  onModuleDelete,
+  onModulesChange,
+  onShowSetOrder,
+  onShowAddModule,
+  onExport
+}) {
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    search: '',
+    building: null,
+    level: null,
+    unitType: null,
+    tag: null,
+    hasSequence: null
+  });
+
+  // Sort state
+  const [sortConfig, setSortConfig] = useState({
+    column: 'build_sequence',
+    direction: 'asc'
+  });
+
+  // Modal states
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [showTagEdit, setShowTagEdit] = useState(null); // module object
+
+  // Clear filters
+  const clearFilters = useCallback(() => {
+    setFilters({
+      search: '',
+      building: null,
+      level: null,
+      unitType: null,
+      tag: null,
+      hasSequence: null
+    });
+  }, []);
+
+  // Apply filters and sorting
+  const filteredAndSortedModules = useMemo(() => {
+    let result = [...modules];
+
+    // Apply filters
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      result = result.filter(m => m.serial_number?.toLowerCase().includes(searchLower) || m.blm_id?.toLowerCase().includes(searchLower) || m.notes?.toLowerCase().includes(searchLower));
+    }
+    if (filters.building) {
+      result = result.filter(m => m.building === parseInt(filters.building, 10));
+    }
+    if (filters.level) {
+      result = result.filter(m => m.level === parseInt(filters.level, 10));
+    }
+    if (filters.unitType) {
+      result = result.filter(m => m.unit_type === filters.unitType);
+    }
+    if (filters.tag) {
+      result = result.filter(m => (m.difficulty_tags || []).includes(filters.tag));
+    }
+    if (filters.hasSequence !== null) {
+      result = result.filter(m => filters.hasSequence ? m.build_sequence != null : m.build_sequence == null);
+    }
+
+    // Apply sorting
+    if (sortConfig.column && sortConfig.direction) {
+      result.sort((a, b) => {
+        let aVal = a[sortConfig.column];
+        let bVal = b[sortConfig.column];
+
+        // Handle nulls
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+
+        // Numeric comparison for sequence/building/level
+        if (['build_sequence', 'set_sequence', 'building', 'level'].includes(sortConfig.column)) {
+          aVal = Number(aVal);
+          bVal = Number(bVal);
+          return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+
+        // String comparison
+        const comparison = String(aVal).localeCompare(String(bVal), undefined, {
+          numeric: true
+        });
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+    return result;
+  }, [modules, filters, sortConfig]);
+
+  // Handle bulk edit apply
+  const handleBulkEditApply = useCallback(async updates => {
+    const API = window.SequenceBuilderAPI;
+    if (updates._tagMode) {
+      // Tag update with mode
+      const mode = updates._tagMode;
+      delete updates._tagMode;
+      await API.bulkUpdateModuleTags(selectedIds, updates.difficulty_tags, mode);
+    } else {
+      // Regular field update
+      const moduleUpdates = selectedIds.map(id => ({
+        id,
+        updates
+      }));
+      await API.updateModulesBatch(moduleUpdates);
+    }
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+    setShowBulkEdit(false);
+    setSelectedIds([]);
+  }, [selectedIds, projectId, onModulesChange]);
+
+  // Handle tag edit save
+  const handleTagEditSave = useCallback(async (moduleId, tags) => {
+    const API = window.SequenceBuilderAPI;
+    await API.updateModuleTags(moduleId, tags);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+    setShowTagEdit(null);
+  }, [projectId, onModulesChange]);
+
+  // Handle delete selected
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = window.confirm(`Are you sure you want to delete ${selectedIds.length} module${selectedIds.length !== 1 ? 's' : ''}?`);
+    if (!confirmed) return;
+    const API = window.SequenceBuilderAPI;
+    await API.deleteModulesBatch(selectedIds);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+    setSelectedIds([]);
+  }, [selectedIds, projectId, onModulesChange]);
+
+  // Handle auto-sequence
+  const handleAutoSequence = useCallback(async () => {
+    const API = window.SequenceBuilderAPI;
+    await API.autoGenerateSequences(projectId, 'blm_id', 'asc');
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+  }, [projectId, onModulesChange]);
+
+  // Stats
+  const stats = useMemo(() => ({
+    total: modules.length,
+    filtered: filteredAndSortedModules.length,
+    selected: selectedIds.length,
+    withSequence: modules.filter(m => m.build_sequence != null).length
+  }), [modules, filteredAndSortedModules, selectedIds]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col h-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onShowAddModule,
+    className: "px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M12 4v16m8-8H4"
+  })), "Add Module"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleAutoSequence,
+    className: "px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+  })), "Auto-Sequence"), /*#__PURE__*/React.createElement("button", {
+    onClick: onShowSetOrder,
+    className: "px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+  })), "Set Order")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onExport('csv'),
+    className: "px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+  }, "Export CSV"), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-500"
+  }, stats.withSequence, "/", stats.total, " sequenced"))), window.FilterBar && /*#__PURE__*/React.createElement(window.FilterBar, {
+    modules: modules,
+    filters: filters,
+    onFilterChange: setFilters,
+    onClearFilters: clearFilters
+  }), selectedIds.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-medium text-blue-800"
+  }, selectedIds.length, " module", selectedIds.length !== 1 ? 's' : '', " selected"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowBulkEdit(true),
+    className: "px-3 py-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded"
+  }, "Bulk Edit"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleDeleteSelected,
+    className: "px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+  }, "Delete"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSelectedIds([]),
+    className: "px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800"
+  }, "Clear Selection"))), filters.search || filters.building || filters.level || filters.unitType || filters.tag || filters.hasSequence !== null ? /*#__PURE__*/React.createElement("div", {
+    className: "mb-2 text-sm text-gray-500"
+  }, "Showing ", stats.filtered, " of ", stats.total, " modules") : null, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-auto"
+  }, window.ModuleTable && /*#__PURE__*/React.createElement(window.ModuleTable, {
+    modules: filteredAndSortedModules,
+    selectedIds: selectedIds,
+    onSelectionChange: setSelectedIds,
+    onModuleUpdate: onModuleUpdate,
+    onModuleDelete: onModuleDelete,
+    onTagEdit: module => setShowTagEdit(module),
+    onReorder: onModulesChange,
+    sortConfig: sortConfig,
+    onSort: setSortConfig
+  })), showBulkEdit && window.BulkEditModal && /*#__PURE__*/React.createElement(window.BulkEditModal, {
+    selectedModules: modules.filter(m => selectedIds.includes(m.id)),
+    onApply: handleBulkEditApply,
+    onClose: () => setShowBulkEdit(false)
+  }), showTagEdit && window.TagEditModal && /*#__PURE__*/React.createElement(window.TagEditModal, {
+    module: showTagEdit,
+    onSave: handleTagEditSave,
+    onClose: () => setShowTagEdit(null)
+  }));
+}
+
+// Expose to window for script tag usage
+window.ModuleGrid = ModuleGrid;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/SequenceBuilderHeader.jsx
+// ============================================================================
+(function() {
+/**
+ * SequenceBuilderHeader.jsx
+ * Page header with back button, project info, step indicator, and save button
+ */
+// [Removed duplicate React destructuring]
+function SequenceBuilderHeader({
+  projectName,
+  currentStep,
+  moduleCount,
+  hasUnsavedChanges,
+  isSaving,
+  onBack,
+  onSave
+}) {
+  // Workflow steps
+  const steps = [{
+    id: 'setup',
+    label: 'Setup'
+  }, {
+    id: 'generate',
+    label: 'Generate'
+  }, {
+    id: 'sequence',
+    label: 'Sequence'
+  }, {
+    id: 'tags',
+    label: 'Tags'
+  }, {
+    id: 'review',
+    label: 'Review'
+  }];
+
+  // Get current step index
+  const currentStepIndex = useMemo(() => {
+    return steps.findIndex(s => s.id === currentStep);
+  }, [currentStep, steps]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border-b border-gray-200 px-6 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onBack,
+    className: "p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg",
+    title: "Back to project"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M10 19l-7-7m0 0l7-7m-7 7h18"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
+    className: "text-xl font-semibold text-gray-900"
+  }, "Production Sequence Builder"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500 mt-0.5"
+  }, projectName, moduleCount > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "ml-2 text-gray-400"
+  }, "(", moduleCount, " module", moduleCount !== 1 ? 's' : '', ")")))), /*#__PURE__*/React.createElement("div", {
+    className: "hidden md:flex items-center gap-1"
+  }, steps.map((step, index) => {
+    const isActive = index === currentStepIndex;
+    const isCompleted = index < currentStepIndex;
+    return /*#__PURE__*/React.createElement("div", {
+      key: step.id,
+      className: "flex items-center"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: `flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`
+    }, isCompleted ? /*#__PURE__*/React.createElement("svg", {
+      className: "w-4 h-4",
+      fill: "currentColor",
+      viewBox: "0 0 20 20"
+    }, /*#__PURE__*/React.createElement("path", {
+      fillRule: "evenodd",
+      d: "M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z",
+      clipRule: "evenodd"
+    })) : index + 1), /*#__PURE__*/React.createElement("span", {
+      className: `ml-1.5 text-xs font-medium ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'}`
+    }, step.label), index < steps.length - 1 && /*#__PURE__*/React.createElement("div", {
+      className: `w-8 h-0.5 mx-2 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`
+    }));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, hasUnsavedChanges && /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-amber-600 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "currentColor",
+    viewBox: "0 0 20 20"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "10",
+    cy: "10",
+    r: "3"
+  })), "Unsaved changes"), /*#__PURE__*/React.createElement("button", {
+    onClick: onSave,
+    disabled: isSaving || !hasUnsavedChanges,
+    className: "px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  }, isSaving ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin w-4 h-4",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), "Saving...") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+  })), "Save")))), /*#__PURE__*/React.createElement("div", {
+    className: "md:hidden mt-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Step ", currentStepIndex + 1, " of ", steps.length), /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-blue-600"
+  }, steps[currentStepIndex]?.label)), /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "h-full bg-blue-600 rounded-full transition-all",
+    style: {
+      width: `${(currentStepIndex + 1) / steps.length * 100}%`
+    }
+  }))));
+}
+
+// Expose to window for script tag usage
+window.SequenceBuilderHeader = SequenceBuilderHeader;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/ProductionSequenceBuilder.jsx
+// ============================================================================
+(function() {
+/**
+ * ProductionSequenceBuilder.jsx
+ * Main page component that composes all sequence builder sub-components
+ */
+// [Removed duplicate React destructuring]
+function ProductionSequenceBuilder({
+  projectId,
+  projectName,
+  onClose
+}) {
+  // Data state
+  const [modules, setModules] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Workflow state
+  const [currentStep, setCurrentStep] = useState('setup');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Modal states
+  const [showSetupDialog, setShowSetupDialog] = useState(false);
+  const [showSetOrderModal, setShowSetOrderModal] = useState(false);
+  const [showAddModuleModal, setShowAddModuleModal] = useState(false);
+
+  // History for undo/redo (simplified - stores last 10 states)
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Load modules on mount
+  useEffect(() => {
+    loadModules();
+  }, [projectId]);
+
+  // Load modules from Supabase
+  const loadModules = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const API = window.SequenceBuilderAPI;
+      if (!API) {
+        throw new Error('SequenceBuilderAPI not loaded');
+      }
+      const data = await API.fetchProjectModules(projectId);
+      setModules(data);
+
+      // Determine initial step based on data
+      if (data.length === 0) {
+        setCurrentStep('setup');
+        setShowSetupDialog(true);
+      } else if (data.every(m => m.build_sequence == null)) {
+        setCurrentStep('sequence');
+      } else if (data.every(m => (m.difficulty_tags || []).length === 0)) {
+        setCurrentStep('tags');
+      } else {
+        setCurrentStep('review');
+      }
+    } catch (err) {
+      console.error('Failed to load modules:', err);
+      setError(err.message || 'Failed to load modules');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save snapshot to history
+  const saveToHistory = useCallback(newModules => {
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(JSON.stringify(newModules));
+      // Keep only last 10 states
+      if (newHistory.length > 10) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 9));
+  }, [historyIndex]);
+
+  // Handle modules change
+  const handleModulesChange = useCallback(newModules => {
+    saveToHistory(modules);
+    setModules(newModules);
+    setHasUnsavedChanges(true);
+
+    // Update step based on progress
+    if (newModules.length > 0 && currentStep === 'setup') {
+      setCurrentStep('sequence');
+    }
+  }, [modules, currentStep, saveToHistory]);
+
+  // Handle module update
+  const handleModuleUpdate = useCallback(async (moduleId, updates) => {
+    const API = window.SequenceBuilderAPI;
+
+    // Ensure integer sequences
+    if (updates.build_sequence !== undefined && updates.build_sequence !== null) {
+      updates.build_sequence = Math.round(updates.build_sequence);
+    }
+    if (updates.set_sequence !== undefined && updates.set_sequence !== null) {
+      updates.set_sequence = Math.round(updates.set_sequence);
+    }
+    await API.updateModule(moduleId, updates);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    handleModulesChange(refreshed);
+  }, [projectId, handleModulesChange]);
+
+  // Handle module delete
+  const handleModuleDelete = useCallback(async moduleId => {
+    const confirmed = window.confirm('Are you sure you want to delete this module?');
+    if (!confirmed) return;
+    const API = window.SequenceBuilderAPI;
+    await API.deleteModule(moduleId);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    handleModulesChange(refreshed);
+  }, [projectId, handleModulesChange]);
+
+  // Handle generate from setup dialog
+  const handleGenerate = useCallback(async config => {
+    const API = window.SequenceBuilderAPI;
+    await API.generateModulesFromConfig(projectId, config);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    handleModulesChange(refreshed);
+    setShowSetupDialog(false);
+    setCurrentStep('sequence');
+  }, [projectId, handleModulesChange]);
+
+  // Handle import existing modules
+  const handleImportExisting = useCallback(() => {
+    setShowSetupDialog(false);
+    setCurrentStep('sequence');
+  }, []);
+
+  // Handle set order save
+  const handleSetOrderSave = useCallback(async updates => {
+    const API = window.SequenceBuilderAPI;
+    await API.updateSetSequences(updates);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    handleModulesChange(refreshed);
+    setShowSetOrderModal(false);
+  }, [projectId, handleModulesChange]);
+
+  // Handle add module
+  const handleAddModule = useCallback(async moduleData => {
+    const API = window.SequenceBuilderAPI;
+    await API.createModule(moduleData);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    handleModulesChange(refreshed);
+    setShowAddModuleModal(false);
+  }, [projectId, handleModulesChange]);
+
+  // Handle export
+  const handleExport = useCallback(async format => {
+    const API = window.SequenceBuilderAPI;
+    const result = await API.exportModules(projectId, format);
+
+    // Download file
+    const blob = new Blob([result.data], {
+      type: result.mimeType
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = result.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [projectId]);
+
+  // Handle save
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      // Validate before saving
+      const API = window.SequenceBuilderAPI;
+      const validation = API.validateModules(modules);
+      if (!validation.valid) {
+        const errorMessages = validation.errors.slice(0, 3).map(e => e.message).join('\n');
+        alert(`Validation errors:\n${errorMessages}`);
+        setIsSaving(false);
+        return;
+      }
+
+      // Fix any decimal sequences
+      await API.fixDecimalSequences(projectId);
+
+      // Refresh to get fixed data
+      const refreshed = await API.fetchProjectModules(projectId);
+      setModules(refreshed);
+
+      // Save build sequence history snapshot
+      if (window.MODA_SEQUENCE_HISTORY?.saveSnapshot) {
+        try {
+          await window.MODA_SEQUENCE_HISTORY.saveSnapshot(projectId, refreshed, 'manual_build', 'Production sequence built in MODA', {
+            id: null,
+            name: 'Sequence Builder'
+          });
+          console.log('[ProductionSequenceBuilder] Saved sequence history snapshot');
+        } catch (historyErr) {
+          console.warn('[ProductionSequenceBuilder] Failed to save history snapshot:', historyErr);
+        }
+      }
+      setHasUnsavedChanges(false);
+      setCurrentStep('review');
+    } catch (err) {
+      console.error('Failed to save:', err);
+      alert('Failed to save: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [modules, projectId]);
+
+  // Handle back
+  const handleBack = useCallback(() => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (!confirmed) return;
+    }
+    onClose();
+  }, [hasUnsavedChanges, onClose]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = e => {
+      // Ctrl+S to save
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        if (hasUnsavedChanges && !isSaving) {
+          handleSave();
+        }
+      }
+
+      // Escape to close modals or go back
+      if (e.key === 'Escape') {
+        if (showSetupDialog) setShowSetupDialog(false);else if (showSetOrderModal) setShowSetOrderModal(false);else if (showAddModuleModal) setShowAddModuleModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasUnsavedChanges, isSaving, handleSave, showSetupDialog, showSetOrderModal, showAddModuleModal]);
+
+  // Loading state
+  if (isLoading) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed inset-0 bg-gray-100 flex items-center justify-center z-50"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-center"
+    }, /*#__PURE__*/React.createElement("svg", {
+      className: "animate-spin w-12 h-12 text-blue-600 mx-auto mb-4",
+      fill: "none",
+      viewBox: "0 0 24 24"
+    }, /*#__PURE__*/React.createElement("circle", {
+      className: "opacity-25",
+      cx: "12",
+      cy: "12",
+      r: "10",
+      stroke: "currentColor",
+      strokeWidth: "4"
+    }), /*#__PURE__*/React.createElement("path", {
+      className: "opacity-75",
+      fill: "currentColor",
+      d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    })), /*#__PURE__*/React.createElement("p", {
+      className: "text-gray-600"
+    }, "Loading sequence builder...")));
+  }
+
+  // Error state
+  if (error) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed inset-0 bg-gray-100 flex items-center justify-center z-50"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-lg shadow-lg p-6 max-w-md mx-4 text-center"
+    }, /*#__PURE__*/React.createElement("svg", {
+      className: "w-12 h-12 text-red-500 mx-auto mb-4",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24"
+    }, /*#__PURE__*/React.createElement("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+    })), /*#__PURE__*/React.createElement("h2", {
+      className: "text-lg font-semibold text-gray-900 mb-2"
+    }, "Error Loading Data"), /*#__PURE__*/React.createElement("p", {
+      className: "text-gray-600 mb-4"
+    }, error), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-3 justify-center"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: loadModules,
+      className: "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+    }, "Retry"), /*#__PURE__*/React.createElement("button", {
+      onClick: onClose,
+      className: "px-4 py-2 text-gray-700 hover:text-gray-900"
+    }, "Go Back"))));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-gray-100 flex flex-col z-50"
+  }, window.SequenceBuilderHeader && /*#__PURE__*/React.createElement(window.SequenceBuilderHeader, {
+    projectName: projectName,
+    currentStep: currentStep,
+    moduleCount: modules.length,
+    hasUnsavedChanges: hasUnsavedChanges,
+    isSaving: isSaving,
+    onBack: handleBack,
+    onSave: handleSave
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-hidden p-6"
+  }, modules.length === 0 && !showSetupDialog ?
+  /*#__PURE__*/
+  // Empty state
+  React.createElement("div", {
+    className: "h-full flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-center"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-16 h-16 text-gray-300 mx-auto mb-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 1.5,
+    d: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+  })), /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-semibold text-gray-900 mb-2"
+  }, "No Modules Yet"), /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-500 mb-6"
+  }, "Get started by generating modules or importing existing data."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowSetupDialog(true),
+    className: "px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
+  }, "Setup Modules"))) :
+  // Module grid
+  window.ModuleGrid && /*#__PURE__*/React.createElement(window.ModuleGrid, {
+    modules: modules,
+    projectId: projectId,
+    onModuleUpdate: handleModuleUpdate,
+    onModuleDelete: handleModuleDelete,
+    onModulesChange: handleModulesChange,
+    onShowSetOrder: () => setShowSetOrderModal(true),
+    onShowAddModule: () => setShowAddModuleModal(true),
+    onExport: handleExport
+  })), showSetupDialog && window.SetupDialog && /*#__PURE__*/React.createElement(window.SetupDialog, {
+    projectId: projectId,
+    projectName: projectName,
+    onGenerate: handleGenerate,
+    onImportExisting: handleImportExisting,
+    onClose: () => setShowSetupDialog(false),
+    existingModuleCount: modules.length
+  }), showSetOrderModal && window.SetOrderModal && /*#__PURE__*/React.createElement(window.SetOrderModal, {
+    modules: modules,
+    onSave: handleSetOrderSave,
+    onClose: () => setShowSetOrderModal(false)
+  }), showAddModuleModal && window.AddModuleModal && /*#__PURE__*/React.createElement(window.AddModuleModal, {
+    projectId: projectId,
+    existingModules: modules,
+    onAdd: handleAddModule,
+    onClose: () => setShowAddModuleModal(false)
+  }));
+}
+
+// Expose to window for script tag usage
+window.ProductionSequenceBuilder = ProductionSequenceBuilder;
+})();
+
+
+// ============================================================================
 // FILE: App.jsx
 // ============================================================================
 (function() {
@@ -52423,16 +55651,22 @@ const difficultyColors = {
   sidewall: 'bg-orange-100 text-orange-800',
   stair: 'bg-purple-100 text-purple-800',
   hr3Wall: 'bg-red-100 text-red-800',
+  hr2Wall: 'bg-lime-100 text-lime-800',
   short: 'bg-yellow-100 text-yellow-800',
   doubleStudio: 'bg-indigo-100 text-indigo-800',
-  sawbox: 'bg-pink-100 text-pink-800'
+  common: 'bg-cyan-100 text-cyan-800',
+  tile: 'bg-pink-100 text-pink-800',
+  sawbox: 'bg-violet-100 text-violet-800'
 };
 const difficultyLabels = {
-  sidewall: 'Sidewall',
+  sidewall: 'Ext Sidewall',
   stair: 'Stair',
   hr3Wall: '3HR-Wall',
+  hr2Wall: '2HR-Wall',
   short: 'Short',
   doubleStudio: 'Dbl Studio',
+  common: 'Common Area',
+  tile: 'Tile',
   sawbox: 'Sawbox'
 };
 
@@ -53471,7 +56705,8 @@ function Dashboard({
     className: "mobile-logo",
     style: {
       height: '45px',
-      width: 'auto'
+      width: 'auto',
+      visibility: 'hidden'
     }
   }), /*#__PURE__*/React.createElement("div", {
     className: "border-l pl-4 hide-mobile",
@@ -54696,6 +57931,19 @@ function ProjectDetail({
   const [showHeatMapMatrix, setShowHeatMapMatrix] = useState(false);
   const [editingAbbreviation, setEditingAbbreviation] = useState(false);
   const [abbreviationValue, setAbbreviationValue] = useState(project.abbreviation || '');
+  const [showImportDropdown, setShowImportDropdown] = useState(false);
+  const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = e => {
+      if (showImportDropdown && !e.target.closest('.import-dropdown-container')) {
+        setShowImportDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showImportDropdown]);
 
   // Report Issue State
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
@@ -54715,8 +57963,11 @@ function ProjectDetail({
     sidewall: false,
     stair: false,
     hr3Wall: false,
+    hr2Wall: false,
     short: false,
     doubleStudio: false,
+    common: false,
+    tile: false,
     sawbox: false
   });
 
@@ -54745,7 +57996,7 @@ function ProjectDetail({
     const matchesStage = stageFilter === 'all' || m.stageProgress?.[stageFilter] > 0 && m.stageProgress?.[stageFilter] < 100;
 
     // Difficulty filter - show modules that have ANY of the selected difficulties
-    const matchesDifficulty = !anyDifficultyFilterActive || difficultyFilters.sidewall && m.difficulties?.sidewall || difficultyFilters.stair && m.difficulties?.stair || difficultyFilters.hr3Wall && m.difficulties?.hr3Wall || difficultyFilters.short && m.difficulties?.short || difficultyFilters.doubleStudio && m.difficulties?.doubleStudio || difficultyFilters.sawbox && m.difficulties?.sawbox;
+    const matchesDifficulty = !anyDifficultyFilterActive || difficultyFilters.sidewall && m.difficulties?.sidewall || difficultyFilters.stair && m.difficulties?.stair || difficultyFilters.hr3Wall && m.difficulties?.hr3Wall || difficultyFilters.hr2Wall && m.difficulties?.hr2Wall || difficultyFilters.short && m.difficulties?.short || difficultyFilters.doubleStudio && m.difficulties?.doubleStudio || difficultyFilters.common && m.difficulties?.common || difficultyFilters.tile && m.difficulties?.tile || difficultyFilters.sawbox && m.difficulties?.sawbox;
     return matchesSearch && matchesStage && matchesDifficulty;
   });
 
@@ -55044,10 +58295,40 @@ function ProjectDetail({
       document.body.removeChild(link);
     },
     className: "px-4 py-2 btn-secondary rounded-lg transition"
-  }, "Export Template"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowImportModal(true),
-    className: "px-4 py-2 btn-primary rounded-lg transition"
-  }, "Import Modules")))), /*#__PURE__*/React.createElement("div", {
+  }, "Export Template"), /*#__PURE__*/React.createElement("div", {
+    className: "relative import-dropdown-container"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowImportDropdown(!showImportDropdown),
+    className: "px-4 py-2 btn-primary rounded-lg transition flex items-center gap-2"
+  }, "Import Modules", /*#__PURE__*/React.createElement("span", {
+    className: "text-xs"
+  }, "\u25BE")), showImportDropdown && /*#__PURE__*/React.createElement("div", {
+    className: "absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border z-30"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowImportModal(true);
+      setShowImportDropdown(false);
+    },
+    className: "w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 border-b"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-upload w-5 h-5"
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-gray-900"
+  }, "Import from Excel"), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-gray-500"
+  }, "Upload CSV or XLSX file"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowSequenceBuilder(true);
+      setShowImportDropdown(false);
+    },
+    className: "w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 rounded-b-lg"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-grid w-5 h-5"
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-gray-900"
+  }, "Build Production Sequence"), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-gray-500"
+  }, "Create sequence in MODA")))))))), /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-lg shadow p-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center gap-4"
@@ -55123,7 +58404,7 @@ function ProjectDetail({
   }, "Difficulty Filters:"), /*#__PURE__*/React.createElement("button", {
     onClick: () => toggleDifficultyFilter('sidewall'),
     className: `px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.sidewall ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'}`
-  }, "Sidewall"), /*#__PURE__*/React.createElement("button", {
+  }, "Ext Sidewall"), /*#__PURE__*/React.createElement("button", {
     onClick: () => toggleDifficultyFilter('stair'),
     className: `px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.stair ? 'bg-purple-500 text-white border-purple-500' : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'}`
   }, "Stair"), /*#__PURE__*/React.createElement("button", {
@@ -55136,15 +58417,24 @@ function ProjectDetail({
     onClick: () => toggleDifficultyFilter('doubleStudio'),
     className: `px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.doubleStudio ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`
   }, "Dbl Studio"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => toggleDifficultyFilter('common'),
+    className: `px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.common ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white text-gray-600 border-gray-300 hover:border-cyan-400'}`
+  }, "Common Area"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => toggleDifficultyFilter('tile'),
+    className: `px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.tile ? 'bg-pink-500 text-white border-pink-500' : 'bg-white text-gray-600 border-gray-300 hover:border-pink-400'}`
+  }, "Tile"), /*#__PURE__*/React.createElement("button", {
     onClick: () => toggleDifficultyFilter('sawbox'),
-    className: `px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.sawbox ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'}`
+    className: `px-2 py-1 text-xs rounded-full border transition ${difficultyFilters.sawbox ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-gray-600 border-gray-300 hover:border-violet-400'}`
   }, "Sawbox"), anyDifficultyFilterActive && /*#__PURE__*/React.createElement("button", {
     onClick: () => setDifficultyFilters({
       sidewall: false,
       stair: false,
       hr3Wall: false,
+      hr2Wall: false,
       short: false,
       doubleStudio: false,
+      common: false,
+      tile: false,
       sawbox: false
     }),
     className: "px-2 py-1 text-xs text-gray-500 hover:text-gray-700 underline"
@@ -55427,6 +58717,10 @@ function ProjectDetail({
     productionStages: productionStages,
     onClose: () => setShowHeatMapMatrix(false),
     canEdit: canManageImports
+  }), showSequenceBuilder && window.ProductionSequenceBuilder && /*#__PURE__*/React.createElement(window.ProductionSequenceBuilder, {
+    projectId: currentProject?.id,
+    projectName: currentProject?.name,
+    onClose: () => setShowSequenceBuilder(false)
   }), showReportIssueModal && reportIssueContext && (window.IssueSubmissionModal ? /*#__PURE__*/React.createElement(window.IssueSubmissionModal, {
     context: {
       project_id: reportIssueContext.project?.id,
