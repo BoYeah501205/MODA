@@ -3,12 +3,16 @@
  * Handles all database operations for the Production Sequence Builder feature
  */
 
-// Get Supabase client from global scope
+// Get Supabase client from global scope (uses MODA's standard pattern)
 const getSupabase = () => {
-  if (typeof window !== 'undefined' && window.supabase) {
-    return window.supabase;
+  if (typeof window !== 'undefined' && window.MODA_SUPABASE && window.MODA_SUPABASE.client) {
+    return window.MODA_SUPABASE.client;
   }
-  throw new Error('Supabase client not initialized');
+  throw new Error('Supabase client not initialized - MODA_SUPABASE.client not available');
+};
+
+const isSupabaseAvailable = () => {
+  return window.MODA_SUPABASE && window.MODA_SUPABASE.isInitialized && window.MODA_SUPABASE.client;
 };
 
 /**

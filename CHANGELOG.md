@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.71**
+**Current Version: 1.5.72**
 
 ---
+
+## [1.5.72] - 2026-03-10
+### Fix
+- **Supabase Client Reference Fixed** - Fixed `supabase-sequence-builder.js` to use `window.MODA_SUPABASE.client` instead of `window.supabase`. MODA uses `MODA_SUPABASE.client` as the standard Supabase client reference.
 
 ## [1.5.71] - 2026-03-10
 ### Fix
