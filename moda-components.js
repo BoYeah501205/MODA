@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-03-10T17:51:50.708Z
+ * Generated: 2026-03-11T03:28:48.879Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -52511,6 +52511,14 @@ window.BuildSequenceHistory = BuildSequenceHistory;
 /**
  * SetupDialog.jsx
  * Initial setup dialog for configuring buildings, levels, and module generation
+ * 
+ * Building cards with:
+ * - Building Name (text)
+ * - Number of Stacks (module stacks per level)
+ * - Starting Level / Ending Level
+ * - Level Build Order toggle (Top→Bottom or Bottom→Top)
+ * - Define Set Order button
+ * - Remove button
  */
 // [Removed duplicate React destructuring]
 function SetupDialog({
@@ -52521,79 +52529,151 @@ function SetupDialog({
   onClose,
   existingModuleCount = 0
 }) {
-  // Building configuration state
-  const [numBuildings, setNumBuildings] = useState(1);
-  const [buildingConfigs, setBuildingConfigs] = useState([{
-    building: 1,
-    levels: 4,
-    modulesPerLevel: 10
+  // Building cards state - start with one building
+  const [buildings, setBuildings] = useState([{
+    id: 1,
+    name: 'A',
+    stacks: 25,
+    startLevel: 2,
+    endLevel: 6,
+    levelOrder: 'topToBottom' // 'topToBottom' or 'bottomToTop'
   }]);
-
-  // Serial number configuration
-  const [serialPrefix, setSerialPrefix] = useState('');
-  const [startingSerial, setStartingSerial] = useState(1);
 
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [setOrderBuilding, setSetOrderBuilding] = useState(null); // building to show SetOrderModal for
 
   // Calculate total modules
-  const totalModules = buildingConfigs.reduce((sum, config) => {
-    return sum + config.levels * config.modulesPerLevel;
+  const totalModules = buildings.reduce((sum, bldg) => {
+    const levelCount = Math.abs(bldg.endLevel - bldg.startLevel) + 1;
+    return sum + levelCount * bldg.stacks;
   }, 0);
 
-  // Handle building count change
-  const handleBuildingCountChange = useCallback(count => {
-    const newCount = Math.max(1, Math.min(10, parseInt(count) || 1));
-    setNumBuildings(newCount);
-
-    // Adjust building configs array
-    const newConfigs = [...buildingConfigs];
-    while (newConfigs.length < newCount) {
-      newConfigs.push({
-        building: newConfigs.length + 1,
-        levels: 4,
-        modulesPerLevel: 10
-      });
+  // Add a new building card
+  const handleAddBuilding = useCallback(() => {
+    const nextId = Math.max(...buildings.map(b => b.id)) + 1;
+    // Auto-increment building name (A, B, C... or 1, 2, 3...)
+    const lastBldg = buildings[buildings.length - 1];
+    let nextName = '';
+    if (/^[A-Z]$/i.test(lastBldg.name)) {
+      nextName = String.fromCharCode(lastBldg.name.toUpperCase().charCodeAt(0) + 1);
+    } else if (/^\d+$/.test(lastBldg.name)) {
+      nextName = String(parseInt(lastBldg.name) + 1);
+    } else {
+      nextName = String(nextId);
     }
-    while (newConfigs.length > newCount) {
-      newConfigs.pop();
-    }
-    setBuildingConfigs(newConfigs);
-  }, [buildingConfigs]);
+    setBuildings([...buildings, {
+      id: nextId,
+      name: nextName,
+      stacks: lastBldg.stacks,
+      startLevel: lastBldg.startLevel,
+      endLevel: lastBldg.endLevel,
+      levelOrder: lastBldg.levelOrder
+    }]);
+  }, [buildings]);
 
-  // Handle individual building config change
-  const handleConfigChange = useCallback((index, field, value) => {
-    const newConfigs = [...buildingConfigs];
-    newConfigs[index] = {
-      ...newConfigs[index],
-      [field]: Math.max(1, parseInt(value) || 1)
-    };
-    setBuildingConfigs(newConfigs);
-  }, [buildingConfigs]);
+  // Remove a building card (minimum 1 must remain)
+  const handleRemoveBuilding = useCallback(buildingId => {
+    if (buildings.length <= 1) return;
+    setBuildings(buildings.filter(b => b.id !== buildingId));
+  }, [buildings]);
 
-  // Apply same config to all buildings
-  const applyToAll = useCallback(() => {
-    if (buildingConfigs.length === 0) return;
-    const template = buildingConfigs[0];
-    const newConfigs = buildingConfigs.map((config, index) => ({
-      ...config,
-      levels: template.levels,
-      modulesPerLevel: template.modulesPerLevel
+  // Update a building field
+  const handleBuildingChange = useCallback((buildingId, field, value) => {
+    setBuildings(buildings.map(b => {
+      if (b.id !== buildingId) return b;
+
+      // Validate numeric fields
+      if (['stacks', 'startLevel', 'endLevel'].includes(field)) {
+        const numVal = parseInt(value) || 1;
+        return {
+          ...b,
+          [field]: Math.max(1, numVal)
+        };
+      }
+      return {
+        ...b,
+        [field]: value
+      };
     }));
-    setBuildingConfigs(newConfigs);
-  }, [buildingConfigs]);
+  }, [buildings]);
 
-  // Handle generate
+  // Handle generate - creates module grid data
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
     try {
+      // Validate buildings
+      for (const bldg of buildings) {
+        if (!bldg.name.trim()) {
+          throw new Error('All buildings must have a name');
+        }
+        if (bldg.stacks < 1) {
+          throw new Error('Number of stacks must be at least 1');
+        }
+        if (bldg.startLevel < 1 || bldg.endLevel < 1) {
+          throw new Error('Levels must be at least 1');
+        }
+      }
+
+      // Generate modules
+      const modules = [];
+      let sequenceNum = 1;
+      buildings.forEach((bldg, bldgIndex) => {
+        const buildingNum = bldgIndex + 1;
+        const levelCount = Math.abs(bldg.endLevel - bldg.startLevel) + 1;
+
+        // Determine level order
+        let levels = [];
+        if (bldg.startLevel <= bldg.endLevel) {
+          for (let l = bldg.startLevel; l <= bldg.endLevel; l++) {
+            levels.push(l);
+          }
+        } else {
+          for (let l = bldg.startLevel; l >= bldg.endLevel; l--) {
+            levels.push(l);
+          }
+        }
+
+        // Apply level build order
+        if (bldg.levelOrder === 'topToBottom') {
+          levels.sort((a, b) => b - a); // Highest first
+        } else {
+          levels.sort((a, b) => a - b); // Lowest first
+        }
+
+        // Generate modules: iterate stacks, then levels within each stack
+        for (let stack = 1; stack <= bldg.stacks; stack++) {
+          for (const level of levels) {
+            const stackPadded = String(stack).padStart(2, '0');
+            const blmId = `B${buildingNum}L${level}M${stackPadded}`;
+            modules.push({
+              id: crypto.randomUUID(),
+              project_id: projectId,
+              blm_id: blmId,
+              hitch_blm: blmId,
+              rear_blm: blmId,
+              // Same as hitch (not sawbox by default)
+              serial_number: '',
+              // Left blank
+              building: buildingNum,
+              building_name: bldg.name,
+              level: level,
+              stack: stack,
+              unit_type: '',
+              build_sequence: sequenceNum,
+              set_sequence: null,
+              difficulty_tags: [],
+              notes: ''
+            });
+            sequenceNum++;
+          }
+        }
+      });
       await onGenerate({
-        buildingConfigs,
-        serialPrefix: serialPrefix.trim(),
-        startingSerial
+        buildings,
+        modules
       });
     } catch (err) {
       setError(err.message || 'Failed to generate modules');
@@ -52604,7 +52684,7 @@ function SetupDialog({
   return /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+    className: "bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
   }, /*#__PURE__*/React.createElement("div", {
     className: "px-6 py-4 border-b border-gray-200 flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
@@ -52649,71 +52729,31 @@ function SetupDialog({
     onClick: onImportExisting,
     className: "mt-2 text-sm font-medium text-amber-700 hover:text-amber-900 underline"
   }, "Import existing modules")))), /*#__PURE__*/React.createElement("div", {
-    className: "mb-6"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm font-medium text-gray-700 mb-2"
-  }, "Number of Buildings"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => handleBuildingCountChange(numBuildings - 1),
-    disabled: numBuildings <= 1,
-    className: "w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-  }, "-"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: numBuildings,
-    onChange: e => handleBuildingCountChange(e.target.value),
-    min: "1",
-    max: "10",
-    className: "w-20 text-center border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => handleBuildingCountChange(numBuildings + 1),
-    disabled: numBuildings >= 10,
-    className: "w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-  }, "+"))), /*#__PURE__*/React.createElement("div", {
-    className: "mb-6"
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-medium text-gray-700 mb-3"
+  }, "Buildings"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4"
+  }, buildings.map((bldg, index) => /*#__PURE__*/React.createElement("div", {
+    key: bldg.id,
+    className: "p-4 bg-gray-50 border border-gray-200 rounded-lg"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-3"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm font-medium text-gray-700"
-  }, "Building Configuration"), numBuildings > 1 && /*#__PURE__*/React.createElement("button", {
-    onClick: applyToAll,
-    className: "text-sm text-blue-600 hover:text-blue-800"
-  }, "Apply Building 1 settings to all")), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
-  }, buildingConfigs.map((config, index) => /*#__PURE__*/React.createElement("div", {
-    key: config.building,
-    className: "flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-sm font-medium text-gray-700 w-24"
-  }, "Building ", config.building), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-sm text-gray-600"
-  }, "Levels:"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: config.levels,
-    onChange: e => handleConfigChange(index, 'levels', e.target.value),
-    min: "1",
-    max: "20",
-    className: "w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "text-sm text-gray-600"
-  }, "Modules/Level:"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: config.modulesPerLevel,
-    onChange: e => handleConfigChange(index, 'modulesPerLevel', e.target.value),
-    min: "1",
-    max: "100",
-    className: "w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-500 ml-auto"
-  }, "= ", config.levels * config.modulesPerLevel, " modules"))))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowAdvanced(!showAdvanced),
-    className: "flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-4"
+  }, "Building Name:"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: bldg.name,
+    onChange: e => handleBuildingChange(bldg.id, 'name', e.target.value),
+    placeholder: "A, B, 1...",
+    className: "w-20 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), buildings.length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleRemoveBuilding(bldg.id),
+    className: "text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
   }, /*#__PURE__*/React.createElement("svg", {
-    className: `w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`,
+    className: "w-4 h-4",
     fill: "none",
     stroke: "currentColor",
     viewBox: "0 0 24 24"
@@ -52721,28 +52761,77 @@ function SetupDialog({
     strokeLinecap: "round",
     strokeLinejoin: "round",
     strokeWidth: 2,
-    d: "M9 5l7 7-7 7"
-  })), "Advanced Options"), showAdvanced && /*#__PURE__*/React.createElement("div", {
-    className: "mb-6 p-4 bg-gray-50 rounded-lg space-y-4"
+    d: "M6 18L18 6M6 6l12 12"
+  })), "Remove")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm font-medium text-gray-700 mb-1"
-  }, "Serial Number Prefix (optional)"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: serialPrefix,
-    onChange: e => setSerialPrefix(e.target.value),
-    placeholder: "e.g., MOD, PRJ-001",
-    className: "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-gray-500 mt-1"
-  }, "Preview: ", serialPrefix ? `${serialPrefix}-001` : '001')), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm font-medium text-gray-700 mb-1"
-  }, "Starting Serial Number"), /*#__PURE__*/React.createElement("input", {
+    className: "block text-xs text-gray-500 mb-1"
+  }, "Number of Stacks"), /*#__PURE__*/React.createElement("input", {
     type: "number",
-    value: startingSerial,
-    onChange: e => setStartingSerial(Math.max(1, parseInt(e.target.value) || 1)),
+    value: bldg.stacks,
+    onChange: e => handleBuildingChange(bldg.id, 'stacks', e.target.value),
     min: "1",
-    className: "w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-  }))), error && /*#__PURE__*/React.createElement("div", {
+    max: "100",
+    className: "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-gray-500 mb-1"
+  }, "Starting Level"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: bldg.startLevel,
+    onChange: e => handleBuildingChange(bldg.id, 'startLevel', e.target.value),
+    min: "1",
+    max: "20",
+    className: "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-gray-500 mb-1"
+  }, "Ending Level"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: bldg.endLevel,
+    onChange: e => handleBuildingChange(bldg.id, 'endLevel', e.target.value),
+    min: "1",
+    max: "20",
+    className: "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-gray-500 mb-1"
+  }, "Level Build Order"), /*#__PURE__*/React.createElement("select", {
+    value: bldg.levelOrder,
+    onChange: e => handleBuildingChange(bldg.id, 'levelOrder', e.target.value),
+    className: "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "topToBottom"
+  }, "Top \u2192 Bottom"), /*#__PURE__*/React.createElement("option", {
+    value: "bottomToTop"
+  }, "Bottom \u2192 Top")))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between pt-2 border-t border-gray-200"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-500"
+  }, Math.abs(bldg.endLevel - bldg.startLevel) + 1, " levels \xD7 ", bldg.stacks, " stacks = ", (Math.abs(bldg.endLevel - bldg.startLevel) + 1) * bldg.stacks, " modules"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSetOrderBuilding(bldg),
+    className: "text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M4 6h16M4 10h16M4 14h16M4 18h16"
+  })), "Define Set Order"))))), /*#__PURE__*/React.createElement("button", {
+    onClick: handleAddBuilding,
+    className: "mt-3 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 flex items-center justify-center gap-2"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M12 4v16m8-8H4"
+  })), "Add Building")), error && /*#__PURE__*/React.createElement("div", {
     className: "mb-4 p-3 bg-red-50 border border-red-200 rounded-lg"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-red-700"
@@ -52776,7 +52865,25 @@ function SetupDialog({
     className: "opacity-75",
     fill: "currentColor",
     d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-  })), "Generating...") : 'Generate Modules')))));
+  })), "Generating...") : /*#__PURE__*/React.createElement(React.Fragment, null, "Generate Module Grid", /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M14 5l7 7m0 0l-7 7m7-7H3"
+  }))))))), setOrderBuilding && window.SetOrderModal && /*#__PURE__*/React.createElement(window.SetOrderModal, {
+    building: setOrderBuilding,
+    onClose: () => setSetOrderBuilding(null),
+    onSave: setOrder => {
+      // Store set order for this building (can be used during generation)
+      handleBuildingChange(setOrderBuilding.id, 'setOrder', setOrder);
+      setSetOrderBuilding(null);
+    }
+  }));
 }
 
 // Expose to window for script tag usage
@@ -54082,6 +54189,324 @@ window.TagEditModal = TagEditModal;
 
 
 // ============================================================================
+// FILE: sequenceBuilder/SawboxMergeModal.jsx
+// ============================================================================
+(function() {
+/**
+ * SawboxMergeModal.jsx
+ * Modal for merging two modules into a sawbox configuration
+ * User selects which module is Hitch and which is Rear
+ */
+// [Removed duplicate React destructuring]
+function SawboxMergeModal({
+  modules,
+  onMerge,
+  onClose
+}) {
+  // modules should be exactly 2 modules
+  const [module1, module2] = modules;
+
+  // State: which module is hitch (the one that stays)
+  const [hitchId, setHitchId] = useState(module1?.id);
+  if (!module1 || !module2) {
+    return null;
+  }
+  const rearId = hitchId === module1.id ? module2.id : module1.id;
+  const hitchModule = hitchId === module1.id ? module1 : module2;
+  const rearModule = hitchId === module1.id ? module2 : module1;
+  const handleConfirm = () => {
+    onMerge(hitchId, rearId);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-semibold text-gray-900"
+  }, "Merge as Sawbox"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-gray-400 hover:text-gray-600 p-1",
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-600 mb-4"
+  }, "Select which module will be the ", /*#__PURE__*/React.createElement("strong", null, "Hitch"), " (keeps its row) and which will be the ", /*#__PURE__*/React.createElement("strong", null, "Rear"), " (merged in, row removed)."), /*#__PURE__*/React.createElement("label", {
+    className: `block p-4 border rounded-lg mb-3 cursor-pointer transition-colors ${hitchId === module1.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    name: "hitchSelection",
+    checked: hitchId === module1.id,
+    onChange: () => setHitchId(module1.id),
+    className: "w-4 h-4 text-purple-600"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4 text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-gray-900"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-purple-600"
+  }, "Hitch:"), " ", module1.blm_id), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-gray-900"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Rear:"), " ", module2.blm_id)), module1.serial_number && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Serial: ", module1.serial_number)))), /*#__PURE__*/React.createElement("label", {
+    className: `block p-4 border rounded-lg cursor-pointer transition-colors ${hitchId === module2.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    name: "hitchSelection",
+    checked: hitchId === module2.id,
+    onChange: () => setHitchId(module2.id),
+    className: "w-4 h-4 text-purple-600"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4 text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-gray-900"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-purple-600"
+  }, "Hitch:"), " ", module2.blm_id), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-gray-900"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Rear:"), " ", module1.blm_id)), module2.serial_number && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Serial: ", module2.serial_number)))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 p-3 bg-gray-50 rounded-lg"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-xs font-medium text-gray-500 uppercase mb-2"
+  }, "Result Preview"), /*#__PURE__*/React.createElement("div", {
+    className: "text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-gray-900"
+  }, hitchModule.blm_id), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500 mx-2"
+  }, "+"), /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-gray-900"
+  }, rearModule.blm_id), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500 mx-2"
+  }, "="), /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-purple-700"
+  }, "Sawbox Module")), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "The rear module row will be removed from the grid."))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleConfirm,
+    className: "px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700"
+  }, "Confirm Merge"))));
+}
+
+// Expose to window for script tag usage
+window.SawboxMergeModal = SawboxMergeModal;
+})();
+
+
+// ============================================================================
+// FILE: sequenceBuilder/SerialAssignModal.jsx
+// ============================================================================
+(function() {
+/**
+ * SerialAssignModal.jsx
+ * Modal for auto-assigning serial numbers to modules
+ * Format: YY-XXXX (year prefix + 4-digit zero-padded number)
+ */
+// [Removed duplicate React destructuring]
+function SerialAssignModal({
+  modules,
+  onAssign,
+  onClose
+}) {
+  const [startingSerial, setStartingSerial] = useState('26-0001');
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  // Check if any modules already have serials
+  const existingSerials = useMemo(() => {
+    return modules.filter(m => m.serial_number && m.serial_number.trim() !== '');
+  }, [modules]);
+  const hasExistingSerials = existingSerials.length > 0;
+
+  // Validate format
+  const isValidFormat = /^\d{2}-\d{1,4}$/.test(startingSerial);
+
+  // Preview what serials will be assigned
+  const previewSerials = useMemo(() => {
+    if (!isValidFormat) return [];
+    const match = startingSerial.match(/^(\d{2})-(\d+)$/);
+    if (!match) return [];
+    const yearPrefix = match[1];
+    const startNum = parseInt(match[2], 10);
+
+    // Show first 3 and last 1
+    const sorted = [...modules].sort((a, b) => (a.build_sequence || 999) - (b.build_sequence || 999));
+    const preview = [];
+    if (sorted.length <= 4) {
+      sorted.forEach((m, idx) => {
+        preview.push({
+          blm: m.blm_id,
+          serial: `${yearPrefix}-${String(startNum + idx).padStart(4, '0')}`
+        });
+      });
+    } else {
+      // First 3
+      for (let i = 0; i < 3; i++) {
+        preview.push({
+          blm: sorted[i].blm_id,
+          serial: `${yearPrefix}-${String(startNum + i).padStart(4, '0')}`
+        });
+      }
+      // Ellipsis indicator
+      preview.push({
+        blm: '...',
+        serial: '...'
+      });
+      // Last one
+      const lastIdx = sorted.length - 1;
+      preview.push({
+        blm: sorted[lastIdx].blm_id,
+        serial: `${yearPrefix}-${String(startNum + lastIdx).padStart(4, '0')}`
+      });
+    }
+    return preview;
+  }, [modules, startingSerial, isValidFormat]);
+  const handleAssign = async () => {
+    if (!isValidFormat) return;
+    setIsAssigning(true);
+    try {
+      await onAssign(startingSerial);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-semibold text-gray-900"
+  }, "Auto-Assign Serial Numbers"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-gray-400 hover:text-gray-600 p-1",
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M6 18L18 6M6 6l12 12"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4"
+  }, hasExistingSerials && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-2"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium text-amber-800"
+  }, existingSerials.length, " module", existingSerials.length !== 1 ? 's' : '', " already have serial numbers"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-amber-700 mt-1"
+  }, "Proceeding will overwrite all existing serial numbers.")))), /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-2"
+  }, "Starting Serial Number"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: startingSerial,
+    onChange: e => setStartingSerial(e.target.value),
+    placeholder: "26-0001",
+    className: `w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${!isValidFormat && startingSerial ? 'border-red-300' : 'border-gray-300'}`
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Format: YY-XXXX (e.g., 26-0168 for year 2026, starting at 168)"), !isValidFormat && startingSerial && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-red-600 mt-1"
+  }, "Invalid format. Use YY-XXXX")), isValidFormat && previewSerials.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-sm font-medium text-gray-700 mb-2"
+  }, "Preview (", modules.length, " modules)"), /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-50 rounded-lg p-3 space-y-1"
+  }, previewSerials.map((p, idx) => /*#__PURE__*/React.createElement("div", {
+    key: idx,
+    className: "flex items-center justify-between text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-600"
+  }, p.blm), /*#__PURE__*/React.createElement("span", {
+    className: "font-mono text-gray-900"
+  }, p.serial)))))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleAssign,
+    disabled: !isValidFormat || isAssigning,
+    className: "px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  }, isAssigning ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("svg", {
+    className: "animate-spin w-4 h-4",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("circle", {
+    className: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    strokeWidth: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    className: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })), "Assigning...") : `Assign to ${modules.length} Modules`))));
+}
+
+// Expose to window for script tag usage
+window.SerialAssignModal = SerialAssignModal;
+})();
+
+
+// ============================================================================
 // FILE: sequenceBuilder/ModuleTable.jsx
 // ============================================================================
 (function() {
@@ -54569,6 +54994,8 @@ function ModuleGrid({
   // Modal states
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showTagEdit, setShowTagEdit] = useState(null); // module object
+  const [showSawboxMerge, setShowSawboxMerge] = useState(false);
+  const [showSerialAssign, setShowSerialAssign] = useState(false);
 
   // Clear filters
   const clearFilters = useCallback(() => {
@@ -54694,6 +55121,78 @@ function ModuleGrid({
     onModulesChange(refreshed);
   }, [projectId, onModulesChange]);
 
+  // Handle auto-assign serials
+  const handleAutoAssignSerials = useCallback(async startingSerial => {
+    const API = window.SequenceBuilderAPI;
+
+    // Sort modules by build_sequence
+    const sorted = [...modules].sort((a, b) => (a.build_sequence || 999) - (b.build_sequence || 999));
+
+    // Parse starting serial (format: YY-XXXX)
+    const match = startingSerial.match(/^(\d{2})-(\d+)$/);
+    if (!match) {
+      alert('Invalid serial format. Use YY-XXXX (e.g., 26-0168)');
+      return;
+    }
+    const yearPrefix = match[1];
+    let serialNum = parseInt(match[2], 10);
+
+    // Generate serial updates
+    const updates = sorted.map((m, idx) => ({
+      id: m.id,
+      updates: {
+        serial_number: `${yearPrefix}-${String(serialNum + idx).padStart(4, '0')}`
+      }
+    }));
+    await API.updateModulesBatch(updates);
+
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+    setShowSerialAssign(false);
+  }, [modules, projectId, onModulesChange]);
+
+  // Handle sawbox merge
+  const handleSawboxMerge = useCallback(async (hitchId, rearId) => {
+    const API = window.SequenceBuilderAPI;
+
+    // Get the two modules
+    const hitchModule = modules.find(m => m.id === hitchId);
+    const rearModule = modules.find(m => m.id === rearId);
+    if (!hitchModule || !rearModule) {
+      console.error('Could not find modules for merge');
+      return;
+    }
+
+    // Update hitch module with rear BLM
+    await API.updateModule(hitchId, {
+      rear_blm: rearModule.blm_id
+      // Sawbox tag will be auto-applied since hitch_blm ≠ rear_blm
+    });
+
+    // Delete the rear module
+    await API.deleteModule(rearId);
+
+    // Refresh and renumber sequences
+    let refreshed = await API.fetchProjectModules(projectId);
+
+    // Renumber build sequences to fill the gap
+    const sorted = refreshed.sort((a, b) => (a.build_sequence || 999) - (b.build_sequence || 999));
+    const updates = sorted.map((m, idx) => ({
+      id: m.id,
+      updates: {
+        build_sequence: idx + 1
+      }
+    }));
+    await API.updateModulesBatch(updates);
+
+    // Final refresh
+    refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+    setShowSawboxMerge(false);
+    setSelectedIds([]);
+  }, [modules, projectId, onModulesChange]);
+
   // Stats
   const stats = useMemo(() => ({
     total: modules.length,
@@ -54746,7 +55245,20 @@ function ModuleGrid({
     strokeLinejoin: "round",
     strokeWidth: 2,
     d: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-  })), "Set Order")), /*#__PURE__*/React.createElement("div", {
+  })), "Set Order"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowSerialAssign(true),
+    className: "px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+  })), "Auto-Assign Serials")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => onExport('csv'),
@@ -54764,7 +55276,23 @@ function ModuleGrid({
     className: "text-sm font-medium text-blue-800"
   }, selectedIds.length, " module", selectedIds.length !== 1 ? 's' : '', " selected"), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, selectedIds.length === 2 ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowSawboxMerge(true),
+    className: "px-3 py-1.5 text-sm font-medium text-purple-700 hover:text-purple-900 hover:bg-purple-100 rounded flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+  })), "Merge as Sawbox") : selectedIds.length > 2 ? /*#__PURE__*/React.createElement("span", {
+    className: "px-3 py-1.5 text-sm font-medium text-gray-400 cursor-not-allowed",
+    title: "Select exactly 2 modules to merge"
+  }, "Merge as Sawbox") : null, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowBulkEdit(true),
     className: "px-3 py-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded"
   }, "Bulk Edit"), /*#__PURE__*/React.createElement("button", {
@@ -54795,6 +55323,14 @@ function ModuleGrid({
     module: showTagEdit,
     onSave: handleTagEditSave,
     onClose: () => setShowTagEdit(null)
+  }), showSawboxMerge && window.SawboxMergeModal && /*#__PURE__*/React.createElement(window.SawboxMergeModal, {
+    modules: modules.filter(m => selectedIds.includes(m.id)),
+    onMerge: handleSawboxMerge,
+    onClose: () => setShowSawboxMerge(false)
+  }), showSerialAssign && window.SerialAssignModal && /*#__PURE__*/React.createElement(window.SerialAssignModal, {
+    modules: modules,
+    onAssign: handleAutoAssignSerials,
+    onClose: () => setShowSerialAssign(false)
   }));
 }
 

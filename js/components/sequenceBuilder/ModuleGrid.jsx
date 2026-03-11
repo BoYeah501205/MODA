@@ -34,6 +34,8 @@ function ModuleGrid({
   // Modal states
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showTagEdit, setShowTagEdit] = useState(null); // module object
+  const [showSawboxMerge, setShowSawboxMerge] = useState(false);
+  const [showSerialAssign, setShowSerialAssign] = useState(false);
   
   // Clear filters
   const clearFilters = useCallback(() => {
@@ -175,6 +177,81 @@ function ModuleGrid({
     onModulesChange(refreshed);
   }, [projectId, onModulesChange]);
 
+  // Handle auto-assign serials
+  const handleAutoAssignSerials = useCallback(async (startingSerial) => {
+    const API = window.SequenceBuilderAPI;
+    
+    // Sort modules by build_sequence
+    const sorted = [...modules].sort((a, b) => (a.build_sequence || 999) - (b.build_sequence || 999));
+    
+    // Parse starting serial (format: YY-XXXX)
+    const match = startingSerial.match(/^(\d{2})-(\d+)$/);
+    if (!match) {
+      alert('Invalid serial format. Use YY-XXXX (e.g., 26-0168)');
+      return;
+    }
+    
+    const yearPrefix = match[1];
+    let serialNum = parseInt(match[2], 10);
+    
+    // Generate serial updates
+    const updates = sorted.map((m, idx) => ({
+      id: m.id,
+      updates: { 
+        serial_number: `${yearPrefix}-${String(serialNum + idx).padStart(4, '0')}`
+      }
+    }));
+    
+    await API.updateModulesBatch(updates);
+    
+    // Refresh modules
+    const refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+    
+    setShowSerialAssign(false);
+  }, [modules, projectId, onModulesChange]);
+
+  // Handle sawbox merge
+  const handleSawboxMerge = useCallback(async (hitchId, rearId) => {
+    const API = window.SequenceBuilderAPI;
+    
+    // Get the two modules
+    const hitchModule = modules.find(m => m.id === hitchId);
+    const rearModule = modules.find(m => m.id === rearId);
+    
+    if (!hitchModule || !rearModule) {
+      console.error('Could not find modules for merge');
+      return;
+    }
+    
+    // Update hitch module with rear BLM
+    await API.updateModule(hitchId, {
+      rear_blm: rearModule.blm_id,
+      // Sawbox tag will be auto-applied since hitch_blm ≠ rear_blm
+    });
+    
+    // Delete the rear module
+    await API.deleteModule(rearId);
+    
+    // Refresh and renumber sequences
+    let refreshed = await API.fetchProjectModules(projectId);
+    
+    // Renumber build sequences to fill the gap
+    const sorted = refreshed.sort((a, b) => (a.build_sequence || 999) - (b.build_sequence || 999));
+    const updates = sorted.map((m, idx) => ({
+      id: m.id,
+      updates: { build_sequence: idx + 1 }
+    }));
+    await API.updateModulesBatch(updates);
+    
+    // Final refresh
+    refreshed = await API.fetchProjectModules(projectId);
+    onModulesChange(refreshed);
+    
+    setShowSawboxMerge(false);
+    setSelectedIds([]);
+  }, [modules, projectId, onModulesChange]);
+
   // Stats
   const stats = useMemo(() => ({
     total: modules.length,
@@ -217,6 +294,16 @@ function ModuleGrid({
             </svg>
             Set Order
           </button>
+          
+          <button
+            onClick={() => setShowSerialAssign(true)}
+            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+            </svg>
+            Auto-Assign Serials
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -251,6 +338,26 @@ function ModuleGrid({
           </span>
           
           <div className="flex items-center gap-2">
+            {/* Merge as Sawbox - only active when exactly 2 selected */}
+            {selectedIds.length === 2 ? (
+              <button
+                onClick={() => setShowSawboxMerge(true)}
+                className="px-3 py-1.5 text-sm font-medium text-purple-700 hover:text-purple-900 hover:bg-purple-100 rounded flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                Merge as Sawbox
+              </button>
+            ) : selectedIds.length > 2 ? (
+              <span 
+                className="px-3 py-1.5 text-sm font-medium text-gray-400 cursor-not-allowed"
+                title="Select exactly 2 modules to merge"
+              >
+                Merge as Sawbox
+              </span>
+            ) : null}
+            
             <button
               onClick={() => setShowBulkEdit(true)}
               className="px-3 py-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded"
@@ -312,6 +419,24 @@ function ModuleGrid({
           module={showTagEdit}
           onSave={handleTagEditSave}
           onClose={() => setShowTagEdit(null)}
+        />
+      )}
+
+      {/* Sawbox Merge Modal */}
+      {showSawboxMerge && window.SawboxMergeModal && (
+        <window.SawboxMergeModal
+          modules={modules.filter(m => selectedIds.includes(m.id))}
+          onMerge={handleSawboxMerge}
+          onClose={() => setShowSawboxMerge(false)}
+        />
+      )}
+
+      {/* Serial Assign Modal */}
+      {showSerialAssign && window.SerialAssignModal && (
+        <window.SerialAssignModal
+          modules={modules}
+          onAssign={handleAutoAssignSerials}
+          onClose={() => setShowSerialAssign(false)}
         />
       )}
     </div>

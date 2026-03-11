@@ -130,6 +130,8 @@ const FILE_ORDER = [
     'sequenceBuilder/BulkEditModal.jsx',
     'sequenceBuilder/AddModuleModal.jsx',
     'sequenceBuilder/TagEditModal.jsx',
+    'sequenceBuilder/SawboxMergeModal.jsx',
+    'sequenceBuilder/SerialAssignModal.jsx',
     'sequenceBuilder/ModuleTable.jsx',
     'sequenceBuilder/ModuleGrid.jsx',
     'sequenceBuilder/SequenceBuilderHeader.jsx',

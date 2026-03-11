@@ -2,9 +2,23 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.72**
+**Current Version: 1.5.73**
 
 ---
+
+## [1.5.73] - 2026-03-10
+### Feature
+- **Production Sequence Builder - Major Rebuild**
+  - **SetupDialog Rebuilt**: New building card structure with Building Name, Number of Stacks, Starting/Ending Level, Level Build Order toggle (Top→Bottom default), Define Set Order button, Add/Remove building cards
+  - **Sawbox Merge Tool**: Select exactly 2 modules → "Merge as Sawbox" button appears → Modal to choose Hitch/Rear → Merges modules, removes rear row, auto-renumbers sequence
+  - **Auto-Assign Serials**: New toolbar button opens modal for YY-XXXX format serial assignment (e.g., 26-0168), warns if overwriting existing serials, previews assignments
+  - Removed serial number fields from SetupDialog (serials assigned post-grid only)
+  - Module generation now creates hitch_blm = rear_blm (not sawbox by default)
+  - BLM format: B[building]L[level]M[stack zero-padded]
+
+### New Components
+- `SawboxMergeModal.jsx` - Modal for merging two modules as sawbox
+- `SerialAssignModal.jsx` - Modal for auto-assigning serial numbers
 
 ## [1.5.72] - 2026-03-10
 ### Fix
