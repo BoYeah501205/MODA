@@ -2,9 +2,28 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.73**
+**Current Version: 1.5.74**
 
 ---
+
+## [1.5.74] - 2026-03-12
+### Fix
+- **Modules Batch Insert Schema Fix** - Fixed 400 error when generating module grid. The Supabase `modules` table was missing columns required by the Sequence Builder: `building`, `level`, `hitch_blm`, `rear_blm`, `set_sequence`, `difficulty_tags`, `notes`.
+- Added SQL migration file: `backend/add-sequence-builder-columns.sql`
+- Added detailed error logging for schema mismatches in `createModulesBatch()` to help diagnose future column issues
+- Updated `supabase-schema.sql` to include all Sequence Builder columns
+
+### Migration Required
+Run the following SQL in Supabase SQL Editor, then reload schema cache:
+```sql
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS building TEXT;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS level INTEGER;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS hitch_blm TEXT;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS rear_blm TEXT;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS set_sequence INTEGER;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS difficulty_tags JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS notes TEXT;
+```
 
 ## [1.5.73] - 2026-03-10
 ### Feature

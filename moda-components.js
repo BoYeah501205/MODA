@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-03-11T03:28:48.879Z
+ * Generated: 2026-03-12T23:42:17.831Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -60795,7 +60795,7 @@ function NewProjectModal({
     value: "OTHER"
   }, "Other"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-1"
-  }, "Address *"), /*#__PURE__*/React.createElement("input", {
+  }, "Address"), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: address,
     onChange: e => setAddress(e.target.value),
@@ -60805,7 +60805,7 @@ function NewProjectModal({
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-1"
-  }, "City *"), /*#__PURE__*/React.createElement("input", {
+  }, "City"), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: city,
     onChange: e => setCity(e.target.value),
@@ -60813,7 +60813,7 @@ function NewProjectModal({
     className: "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm font-medium text-gray-700 mb-1"
-  }, isUS ? 'State' : 'State/Province', " *"), isUS ? /*#__PURE__*/React.createElement("select", {
+  }, isUS ? 'State' : 'State/Province'), isUS ? /*#__PURE__*/React.createElement("select", {
     value: state,
     onChange: e => setState(e.target.value),
     className: "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -60988,7 +60988,7 @@ function NewProjectModal({
       description,
       status
     }),
-    disabled: !name || !address || !city || !state,
+    disabled: !name,
     className: "px-4 py-2 btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
   }, "Create Project")))));
 }

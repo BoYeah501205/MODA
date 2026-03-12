@@ -101,6 +101,12 @@ async function createModulesBatch(modulesData) {
     updated_at: timestamp,
   }));
   
+  // Log columns being inserted for debugging schema mismatches
+  if (modulesWithTimestamps.length > 0) {
+    const sampleModule = modulesWithTimestamps[0];
+    console.log('[Modules] Batch insert - columns:', Object.keys(sampleModule).join(', '));
+  }
+  
   const { data, error } = await supabase
     .from('modules')
     .insert(modulesWithTimestamps)
@@ -108,9 +114,16 @@ async function createModulesBatch(modulesData) {
   
   if (error) {
     console.error('Error creating modules batch:', error);
+    // Log detailed error info for schema mismatches (400 errors)
+    if (error.code === '42703' || error.message?.includes('column') || error.code === 'PGRST204') {
+      console.error('[Modules] Schema mismatch - check if all columns exist in Supabase:');
+      console.error('[Modules] Attempted columns:', Object.keys(modulesWithTimestamps[0] || {}).join(', '));
+      console.error('[Modules] Error details:', error.message, error.details, error.hint);
+    }
     throw error;
   }
   
+  console.log('[Modules] Batch insert successful:', data?.length || 0, 'modules created');
   return data || [];
 }
 
