@@ -4607,7 +4607,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                                     <input
                                         type="text"
                                         value={address}
@@ -4618,7 +4618,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                                         <input
                                             type="text"
                                             value={city}
@@ -4628,7 +4628,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">{isUS ? 'State' : 'State/Province'} *</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">{isUS ? 'State' : 'State/Province'}</label>
                                         {isUS ? (
                                             <select
                                                 value={state}
@@ -4729,7 +4729,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         description, 
                                         status
                                     })}
-                                    disabled={!name || !address || !city || !state}
+                                    disabled={!name}
                                     className="px-4 py-2 btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Create Project
