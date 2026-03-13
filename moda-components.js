@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-03-13T01:01:55.084Z
+ * Generated: 2026-03-13T01:59:47.865Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -52980,13 +52980,37 @@ function SetOrderModal({
     });
   }, [modules, sortBy]);
 
+  // Parse BLM ID to extract building and module number for stack grouping
+  // Format: B{building}L{level}M{module} e.g., B1L2M01 -> { building: 1, module: '01' }
+  const parseBlmId = useCallback(blmId => {
+    if (!blmId) return {
+      building: 1,
+      moduleNum: '01'
+    };
+    const match = blmId.match(/^B(\d+)L\d+M(\d+)$/i);
+    if (match) {
+      return {
+        building: parseInt(match[1], 10),
+        moduleNum: match[2]
+      };
+    }
+    // Fallback: try to extract any numbers
+    return {
+      building: 1,
+      moduleNum: '01'
+    };
+  }, []);
+
   // Group modules by building and stack (Stack Mode)
+  // Stack key = Building + Module number (ignoring level)
   const stackGroupedModules = useMemo(() => {
     const buildingGroups = {};
     modules.forEach(module => {
-      const building = module.building || 1;
-      const stack = module.stack || 1;
-      const stackKey = `B${building}M${String(stack).padStart(2, '0')}`;
+      const {
+        building,
+        moduleNum
+      } = parseBlmId(module.blm_id);
+      const stackKey = `B${building}-M${moduleNum}`;
       if (!buildingGroups[building]) {
         buildingGroups[building] = {
           building,
@@ -52996,7 +53020,7 @@ function SetOrderModal({
       if (!buildingGroups[building].stacks[stackKey]) {
         buildingGroups[building].stacks[stackKey] = {
           building,
-          stack,
+          moduleNum,
           stackKey,
           modules: [],
           levels: new Set()
@@ -53009,7 +53033,7 @@ function SetOrderModal({
     // Convert to array and sort
     const result = [];
     Object.values(buildingGroups).sort((a, b) => a.building - b.building).forEach(buildingGroup => {
-      const stacks = Object.values(buildingGroup.stacks).sort((a, b) => a.stack - b.stack).map(stackGroup => ({
+      const stacks = Object.values(buildingGroup.stacks).sort((a, b) => parseInt(a.moduleNum, 10) - parseInt(b.moduleNum, 10)).map(stackGroup => ({
         ...stackGroup,
         levelCount: stackGroup.levels.size,
         levels: Array.from(stackGroup.levels).sort((a, b) => a - b),
@@ -53023,7 +53047,7 @@ function SetOrderModal({
       });
     });
     return result;
-  }, [modules]);
+  }, [modules, parseBlmId]);
 
   // Handle individual set assignment change
   const handleSetChange = useCallback((moduleId, value) => {
@@ -53039,11 +53063,13 @@ function SetOrderModal({
   const handleStackSetChange = useCallback((stackKey, value) => {
     const numValue = value === '' ? null : Math.max(1, parseInt(value) || 1);
 
-    // Find all modules in this stack
+    // Find all modules in this stack using BLM ID parsing
     const stackModules = modules.filter(m => {
-      const building = m.building || 1;
-      const stack = m.stack || 1;
-      const key = `B${building}M${String(stack).padStart(2, '0')}`;
+      const {
+        building,
+        moduleNum
+      } = parseBlmId(m.blm_id);
+      const key = `B${building}-M${moduleNum}`;
       return key === stackKey;
     });
 
@@ -53058,21 +53084,23 @@ function SetOrderModal({
       return newAssignments;
     });
     setIsDirty(true);
-  }, [modules]);
+  }, [modules, parseBlmId]);
 
   // Get the current set value for a stack (returns the value if all modules have same, otherwise null)
   const getStackSetValue = useCallback(stackKey => {
     const stackModules = modules.filter(m => {
-      const building = m.building || 1;
-      const stack = m.stack || 1;
-      const key = `B${building}M${String(stack).padStart(2, '0')}`;
+      const {
+        building,
+        moduleNum
+      } = parseBlmId(m.blm_id);
+      const key = `B${building}-M${moduleNum}`;
       return key === stackKey;
     });
     if (stackModules.length === 0) return null;
     const firstValue = setAssignments[stackModules[0].id];
     const allSame = stackModules.every(m => setAssignments[m.id] === firstValue);
     return allSame ? firstValue : null;
-  }, [modules, setAssignments]);
+  }, [modules, setAssignments, parseBlmId]);
 
   // Auto-assign set numbers for a group (level) - Individual Mode
   const autoAssignGroup = useCallback((groupKey, startingSet = 1) => {

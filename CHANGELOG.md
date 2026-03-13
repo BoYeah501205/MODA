@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.75**
+**Current Version: 1.5.76**
 
 ---
+
+## [1.5.76] - 2026-03-12
+### Fix
+- **Stack Mode Grouping Fix** - Fixed BLM ID parsing to correctly extract building+module stack key
+  - Was using non-existent `module.stack` property, now parses BLM ID format `B{building}L{level}M{module}`
+  - `B1L2M01` and `B1L3M01` now correctly group as stack `B1-M01` (same stack, different levels)
+  - 58 stacks × 5 levels now shows 58 stack rows instead of 1
+  - Auto-assign correctly assigns 1–58 across stacks, propagating to all level variants
 
 ## [1.5.75] - 2026-03-12
 ### Feature
