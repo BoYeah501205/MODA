@@ -2,9 +2,19 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.77**
+**Current Version: 1.5.78**
 
 ---
+
+## [1.5.78] - 2026-03-13
+### Feature
+- **PDF Export for Weekly Board Morning Sendout** - Added "Export PDF" button to Weekly Board toolbar
+  - Generates professional landscape PDF suitable for morning distribution to supervisors, department leads, and COO
+  - Clean layout with Autovol branding, week date range, starting module, and line balance
+  - Schedule table grouped by day with module serial numbers, BLM/Type, and station columns
+  - Difficulty indicators shown as colored dots on module rows
+  - Confidential footer for internal use
+  - Button placed between "Week History" and "Week Complete" buttons
 
 ## [1.5.77] - 2026-03-12
 ### Fix

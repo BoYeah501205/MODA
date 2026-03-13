@@ -76,6 +76,7 @@ const FILE_ORDER = [
     'WeeklyHeatMapReport.jsx',
     'WeeklyBoardPrintReport.jsx',
     'WeeklyBoardManagementReport.jsx',
+    'WeeklyBoardMorningSendout.jsx',
     'ReportsHub.jsx',
     
     // Drawings Module

@@ -2101,6 +2101,7 @@ function WeeklyBoardTab({
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
 
     const supabaseSyncTimeoutsRef = useRef({});
     
@@ -3133,9 +3134,31 @@ function WeeklyBoardTab({
         }
     };
     
-    // Handle PDF export - opens export modal
-    const handleExportPDF = () => {
-        setShowPDFExport(true);
+    // Handle PDF export - direct export for morning sendout
+    const handleExportPDF = async () => {
+        if (!window.generateMorningSendoutPDF) {
+            console.error('PDF export function not loaded');
+            addToast('PDF export not available', 'error');
+            return;
+        }
+        
+        setIsExportingPDF(true);
+        try {
+            await window.generateMorningSendoutPDF({
+                displayWeek,
+                productionStages,
+                allModules,
+                lineBalance,
+                scheduleSetup,
+                getModulesForStation
+            });
+            addToast('PDF exported successfully', 'success');
+        } catch (err) {
+            console.error('PDF export error:', err);
+            addToast(err.message || 'Failed to export PDF', 'error');
+        } finally {
+            setIsExportingPDF(false);
+        }
     };
     
     // Helper to compute day labels for PDF export
@@ -5163,6 +5186,29 @@ const getProjectAcronym = (module) => {
                             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
                         >
                             📊 Week History
+                        </button>
+                    )}
+                    {/* Export PDF - hidden on mobile */}
+                    {!isFeatureHiddenOnMobile('pdfExport') && (
+                        <button
+                            onClick={handleExportPDF}
+                            disabled={isExportingPDF}
+                            className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                            title="Export morning sendout PDF"
+                        >
+                            {isExportingPDF ? (
+                                <>
+                                    <span className="animate-spin">...</span>
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Export PDF
+                                </>
+                            )}
                         </button>
                     )}
                     {/* Complete Week - hidden on mobile */}
