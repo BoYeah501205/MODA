@@ -2,9 +2,22 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.74**
+**Current Version: 1.5.75**
 
 ---
+
+## [1.5.75] - 2026-03-12
+### Feature
+- **Stack Mode in Set Order Configuration** - New toggle in the Set Order modal for assigning set sequences at the stack level
+  - **Stack Mode Toggle**: Button in toolbar switches between Individual Mode (per-module) and Stack Mode (per-stack)
+  - **Building-grouped stacks**: When Stack Mode is on, modules are grouped by Building → Stack (e.g., B1M01, B1M02...)
+  - **Level count badge**: Shows how many levels each stack spans
+  - **Build sequence range**: Shows the range of build sequences in each stack
+  - **Stack-level input**: Entering a set number applies to all modules in that building+stack combination
+  - **Auto-assign per building**: Each building section has its own auto-assign button (M01=1, M02=2...)
+  - **Auto-Assign All**: In Stack Mode, assigns sequentially by stack with each building starting at 1
+  - **Mode persistence**: Last used mode (Stack/Individual) saved to localStorage
+  - **No data loss**: Switching modes preserves all assigned values
 
 ## [1.5.74] - 2026-03-12
 ### Fix

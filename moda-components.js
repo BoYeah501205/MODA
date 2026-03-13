@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-03-12T23:42:17.831Z
+ * Generated: 2026-03-13T01:01:55.084Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -52898,19 +52898,42 @@ window.SetupDialog = SetupDialog;
 /**
  * SetOrderModal.jsx
  * Modal for configuring stack/set order - groups modules by set for crane placement
+ * 
+ * Stack Mode: Assign set sequences at the stack level, applied across all levels
+ * Individual Mode: Assign set sequences per module (default)
  */
 // [Removed duplicate React destructuring]
+// localStorage key for persisting mode preference
+const STACK_MODE_KEY = 'moda_setorder_stackmode';
 function SetOrderModal({
   modules,
   onSave,
   onClose
 }) {
+  // Stack Mode toggle - persisted in localStorage
+  const [stackMode, setStackMode] = useState(() => {
+    try {
+      return localStorage.getItem(STACK_MODE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   // Group modules by building and level for set assignment
   const [setAssignments, setSetAssignments] = useState({});
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('blm_id');
+
+  // Persist stack mode preference
+  useEffect(() => {
+    try {
+      localStorage.setItem(STACK_MODE_KEY, stackMode ? 'true' : 'false');
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [stackMode]);
 
   // Initialize set assignments from modules
   useEffect(() => {
@@ -52921,7 +52944,7 @@ function SetOrderModal({
     setSetAssignments(assignments);
   }, [modules]);
 
-  // Group modules by building and level
+  // Group modules by building and level (Individual Mode)
   const groupedModules = useMemo(() => {
     const groups = {};
     modules.forEach(module => {
@@ -52957,6 +52980,51 @@ function SetOrderModal({
     });
   }, [modules, sortBy]);
 
+  // Group modules by building and stack (Stack Mode)
+  const stackGroupedModules = useMemo(() => {
+    const buildingGroups = {};
+    modules.forEach(module => {
+      const building = module.building || 1;
+      const stack = module.stack || 1;
+      const stackKey = `B${building}M${String(stack).padStart(2, '0')}`;
+      if (!buildingGroups[building]) {
+        buildingGroups[building] = {
+          building,
+          stacks: {}
+        };
+      }
+      if (!buildingGroups[building].stacks[stackKey]) {
+        buildingGroups[building].stacks[stackKey] = {
+          building,
+          stack,
+          stackKey,
+          modules: [],
+          levels: new Set()
+        };
+      }
+      buildingGroups[building].stacks[stackKey].modules.push(module);
+      buildingGroups[building].stacks[stackKey].levels.add(module.level || 1);
+    });
+
+    // Convert to array and sort
+    const result = [];
+    Object.values(buildingGroups).sort((a, b) => a.building - b.building).forEach(buildingGroup => {
+      const stacks = Object.values(buildingGroup.stacks).sort((a, b) => a.stack - b.stack).map(stackGroup => ({
+        ...stackGroup,
+        levelCount: stackGroup.levels.size,
+        levels: Array.from(stackGroup.levels).sort((a, b) => a - b),
+        // Calculate build sequence range
+        buildSeqMin: Math.min(...stackGroup.modules.map(m => m.build_sequence || 999)),
+        buildSeqMax: Math.max(...stackGroup.modules.map(m => m.build_sequence || 0))
+      }));
+      result.push({
+        building: buildingGroup.building,
+        stacks
+      });
+    });
+    return result;
+  }, [modules]);
+
   // Handle individual set assignment change
   const handleSetChange = useCallback((moduleId, value) => {
     const numValue = value === '' ? null : Math.max(1, parseInt(value) || 1);
@@ -52967,7 +53035,46 @@ function SetOrderModal({
     setIsDirty(true);
   }, []);
 
-  // Auto-assign set numbers for a group (level)
+  // Handle stack-level set assignment change (applies to all modules in that building+stack)
+  const handleStackSetChange = useCallback((stackKey, value) => {
+    const numValue = value === '' ? null : Math.max(1, parseInt(value) || 1);
+
+    // Find all modules in this stack
+    const stackModules = modules.filter(m => {
+      const building = m.building || 1;
+      const stack = m.stack || 1;
+      const key = `B${building}M${String(stack).padStart(2, '0')}`;
+      return key === stackKey;
+    });
+
+    // Update all modules in the stack
+    setSetAssignments(prev => {
+      const newAssignments = {
+        ...prev
+      };
+      stackModules.forEach(m => {
+        newAssignments[m.id] = numValue;
+      });
+      return newAssignments;
+    });
+    setIsDirty(true);
+  }, [modules]);
+
+  // Get the current set value for a stack (returns the value if all modules have same, otherwise null)
+  const getStackSetValue = useCallback(stackKey => {
+    const stackModules = modules.filter(m => {
+      const building = m.building || 1;
+      const stack = m.stack || 1;
+      const key = `B${building}M${String(stack).padStart(2, '0')}`;
+      return key === stackKey;
+    });
+    if (stackModules.length === 0) return null;
+    const firstValue = setAssignments[stackModules[0].id];
+    const allSame = stackModules.every(m => setAssignments[m.id] === firstValue);
+    return allSame ? firstValue : null;
+  }, [modules, setAssignments]);
+
+  // Auto-assign set numbers for a group (level) - Individual Mode
   const autoAssignGroup = useCallback((groupKey, startingSet = 1) => {
     const group = groupedModules.find(g => g.key === groupKey);
     if (!group) return;
@@ -52981,18 +53088,50 @@ function SetOrderModal({
     setIsDirty(true);
   }, [groupedModules, setAssignments]);
 
-  // Auto-assign all sets sequentially
-  const autoAssignAll = useCallback(() => {
-    const newAssignments = {};
+  // Auto-assign set numbers for a building's stacks - Stack Mode
+  const autoAssignBuildingStacks = useCallback(building => {
+    const buildingGroup = stackGroupedModules.find(bg => bg.building === building);
+    if (!buildingGroup) return;
+    const newAssignments = {
+      ...setAssignments
+    };
     let setNumber = 1;
-    groupedModules.forEach(group => {
-      group.modules.forEach(module => {
-        newAssignments[module.id] = setNumber++;
+    buildingGroup.stacks.forEach(stackGroup => {
+      stackGroup.modules.forEach(module => {
+        newAssignments[module.id] = setNumber;
       });
+      setNumber++;
     });
     setSetAssignments(newAssignments);
     setIsDirty(true);
-  }, [groupedModules]);
+  }, [stackGroupedModules, setAssignments]);
+
+  // Auto-assign all sets sequentially
+  const autoAssignAll = useCallback(() => {
+    const newAssignments = {};
+    if (stackMode) {
+      // Stack Mode: Assign by stack, each building starts at 1
+      stackGroupedModules.forEach(buildingGroup => {
+        let setNumber = 1;
+        buildingGroup.stacks.forEach(stackGroup => {
+          stackGroup.modules.forEach(module => {
+            newAssignments[module.id] = setNumber;
+          });
+          setNumber++;
+        });
+      });
+    } else {
+      // Individual Mode: Sequential across all modules
+      let setNumber = 1;
+      groupedModules.forEach(group => {
+        group.modules.forEach(module => {
+          newAssignments[module.id] = setNumber++;
+        });
+      });
+    }
+    setSetAssignments(newAssignments);
+    setIsDirty(true);
+  }, [stackMode, stackGroupedModules, groupedModules]);
 
   // Clear all set assignments
   const clearAll = useCallback(() => {
@@ -53060,7 +53199,7 @@ function SetOrderModal({
     className: "px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, !stackMode && /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-sm text-gray-600"
@@ -53074,7 +53213,22 @@ function SetOrderModal({
     value: "serial_number"
   }, "Serial #"), /*#__PURE__*/React.createElement("option", {
     value: "build_sequence"
-  }, "Build Seq")))), /*#__PURE__*/React.createElement("div", {
+  }, "Build Seq"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStackMode(!stackMode),
+    className: `flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${stackMode ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+  })), "Stack Mode", stackMode && /*#__PURE__*/React.createElement("span", {
+    className: "ml-1 text-xs bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded"
+  }, "ON"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: autoAssignAll,
@@ -53084,9 +53238,67 @@ function SetOrderModal({
     className: "px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
   }, "Clear All"))), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto px-6 py-4"
-  }, groupedModules.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, modules.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "text-center py-12 text-gray-500"
-  }, "No modules to configure") : /*#__PURE__*/React.createElement("div", {
+  }, "No modules to configure") : stackMode ?
+  /*#__PURE__*/
+  /* Stack Mode View */
+  React.createElement("div", {
+    className: "space-y-6"
+  }, stackGroupedModules.map(buildingGroup => /*#__PURE__*/React.createElement("div", {
+    key: `building-${buildingGroup.building}`,
+    className: "border border-gray-200 rounded-lg overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 bg-purple-50 border-b border-purple-200 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-medium text-purple-900"
+  }, "Building ", buildingGroup.building), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-purple-600"
+  }, buildingGroup.stacks.length, " stacks"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => autoAssignBuildingStacks(buildingGroup.building),
+    className: "text-sm text-purple-600 hover:text-purple-800"
+  }, "Auto-assign"))), /*#__PURE__*/React.createElement("table", {
+    className: "w-full"
+  }, /*#__PURE__*/React.createElement("thead", {
+    className: "bg-gray-50 text-xs text-gray-500 uppercase"
+  }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-left font-medium"
+  }, "Stack"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-left font-medium"
+  }, "Levels"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-left font-medium"
+  }, "Build Seq"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-2 text-center font-medium w-24"
+  }, "Set #"))), /*#__PURE__*/React.createElement("tbody", {
+    className: "divide-y divide-gray-100"
+  }, buildingGroup.stacks.map(stackGroup => /*#__PURE__*/React.createElement("tr", {
+    key: stackGroup.stackKey,
+    className: "hover:bg-gray-50"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-gray-900"
+  }, stackGroup.stackKey)), /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-sm text-gray-600"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700"
+  }, stackGroup.levelCount, " level", stackGroup.levelCount !== 1 ? 's' : '')), /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-sm text-gray-600"
+  }, stackGroup.buildSeqMin === stackGroup.buildSeqMax ? stackGroup.buildSeqMin : `${stackGroup.buildSeqMin}–${stackGroup.buildSeqMax}`), /*#__PURE__*/React.createElement("td", {
+    className: "px-4 py-2 text-center"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: getStackSetValue(stackGroup.stackKey) || '',
+    onChange: e => handleStackSetChange(stackGroup.stackKey, e.target.value),
+    min: "1",
+    placeholder: "-",
+    className: "w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+  }))))))))) :
+  /*#__PURE__*/
+  /* Individual Mode View */
+  React.createElement("div", {
     className: "space-y-6"
   }, groupedModules.map(group => /*#__PURE__*/React.createElement("div", {
     key: group.key,
