@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-03-13T01:59:47.865Z
+ * Generated: 2026-03-13T03:26:10.755Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -54902,7 +54902,7 @@ function ModuleTable({
   }, {
     id: 'serial_number',
     label: 'Serial #',
-    width: 120,
+    width: 100,
     sortable: true,
     editable: true
   }, {
@@ -54912,15 +54912,27 @@ function ModuleTable({
     sortable: true,
     editable: true
   }, {
+    id: 'hitch_blm',
+    label: 'Hitch BLM',
+    width: 100,
+    sortable: true,
+    editable: true
+  }, {
+    id: 'rear_blm',
+    label: 'Rear BLM',
+    width: 100,
+    sortable: true,
+    editable: true
+  }, {
     id: 'unit_type',
     label: 'Unit Type',
-    width: 120,
+    width: 100,
     sortable: true,
     editable: true
   }, {
     id: 'building',
     label: 'Bldg',
-    width: 60,
+    width: 50,
     sortable: true,
     editable: true
   }, {
@@ -54932,18 +54944,18 @@ function ModuleTable({
   }, {
     id: 'difficulty_tags',
     label: 'Difficulty Tags',
-    width: 200,
+    width: 180,
     sortable: false
   }, {
     id: 'notes',
     label: 'Notes',
-    width: 150,
+    width: 120,
     sortable: false,
     editable: true
   }, {
     id: 'actions',
     label: '',
-    width: 60,
+    width: 50,
     sortable: false
   }];
 

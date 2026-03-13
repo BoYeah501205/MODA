@@ -117,14 +117,16 @@ function ModuleTable({
     { id: 'checkbox', label: '', width: 40, sortable: false },
     { id: 'build_sequence', label: 'Seq #', width: 70, sortable: true, editable: true },
     { id: 'set_sequence', label: 'Set #', width: 70, sortable: true, editable: true },
-    { id: 'serial_number', label: 'Serial #', width: 120, sortable: true, editable: true },
+    { id: 'serial_number', label: 'Serial #', width: 100, sortable: true, editable: true },
     { id: 'blm_id', label: 'BLM', width: 100, sortable: true, editable: true },
-    { id: 'unit_type', label: 'Unit Type', width: 120, sortable: true, editable: true },
-    { id: 'building', label: 'Bldg', width: 60, sortable: true, editable: true },
+    { id: 'hitch_blm', label: 'Hitch BLM', width: 100, sortable: true, editable: true },
+    { id: 'rear_blm', label: 'Rear BLM', width: 100, sortable: true, editable: true },
+    { id: 'unit_type', label: 'Unit Type', width: 100, sortable: true, editable: true },
+    { id: 'building', label: 'Bldg', width: 50, sortable: true, editable: true },
     { id: 'level', label: 'Lvl', width: 50, sortable: true, editable: true },
-    { id: 'difficulty_tags', label: 'Difficulty Tags', width: 200, sortable: false },
-    { id: 'notes', label: 'Notes', width: 150, sortable: false, editable: true },
-    { id: 'actions', label: '', width: 60, sortable: false },
+    { id: 'difficulty_tags', label: 'Difficulty Tags', width: 180, sortable: false },
+    { id: 'notes', label: 'Notes', width: 120, sortable: false, editable: true },
+    { id: 'actions', label: '', width: 50, sortable: false },
   ];
 
   // Handle select all

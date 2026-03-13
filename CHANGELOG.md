@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.76**
+**Current Version: 1.5.77**
 
 ---
+
+## [1.5.77] - 2026-03-12
+### Fix
+- **Restore Missing Module Grid Columns** - Added back missing columns to the Production Sequence Builder module table:
+  - `Hitch BLM` - Shows the hitch module BLM ID (for sawbox modules)
+  - `Rear BLM` - Shows the rear module BLM ID (for sawbox modules)
+  - Adjusted column widths for better fit
 
 ## [1.5.76] - 2026-03-12
 ### Fix
