@@ -2,9 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.78**
+**Current Version: 1.5.79**
 
 ---
+
+## [1.5.79] - 2026-03-13
+### Feature
+- **Complete PDF Export System for Weekly Board** - Enhanced export with two options via dropdown menu:
+  - **Morning Sendout**: Digital PDF with status dots (green=complete, amber=in-progress, gray=not-started) for each station
+  - **Hard Copy**: Print-ready PDF with checkboxes for manual marking (Started=/, Mostly Complete=X, Complete=✓)
+  - Professional design with navy header (#0d3349), teal accents (#1d6e8a), and Autovol branding
+  - Station columns show full names with "Start: XXXX" serial numbers
+  - Day separator rows with date labels
+  - Confidential footer on all pages
+  - Dropdown button replaces single export button in toolbar
 
 ## [1.5.78] - 2026-03-13
 ### Feature

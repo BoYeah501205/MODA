@@ -2102,6 +2102,7 @@ function WeeklyBoardTab({
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [activePrompt, setActivePrompt] = useState(null); // { module, station, position }
     const [isExportingPDF, setIsExportingPDF] = useState(false);
+    const [showExportDropdown, setShowExportDropdown] = useState(false);
 
     const supabaseSyncTimeoutsRef = useRef({});
     
@@ -3134,17 +3135,20 @@ function WeeklyBoardTab({
         }
     };
     
-    // Handle PDF export - direct export for morning sendout
-    const handleExportPDF = async () => {
-        if (!window.generateMorningSendoutPDF) {
-            console.error('PDF export function not loaded');
+    // Handle PDF export - supports both morning sendout and hard copy
+    const handleExportPDF = async (type = 'morning') => {
+        const exportFn = type === 'hardcopy' ? window.generateHardCopyPDF : window.generateMorningSendoutPDF;
+        const exportLabel = type === 'hardcopy' ? 'Hard Copy' : 'Morning Sendout';
+        
+        if (!exportFn) {
+            console.error(`PDF export function not loaded for ${type}`);
             addToast('PDF export not available', 'error');
             return;
         }
         
         setIsExportingPDF(true);
         try {
-            await window.generateMorningSendoutPDF({
+            await exportFn({
                 displayWeek,
                 productionStages,
                 allModules,
@@ -3152,7 +3156,7 @@ function WeeklyBoardTab({
                 scheduleSetup,
                 getModulesForStation
             });
-            addToast('PDF exported successfully', 'success');
+            addToast(`${exportLabel} PDF exported successfully`, 'success');
         } catch (err) {
             console.error('PDF export error:', err);
             addToast(err.message || 'Failed to export PDF', 'error');
@@ -5188,28 +5192,54 @@ const getProjectAcronym = (module) => {
                             📊 Week History
                         </button>
                     )}
-                    {/* Export PDF - hidden on mobile */}
+                    {/* Export PDF Dropdown - hidden on mobile */}
                     {!isFeatureHiddenOnMobile('pdfExport') && (
-                        <button
-                            onClick={handleExportPDF}
-                            disabled={isExportingPDF}
-                            className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50"
-                            title="Export morning sendout PDF"
-                        >
-                            {isExportingPDF ? (
-                                <>
-                                    <span className="animate-spin">...</span>
-                                    Generating...
-                                </>
-                            ) : (
-                                <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    Export PDF
-                                </>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                                disabled={isExportingPDF}
+                                className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {isExportingPDF ? (
+                                    <>
+                                        <span className="animate-spin">...</span>
+                                        Generating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        Export
+                                        <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </>
+                                )}
+                            </button>
+                            {showExportDropdown && !isExportingPDF && (
+                                <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                                    <button
+                                        onClick={() => { setShowExportDropdown(false); handleExportPDF('morning'); }}
+                                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 rounded-t-lg flex items-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        Morning Sendout
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowExportDropdown(false); handleExportPDF('hardcopy'); }}
+                                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 rounded-b-lg border-t border-gray-100 flex items-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                        Hard Copy
+                                    </button>
+                                </div>
                             )}
-                        </button>
+                        </div>
                     )}
                     {/* Complete Week - hidden on mobile */}
                     {canEdit && !isFeatureHiddenOnMobile('completeWeekButton') && (

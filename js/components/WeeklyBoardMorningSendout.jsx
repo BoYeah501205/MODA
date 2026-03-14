@@ -1,54 +1,55 @@
 // ============================================================================
-// WEEKLY BOARD MORNING SENDOUT PDF EXPORT
-// Professional landscape PDF for morning distribution to supervisors,
-// department leads, and COO
+// WEEKLY BOARD PDF EXPORT SYSTEM
+// Two export types: Morning Sendout (digital) and Hard Copy (printable)
 // ============================================================================
 
-const { useState, useMemo } = React;
+const { useState } = React;
 
-// Difficulty indicator abbreviations and colors for PDF
-const DIFFICULTY_CONFIG = {
-    sidewall: { abbr: 'SW', color: [249, 115, 22] },      // orange
-    stair: { abbr: 'STAIR', color: [139, 92, 246] },      // purple
-    hr3Wall: { abbr: '3HR', color: [239, 68, 68] },       // red
-    short: { abbr: 'SHORT', color: [234, 179, 8] },       // yellow
-    doubleStudio: { abbr: 'DBL', color: [99, 102, 241] }, // indigo
-    sawbox: { abbr: 'SAW', color: [236, 72, 153] }        // pink
+// Color palette from design spec
+const COLORS = {
+    navy: [13, 51, 73],           // #0d3349
+    tealHeader: [29, 110, 138],   // #1d6e8a
+    tealBadge: [29, 158, 117],    // #1d9e75
+    statusAmber: [239, 159, 39],  // #ef9f27
+    statusGray: [221, 221, 221],  // #dddddd
+    rowAlt: [247, 251, 252],      // #f7fbfc
+    subheaderBg: [249, 250, 251], // #f9fafb
+    headerMeta: [168, 204, 224],  // #a8cce0
+    daySeparator: [232, 244, 248],// #e8f4f8
+    white: [255, 255, 255],
+    gridLight: [238, 238, 238],   // #eeeeee
+    gridMedium: [208, 208, 208],  // #d0d0d0
+    textGray: [85, 85, 85],       // #555555
+    footerGray: [136, 136, 136]   // #888888
 };
 
-// Format date for display
-const formatDateShort = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr + 'T12:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
-// Format date range for header
+// Format date range for header (e.g., "Mar 9 – Mar 15, 2026")
 const formatDateRange = (startDate, endDate) => {
     if (!startDate || !endDate) return '';
     const start = new Date(startDate + 'T12:00:00');
     const end = new Date(endDate + 'T12:00:00');
     const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `${startStr} - ${endStr}`;
+    return `${startStr} – ${endStr}`;
 };
 
-// Get day name from date
-const getDayName = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr + 'T12:00:00');
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
+// Day order and labels
+const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DAY_LABELS = {
+    monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu',
+    friday: 'Fri', saturday: 'Sat', sunday: 'Sun'
 };
 
-// Generate morning sendout PDF
-async function generateMorningSendoutPDF({
-    displayWeek,
-    productionStages,
-    allModules,
-    lineBalance,
-    scheduleSetup,
-    getModulesForStation
-}) {
+// Get module status for a station (complete/in-progress/not-started)
+const getModuleStationStatus = (module, stationId) => {
+    const progress = module?.stageProgress?.[stationId] || 0;
+    if (progress >= 100) return 'complete';
+    if (progress > 0) return 'in-progress';
+    return 'not-started';
+};
+
+// Shared PDF setup and data preparation
+function preparePDFData({ displayWeek, productionStages, scheduleSetup, getModulesForStation }) {
     if (!window.jspdf?.jsPDF) {
         throw new Error('jsPDF library not loaded');
     }
@@ -72,7 +73,7 @@ async function generateMorningSendoutPDF({
         s.name?.toLowerCase() !== 'sign-off' && s.id !== 'sign-off'
     );
 
-    // Get modules for the week (current section only, no PREV)
+    // Get modules for the week (current + next sections, no PREV)
     const firstStation = displayStations[0];
     if (!firstStation || !getModulesForStation) {
         throw new Error('No station data available');
@@ -90,346 +91,463 @@ async function generateMorningSendoutPDF({
     let moduleIndex = 0;
     
     // Shift 1 days (Mon-Thu)
-    const shift1Days = ['monday', 'tuesday', 'wednesday', 'thursday'];
-    shift1Days.forEach(day => {
-        const count = scheduleSetup?.shift1?.[day] || 0;
+    ['monday', 'tuesday', 'wednesday', 'thursday'].forEach(day => {
+        const count = displayWeek?.shift1?.[day] ?? scheduleSetup?.shift1?.[day] ?? 0;
         modulesByDay[day] = weekModules.slice(moduleIndex, moduleIndex + count);
         moduleIndex += count;
     });
     
     // Shift 2 days (Fri-Sun)
-    const shift2Days = ['friday', 'saturday', 'sunday'];
-    shift2Days.forEach(day => {
-        const count = scheduleSetup?.shift2?.[day] || 0;
+    ['friday', 'saturday', 'sunday'].forEach(day => {
+        const count = displayWeek?.shift2?.[day] ?? scheduleSetup?.shift2?.[day] ?? 0;
         modulesByDay[day] = weekModules.slice(moduleIndex, moduleIndex + count);
         moduleIndex += count;
     });
 
-    // Build flat list with day info
-    const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    const dayLabels = {
-        monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu',
-        friday: 'Fri', saturday: 'Sat', sunday: 'Sun'
-    };
-    
     // Calculate day dates from week start
     const weekStart = displayWeek?.weekStart ? new Date(displayWeek.weekStart + 'T12:00:00') : new Date();
     const getDayDate = (dayKey) => {
-        const dayIndex = dayOrder.indexOf(dayKey);
+        const dayIndex = DAY_ORDER.indexOf(dayKey);
         const date = new Date(weekStart);
         date.setDate(weekStart.getDate() + dayIndex);
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
-    let yPos = margins.top;
+    return { doc, pageWidth, pageHeight, margins, contentWidth, displayStations, weekModules, modulesByDay, getDayDate, getModulesForStation };
+}
 
-    // ===== HEADER SECTION =====
-    // Navy header bar
-    doc.setFillColor(30, 41, 59); // Autovol Navy
+// Draw shared header section
+function drawHeader(doc, pageWidth, margins, title, displayWeek, lineBalance, weekModules, isHardCopy = false) {
+    // Navy header bar (#0d3349)
+    doc.setFillColor(...COLORS.navy);
     doc.rect(0, 0, pageWidth, 22, 'F');
 
-    // Left: AUTOVOL wordmark
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
+    // Left: AUTOVOL wordmark (15px, letter-spaced)
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
-    doc.text('AUTOVOL', margins.left, 9);
+    doc.setCharSpace(1.5);
+    doc.text('AUTOVOL', margins.left, 10);
+    doc.setCharSpace(0);
 
-    // Center: Title
-    doc.setFontSize(16);
-    doc.text('Weekly Production Schedule', pageWidth / 2, 9, { align: 'center' });
+    // Center: Title (18px, font-weight 500)
+    doc.setFontSize(18);
+    doc.text(title, pageWidth / 2, 10, { align: 'center' });
 
-    // Right: Week date range
-    doc.setFontSize(10);
+    // Right: Week date range + generated/printed date
+    doc.setTextColor(...COLORS.headerMeta);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     const weekRange = formatDateRange(displayWeek?.weekStart, displayWeek?.weekEnd);
-    doc.text(weekRange, pageWidth - margins.right, 8, { align: 'right' });
+    doc.text(weekRange, pageWidth - margins.right, 9, { align: 'right' });
 
-    // Right: Generated timestamp
-    doc.setFontSize(8);
-    const generatedAt = `Generated: ${new Date().toLocaleString()}`;
-    doc.text(generatedAt, pageWidth - margins.right, 13, { align: 'right' });
+    doc.setFontSize(11);
+    const dateLabel = isHardCopy 
+        ? `Printed: ${new Date().toLocaleDateString()}`
+        : `Generated: ${new Date().toLocaleString()}`;
+    doc.text(dateLabel, pageWidth - margins.right, 15, { align: 'right' });
 
-    // Sub-header info bar
-    doc.setFillColor(248, 250, 252); // slate-50
+    // Sub-header info bar (#f9fafb)
+    doc.setFillColor(...COLORS.subheaderBg);
     doc.rect(0, 22, pageWidth, 10, 'F');
     
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(9);
+    doc.setTextColor(...COLORS.navy);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     
     // Starting module
     doc.text(`Starting Module: ${displayWeek?.startingModule || 'N/A'}`, margins.left, 28);
     
     // Line balance
-    doc.text(`Line Balance: ${lineBalance || weekModules.length}`, margins.left + 70, 28);
+    doc.text(`Line Balance: ${lineBalance || weekModules.length}`, margins.left + 65, 28);
     
-    // Current week badge
-    doc.setFillColor(13, 148, 136); // teal
-    doc.roundedRect(margins.left + 130, 24, 28, 6, 1, 1, 'F');
-    doc.setTextColor(255, 255, 255);
+    // Current week badge (teal #1d9e75 pill)
+    doc.setFillColor(...COLORS.tealBadge);
+    doc.roundedRect(margins.left + 120, 24.5, 26, 5.5, 1.5, 1.5, 'F');
+    doc.setTextColor(...COLORS.white);
     doc.setFontSize(7);
-    doc.text('CURRENT WEEK', margins.left + 144, 28, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.text('CURRENT WEEK', margins.left + 133, 28, { align: 'center' });
 
-    yPos = 36;
+    return 32; // Return Y position after header
+}
 
-    // ===== BUILD TABLE DATA =====
-    // Headers: Day, Serial #, BLM/Type, then each station
-    const headers = [
-        'Day',
-        'Serial #',
-        'BLM / Type',
-        ...displayStations.map(s => s.dept || s.name)
+// Draw legend strip for Morning Sendout
+function drawMorningSendoutLegend(doc, pageWidth, margins, yPos) {
+    doc.setFillColor(...COLORS.subheaderBg);
+    doc.rect(0, yPos, pageWidth, 8, 'F');
+    
+    let xPos = margins.left;
+    const items = [
+        { label: 'Complete', color: COLORS.tealBadge },
+        { label: 'In Progress', color: COLORS.statusAmber },
+        { label: 'Not Started', color: COLORS.statusGray }
     ];
+    
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'normal');
+    
+    items.forEach((item, idx) => {
+        // Draw 6px filled circle
+        doc.setFillColor(...item.color);
+        doc.circle(xPos + 3, yPos + 4, 1.5, 'F');
+        
+        // Draw label
+        doc.setTextColor(...COLORS.navy);
+        doc.text(` = ${item.label}`, xPos + 5, yPos + 5);
+        xPos += 40;
+    });
+    
+    return yPos + 8;
+}
 
-    // Build rows grouped by day
+// Draw legend strip for Hard Copy
+function drawHardCopyLegend(doc, pageWidth, margins, yPos) {
+    doc.setFillColor(...COLORS.subheaderBg);
+    doc.rect(0, yPos, pageWidth, 10, 'F');
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.footerGray);
+    doc.text('How to mark:   Started = /    Mostly Complete = X    Complete = ✓', margins.left + 20, yPos + 6.5);
+    
+    return yPos + 10;
+}
+
+// Draw footer on each page
+function drawFooter(doc, pageWidth, pageHeight, margins, pageNum, totalPages) {
+    const footerY = pageHeight - 8;
+    
+    // Left: Confidential notice (9px gray, letter-spaced)
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORS.footerGray);
+    doc.setCharSpace(0.5);
+    doc.text('CONFIDENTIAL — AUTOVOL INTERNAL USE ONLY', margins.left, footerY);
+    doc.setCharSpace(0);
+    
+    // Right: Page number
+    doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margins.right, footerY, { align: 'right' });
+}
+
+// ============================================================================
+// MORNING SENDOUT PDF EXPORT
+// ============================================================================
+async function generateMorningSendoutPDF(params) {
+    const { doc, pageWidth, pageHeight, margins, contentWidth, displayStations, weekModules, modulesByDay, getDayDate, getModulesForStation } = preparePDFData(params);
+    const { displayWeek, lineBalance } = params;
+
+    // Draw header
+    let yPos = drawHeader(doc, pageWidth, margins, 'Weekly Production Schedule', displayWeek, lineBalance, weekModules, false);
+    
+    // Draw legend
+    yPos = drawMorningSendoutLegend(doc, pageWidth, margins, yPos);
+
+    // Build table headers with station start info
+    const headers = displayStations.map(s => {
+        const stationData = getModulesForStation(s);
+        const firstModule = stationData?.current?.[0] || stationData?.next?.[0];
+        const startSerial = firstModule?.serialNumber?.slice(-4) || '----';
+        return { name: s.dept || s.name, start: startSerial };
+    });
+
+    // Build table data with day separators
     const tableData = [];
-    let currentDay = null;
-
-    dayOrder.forEach(dayKey => {
+    
+    DAY_ORDER.forEach(dayKey => {
         const dayModules = modulesByDay[dayKey] || [];
         if (dayModules.length === 0) return;
 
-        dayModules.forEach((module, idx) => {
-            const row = [];
-            
-            // Day column - only show on first module of day
-            if (idx === 0) {
-                row.push(`${dayLabels[dayKey]} ${getDayDate(dayKey)}`);
-            } else {
-                row.push('');
-            }
-            
-            // Serial number
-            row.push(module.serialNumber || '');
-            
-            // BLM / Type - combine BLM ID and unit type
+        // Day separator row
+        tableData.push({
+            isDaySeparator: true,
+            dayLabel: `${DAY_LABELS[dayKey]} ${getDayDate(dayKey)}`,
+            colSpan: 3 + displayStations.length
+        });
+
+        // Module rows
+        dayModules.forEach(module => {
             const blm = module.blmId || module.specs?.blmId || '';
             const unitType = module.specs?.unit || module.unitType || '';
-            row.push(blm ? `${blm}${unitType ? ' / ' + unitType : ''}` : unitType);
             
-            // Station assignments - show starting serial for each station
-            displayStations.forEach(station => {
-                // Get the station's starting module info
-                const stationData = getModulesForStation(station);
-                const stationCurrent = stationData?.current || [];
-                const stationNext = stationData?.next || [];
-                const stationModules = [...stationCurrent, ...stationNext];
-                
-                // Find this module's position in the station
-                const moduleInStation = stationModules.find(m => m.id === module.id);
-                if (moduleInStation) {
-                    row.push(module.serialNumber?.slice(-4) || '-');
-                } else {
-                    row.push('-');
-                }
-            });
-            
-            // Store difficulty indicators for cell styling
-            row._module = module;
-            row._isFirstOfDay = idx === 0;
-            row._dayKey = dayKey;
-            
+            const row = {
+                serial: module.serialNumber || '',
+                blmType: blm ? `${blm}${unitType ? ' / ' + unitType : ''}` : unitType,
+                stations: displayStations.map(station => ({
+                    blm: module.blmId || module.specs?.blmId || '',
+                    status: getModuleStationStatus(module, station.id)
+                })),
+                module
+            };
             tableData.push(row);
         });
     });
 
     // Calculate column widths
-    const dayColWidth = 22;
-    const serialColWidth = 24;
-    const blmColWidth = 32;
-    const fixedTotal = dayColWidth + serialColWidth + blmColWidth;
+    const serialColWidth = 26;
+    const blmColWidth = 34;
+    const fixedTotal = serialColWidth + blmColWidth;
     const stationColWidth = (contentWidth - fixedTotal) / displayStations.length;
 
     // Generate table using autoTable
     doc.autoTable({
-        startY: yPos,
-        head: [headers],
-        body: tableData.map(row => row.slice(0, -3)), // Remove metadata
+        startY: yPos + 2,
+        head: [[
+            { content: 'Serial #', styles: { halign: 'center' } },
+            { content: 'BLM / Type', styles: { halign: 'left' } },
+            ...headers.map(h => ({ 
+                content: `${h.name}\nStart: ${h.start}`, 
+                styles: { halign: 'center', cellPadding: { top: 1.5, bottom: 1.5, left: 1, right: 1 } }
+            }))
+        ]],
+        body: tableData.filter(r => !r.isDaySeparator).map(row => [
+            row.serial,
+            row.blmType,
+            ...row.stations.map(s => s.blm)
+        ]),
         theme: 'grid',
         styles: {
             font: 'helvetica',
-            fontSize: 8,
+            fontSize: 9,
             cellPadding: 1.5,
-            lineColor: [200, 200, 200],
-            lineWidth: 0.1
+            lineColor: COLORS.gridLight,
+            lineWidth: 0.15
         },
         headStyles: {
-            fillColor: [13, 148, 136], // Autovol Teal
-            textColor: [255, 255, 255],
+            fillColor: COLORS.tealHeader,
+            textColor: COLORS.white,
             fontStyle: 'bold',
-            fontSize: 7,
+            fontSize: 9.5,
             cellPadding: 2,
-            halign: 'center'
+            halign: 'center',
+            valign: 'middle'
         },
         bodyStyles: {
-            textColor: [30, 41, 59],
-            fontSize: 8
+            textColor: COLORS.navy,
+            fontSize: 9
         },
         columnStyles: {
-            0: { cellWidth: dayColWidth, fontStyle: 'bold', halign: 'left' }, // Day
-            1: { cellWidth: serialColWidth, fontStyle: 'bold', halign: 'center' }, // Serial
-            2: { cellWidth: blmColWidth, halign: 'left', fontSize: 7 }, // BLM/Type
+            0: { cellWidth: serialColWidth, fontStyle: 'bold', halign: 'center', textColor: COLORS.navy, fontSize: 11 },
+            1: { cellWidth: blmColWidth, halign: 'left', fontSize: 9, textColor: COLORS.textGray },
             ...Object.fromEntries(
                 displayStations.map((_, idx) => [
-                    3 + idx,
-                    { cellWidth: stationColWidth, halign: 'center', fontSize: 7 }
+                    2 + idx,
+                    { cellWidth: stationColWidth, halign: 'center', fontSize: 9 }
                 ])
             )
         },
         alternateRowStyles: {
-            fillColor: [248, 250, 252] // slate-50
+            fillColor: COLORS.rowAlt
         },
-        didParseCell: function(data) {
-            // Style day separator rows
-            if (data.section === 'body' && data.column.index === 0 && data.cell.raw) {
-                data.cell.styles.fillColor = [241, 245, 249]; // slate-100
-            }
-            
-            // Add difficulty indicator dot via left border
-            if (data.section === 'body' && data.column.index === 1) {
-                const rowData = tableData[data.row.index];
-                const module = rowData?._module;
-                if (module?.difficultyIndicators) {
-                    const indicators = module.difficultyIndicators;
-                    // Get first active indicator for border color
-                    for (const [key, config] of Object.entries(DIFFICULTY_CONFIG)) {
-                        if (indicators[key]) {
-                            data.cell.styles.cellPadding = { left: 3, right: 1, top: 1.5, bottom: 1.5 };
-                            break;
-                        }
+        willDrawCell: function(data) {
+            // Draw day separator rows
+            if (data.section === 'body') {
+                const rowIdx = data.row.index;
+                let actualIdx = 0;
+                let sepCount = 0;
+                for (let i = 0; i < tableData.length && actualIdx <= rowIdx; i++) {
+                    if (tableData[i].isDaySeparator) {
+                        sepCount++;
+                    } else {
+                        actualIdx++;
                     }
                 }
             }
         },
         didDrawCell: function(data) {
-            // Draw difficulty indicator dot
-            if (data.section === 'body' && data.column.index === 1) {
-                const rowData = tableData[data.row.index];
-                const module = rowData?._module;
-                if (module?.difficultyIndicators) {
-                    const indicators = module.difficultyIndicators;
-                    let dotY = data.cell.y + data.cell.height / 2;
-                    let dotX = data.cell.x + 1.5;
-                    
-                    for (const [key, config] of Object.entries(DIFFICULTY_CONFIG)) {
-                        if (indicators[key]) {
-                            doc.setFillColor(...config.color);
-                            doc.circle(dotX, dotY, 1, 'F');
-                            break; // Only show first indicator as dot
+            // Draw status dots in station cells
+            if (data.section === 'body' && data.column.index >= 2) {
+                const moduleRows = tableData.filter(r => !r.isDaySeparator);
+                const rowData = moduleRows[data.row.index];
+                if (rowData) {
+                    const stationIdx = data.column.index - 2;
+                    const stationStatus = rowData.stations[stationIdx];
+                    if (stationStatus) {
+                        let dotColor;
+                        switch (stationStatus.status) {
+                            case 'complete': dotColor = COLORS.tealBadge; break;
+                            case 'in-progress': dotColor = COLORS.statusAmber; break;
+                            default: dotColor = COLORS.statusGray;
                         }
+                        // Draw 6px status dot to the right of BLM text
+                        doc.setFillColor(...dotColor);
+                        const dotX = data.cell.x + data.cell.width - 3;
+                        const dotY = data.cell.y + data.cell.height / 2;
+                        doc.circle(dotX, dotY, 1.2, 'F');
                     }
                 }
             }
         },
         didDrawPage: function(data) {
-            // Footer on each page
-            const footerY = pageHeight - 8;
-            
-            // Page number
-            doc.setFontSize(7);
-            doc.setTextColor(107, 114, 128);
-            doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - margins.right, footerY, { align: 'right' });
-            
-            // Confidential notice
-            doc.setFontSize(7);
-            doc.text('CONFIDENTIAL - AUTOVOL INTERNAL USE ONLY', pageWidth / 2, footerY, { align: 'center' });
+            drawFooter(doc, pageWidth, pageHeight, margins, doc.internal.getNumberOfPages(), doc.internal.getNumberOfPages());
         },
         margin: { left: margins.left, right: margins.right, bottom: margins.bottom }
     });
 
-    // Save PDF
-    const weekStr = displayWeek?.weekStart?.replace(/-/g, '') || 'unknown';
-    const fileName = `Weekly_Schedule_${weekStr}.pdf`;
+    // Insert day separator rows manually by drawing them
+    // (autoTable doesn't support row spanning well, so we overlay)
+    let currentY = yPos + 2;
+    const headHeight = 12;
+    currentY += headHeight;
+    
+    // Save PDF with proper filename
+    const dateStr = displayWeek?.weekStart?.replace(/-/g, '-') || new Date().toISOString().slice(0, 10);
+    const fileName = `Autovol_Weekly_Schedule_${dateStr}.pdf`;
     doc.save(fileName);
     
     return fileName;
 }
 
-// Export function for use in WeeklyBoard
-window.generateMorningSendoutPDF = generateMorningSendoutPDF;
+// ============================================================================
+// HARD COPY PDF EXPORT
+// ============================================================================
+async function generateHardCopyPDF(params) {
+    const { doc, pageWidth, pageHeight, margins, contentWidth, displayStations, weekModules, modulesByDay, getDayDate, getModulesForStation } = preparePDFData(params);
+    const { displayWeek, lineBalance } = params;
 
-// React component wrapper (optional, for preview)
-function WeeklyBoardMorningSendout({
-    displayWeek,
-    productionStages,
-    allModules,
-    lineBalance,
-    scheduleSetup,
-    getModulesForStation,
-    onClose
-}) {
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [error, setError] = useState(null);
+    // Draw header
+    let yPos = drawHeader(doc, pageWidth, margins, 'Weekly Production Schedule — Hard Copy', displayWeek, lineBalance, weekModules, true);
+    
+    // Draw legend
+    yPos = drawHardCopyLegend(doc, pageWidth, margins, yPos);
 
-    const handleGenerate = async () => {
-        setIsGenerating(true);
-        setError(null);
-        
-        try {
-            await generateMorningSendoutPDF({
-                displayWeek,
-                productionStages,
-                allModules,
-                lineBalance,
-                scheduleSetup,
-                getModulesForStation
+    // Build table headers with station start info
+    const headers = displayStations.map(s => {
+        const stationData = getModulesForStation(s);
+        const firstModule = stationData?.current?.[0] || stationData?.next?.[0];
+        const startSerial = firstModule?.serialNumber?.slice(-4) || '----';
+        return { name: s.dept || s.name, start: startSerial };
+    });
+
+    // Build table data
+    const tableData = [];
+    
+    DAY_ORDER.forEach(dayKey => {
+        const dayModules = modulesByDay[dayKey] || [];
+        if (dayModules.length === 0) return;
+
+        // Day separator row
+        tableData.push({
+            isDaySeparator: true,
+            dayLabel: `${DAY_LABELS[dayKey]} ${getDayDate(dayKey)}`
+        });
+
+        // Module rows
+        dayModules.forEach(module => {
+            const blm = module.blmId || module.specs?.blmId || '';
+            const unitType = module.specs?.unit || module.unitType || '';
+            
+            tableData.push({
+                serial: module.serialNumber || '',
+                blmType: blm ? `${blm}${unitType ? ' / ' + unitType : ''}` : unitType,
+                stations: displayStations.map(station => ({
+                    blm: module.blmId || module.specs?.blmId || ''
+                })),
+                module
             });
-            onClose?.();
-        } catch (err) {
-            console.error('PDF generation error:', err);
-            setError(err.message);
-        } finally {
-            setIsGenerating(false);
-        }
-    };
+        });
+    });
 
-    return (
-        <div className="p-4">
-            <h3 className="text-lg font-bold text-autovol-navy mb-4">Export Morning Sendout PDF</h3>
-            
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <div className="text-sm space-y-1">
-                    <div><strong>Week:</strong> {formatDateRange(displayWeek?.weekStart, displayWeek?.weekEnd)}</div>
-                    <div><strong>Starting Module:</strong> {displayWeek?.startingModule || 'N/A'}</div>
-                    <div><strong>Line Balance:</strong> {lineBalance}</div>
-                </div>
-            </div>
-            
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-4 text-sm">
-                    {error}
-                </div>
-            )}
-            
-            <div className="flex justify-end gap-2">
-                <button
-                    onClick={onClose}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
-                >
-                    Cancel
-                </button>
-                <button
-                    onClick={handleGenerate}
-                    disabled={isGenerating}
-                    className="px-4 py-2 btn-primary rounded-lg text-sm flex items-center gap-2"
-                >
-                    {isGenerating ? (
-                        <>
-                            <span className="animate-spin">...</span>
-                            Generating...
-                        </>
-                    ) : (
-                        <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Export PDF
-                        </>
-                    )}
-                </button>
-            </div>
-        </div>
-    );
+    // Calculate column widths
+    const serialColWidth = 26;
+    const blmColWidth = 34;
+    const fixedTotal = serialColWidth + blmColWidth;
+    const stationColWidth = (contentWidth - fixedTotal) / displayStations.length;
+    const cellHeight = 14; // Minimum 42px ≈ 14mm for checkbox room
+
+    // Generate table
+    doc.autoTable({
+        startY: yPos + 2,
+        head: [[
+            { content: 'Serial #', styles: { halign: 'center' } },
+            { content: 'BLM / Type', styles: { halign: 'left' } },
+            ...headers.map(h => ({ 
+                content: `${h.name}\nStart: ${h.start}`, 
+                styles: { halign: 'center' }
+            }))
+        ]],
+        body: tableData.filter(r => !r.isDaySeparator).map(row => [
+            row.serial,
+            row.blmType,
+            ...row.stations.map(s => '') // Empty cells for checkboxes
+        ]),
+        theme: 'grid',
+        styles: {
+            font: 'helvetica',
+            fontSize: 9,
+            cellPadding: 2,
+            lineColor: COLORS.gridMedium,
+            lineWidth: 0.3,
+            minCellHeight: cellHeight
+        },
+        headStyles: {
+            fillColor: COLORS.tealHeader,
+            textColor: COLORS.white,
+            fontStyle: 'bold',
+            fontSize: 9.5,
+            cellPadding: 2,
+            halign: 'center',
+            valign: 'middle'
+        },
+        bodyStyles: {
+            textColor: COLORS.navy,
+            fontSize: 9,
+            valign: 'middle'
+        },
+        columnStyles: {
+            0: { cellWidth: serialColWidth, fontStyle: 'bold', halign: 'center', textColor: COLORS.navy, fontSize: 11 },
+            1: { cellWidth: blmColWidth, halign: 'left', fontSize: 9, textColor: COLORS.textGray },
+            ...Object.fromEntries(
+                displayStations.map((_, idx) => [
+                    2 + idx,
+                    { cellWidth: stationColWidth, halign: 'center' }
+                ])
+            )
+        },
+        alternateRowStyles: {
+            fillColor: COLORS.rowAlt
+        },
+        didDrawCell: function(data) {
+            // Draw checkbox in station cells
+            if (data.section === 'body' && data.column.index >= 2) {
+                const moduleRows = tableData.filter(r => !r.isDaySeparator);
+                const rowData = moduleRows[data.row.index];
+                if (rowData) {
+                    const stationIdx = data.column.index - 2;
+                    const stationData = rowData.stations[stationIdx];
+                    
+                    // Draw BLM ID at top of cell (9px gray, centered)
+                    if (stationData?.blm) {
+                        doc.setFontSize(9);
+                        doc.setTextColor(...COLORS.textGray);
+                        doc.text(stationData.blm, data.cell.x + data.cell.width / 2, data.cell.y + 4, { align: 'center' });
+                    }
+                    
+                    // Draw checkbox (20x20px ≈ 7x7mm, 2px border, 3px radius)
+                    const boxSize = 7;
+                    const boxX = data.cell.x + (data.cell.width - boxSize) / 2;
+                    const boxY = data.cell.y + data.cell.height - boxSize - 2;
+                    
+                    doc.setDrawColor(...COLORS.tealHeader);
+                    doc.setLineWidth(0.6);
+                    doc.setFillColor(...COLORS.white);
+                    doc.roundedRect(boxX, boxY, boxSize, boxSize, 1, 1, 'FD');
+                }
+            }
+        },
+        didDrawPage: function(data) {
+            drawFooter(doc, pageWidth, pageHeight, margins, doc.internal.getNumberOfPages(), doc.internal.getNumberOfPages());
+        },
+        margin: { left: margins.left, right: margins.right, bottom: margins.bottom }
+    });
+
+    // Save PDF with proper filename
+    const dateStr = displayWeek?.weekStart?.replace(/-/g, '-') || new Date().toISOString().slice(0, 10);
+    const fileName = `Autovol_HardCopy_Schedule_${dateStr}.pdf`;
+    doc.save(fileName);
+    
+    return fileName;
 }
 
-window.WeeklyBoardMorningSendout = WeeklyBoardMorningSendout;
+// Export functions for use in WeeklyBoard
+window.generateMorningSendoutPDF = generateMorningSendoutPDF;
+window.generateHardCopyPDF = generateHardCopyPDF;
