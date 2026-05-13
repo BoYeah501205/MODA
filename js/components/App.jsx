@@ -1740,7 +1740,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         { id: 'module-status', label: 'Module Status' },
                                         { id: 'staggers', label: 'Station Stagger' },
                                         { id: 'schedule-setup', label: 'Schedule Setup' },
-                                        { id: 'reports', label: 'Reports' }
+                                        { id: 'reports', label: 'Reports' },
+                                        { id: 'station-task-board', label: 'Station Board' },
+                                        { id: 'station-board-report', label: 'Board Report' }
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
@@ -1953,6 +1955,14 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         ) : (
                                             <div className="p-8 text-center text-gray-500">Loading Reports Hub...</div>
                                         )
+                                    )}
+                                    
+                                    {productionTab === 'station-task-board' && (
+                                        <StationTaskBoard currentUser={currentUser} />
+                                    )}
+                                    
+                                    {productionTab === 'station-board-report' && (
+                                        <StationBoardReport currentUser={currentUser} />
                                     )}
                                 </div>
                             </div>
