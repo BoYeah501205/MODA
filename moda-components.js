@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-13T21:59:57.728Z
+ * Generated: 2026-05-14T03:09:17.704Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13699,20 +13699,18 @@ if (typeof window !== 'undefined') {
 // ============================================================================
 (function() {
 // ============================================================================
-// STATION TASK BOARD
-// Weekly production board tracking module completion per department task.
-// Replaces the weekly station board with per-module, per-task check-off.
+// STATION TASK BOARD v2
+// Production board with 4 tabs: Daily Board | Week Setup | Admin | Report
+// Report tab is handled by StationBoardReport.jsx (separate component).
 //
-// Sub-tabs:
-//   • Board       — check off tasks per module per department
-//   • Goals       — set weekly module completion targets per department
-//   • Task Editor — admin: add/edit/remove departments and tasks
+// Requires: supabase-station-board.js (window.MODA_STATION_BOARD)
+// Props: { currentUser, modules, projectId }
 // ============================================================================
 
-// ─── Status config ──────────────────────────────────────────────────────────
-const TASK_STATUSES = {
+// ─── Status config ─────────────────────────────────────────────────────────
+const STB_STATUSES = {
   not_started: {
-    label: '—',
+    label: '\u2014',
     bg: 'bg-gray-100 dark:bg-gray-800',
     text: 'text-gray-400',
     ring: ''
@@ -13724,688 +13722,897 @@ const TASK_STATUSES = {
     ring: 'ring-1 ring-yellow-400'
   },
   complete: {
-    label: 'Complete',
+    label: 'Done',
     bg: 'bg-green-100 dark:bg-green-900/40',
     text: 'text-green-700 dark:text-green-300',
     ring: 'ring-1 ring-green-500'
   },
   stopped: {
-    label: 'Stopped',
+    label: 'Stop',
     bg: 'bg-red-100 dark:bg-red-900/40',
     text: 'text-red-700 dark:text-red-300',
     ring: 'ring-1 ring-red-500'
   }
 };
-const STATUS_CYCLE = ['not_started', 'wip', 'complete', 'stopped'];
+const STB_CYCLE = ['not_started', 'wip', 'complete', 'stopped'];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function getWeekLabel(weekStart) {
-  if (!weekStart) return '';
-  const [y, m, d] = weekStart.split('-').map(Number);
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function stbCycle(s) {
+  const i = STB_CYCLE.indexOf(s || 'not_started');
+  return STB_CYCLE[(i + 1) % STB_CYCLE.length];
+}
+function stbWeekDates(ws) {
+  if (!ws) return [];
+  const [y, m, d] = ws.split('-').map(Number);
+  const mon = new Date(y, m - 1, d);
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, i) => {
+    const dt = new Date(mon);
+    dt.setDate(mon.getDate() + i);
+    return {
+      date: dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'),
+      label: label,
+      dayNum: dt.getDate()
+    };
+  });
+}
+function stbWeekLabel(ws) {
+  if (!ws) return '';
+  const [y, m, d] = ws.split('-').map(Number);
   const mon = new Date(y, m - 1, d);
   const sun = new Date(y, m - 1, d + 6);
-  const fmt = dt => dt.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric'
-  });
-  return `${fmt(mon)} – ${fmt(sun)}, ${y}`;
-}
-function cycleStatus(current) {
-  const idx = STATUS_CYCLE.indexOf(current || 'not_started');
-  return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-}
-
-// ─── Hook: all board data for a given week ────────────────────────────────────
-const useStationBoardData = weekStart => {
-// [Removed duplicate React destructuring]
-  const [departments, setDepartments] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [goals, setGoals] = useState([]);
-  const [completions, setCompletions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const unsubRef = useRef(null);
-  const sb = () => window.MODA_STATION_BOARD;
-  const load = useCallback(async () => {
-    if (!sb()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [depts, allTasks, wGoals, comps] = await Promise.all([sb().getDepartments(), sb().getAllTasks(), sb().getWeeklyGoals(weekStart), sb().getCompletions(weekStart)]);
-      setDepartments(depts);
-      setTasks(allTasks);
-      setGoals(wGoals);
-      setCompletions(comps);
-    } catch (e) {
-      console.error('[StationBoard] Load error', e);
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [weekStart]);
-  useEffect(() => {
-    load();
-    // Real-time updates
-    if (sb()) {
-      unsubRef.current = sb().subscribeToCompletions(weekStart, () => load());
-    }
-    return () => {
-      if (unsubRef.current) unsubRef.current();
-    };
-  }, [load]);
-
-  // Derived: completions indexed by "moduleId|taskId"
-  const completionMap = {};
-  completions.forEach(c => {
-    completionMap[`${c.module_id}|${c.task_id}`] = c;
-  });
-
-  // Goals indexed by dept id
-  const goalsMap = {};
-  goals.forEach(g => {
-    goalsMap[g.department_id] = g.target_modules;
-  });
-  return {
-    departments,
-    tasks,
-    goals,
-    goalsMap,
-    completions,
-    completionMap,
-    loading,
-    error,
-    reload: load
+  const f = function (dt) {
+    return dt.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
   };
-};
+  return f(mon) + ' \u2013 ' + f(sun) + ', ' + y;
+}
+function stbShiftWeek(ws, delta) {
+  const [y, m, d] = ws.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + delta * 7);
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+function stbToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 
-// ─── StatusButton ─────────────────────────────────────────────────────────────
-const StatusButton = ({
+// ─── StatusButton ──────────────────────────────────────────────────────────
+const STBStatusButton = ({
   status,
   onClick,
   disabled
 }) => {
-  const cfg = TASK_STATUSES[status || 'not_started'];
+  const s = STB_STATUSES[status] || STB_STATUSES.not_started;
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
     disabled: disabled,
-    className: `px-2 py-1 rounded text-xs font-medium transition-all min-w-[72px] ${cfg.bg} ${cfg.text} ${cfg.ring} ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-80 cursor-pointer'}`
-  }, cfg.label);
+    className: 'w-16 h-8 rounded text-xs font-bold transition ' + s.bg + ' ' + s.text + ' ' + s.ring + ' ' + (disabled ? 'opacity-50 cursor-wait' : 'hover:opacity-80 cursor-pointer')
+  }, disabled ? '...' : s.label);
 };
 
-// ─── DeptBadge ────────────────────────────────────────────────────────────────
-const DeptBadge = ({
-  name,
-  color
-}) => /*#__PURE__*/React.createElement("span", {
-  className: "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold",
-  style: {
-    backgroundColor: color + '22',
-    color,
-    border: `1px solid ${color}55`
-  }
-}, name);
-
-// ─── ModuleRow ────────────────────────────────────────────────────────────────
-const ModuleRow = ({
-  module,
-  departments,
+// ─── ModuleTaskRow ─────────────────────────────────────────────────────────
+const ModuleTaskRow = ({
+  moduleId,
   tasks,
   completionMap,
-  weekStart,
+  onStatusChange,
+  saving
+}) => {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2 py-2 px-3 border-t border-gray-100 dark:border-gray-700"
+  }, tasks.map(function (task) {
+    const key = moduleId + '|' + task.id;
+    const current = completionMap[key] ? completionMap[key].status : 'not_started';
+    return /*#__PURE__*/React.createElement("div", {
+      key: task.id,
+      className: "flex flex-col items-center gap-1 min-w-[70px]"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-gray-500 dark:text-gray-400 text-center leading-tight truncate max-w-[80px]",
+      title: task.task_name
+    }, task.task_name), /*#__PURE__*/React.createElement(STBStatusButton, {
+      status: current,
+      onClick: function () {
+        onStatusChange(moduleId, task.id, stbCycle(current));
+      },
+      disabled: !!saving[key]
+    }));
+  }));
+};
+
+// ─── DepartmentRow ─────────────────────────────────────────────────────────
+const DepartmentRow = ({
+  dept,
+  modules,
+  deptTasks,
+  completionMap,
   onStatusChange,
   saving
 }) => {
 // [Removed duplicate React destructuring]
   const [expanded, setExpanded] = useState(false);
-
-  // Count completed tasks for this module
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => completionMap[`${module.id}|${t.id}`]?.status === 'complete').length;
-  const wipTasks = tasks.filter(t => completionMap[`${module.id}|${t.id}`]?.status === 'wip').length;
-  const stoppedTasks = tasks.filter(t => completionMap[`${module.id}|${t.id}`]?.status === 'stopped').length;
-  const pct = totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0;
+  const [expandedModules, setExpandedModules] = useState({});
+  const totalChecks = modules.length * deptTasks.length;
+  const completedChecks = modules.reduce(function (sum, mod) {
+    return sum + deptTasks.filter(function (t) {
+      const key = mod.serialNumber + '|' + t.id;
+      return completionMap[key] && completionMap[key].status === 'complete';
+    }).length;
+  }, 0);
+  const pct = totalChecks > 0 ? Math.round(completedChecks / totalChecks * 100) : 0;
+  const toggleModule = function (modId) {
+    setExpandedModules(function (prev) {
+      var next = {};
+      for (var k in prev) next[k] = prev[k];
+      next[modId] = !prev[modId];
+      return next;
+    });
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "border border-gray-200 dark:border-gray-700 rounded-lg mb-2 overflow-hidden"
   }, /*#__PURE__*/React.createElement("button", {
-    className: "w-full flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 text-left transition-colors",
-    onClick: () => setExpanded(e => !e)
+    onClick: function () {
+      setExpanded(function (e) {
+        return !e;
+      });
+    },
+    className: "w-full flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-gray-400 text-sm w-4"
-  }, expanded ? '▼' : '▶'), /*#__PURE__*/React.createElement("span", {
-    className: "font-mono font-semibold text-sm text-gray-900 dark:text-gray-100 min-w-[90px]"
-  }, module.id), module.project_name && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]"
-  }, module.project_name), /*#__PURE__*/React.createElement("div", {
+  }, expanded ? '\u25BC' : '\u25B6'), /*#__PURE__*/React.createElement("span", {
+    className: "w-3 h-3 rounded-full flex-shrink-0",
+    style: {
+      backgroundColor: dept.color || '#0d9488'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-sm text-gray-900 dark:text-gray-100"
+  }, dept.name), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-400 ml-1"
+  }, "(", modules.length, " modules, ", deptTasks.length, " tasks)"), /*#__PURE__*/React.createElement("div", {
     className: "flex-1"
   }), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 text-xs"
-  }, stoppedTasks > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-  }, stoppedTasks, " stopped"), wipTasks > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300"
-  }, wipTasks, " WIP"), /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500 dark:text-gray-400"
-  }, completedTasks, "/", totalTasks), /*#__PURE__*/React.createElement("div", {
-    className: "w-20 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden"
+    className: "w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "h-full rounded-full transition-all",
+    className: "h-full rounded-full transition-all duration-300",
     style: {
-      width: `${pct}%`,
+      width: pct + '%',
       backgroundColor: pct === 100 ? '#16a34a' : pct > 0 ? '#0d9488' : '#d1d5db'
     }
   })), /*#__PURE__*/React.createElement("span", {
-    className: "w-8 text-right text-gray-500"
-  }, pct, "%"))), expanded && /*#__PURE__*/React.createElement("div", {
-    className: "border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
-  }, departments.map(dept => {
-    const deptTasks = tasks.filter(t => t.department_id === dept.id);
-    if (deptTasks.length === 0) return null;
+    className: "text-xs font-mono text-gray-500 w-10 text-right"
+  }, pct, "%")), expanded && /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-50 dark:bg-gray-850"
+  }, modules.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 text-sm text-gray-400 italic"
+  }, "No modules assigned") : modules.map(function (mod) {
+    var modKey = mod.serialNumber || mod.id;
     return /*#__PURE__*/React.createElement("div", {
-      key: dept.id,
-      className: "border-b border-gray-100 dark:border-gray-800 last:border-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "px-4 py-2 flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement(DeptBadge, {
-      name: dept.name,
-      color: dept.color
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "px-4 pb-3 flex flex-wrap gap-2"
-    }, deptTasks.map(task => {
-      const key = `${module.id}|${task.id}`;
-      const currentStatus = completionMap[key]?.status || 'not_started';
-      const isSaving = saving[key];
-      return /*#__PURE__*/React.createElement("div", {
-        key: task.id,
-        className: "flex flex-col items-center gap-1 min-w-[80px]"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "text-xs text-gray-600 dark:text-gray-400 text-center leading-tight"
-      }, task.task_name), /*#__PURE__*/React.createElement(StatusButton, {
-        status: currentStatus,
-        onClick: () => onStatusChange(module.id, task.id, cycleStatus(currentStatus)),
-        disabled: !!isSaving
-      }));
-    })));
+      key: modKey,
+      className: "border-t border-gray-200 dark:border-gray-700"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: function () {
+        toggleModule(modKey);
+      },
+      className: "w-full flex items-center gap-3 px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-gray-400 text-xs"
+    }, expandedModules[modKey] ? '\u25BE' : '\u25B8'), /*#__PURE__*/React.createElement("span", {
+      className: "font-mono text-sm font-bold text-gray-800 dark:text-gray-200"
+    }, mod.serialNumber), /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-gray-400"
+    }, "#", mod.buildSequence), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1"
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-1"
+    }, deptTasks.map(function (t) {
+      var key = modKey + '|' + t.id;
+      var st = completionMap[key] ? completionMap[key].status : 'not_started';
+      var dotColor = st === 'complete' ? 'bg-green-500' : st === 'wip' ? 'bg-yellow-400' : st === 'stopped' ? 'bg-red-500' : 'bg-gray-300';
+      return /*#__PURE__*/React.createElement("span", {
+        key: t.id,
+        className: 'w-2 h-2 rounded-full ' + dotColor,
+        title: t.task_name + ': ' + st
+      });
+    }))), expandedModules[modKey] && /*#__PURE__*/React.createElement(ModuleTaskRow, {
+      moduleId: modKey,
+      tasks: deptTasks,
+      completionMap: completionMap,
+      onStatusChange: onStatusChange,
+      saving: saving
+    }));
   })));
 };
 
-// ─── BoardTab ─────────────────────────────────────────────────────────────────
-const BoardTab = ({
+// ─── TAB 1: DailyBoard ────────────────────────────────────────────────────
+const STBDailyBoard = ({
   weekStart,
+  modules,
   departments,
-  tasks,
+  allTasks,
   completionMap,
-  reload
+  onStatusChange,
+  saving
 }) => {
 // [Removed duplicate React destructuring]
-  const [modules, setModules] = useState([]);
-  const [modLoading, setModLoading] = useState(true);
-  const [saving, setSaving] = useState({});
-  const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('all');
-
-  // Load active modules from existing MODA data layer
-  useEffect(() => {
-    const loadModules = async () => {
-      setModLoading(true);
-      try {
-        // Use existing MODA_SUPABASE_DATA pattern if available
-        if (window.MODA_SUPABASE_DATA?.modules?.getAll) {
-          const mods = await window.MODA_SUPABASE_DATA.modules.getAll();
-          setModules(mods.filter(m => m.status !== 'complete' && m.status !== 'shipped'));
-        } else {
-          // Fallback: query directly
-          const sb = window.MODA_SUPABASE?.client;
-          if (sb) {
-            const {
-              data
-            } = await sb.from('modules').select('id, build_sequence, status, project_id, projects(name)').not('status', 'in', '("complete","shipped")').order('build_sequence');
-            setModules((data || []).map(m => ({
-              ...m,
-              project_name: m.projects?.name
-            })));
-          }
-        }
-      } catch (e) {
-        console.error('[StationBoard] Module load error', e);
-      } finally {
-        setModLoading(false);
-      }
-    };
-    loadModules();
-  }, []);
-  const handleStatusChange = useCallback(async (moduleId, taskId, newStatus) => {
-    const key = `${moduleId}|${taskId}`;
-    setSaving(s => ({
-      ...s,
-      [key]: true
-    }));
-    try {
-      await window.MODA_STATION_BOARD.upsertCompletion({
-        moduleId,
-        taskId,
-        weekStartDate: weekStart,
-        status: newStatus
-      });
-      reload();
-    } catch (e) {
-      console.error('[StationBoard] Save error', e);
-      alert('Save failed: ' + e.message);
-    } finally {
-      setSaving(s => {
-        const n = {
-          ...s
-        };
-        delete n[key];
-        return n;
-      });
-    }
-  }, [weekStart, reload]);
-
-  // Filter tasks by dept
-  const visibleTasks = deptFilter === 'all' ? tasks : tasks.filter(t => t.department_id === deptFilter);
-  const visibleDepts = deptFilter === 'all' ? departments : departments.filter(d => d.id === deptFilter);
-
-  // Filter modules by search
-  const filteredModules = modules.filter(m => !search || m.id.toLowerCase().includes(search.toLowerCase()) || (m.project_name || '').toLowerCase().includes(search.toLowerCase()));
-  if (modLoading) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center justify-center py-16 text-gray-400"
-    }, "Loading modules\u2026");
-  }
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-3 mb-4"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    placeholder: "Search module ID or project\u2026",
-    value: search,
-    onChange: e => setSearch(e.target.value),
-    className: "px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-56"
-  }), /*#__PURE__*/React.createElement("select", {
-    value: deptFilter,
-    onChange: e => setDeptFilter(e.target.value),
-    className: "px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "all"
-  }, "All departments"), departments.map(d => /*#__PURE__*/React.createElement("option", {
-    key: d.id,
-    value: d.id
-  }, d.name))), /*#__PURE__*/React.createElement("span", {
-    className: "ml-auto text-sm text-gray-500 self-center"
-  }, filteredModules.length, " modules")), filteredModules.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  const days = useMemo(function () {
+    return stbWeekDates(weekStart);
+  }, [weekStart]);
+  const today = stbToday();
+  const [selectedDay, setSelectedDay] = useState(today);
+  const shiftDays = days.filter(function (_, i) {
+    return i < 5;
+  });
+  var tasksByDept = useMemo(function () {
+    var map = {};
+    departments.forEach(function (d) {
+      map[d.id] = [];
+    });
+    allTasks.forEach(function (t) {
+      if (map[t.department_id]) map[t.department_id].push(t);
+    });
+    return map;
+  }, [departments, allTasks]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-1"
+  }, shiftDays.map(function (day) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: day.date,
+      onClick: function () {
+        setSelectedDay(day.date);
+      },
+      className: 'px-4 py-2 text-sm font-medium rounded-t transition ' + (selectedDay === day.date ? 'bg-teal-600 text-white' : day.date === today ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800')
+    }, day.label, " ", day.dayNum);
+  })), departments.map(function (dept) {
+    return /*#__PURE__*/React.createElement(DepartmentRow, {
+      key: dept.id,
+      dept: dept,
+      modules: modules,
+      deptTasks: tasksByDept[dept.id] || [],
+      completionMap: completionMap,
+      onStatusChange: onStatusChange,
+      saving: saving
+    });
+  }), departments.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "text-center py-12 text-gray-400"
-  }, "No active modules found.") : filteredModules.map(mod => /*#__PURE__*/React.createElement(ModuleRow, {
-    key: mod.id,
-    module: mod,
-    departments: visibleDepts,
-    tasks: visibleTasks,
-    completionMap: completionMap,
-    weekStart: weekStart,
-    onStatusChange: handleStatusChange,
-    saving: saving
-  })));
+  }, "No departments configured. Go to Admin tab to add departments."));
 };
 
-// ─── GoalsTab ─────────────────────────────────────────────────────────────────
-const GoalsTab = ({
+// ─── TAB 2: WeekSetup ─────────────────────────────────────────────────────
+const STBWeekSetup = ({
   weekStart,
+  setWeekStart,
+  modules,
   departments,
-  goalsMap,
-  reload
+  goals,
+  onReload
 }) => {
 // [Removed duplicate React destructuring]
-  const [editing, setEditing] = useState({});
-  const [saving, setSaving] = useState({});
-  const handleSave = async (deptId, value) => {
-    setSaving(s => ({
-      ...s,
-      [deptId]: true
-    }));
+  const [lineBalance, setLineBalance] = useState(5);
+  const [startSerial, setStartSerial] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [editingTargets, setEditingTargets] = useState({});
+  const sb = function () {
+    return window.MODA_STATION_BOARD;
+  };
+  var goalsMap = useMemo(function () {
+    var m = {};
+    (goals || []).forEach(function (g) {
+      m[g.department_id] = g.target_modules;
+    });
+    return m;
+  }, [goals]);
+  var handleTargetChange = async function (deptId, value) {
     try {
-      await window.MODA_STATION_BOARD.upsertWeeklyGoal({
+      await sb().upsertWeeklyGoal({
         departmentId: deptId,
         weekStartDate: weekStart,
         targetModules: parseInt(value) || 0
       });
-      setEditing(e => {
-        const n = {
-          ...e
-        };
-        delete n[deptId];
-        return n;
-      });
-      reload();
+      onReload();
     } catch (e) {
-      alert('Save failed: ' + e.message);
-    } finally {
-      setSaving(s => {
-        const n = {
-          ...s
-        };
-        delete n[deptId];
-        return n;
-      });
+      console.error('[WeekSetup] Target save error:', e);
+      alert('Failed to save target: ' + e.message);
     }
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "max-w-xl"
-  }, /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-gray-500 dark:text-gray-400 mb-4"
-  }, "Set the target number of modules each department should complete this week."), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, departments.map(dept => {
-    const current = goalsMap[dept.id] ?? '';
-    const editVal = editing[dept.id];
-    const isEditing = editVal !== undefined;
-    return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-base font-bold text-gray-900 dark:text-gray-100 mb-4"
+  }, "Week Schedule"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-4"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setWeekStart(stbShiftWeek(weekStart, -1));
+    },
+    className: "px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+  }, '\u25C0'), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-medium text-gray-800 dark:text-gray-200 min-w-[200px] text-center"
+  }, stbWeekLabel(weekStart)), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setWeekStart(stbShiftWeek(weekStart, 1));
+    },
+    className: "px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+  }, '\u25B6')), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
+  }, "Starting Module Serial"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: startSerial,
+    onChange: function (e) {
+      setStartSerial(e.target.value);
+    },
+    placeholder: "e.g. 22-0295",
+    className: "w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
+  }, "Line Balance (modules/day)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: lineBalance,
+    onChange: function (e) {
+      setLineBalance(parseInt(e.target.value) || 5);
+    },
+    min: 1,
+    max: 20,
+    className: "w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-end gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    disabled: generating,
+    onClick: async function () {
+      setGenerating(true);
+      try {
+        alert('Week generation requires day-assignment support in the data layer. Coming soon.');
+      } catch (e) {
+        alert('Error: ' + e.message);
+      } finally {
+        setGenerating(false);
+      }
+    },
+    className: "px-4 py-2 text-sm font-medium rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+  }, generating ? 'Generating...' : 'Generate Week'))), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-gray-400"
+  }, modules.length, " modules loaded from project. Line balance: ", lineBalance, " modules/dept/day.")), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-base font-bold text-gray-900 dark:text-gray-100 mb-4"
+  }, "Weekly Department Targets"), /*#__PURE__*/React.createElement("div", {
+    className: "overflow-x-auto"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-sm"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    className: "border-b border-gray-200 dark:border-gray-700"
+  }, /*#__PURE__*/React.createElement("th", {
+    className: "text-left py-2 px-3 text-gray-600 dark:text-gray-400 font-medium"
+  }, "Department"), /*#__PURE__*/React.createElement("th", {
+    className: "text-center py-2 px-3 text-gray-600 dark:text-gray-400 font-medium"
+  }, "Weekly Target"))), /*#__PURE__*/React.createElement("tbody", null, departments.map(function (dept) {
+    return /*#__PURE__*/React.createElement("tr", {
       key: dept.id,
-      className: "flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
-    }, /*#__PURE__*/React.createElement(DeptBadge, {
-      name: dept.name,
-      color: dept.color
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1"
-    }), isEditing ? /*#__PURE__*/React.createElement("div", {
+      className: "border-b border-gray-100 dark:border-gray-700"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "py-2 px-3"
+    }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "w-2.5 h-2.5 rounded-full",
+      style: {
+        backgroundColor: dept.color || '#0d9488'
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "text-gray-800 dark:text-gray-200"
+    }, dept.name))), /*#__PURE__*/React.createElement("td", {
+      className: "py-2 px-3 text-center"
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
-      min: "0",
-      value: editVal,
-      onChange: e => setEditing(ed => ({
-        ...ed,
-        [dept.id]: e.target.value
-      })),
-      className: "w-20 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100",
-      autoFocus: true
-    }), /*#__PURE__*/React.createElement("button", {
-      onClick: () => handleSave(dept.id, editVal),
-      disabled: saving[dept.id],
-      className: "px-3 py-1 text-xs rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
-    }, saving[dept.id] ? 'Saving…' : 'Save'), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setEditing(e => {
-        const n = {
-          ...e
-        };
-        delete n[dept.id];
-        return n;
-      }),
-      className: "px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-    }, "Cancel")) : /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-sm font-semibold text-gray-900 dark:text-gray-100 w-12 text-right"
-    }, current !== '' ? current : /*#__PURE__*/React.createElement("span", {
-      className: "text-gray-400 font-normal"
-    }, "\u2014")), /*#__PURE__*/React.createElement("span", {
-      className: "text-xs text-gray-400"
-    }, "modules / week"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setEditing(e => ({
-        ...e,
-        [dept.id]: current === '' ? '' : String(current)
-      })),
-      className: "px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-    }, "Edit")));
-  })));
+      value: editingTargets[dept.id] !== undefined ? editingTargets[dept.id] : goalsMap[dept.id] || '',
+      onChange: function (e) {
+        setEditingTargets(function (prev) {
+          var n = {};
+          for (var k in prev) n[k] = prev[k];
+          n[dept.id] = e.target.value;
+          return n;
+        });
+      },
+      onBlur: function (e) {
+        handleTargetChange(dept.id, e.target.value);
+        setEditingTargets(function (prev) {
+          var n = {};
+          for (var k in prev) {
+            if (k !== dept.id) n[k] = prev[k];
+          }
+          return n;
+        });
+      },
+      min: 0,
+      className: "w-20 px-2 py-1 text-sm text-center rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
+    })));
+  }))))));
 };
 
-// ─── TaskEditorTab ────────────────────────────────────────────────────────────
-const TaskEditorTab = ({
+// ─── TAB 3: AdminTab ───────────────────────────────────────────────────────
+const STBAdminTab = ({
   departments,
-  tasks,
-  reload
+  allTasks,
+  onReload
 }) => {
 // [Removed duplicate React destructuring]
-  const [selectedDept, setSelectedDept] = useState(departments[0]?.id || '');
-  const [newTaskName, setNewTaskName] = useState('');
+  const sb = function () {
+    return window.MODA_STATION_BOARD;
+  };
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptColor, setNewDeptColor] = useState('#0d9488');
-  const [saving, setSaving] = useState(false);
-  const sb = () => window.MODA_STATION_BOARD;
-  const deptTasks = tasks.filter(t => t.department_id === selectedDept);
-  const addTask = async () => {
-    if (!newTaskName.trim() || !selectedDept) return;
-    setSaving(true);
-    try {
-      await sb().upsertTask({
-        departmentId: selectedDept,
-        taskName: newTaskName.trim(),
-        displayOrder: deptTasks.length + 1
-      });
-      setNewTaskName('');
-      reload();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-  const removeTask = async taskId => {
-    if (!confirm('Remove this task? Existing completion records will be retained.')) return;
-    try {
-      await sb().deleteTask(taskId);
-      reload();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    }
-  };
-  const addDept = async () => {
+  const [savingDept, setSavingDept] = useState(false);
+  const [selectedDeptId, setSelectedDeptId] = useState(departments[0] ? departments[0].id : '');
+  const [newTaskName, setNewTaskName] = useState('');
+  const [savingTask, setSavingTask] = useState(false);
+  var selectedDeptTasks = allTasks.filter(function (t) {
+    return t.department_id === selectedDeptId;
+  }).sort(function (a, b) {
+    return a.display_order - b.display_order;
+  });
+  var addDepartment = async function () {
     if (!newDeptName.trim()) return;
-    setSaving(true);
+    setSavingDept(true);
     try {
-      const d = await sb().upsertDepartment({
+      await sb().upsertDepartment({
         name: newDeptName.trim(),
-        displayOrder: departments.length + 1,
+        displayOrder: departments.length,
         color: newDeptColor
       });
       setNewDeptName('');
-      setSelectedDept(d.id);
-      reload();
+      onReload();
     } catch (e) {
-      alert('Error: ' + e.message);
+      alert('Error adding department: ' + e.message);
     } finally {
-      setSaving(false);
+      setSavingDept(false);
     }
   };
-  const removeDept = async deptId => {
-    if (!confirm('Remove this department and all its tasks? Completion records will be retained.')) return;
+  var moveDept = async function (dept, direction) {
+    var idx = departments.findIndex(function (d) {
+      return d.id === dept.id;
+    });
+    var swapIdx = idx + direction;
+    if (swapIdx < 0 || swapIdx >= departments.length) return;
+    var other = departments[swapIdx];
     try {
-      await sb().deleteDepartment(deptId);
-      reload();
+      await Promise.all([sb().upsertDepartment({
+        id: dept.id,
+        name: dept.name,
+        displayOrder: swapIdx,
+        color: dept.color
+      }), sb().upsertDepartment({
+        id: other.id,
+        name: other.name,
+        displayOrder: idx,
+        color: other.color
+      })]);
+      onReload();
     } catch (e) {
-      alert('Error: ' + e.message);
+      alert('Error reordering: ' + e.message);
+    }
+  };
+  var addTask = async function () {
+    if (!newTaskName.trim() || !selectedDeptId) return;
+    setSavingTask(true);
+    try {
+      await sb().upsertTask({
+        departmentId: selectedDeptId,
+        taskName: newTaskName.trim(),
+        displayOrder: selectedDeptTasks.length
+      });
+      setNewTaskName('');
+      onReload();
+    } catch (e) {
+      alert('Error adding task: ' + e.message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
+  var removeTask = async function (taskId) {
+    if (!confirm('Remove this task? (Soft-delete, can be restored)')) return;
+    try {
+      await sb().deleteTask(taskId);
+      onReload();
+    } catch (e) {
+      alert('Error removing task: ' + e.message);
+    }
+  };
+  var moveTask = async function (task, direction) {
+    var idx = selectedDeptTasks.findIndex(function (t) {
+      return t.id === task.id;
+    });
+    var swapIdx = idx + direction;
+    if (swapIdx < 0 || swapIdx >= selectedDeptTasks.length) return;
+    var other = selectedDeptTasks[swapIdx];
+    try {
+      await Promise.all([sb().upsertTask({
+        id: task.id,
+        departmentId: task.department_id,
+        taskName: task.task_name,
+        displayOrder: swapIdx
+      }), sb().upsertTask({
+        id: other.id,
+        departmentId: other.department_id,
+        taskName: other.task_name,
+        displayOrder: idx
+      })]);
+      onReload();
+    } catch (e) {
+      alert('Error reordering task: ' + e.message);
     }
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 md:grid-cols-3 gap-6"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
-  }, "Departments"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1 mb-4"
-  }, departments.map(d => /*#__PURE__*/React.createElement("div", {
-    key: d.id,
-    className: `flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors ${selectedDept === d.id ? 'bg-teal-50 dark:bg-teal-900/30 ring-1 ring-teal-400' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`,
-    onClick: () => setSelectedDept(d.id)
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "w-3 h-3 rounded-full flex-shrink-0",
-    style: {
-      backgroundColor: d.color
-    }
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-800 dark:text-gray-200 flex-1"
-  }, d.name), /*#__PURE__*/React.createElement("button", {
-    onClick: e => {
-      e.stopPropagation();
-      removeDept(d.id);
-    },
-    className: "text-gray-300 hover:text-red-500 text-xs px-1",
-    title: "Remove department"
-  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 border-t border-gray-200 dark:border-gray-700 pt-3"
-  }, /*#__PURE__*/React.createElement("input", {
+    className: "space-y-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-base font-bold text-gray-900 dark:text-gray-100 mb-4"
+  }, "Departments & Order"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 mb-4"
+  }, departments.map(function (dept, idx) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: dept.id,
+      className: "flex items-center gap-3 py-2 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-gray-400 w-6 text-center"
+    }, idx + 1), /*#__PURE__*/React.createElement("span", {
+      className: "w-3 h-3 rounded-full flex-shrink-0",
+      style: {
+        backgroundColor: dept.color || '#0d9488'
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "text-sm font-medium text-gray-800 dark:text-gray-200 flex-1"
+    }, dept.name), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-1"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: function () {
+        moveDept(dept, -1);
+      },
+      disabled: idx === 0,
+      className: "px-1.5 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-200 disabled:opacity-30"
+    }, '\u25B2'), /*#__PURE__*/React.createElement("button", {
+      onClick: function () {
+        moveDept(dept, 1);
+      },
+      disabled: idx === departments.length - 1,
+      className: "px-1.5 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-200 disabled:opacity-30"
+    }, '\u25BC')));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 items-end"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-gray-500 mb-1"
+  }, "New Department"), /*#__PURE__*/React.createElement("input", {
     type: "text",
-    placeholder: "New department name",
     value: newDeptName,
-    onChange: e => setNewDeptName(e.target.value),
-    className: "w-full px-2 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-    onKeyDown: e => e.key === 'Enter' && addDept()
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
+    onChange: function (e) {
+      setNewDeptName(e.target.value);
+    },
+    placeholder: "Department name",
+    className: "w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900",
+    onKeyDown: function (e) {
+      if (e.key === 'Enter') addDepartment();
+    }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-gray-500 mb-1"
+  }, "Color"), /*#__PURE__*/React.createElement("input", {
     type: "color",
     value: newDeptColor,
-    onChange: e => setNewDeptColor(e.target.value),
-    className: "w-8 h-8 rounded cursor-pointer"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: addDept,
-    disabled: saving || !newDeptName.trim(),
-    className: "flex-1 px-2 py-1.5 text-xs rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
-  }, "+ Add Department")))), /*#__PURE__*/React.createElement("div", {
-    className: "md:col-span-2"
-  }, selectedDept ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h3", {
-    className: "text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
-  }, "Tasks \u2014 ", departments.find(d => d.id === selectedDept)?.name), /*#__PURE__*/React.createElement("div", {
+    onChange: function (e) {
+      setNewDeptColor(e.target.value);
+    },
+    className: "w-10 h-9 rounded border border-gray-300 cursor-pointer"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: addDepartment,
+    disabled: savingDept || !newDeptName.trim(),
+    className: "px-4 py-2 text-sm font-medium rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+  }, "Add"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-base font-bold text-gray-900 dark:text-gray-100 mb-4"
+  }, "Task Lists"), /*#__PURE__*/React.createElement("select", {
+    value: selectedDeptId,
+    onChange: function (e) {
+      setSelectedDeptId(e.target.value);
+    },
+    className: "w-full max-w-xs px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 mb-4"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Select department..."), departments.map(function (d) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: d.id,
+      value: d.id
+    }, d.name);
+  })), selectedDeptId && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 mb-4"
-  }, deptTasks.length === 0 && /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-gray-400 italic"
-  }, "No tasks yet."), deptTasks.map((t, i) => /*#__PURE__*/React.createElement("div", {
-    key: t.id,
-    className: "flex items-center gap-2 px-3 py-2 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-gray-400 w-5"
-  }, i + 1, "."), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-800 dark:text-gray-200 flex-1"
-  }, t.task_name), /*#__PURE__*/React.createElement("button", {
-    onClick: () => removeTask(t.id),
-    className: "text-gray-300 hover:text-red-500 text-xs px-1",
-    title: "Remove task"
-  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 border-t border-gray-200 dark:border-gray-700 pt-3"
+  }, selectedDeptTasks.map(function (task, idx) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: task.id,
+      className: "flex items-center gap-2 py-1.5 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-gray-400 w-6 text-center"
+    }, idx + 1), /*#__PURE__*/React.createElement("span", {
+      className: "text-sm text-gray-800 dark:text-gray-200 flex-1"
+    }, task.task_name), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-1"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: function () {
+        moveTask(task, -1);
+      },
+      disabled: idx === 0,
+      className: "px-1.5 py-0.5 text-xs rounded border border-gray-300 hover:bg-gray-200 disabled:opacity-30"
+    }, '\u25B2'), /*#__PURE__*/React.createElement("button", {
+      onClick: function () {
+        moveTask(task, 1);
+      },
+      disabled: idx === selectedDeptTasks.length - 1,
+      className: "px-1.5 py-0.5 text-xs rounded border border-gray-300 hover:bg-gray-200 disabled:opacity-30"
+    }, '\u25BC'), /*#__PURE__*/React.createElement("button", {
+      onClick: function () {
+        removeTask(task.id);
+      },
+      className: "px-1.5 py-0.5 text-xs rounded border border-red-300 text-red-600 hover:bg-red-50"
+    }, "X")));
+  }), selectedDeptTasks.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "text-sm text-gray-400 italic py-2"
+  }, "No tasks for this department.")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("input", {
     type: "text",
-    placeholder: "New task name",
     value: newTaskName,
-    onChange: e => setNewTaskName(e.target.value),
-    className: "flex-1 px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-    onKeyDown: e => e.key === 'Enter' && addTask()
+    onChange: function (e) {
+      setNewTaskName(e.target.value);
+    },
+    placeholder: "New task name",
+    className: "flex-1 px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900",
+    onKeyDown: function (e) {
+      if (e.key === 'Enter') addTask();
+    }
   }), /*#__PURE__*/React.createElement("button", {
     onClick: addTask,
-    disabled: saving || !newTaskName.trim(),
-    className: "px-4 py-1.5 text-sm rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
-  }, "+ Add"))) : /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-gray-400 italic"
-  }, "Select a department to manage its tasks.")));
+    disabled: savingTask || !newTaskName.trim(),
+    className: "px-4 py-2 text-sm font-medium rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+  }, "Add Task")))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-base font-bold text-gray-900 dark:text-gray-100 mb-4"
+  }, "Shift Configuration"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 py-2 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-medium text-gray-800 dark:text-gray-200 w-24"
+  }, "Shift 1"), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-600 dark:text-gray-400"
+  }, "Mon \u2013 Thu")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 py-2 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-medium text-gray-800 dark:text-gray-200 w-24"
+  }, "Shift 2"), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-600 dark:text-gray-400"
+  }, "Fri \u2013 Sun"))), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 mt-3"
+  }, "Shift editing requires the station_shifts table. Coming soon.")));
 };
 
-// ─── Week Picker ──────────────────────────────────────────────────────────────
-const WeekPicker = ({
-  value,
-  onChange
-}) => {
-  const sb = () => window.MODA_STATION_BOARD;
-  const curr = sb()?.weekStart() || value;
-  const shift = weeks => {
-    if (!value) return;
-    const [y, m, d] = value.split('-').map(Number);
-    const dt = new Date(y, m - 1, d + weeks * 7);
-    const ny = dt.getFullYear();
-    const nm = String(dt.getMonth() + 1).padStart(2, '0');
-    const nd = String(dt.getDate()).padStart(2, '0');
-    onChange(`${ny}-${nm}-${nd}`);
-  };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => shift(-1),
-    className: "px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-  }, "\u25C0"), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm font-medium text-gray-800 dark:text-gray-200 min-w-[200px] text-center"
-  }, getWeekLabel(value)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => shift(1),
-    className: "px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-  }, "\u25B6"), value !== curr && /*#__PURE__*/React.createElement("button", {
-    onClick: () => onChange(curr),
-    className: "px-2 py-1 text-xs rounded bg-teal-600 text-white hover:bg-teal-700"
-  }, "Today"));
-};
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ────────────────────────────────────────────────────────
 const StationTaskBoard = ({
-  currentUser
+  currentUser,
+  modules: rawModules,
+  projectId
 }) => {
 // [Removed duplicate React destructuring]
-  const sb = () => window.MODA_STATION_BOARD;
-  const initialWeek = sb()?.weekStart() || '';
-  const [activeTab, setActiveTab] = useState('board');
+  const sb = function () {
+    return window.MODA_STATION_BOARD;
+  };
+  const initialWeek = sb() ? sb().weekStart() : '';
+  const [activeTab, setActiveTab] = useState('daily');
   const [weekStart, setWeekStart] = useState(initialWeek);
-  const {
-    departments,
-    tasks,
-    goalsMap,
-    completionMap,
-    loading,
-    error,
-    reload
-  } = useStationBoardData(weekStart);
-  const isAdmin = currentUser?.dashboard_role === 'admin' || currentUser?.email === 'trevor@autovol.com' || currentUser?.email === 'stephanie@autovol.com';
-  const tabs = [{
-    id: 'board',
-    label: 'Production Board'
+  const [departments, setDepartments] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
+  const [completions, setCompletions] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState({});
+  const unsubRef = useRef(null);
+
+  // Normalize modules from JSONB to consistent shape
+  const modules = useMemo(function () {
+    return (rawModules || []).map(function (m) {
+      return {
+        id: m.id,
+        serialNumber: m.serialNumber || m.id,
+        buildSequence: m.buildSequence,
+        status: m.status,
+        projectName: m.projectName || ''
+      };
+    });
+  }, [rawModules]);
+  const isAdmin = currentUser && (currentUser.dashboard_role === 'admin' || currentUser.email === 'trevor@autovol.com' || currentUser.email === 'stephanie@autovol.com');
+
+  // Build completion map: { 'moduleSerialNumber|taskId': { status, ... } }
+  const completionMap = useMemo(function () {
+    var map = {};
+    completions.forEach(function (c) {
+      map[c.module_id + '|' + c.task_id] = c;
+    });
+    return map;
+  }, [completions]);
+
+  // Load all data
+  var loadData = useCallback(async function () {
+    if (!sb()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      var results = await Promise.all([sb().getDepartments(), sb().getAllTasks(), sb().getCompletions(weekStart), sb().getWeeklyGoals(weekStart)]);
+      setDepartments(results[0] || []);
+      setAllTasks(results[1] || []);
+      setCompletions(results[2] || []);
+      setGoals(results[3] || []);
+    } catch (e) {
+      console.error('[StationTaskBoard] Load error:', e);
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [weekStart]);
+  useEffect(function () {
+    loadData();
+  }, [loadData]);
+
+  // Real-time subscription
+  useEffect(function () {
+    if (!sb()) return;
+    if (unsubRef.current) unsubRef.current();
+    unsubRef.current = sb().subscribeToCompletions(weekStart, function () {
+      sb().getCompletions(weekStart).then(function (c) {
+        setCompletions(c || []);
+      }).catch(function () {});
+    });
+    return function () {
+      if (unsubRef.current) unsubRef.current();
+    };
+  }, [weekStart]);
+
+  // Status change handler
+  var handleStatusChange = useCallback(async function (moduleId, taskId, newStatus) {
+    var key = moduleId + '|' + taskId;
+    setSaving(function (s) {
+      var n = {};
+      for (var k in s) n[k] = s[k];
+      n[key] = true;
+      return n;
+    });
+    try {
+      await sb().upsertCompletion({
+        moduleId: moduleId,
+        taskId: taskId,
+        weekStartDate: weekStart,
+        status: newStatus
+      });
+      // Optimistic update
+      setCompletions(function (prev) {
+        var idx = prev.findIndex(function (c) {
+          return c.module_id === moduleId && c.task_id === taskId;
+        });
+        if (idx >= 0) {
+          var updated = prev.slice();
+          updated[idx] = Object.assign({}, updated[idx], {
+            status: newStatus
+          });
+          return updated;
+        }
+        return prev.concat([{
+          module_id: moduleId,
+          task_id: taskId,
+          status: newStatus
+        }]);
+      });
+    } catch (e) {
+      console.error('[StationTaskBoard] Save error:', e);
+      alert('Save failed: ' + e.message);
+    } finally {
+      setSaving(function (s) {
+        var n = {};
+        for (var k in s) {
+          if (k !== key) n[k] = s[k];
+        }
+        return n;
+      });
+    }
+  }, [weekStart]);
+  var tabs = [{
+    id: 'daily',
+    label: 'Daily Board'
   }, {
-    id: 'goals',
-    label: 'Weekly Goals'
-  }, ...(isAdmin ? [{
-    id: 'tasks',
-    label: 'Task Editor'
-  }] : [])];
+    id: 'setup',
+    label: 'Week Setup'
+  }];
+  if (isAdmin) tabs.push({
+    id: 'admin',
+    label: 'Admin'
+  });
   if (!sb()) {
     return /*#__PURE__*/React.createElement("div", {
       className: "p-6 text-center text-red-500"
     }, "Station board data layer not loaded. Add supabase-station-board.js to index.html.");
   }
   return /*#__PURE__*/React.createElement("div", {
-    className: "p-4 max-w-6xl mx-auto"
+    className: "p-4"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap items-center gap-4 mb-6"
+    className: "flex flex-wrap items-center gap-4 mb-4"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     className: "text-lg font-bold text-gray-900 dark:text-gray-100"
   }, "Station Task Board"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500 dark:text-gray-400"
-  }, "Module completion tracking by department")), /*#__PURE__*/React.createElement("div", {
+  }, stbWeekLabel(weekStart), " \u2014 ", modules.length, " modules")), /*#__PURE__*/React.createElement("div", {
     className: "flex-1"
-  }), /*#__PURE__*/React.createElement(WeekPicker, {
-    value: weekStart,
-    onChange: setWeekStart
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-5"
-  }, tabs.map(t => /*#__PURE__*/React.createElement("button", {
-    key: t.id,
-    onClick: () => setActiveTab(t.id),
-    className: `px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === t.id ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`
-  }, t.label))), loading ? /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setWeekStart(stbShiftWeek(weekStart, -1));
+    },
+    className: "px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+  }, '\u25C0'), weekStart !== initialWeek && /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setWeekStart(initialWeek);
+    },
+    className: "px-2 py-1 text-xs rounded bg-teal-600 text-white hover:bg-teal-700"
+  }, "Today"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setWeekStart(stbShiftWeek(weekStart, 1));
+    },
+    className: "px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+  }, '\u25B6'))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4"
+  }, tabs.map(function (t) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: t.id,
+      onClick: function () {
+        setActiveTab(t.id);
+      },
+      className: 'px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ' + (activeTab === t.id ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300')
+    }, t.label);
+  })), loading ? /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-center py-20"
   }, /*#__PURE__*/React.createElement("div", {
     className: "animate-spin w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full"
   }), /*#__PURE__*/React.createElement("span", {
     className: "ml-3 text-gray-500"
-  }, "Loading\u2026")) : error ? /*#__PURE__*/React.createElement("div", {
+  }, "Loading...")) : error ? /*#__PURE__*/React.createElement("div", {
     className: "p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm"
-  }, "Error loading data: ", error, /*#__PURE__*/React.createElement("button", {
-    onClick: reload,
+  }, "Error: ", error, /*#__PURE__*/React.createElement("button", {
+    onClick: loadData,
     className: "ml-3 underline"
-  }, "Retry")) : /*#__PURE__*/React.createElement(React.Fragment, null, activeTab === 'board' && /*#__PURE__*/React.createElement(BoardTab, {
+  }, "Retry")) : /*#__PURE__*/React.createElement("div", null, activeTab === 'daily' && /*#__PURE__*/React.createElement(STBDailyBoard, {
     weekStart: weekStart,
+    modules: modules,
     departments: departments,
-    tasks: tasks,
+    allTasks: allTasks,
     completionMap: completionMap,
-    reload: reload
-  }), activeTab === 'goals' && /*#__PURE__*/React.createElement(GoalsTab, {
+    onStatusChange: handleStatusChange,
+    saving: saving
+  }), activeTab === 'setup' && /*#__PURE__*/React.createElement(STBWeekSetup, {
     weekStart: weekStart,
+    setWeekStart: setWeekStart,
+    modules: modules,
     departments: departments,
-    goalsMap: goalsMap,
-    reload: reload
-  }), activeTab === 'tasks' && isAdmin && /*#__PURE__*/React.createElement(TaskEditorTab, {
+    goals: goals,
+    onReload: loadData
+  }), activeTab === 'admin' && isAdmin && /*#__PURE__*/React.createElement(STBAdminTab, {
     departments: departments,
-    tasks: tasks,
-    reload: reload
+    allTasks: allTasks,
+    onReload: loadData
   })));
 };
 
@@ -14713,7 +14920,8 @@ const DeptCard = ({
 // ─── Main Report Component ────────────────────────────────────────────────────
 const StationBoardReport = ({
   weekStart: propWeekStart,
-  currentUser
+  currentUser,
+  projectId
 }) => {
 // [Removed duplicate React destructuring]
   const sb = () => window.MODA_STATION_BOARD;
@@ -14770,7 +14978,7 @@ const StationBoardReport = ({
   const depsWithGoals = reportData.filter(r => r.goalModules > 0);
   const avgPct = depsWithGoals.length > 0 ? Math.round(depsWithGoals.reduce((s, r) => s + (r.completionPct || 0), 0) / depsWithGoals.length) : null;
   return /*#__PURE__*/React.createElement("div", {
-    className: "p-4 max-w-4xl mx-auto"
+    className: "p-4 "
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center gap-3 mb-6"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
@@ -59915,7 +60123,7 @@ function ProductionDashboard({
 }) {
   const activeProjects = projects.filter(p => p.status === 'Active');
   const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || null);
-  const [productionTab, setProductionTab] = useState('weekly-board');
+  const [productionTab, setProductionTab] = useState('station-task-board');
   const [selectedWeekId, setSelectedWeekId] = useState(null); // For viewing specific weeks from Schedule Setup
   const [editWeekId, setEditWeekId] = useState(null); // For editing specific weeks from WeeklyBoard
 
@@ -60129,7 +60337,14 @@ function ProductionDashboard({
     className: "flex items-center justify-between flex-wrap gap-4"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-2xl font-bold text-autovol-navy"
-  }, "Production Dashboard")), activeProjects.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Production Dashboard"), activeProjects.length > 1 && /*#__PURE__*/React.createElement("select", {
+    value: selectedProjectId || '',
+    onChange: e => setSelectedProjectId(e.target.value),
+    className: "px-3 py-2 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 font-medium"
+  }, activeProjects.map(p => /*#__PURE__*/React.createElement("option", {
+    key: p.id,
+    value: p.id
+  }, p.name)))), activeProjects.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-lg shadow p-8 text-center"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-gray-500"
@@ -60142,6 +60357,12 @@ function ProductionDashboard({
   }, /*#__PURE__*/React.createElement("div", {
     className: "border-b flex overflow-x-auto"
   }, [{
+    id: 'station-task-board',
+    label: 'Station Board'
+  }, {
+    id: 'station-board-report',
+    label: 'Board Report'
+  }, {
     id: 'weekly-board',
     label: 'Weekly Board'
   }, {
@@ -60156,18 +60377,12 @@ function ProductionDashboard({
   }, {
     id: 'reports',
     label: 'Reports'
-  }, {
-    id: 'station-task-board',
-    label: 'Station Board'
-  }, {
-    id: 'station-board-report',
-    label: 'Board Report'
   }].map(tab => /*#__PURE__*/React.createElement("button", {
     key: tab.id,
     onClick: () => setProductionTab(tab.id),
     className: `px-6 py-3 text-sm font-medium transition ${productionTab === tab.id ? 'text-autovol-teal border-b-2 border-autovol-teal' : 'text-gray-500 hover:text-gray-700'}`
-  }, tab.label))), /*#__PURE__*/React.createElement("div", {
-    className: "p-4 production-tab-content"
+  }, tab.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "production-tab-content"
   }, productionTab === 'module-status' && /*#__PURE__*/React.createElement("div", {
     className: "space-y-6"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
@@ -60332,10 +60547,13 @@ function ProductionDashboard({
   }) : /*#__PURE__*/React.createElement("div", {
     className: "p-8 text-center text-gray-500"
   }, "Loading Reports Hub...")), productionTab === 'station-task-board' && /*#__PURE__*/React.createElement(StationTaskBoard, {
-    currentUser: currentUser
+    currentUser: auth.currentUser,
+    projectId: selectedProjectId,
+    modules: modules
   }), productionTab === 'station-board-report' && /*#__PURE__*/React.createElement(StationBoardReport, {
-    currentUser: currentUser
-  })))), showReportIssueModal && reportIssueContext && (window.IssueSubmissionModal ? /*#__PURE__*/React.createElement(window.IssueSubmissionModal, {
+    currentUser: auth.currentUser,
+    projectId: selectedProjectId
+  }))), showReportIssueModal && reportIssueContext && (window.IssueSubmissionModal ? /*#__PURE__*/React.createElement(window.IssueSubmissionModal, {
     context: {
       project_id: reportIssueContext.project?.id,
       project_name: reportIssueContext.project?.name,

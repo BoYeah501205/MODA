@@ -284,7 +284,7 @@ const DeptCard = ({ row }) => {
 };
 
 // ─── Main Report Component ────────────────────────────────────────────────────
-const StationBoardReport = ({ weekStart: propWeekStart, currentUser }) => {
+const StationBoardReport = ({ weekStart: propWeekStart, currentUser, projectId }) => {
     const { useState, useEffect, useCallback } = React;
 
     const sb = () => window.MODA_STATION_BOARD;
@@ -347,7 +347,7 @@ const StationBoardReport = ({ weekStart: propWeekStart, currentUser }) => {
         : null;
 
     return (
-        <div className="p-4 max-w-4xl mx-auto">
+        <div className="p-4 ">
             {/* Header */}
             <div className="flex flex-wrap items-center gap-3 mb-6">
                 <div>

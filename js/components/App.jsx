@@ -1550,7 +1550,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         function ProductionDashboard({ projects, setProjects, departmentStatus, onSelectProject, auth }) {
             const activeProjects = projects.filter(p => p.status === 'Active');
             const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || null);
-            const [productionTab, setProductionTab] = useState('weekly-board');
+            const [productionTab, setProductionTab] = useState('station-task-board');
             const [selectedWeekId, setSelectedWeekId] = useState(null); // For viewing specific weeks from Schedule Setup
             const [editWeekId, setEditWeekId] = useState(null); // For editing specific weeks from WeeklyBoard
             
@@ -1720,6 +1720,17 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     {/* Header */}
                     <div className="flex items-center justify-between flex-wrap gap-4">
                         <h2 className="text-2xl font-bold text-autovol-navy">Production Dashboard</h2>
+                        {activeProjects.length > 1 && (
+                            <select
+                                value={selectedProjectId || ''}
+                                onChange={e => setSelectedProjectId(e.target.value)}
+                                className="px-3 py-2 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 font-medium"
+                            >
+                                {activeProjects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                     
                     {activeProjects.length === 0 ? (
@@ -1736,13 +1747,13 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             <div className="bg-white rounded-lg shadow mb-4 hide-mobile-tablet">
                                 <div className="border-b flex overflow-x-auto">
                                     {[
+                                        { id: 'station-task-board', label: 'Station Board' },
+                                        { id: 'station-board-report', label: 'Board Report' },
                                         { id: 'weekly-board', label: 'Weekly Board' },
                                         { id: 'module-status', label: 'Module Status' },
                                         { id: 'staggers', label: 'Station Stagger' },
                                         { id: 'schedule-setup', label: 'Schedule Setup' },
-                                        { id: 'reports', label: 'Reports' },
-                                        { id: 'station-task-board', label: 'Station Board' },
-                                        { id: 'station-board-report', label: 'Board Report' }
+                                        { id: 'reports', label: 'Reports' }
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
@@ -1758,8 +1769,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     ))}
                                 </div>
                                 
-                                {/* Tab Content */}
-                                <div className="p-4 production-tab-content">
+                                </div>
+                            <div className="production-tab-content">
                                     
                                     
                                     {productionTab === 'module-status' && (
@@ -1958,13 +1969,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     )}
                                     
                                     {productionTab === 'station-task-board' && (
-                                        <StationTaskBoard currentUser={currentUser} />
+                                        <StationTaskBoard currentUser={auth.currentUser} projectId={selectedProjectId} modules={modules} />
                                     )}
                                     
                                     {productionTab === 'station-board-report' && (
-                                        <StationBoardReport currentUser={currentUser} />
+                                        <StationBoardReport currentUser={auth.currentUser} projectId={selectedProjectId} />
                                     )}
-                                </div>
                             </div>
                         </>
                     )}

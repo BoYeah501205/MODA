@@ -2,9 +2,21 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.79**
+**Current Version: 1.5.80**
 
 ---
+
+## [1.5.80] - 2026-05-13
+### Feature
+- **Station Task Board v2** - Complete rewrite with 3 internal tabs:
+  - **Daily Board**: Day selector (Mon-Fri), expandable department rows with progress bars, expandable modules with task status cycling (not started/WIP/complete/stopped)
+  - **Week Setup**: Week picker, starting serial + line balance inputs, weekly department target configuration
+  - **Admin**: Department CRUD with reorder and color picker, task list management per department, shift configuration (read-only)
+- Added project selector dropdown to Production Dashboard header
+- Moved Production sub-tab nav bar outside content card for better layout
+- Added supabase-station-board.js to index.html script loading order
+- Real-time completion updates via Supabase subscriptions
+- Optimistic UI updates for status changes
 
 ## [1.5.79] - 2026-03-13
 ### Feature
