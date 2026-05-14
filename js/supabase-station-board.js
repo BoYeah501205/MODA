@@ -1,17 +1,3 @@
-/**
- * MODA Station Board — Supabase Data Layer
- * Handles all reads/writes for station_departments, station_tasks,
- * station_weekly_goals, and station_task_completions tables.
- *
- * Add to index.html after supabase-client.js:
- *   <script src="./js/supabase-station-board.js"></script>
- *
- * Usage via window.MODA_STATION_BOARD:
- *   const depts  = await MODA_STATION_BOARD.getDepartments();
- *   const tasks  = await MODA_STATION_BOARD.getTasks(deptId);
- *   await MODA_STATION_BOARD.upsertCompletion({ moduleId, taskId, weekStart, status });
- */
-
 (function () {
     'use strict';
 
@@ -20,355 +6,370 @@
         return;
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
-
     function getClient() {
-        const client = window.MODA_SUPABASE?.client;
-        if (!client) throw new Error('[StationBoard] Supabase client not ready');
-        return client;
+        const c = window.MODA_SUPABASE?.client;
+        if (!c) throw new Error('[StationBoard] Supabase client not ready');
+        return c;
     }
 
-    function getCurrentUser() {
+    function getUser() {
         return window.MODA_SUPABASE?.currentUser;
     }
 
-    // Returns the Monday of the week containing `date` as YYYY-MM-DD
     function weekStart(date) {
         const d = date ? new Date(date) : new Date();
-        const day = d.getDay(); // 0 = Sun
+        const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
         const mon = new Date(d.setDate(diff));
-        const y = mon.getFullYear();
-        const m = String(mon.getMonth() + 1).padStart(2, '0');
-        const dd = String(mon.getDate()).padStart(2, '0');
-        return `${y}-${m}-${dd}`;
+        return mon.toISOString().slice(0, 10);
     }
 
-    // ── Departments ──────────────────────────────────────────────────────────
+    function parseDate(str) {
+        const [y, m, dd] = str.split('-').map(Number);
+        return new Date(y, m - 1, dd);
+    }
+
+    function fmtDate(dt) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function weekDates(ws) {
+        const start = parseDate(ws);
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            return fmtDate(d);
+        });
+    }
 
     async function getDepartments() {
-        const sb = getClient();
-        const { data, error } = await sb
+        const { data, error } = await getClient()
             .from('station_departments')
             .select('*')
+            .eq('is_active', true)
             .order('display_order');
         if (error) throw error;
         return data;
     }
 
-    async function upsertDepartment({ id, name, displayOrder, color }) {
-        const sb = getClient();
+    async function getLineDepartments() {
+        const depts = await getDepartments();
+        const subDeptParentIds = new Set(depts.filter(d => d.parent_id).map(d => d.parent_id));
+        return depts.filter(d => !subDeptParentIds.has(d.id));
+    }
+
+    async function upsertDepartment({ id, name, parentId, displayOrder, color, staggerOffset }) {
         const row = {
             name,
+            parent_id: parentId || null,
             display_order: displayOrder ?? 0,
             color: color ?? '#0d9488',
+            stagger_offset: staggerOffset ?? 0,
+            is_active: true,
         };
         if (id) row.id = id;
-        const { data, error } = await sb
+        const { data, error } = await getClient()
             .from('station_departments')
             .upsert(row, { onConflict: 'id' })
-            .select()
-            .single();
+            .select().single();
         if (error) throw error;
         return data;
     }
 
     async function deleteDepartment(id) {
-        const sb = getClient();
-        const { error } = await sb.from('station_departments').delete().eq('id', id);
-        if (error) throw error;
-    }
-
-    // ── Tasks ────────────────────────────────────────────────────────────────
-
-    async function getTasks(departmentId) {
-        const sb = getClient();
-        const query = sb
-            .from('station_tasks')
-            .select('*, department:station_departments(name, color)')
-            .eq('is_active', true)
-            .order('display_order');
-        if (departmentId) query.eq('department_id', departmentId);
-        const { data, error } = await query;
-        if (error) throw error;
-        return data;
-    }
-
-    async function getAllTasks() {
-        return getTasks(null);
-    }
-
-    async function upsertTask({ id, departmentId, taskName, displayOrder }) {
-        const sb = getClient();
-        const row = {
-            department_id: departmentId,
-            task_name: taskName,
-            display_order: displayOrder ?? 0,
-            is_active: true,
-        };
-        if (id) row.id = id;
-        const { data, error } = await sb
-            .from('station_tasks')
-            .upsert(row, { onConflict: 'id' })
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
-
-    async function deleteTask(id) {
-        const sb = getClient();
-        // Soft-delete
-        const { error } = await sb
-            .from('station_tasks')
+        const { error } = await getClient()
+            .from('station_departments')
             .update({ is_active: false })
             .eq('id', id);
         if (error) throw error;
     }
 
-    // ── Weekly Goals ─────────────────────────────────────────────────────────
+    async function updateStagger(departmentId, staggerOffset) {
+        const { data, error } = await getClient()
+            .from('station_departments')
+            .update({ stagger_offset: staggerOffset })
+            .eq('id', departmentId)
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
 
-    async function getWeeklyGoals(weekStartDate) {
-        const sb = getClient();
+    async function getTasks(departmentId) {
+        const q = getClient()
+            .from('station_tasks')
+            .select('*, department:station_departments(id, name, color, display_order)')
+            .eq('is_active', true)
+            .order('display_order');
+        if (departmentId) q.eq('department_id', departmentId);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data;
+    }
+
+    async function getAllTasks() { return getTasks(null); }
+
+    async function upsertTask({ id, departmentId, taskName, displayOrder }) {
+        const row = { department_id: departmentId, task_name: taskName, display_order: displayOrder ?? 0, is_active: true };
+        if (id) row.id = id;
+        const { data, error } = await getClient()
+            .from('station_tasks')
+            .upsert(row, { onConflict: 'id' })
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async function deleteTask(id) {
+        const { error } = await getClient().from('station_tasks').update({ is_active: false }).eq('id', id);
+        if (error) throw error;
+    }
+
+    async function getShifts() {
+        const { data, error } = await getClient()
+            .from('station_shifts')
+            .select('*')
+            .eq('is_active', true)
+            .order('display_order');
+        if (error) throw error;
+        return data;
+    }
+
+    async function upsertShift({ id, name, days, displayOrder }) {
+        const row = { name, days, display_order: displayOrder ?? 0, is_active: true };
+        if (id) row.id = id;
+        const { data, error } = await getClient()
+            .from('station_shifts')
+            .upsert(row, { onConflict: 'id' })
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async function getWeeklySchedule(ws) {
+        const { data, error } = await getClient()
+            .from('station_weekly_schedule')
+            .select('*')
+            .eq('week_start', ws || weekStart())
+            .maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
+    async function upsertWeeklySchedule({ weekStartDate, startingSerial, lineBalance }) {
         const ws = weekStartDate || weekStart();
-        const { data, error } = await sb
-            .from('station_weekly_goals')
+        const user = getUser();
+        const { data, error } = await getClient()
+            .from('station_weekly_schedule')
+            .upsert({
+                week_start: ws,
+                starting_serial: startingSerial,
+                line_balance: lineBalance || 5,
+                created_by: user?.email,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: 'week_start' })
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async function completeWeek(ws) {
+        const { data, error } = await getClient()
+            .from('station_weekly_schedule')
+            .update({ status: 'complete', completed_at: new Date().toISOString() })
+            .eq('week_start', ws || weekStart())
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async function getDailyTargets(ws) {
+        const { data, error } = await getClient()
+            .from('station_daily_targets')
             .select('*, department:station_departments(name, color, display_order)')
-            .eq('week_start', ws)
-            .order('department(display_order)');
+            .eq('week_start', ws || weekStart());
         if (error) throw error;
         return data;
     }
 
-    async function upsertWeeklyGoal({ departmentId, weekStartDate, targetModules }) {
-        const sb = getClient();
-        const user = getCurrentUser();
+    async function upsertDailyTarget({ weekStartDate, departmentId, targetDate, moduleCount }) {
         const ws = weekStartDate || weekStart();
-        const { data, error } = await sb
-            .from('station_weekly_goals')
-            .upsert(
-                {
-                    department_id: departmentId,
-                    week_start: ws,
-                    target_modules: targetModules,
-                    created_by: user?.email,
-                    updated_at: new Date().toISOString(),
-                },
-                { onConflict: 'department_id,week_start' }
-            )
-            .select()
-            .single();
+        const { data, error } = await getClient()
+            .from('station_daily_targets')
+            .upsert({
+                week_start: ws,
+                department_id: departmentId,
+                target_date: targetDate,
+                module_count: moduleCount ?? 5,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: 'week_start,department_id,target_date' })
+            .select().single();
         if (error) throw error;
         return data;
     }
 
-    // ── Task Completions ─────────────────────────────────────────────────────
-
-    /**
-     * Get all completions for a given week.
-     * Returns array of { id, module_id, task_id, status, week_start, notes, updated_by, updated_at, task: {...} }
-     */
-    async function getCompletions(weekStartDate) {
-        const sb = getClient();
-        const ws = weekStartDate || weekStart();
-        const { data, error } = await sb
-            .from('station_task_completions')
-            .select('*, task:station_tasks(task_name, display_order, department_id, department:station_departments(name, color, display_order))')
-            .eq('week_start', ws)
-            .order('updated_at', { ascending: false });
+    async function getDayAssignments(ws, targetDate) {
+        const q = getClient()
+            .from('station_day_assignments')
+            .select('*, department:station_departments(id, name, color, stagger_offset, display_order)')
+            .eq('week_start', ws || weekStart())
+            .order('display_order');
+        if (targetDate) q.eq('target_date', targetDate);
+        const { data, error } = await q;
         if (error) throw error;
         return data;
     }
 
-    /**
-     * Get completions for a specific module this week.
-     */
-    async function getModuleCompletions(moduleId, weekStartDate) {
-        const sb = getClient();
-        const ws = weekStartDate || weekStart();
-        const { data, error } = await sb
-            .from('station_task_completions')
-            .select('*, task:station_tasks(task_name, display_order, department_id, department:station_departments(name, color, display_order))')
-            .eq('module_id', moduleId)
-            .eq('week_start', ws);
-        if (error) throw error;
-        return data;
-    }
-
-    /**
-     * Upsert a single task completion.
-     * status: 'complete' | 'wip' | 'stopped' | 'not_started'
-     */
-    async function upsertCompletion({ moduleId, taskId, weekStartDate, status, notes }) {
-        const sb = getClient();
-        const user = getCurrentUser();
-        const ws = weekStartDate || weekStart();
-        const { data, error } = await sb
-            .from('station_task_completions')
-            .upsert(
-                {
-                    module_id: moduleId,
-                    task_id: taskId,
-                    week_start: ws,
-                    status: status || 'not_started',
-                    notes: notes || null,
-                    updated_by: user?.email,
-                    updated_at: new Date().toISOString(),
-                },
-                { onConflict: 'module_id,task_id,week_start' }
-            )
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
-
-    /**
-     * Bulk upsert completions (for full module save).
-     */
-    async function bulkUpsertCompletions(completions) {
-        const sb = getClient();
-        const user = getCurrentUser();
-        const ws = weekStart();
-        const rows = completions.map(c => ({
-            module_id: c.moduleId,
-            task_id: c.taskId,
-            week_start: c.weekStart || ws,
-            status: c.status || 'not_started',
-            notes: c.notes || null,
-            updated_by: user?.email,
-            updated_at: new Date().toISOString(),
+    async function bulkSetAssignments(assignments) {
+        const rows = assignments.map((a, i) => ({
+            week_start: a.weekStart,
+            department_id: a.departmentId,
+            target_date: a.targetDate,
+            module_serial: a.moduleSerial,
+            build_sequence: a.buildSequence ?? null,
+            display_order: a.displayOrder ?? i,
         }));
-        const { data, error } = await sb
-            .from('station_task_completions')
-            .upsert(rows, { onConflict: 'module_id,task_id,week_start' })
+        const { data, error } = await getClient()
+            .from('station_day_assignments')
+            .upsert(rows, { onConflict: 'week_start,department_id,target_date,module_serial' })
             .select();
         if (error) throw error;
         return data;
     }
 
-    // ── Report Aggregations ──────────────────────────────────────────────────
+    async function deleteAssignment(id) {
+        const { error } = await getClient().from('station_day_assignments').delete().eq('id', id);
+        if (error) throw error;
+    }
 
-    /**
-     * Returns per-department completion stats for a given week.
-     * [{
-     *   departmentId, departmentName, color,
-     *   totalTasks, completedTasks, wipTasks, stoppedTasks,
-     *   completionPct, goal
-     * }]
-     */
-    async function getWeeklyReport(weekStartDate) {
+    async function clearDayAssignments(ws, departmentId, targetDate) {
+        const q = getClient().from('station_day_assignments').delete().eq('week_start', ws).eq('department_id', departmentId);
+        if (targetDate) q.eq('target_date', targetDate);
+        const { error } = await q;
+        if (error) throw error;
+    }
+
+    async function generateWeekAssignments({ weekStartDate, startingSerial, lineBalance, modules, departments, shifts, dailyOverrides = {} }) {
         const ws = weekStartDate || weekStart();
-        const [depts, allTasks, completions, goals] = await Promise.all([
-            getDepartments(),
-            getAllTasks(),
-            getCompletions(ws),
-            getWeeklyGoals(ws),
+        const dates = weekDates(ws);
+        const dayNameMap = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+        const dateDayMap = {};
+        dates.forEach(d => { const dt = parseDate(d); dateDayMap[d] = dayNameMap[dt.getDay()]; });
+        const sortedMods = [...modules].sort((a, b) => (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0));
+        const startIdx = sortedMods.findIndex(m => (m.serialNumber || m.id) === startingSerial);
+        if (startIdx === -1) throw new Error(`Starting module ${startingSerial} not found`);
+        const allShiftDays = new Set(shifts.flatMap(s => s.days));
+        const activeDates = dates.filter(d => allShiftDays.has(dateDayMap[d]));
+        const assignments = [];
+        departments.forEach(dept => {
+            const stagger = dept.stagger_offset ?? 0;
+            const deptStartIdx = startIdx - stagger;
+            activeDates.forEach(date => {
+                const overrideKey = `${dept.id}|${date}`;
+                const count = dailyOverrides[overrideKey] ?? lineBalance;
+                const dayOffset = activeDates.indexOf(date);
+                const dayStartIdx = deptStartIdx - (dayOffset * count);
+                for (let i = 0; i < count; i++) {
+                    const modIdx = dayStartIdx + i;
+                    if (modIdx >= 0 && modIdx < sortedMods.length) {
+                        const mod = sortedMods[modIdx];
+                        assignments.push({ weekStart: ws, departmentId: dept.id, targetDate: date, moduleSerial: mod.serialNumber || mod.id, buildSequence: mod.buildSequence ?? mod.build_sequence, displayOrder: i });
+                    }
+                }
+            });
+        });
+        if (assignments.length > 0) await bulkSetAssignments(assignments);
+        return assignments;
+    }
+
+    async function getCompletions(ws, targetDate) {
+        const q = getClient()
+            .from('station_task_completions')
+            .select('*, task:station_tasks(task_name, display_order, department_id)')
+            .eq('week_start', ws || weekStart());
+        if (targetDate) q.eq('target_date', targetDate);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data;
+    }
+
+    async function upsertCompletion({ weekStartDate, targetDate, departmentId, moduleSerial, taskId, status, notes }) {
+        const ws = weekStartDate || weekStart();
+        const user = getUser();
+        const { data, error } = await getClient()
+            .from('station_task_completions')
+            .upsert({
+                week_start: ws,
+                target_date: targetDate,
+                department_id: departmentId,
+                module_serial: moduleSerial,
+                task_id: taskId,
+                status: status || 'not_started',
+                notes: notes || null,
+                updated_by: user?.email,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: 'week_start,target_date,department_id,module_serial,task_id' })
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async function getWeeklyReport(ws) {
+        const weekStr = ws || weekStart();
+        const [depts, allTasks, completions, assignments] = await Promise.all([
+            getLineDepartments(), getAllTasks(), getCompletions(weekStr), getDayAssignments(weekStr),
         ]);
-
-        const goalsMap = {};
-        goals.forEach(g => { goalsMap[g.department_id] = g.target_modules; });
-
-        // Build per-dept stats
         return depts.map(dept => {
             const deptTasks = allTasks.filter(t => t.department_id === dept.id);
-            const deptCompletions = completions.filter(
-                c => c.task?.department_id === dept.id
-            );
-
-            // Count unique modules that have any completion for this dept
-            const moduleIds = [...new Set(deptCompletions.map(c => c.module_id))];
+            const deptAssignments = assignments.filter(a => a.department_id === dept.id);
+            const assignedModules = [...new Set(deptAssignments.map(a => a.module_serial))];
+            const deptCompletions = completions.filter(c => c.department_id === dept.id);
             const completedModules = new Set();
             const wipModules = new Set();
             const stoppedModules = new Set();
-
-            // A module is "complete" for a dept if ALL active tasks are complete
-            moduleIds.forEach(mid => {
-                const mComps = deptCompletions.filter(c => c.module_id === mid);
+            assignedModules.forEach(serial => {
+                const mComps = deptCompletions.filter(c => c.module_serial === serial);
                 const compMap = {};
                 mComps.forEach(c => { compMap[c.task_id] = c.status; });
-
-                const allComplete = deptTasks.every(
-                    t => compMap[t.id] === 'complete'
-                );
-                const anyStopped = deptTasks.some(
-                    t => compMap[t.id] === 'stopped'
-                );
-                const anyWip = deptTasks.some(
-                    t => compMap[t.id] === 'wip'
-                );
-
-                if (anyStopped) stoppedModules.add(mid);
-                else if (allComplete) completedModules.add(mid);
-                else if (anyWip) wipModules.add(mid);
+                const allComplete = deptTasks.every(t => compMap[t.id] === 'complete');
+                const anyStopped = deptTasks.some(t => compMap[t.id] === 'stopped');
+                const anyWip = deptTasks.some(t => compMap[t.id] === 'wip');
+                if (anyStopped) stoppedModules.add(serial);
+                else if (allComplete) completedModules.add(serial);
+                else if (anyWip) wipModules.add(serial);
             });
-
-            const goal = goalsMap[dept.id] || 0;
-            const completedCount = completedModules.size;
-
             return {
-                departmentId: dept.id,
-                departmentName: dept.name,
-                color: dept.color,
-                displayOrder: dept.display_order,
-                totalModules: moduleIds.length,
-                completedModules: completedCount,
-                wipModules: wipModules.size,
-                stoppedModules: stoppedModules.size,
-                goalModules: goal,
-                completionPct: goal > 0 ? Math.min(100, Math.round((completedCount / goal) * 100)) : null,
-                taskCount: deptTasks.length,
+                departmentId: dept.id, departmentName: dept.name, color: dept.color,
+                displayOrder: dept.display_order, totalAssigned: assignedModules.length,
+                completedModules: completedModules.size, wipModules: wipModules.size,
+                stoppedModules: stoppedModules.size, taskCount: deptTasks.length,
+                completionPct: assignedModules.length > 0 ? Math.round((completedModules.size / assignedModules.length) * 100) : null,
             };
         });
     }
 
-    // ── Real-time subscriptions ──────────────────────────────────────────────
-
-    function subscribeToCompletions(weekStartDate, callback) {
-        const sb = getClient();
-        const ws = weekStartDate || weekStart();
-        const channel = sb
-            .channel(`station_completions_${ws}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'station_task_completions',
-                    filter: `week_start=eq.${ws}`,
-                },
-                payload => callback(payload)
-            )
+    function subscribeToCompletions(ws, callback) {
+        const channel = getClient()
+            .channel(`sb_completions_${ws}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'station_task_completions', filter: `week_start=eq.${ws}` }, callback)
             .subscribe();
-        return () => sb.removeChannel(channel);
+        return () => getClient().removeChannel(channel);
     }
 
-    // ── Public API ───────────────────────────────────────────────────────────
-
     window.MODA_STATION_BOARD = {
-        weekStart,
-        // Departments
-        getDepartments,
-        upsertDepartment,
-        deleteDepartment,
-        // Tasks
-        getTasks,
-        getAllTasks,
-        upsertTask,
-        deleteTask,
-        // Goals
-        getWeeklyGoals,
-        upsertWeeklyGoal,
-        // Completions
-        getCompletions,
-        getModuleCompletions,
-        upsertCompletion,
-        bulkUpsertCompletions,
-        // Reports
+        weekStart, weekDates, parseDate, fmtDate,
+        getDepartments, getLineDepartments, upsertDepartment, deleteDepartment, updateStagger,
+        getTasks, getAllTasks, upsertTask, deleteTask,
+        getShifts, upsertShift,
+        getWeeklySchedule, upsertWeeklySchedule, completeWeek,
+        getDailyTargets, upsertDailyTarget,
+        getDayAssignments, bulkSetAssignments, deleteAssignment, clearDayAssignments, generateWeekAssignments,
+        getCompletions, upsertCompletion,
         getWeeklyReport,
-        // Real-time
         subscribeToCompletions,
     };
 
-    console.log('[StationBoard] Data layer ready');
+    console.log('[StationBoard] Data layer v2 ready');
 })();
