@@ -176,7 +176,7 @@ const DepartmentRow = ({ dept, modules, deptTasks, completionMap, onStatusChange
                                             moduleId={modKey}
                                             tasks={deptTasks}
                                             completionMap={completionMap}
-                                            onStatusChange={onStatusChange}
+                                            onStatusChange={function(modSerial, tId, st) { onStatusChange(modSerial, tId, st, dept.id); }}
                                             saving={saving}
                                         />
                                     )}
@@ -237,7 +237,7 @@ const STBDailyBoard = ({ weekStart, modules, departments, allTasks, completionMa
                         modules={modules}
                         deptTasks={tasksByDept[dept.id] || []}
                         completionMap={completionMap}
-                        onStatusChange={onStatusChange}
+                        onStatusChange={function(modSerial, tId, st, deptId) { onStatusChange(modSerial, tId, st, deptId, selectedDay); }}
                         saving={saving}
                     />
                 );
@@ -261,16 +261,16 @@ const STBWeekSetup = ({ weekStart, setWeekStart, modules, departments, goals, on
 
     var goalsMap = useMemo(function() {
         var m = {};
-        (goals || []).forEach(function(g) { m[g.department_id] = g.target_modules; });
+        (goals || []).forEach(function(g) { m[g.department_id] = g.module_count; });
         return m;
     }, [goals]);
 
     var handleTargetChange = async function(deptId, value) {
         try {
-            await sb().upsertWeeklyGoal({
+            await sb().upsertDailyTarget({
                 departmentId: deptId,
                 weekStartDate: weekStart,
-                targetModules: parseInt(value) || 0,
+                moduleCount: parseInt(value) || 0,
             });
             onReload();
         } catch (e) {
@@ -632,7 +632,7 @@ const StationTaskBoard = ({ currentUser, modules: rawModules, projectId }) => {
     const completionMap = useMemo(function() {
         var map = {};
         completions.forEach(function(c) {
-            map[c.module_id + '|' + c.task_id] = c;
+            map[c.module_serial + '|' + c.task_id] = c;
         });
         return map;
     }, [completions]);
@@ -647,7 +647,7 @@ const StationTaskBoard = ({ currentUser, modules: rawModules, projectId }) => {
                 sb().getDepartments(),
                 sb().getAllTasks(),
                 sb().getCompletions(weekStart),
-                sb().getWeeklyGoals(weekStart),
+                sb().getDailyTargets(weekStart),
             ]);
             setDepartments(results[0] || []);
             setAllTasks(results[1] || []);
@@ -674,25 +674,27 @@ const StationTaskBoard = ({ currentUser, modules: rawModules, projectId }) => {
     }, [weekStart]);
 
     // Status change handler
-    var handleStatusChange = useCallback(async function(moduleId, taskId, newStatus) {
-        var key = moduleId + '|' + taskId;
+    var handleStatusChange = useCallback(async function(moduleSerial, taskId, newStatus, departmentId, targetDate) {
+        var key = moduleSerial + '|' + taskId;
         setSaving(function(s) { var n = {}; for (var k in s) n[k] = s[k]; n[key] = true; return n; });
         try {
             await sb().upsertCompletion({
-                moduleId: moduleId,
+                moduleSerial: moduleSerial,
                 taskId: taskId,
                 weekStartDate: weekStart,
+                targetDate: targetDate,
+                departmentId: departmentId,
                 status: newStatus,
             });
             // Optimistic update
             setCompletions(function(prev) {
-                var idx = prev.findIndex(function(c) { return c.module_id === moduleId && c.task_id === taskId; });
+                var idx = prev.findIndex(function(c) { return c.module_serial === moduleSerial && c.task_id === taskId; });
                 if (idx >= 0) {
                     var updated = prev.slice();
                     updated[idx] = Object.assign({}, updated[idx], { status: newStatus });
                     return updated;
                 }
-                return prev.concat([{ module_id: moduleId, task_id: taskId, status: newStatus }]);
+                return prev.concat([{ module_serial: moduleSerial, task_id: taskId, department_id: departmentId, target_date: targetDate, status: newStatus }]);
             });
         } catch (e) {
             console.error('[StationTaskBoard] Save error:', e);

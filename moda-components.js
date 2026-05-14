@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-14T03:09:17.704Z
+ * Generated: 2026-05-14T03:42:39.267Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13918,7 +13918,9 @@ const DepartmentRow = ({
       moduleId: modKey,
       tasks: deptTasks,
       completionMap: completionMap,
-      onStatusChange: onStatusChange,
+      onStatusChange: function (modSerial, tId, st) {
+        onStatusChange(modSerial, tId, st, dept.id);
+      },
       saving: saving
     }));
   })));
@@ -13972,7 +13974,9 @@ const STBDailyBoard = ({
       modules: modules,
       deptTasks: tasksByDept[dept.id] || [],
       completionMap: completionMap,
-      onStatusChange: onStatusChange,
+      onStatusChange: function (modSerial, tId, st, deptId) {
+        onStatusChange(modSerial, tId, st, deptId, selectedDay);
+      },
       saving: saving
     });
   }), departments.length === 0 && /*#__PURE__*/React.createElement("div", {
@@ -14000,16 +14004,16 @@ const STBWeekSetup = ({
   var goalsMap = useMemo(function () {
     var m = {};
     (goals || []).forEach(function (g) {
-      m[g.department_id] = g.target_modules;
+      m[g.department_id] = g.module_count;
     });
     return m;
   }, [goals]);
   var handleTargetChange = async function (deptId, value) {
     try {
-      await sb().upsertWeeklyGoal({
+      await sb().upsertDailyTarget({
         departmentId: deptId,
         weekStartDate: weekStart,
-        targetModules: parseInt(value) || 0
+        moduleCount: parseInt(value) || 0
       });
       onReload();
     } catch (e) {
@@ -14442,7 +14446,7 @@ const StationTaskBoard = ({
   const completionMap = useMemo(function () {
     var map = {};
     completions.forEach(function (c) {
-      map[c.module_id + '|' + c.task_id] = c;
+      map[c.module_serial + '|' + c.task_id] = c;
     });
     return map;
   }, [completions]);
@@ -14453,7 +14457,7 @@ const StationTaskBoard = ({
     setLoading(true);
     setError(null);
     try {
-      var results = await Promise.all([sb().getDepartments(), sb().getAllTasks(), sb().getCompletions(weekStart), sb().getWeeklyGoals(weekStart)]);
+      var results = await Promise.all([sb().getDepartments(), sb().getAllTasks(), sb().getCompletions(weekStart), sb().getDailyTargets(weekStart)]);
       setDepartments(results[0] || []);
       setAllTasks(results[1] || []);
       setCompletions(results[2] || []);
@@ -14484,8 +14488,8 @@ const StationTaskBoard = ({
   }, [weekStart]);
 
   // Status change handler
-  var handleStatusChange = useCallback(async function (moduleId, taskId, newStatus) {
-    var key = moduleId + '|' + taskId;
+  var handleStatusChange = useCallback(async function (moduleSerial, taskId, newStatus, departmentId, targetDate) {
+    var key = moduleSerial + '|' + taskId;
     setSaving(function (s) {
       var n = {};
       for (var k in s) n[k] = s[k];
@@ -14494,15 +14498,17 @@ const StationTaskBoard = ({
     });
     try {
       await sb().upsertCompletion({
-        moduleId: moduleId,
+        moduleSerial: moduleSerial,
         taskId: taskId,
         weekStartDate: weekStart,
+        targetDate: targetDate,
+        departmentId: departmentId,
         status: newStatus
       });
       // Optimistic update
       setCompletions(function (prev) {
         var idx = prev.findIndex(function (c) {
-          return c.module_id === moduleId && c.task_id === taskId;
+          return c.module_serial === moduleSerial && c.task_id === taskId;
         });
         if (idx >= 0) {
           var updated = prev.slice();
@@ -14512,8 +14518,10 @@ const StationTaskBoard = ({
           return updated;
         }
         return prev.concat([{
-          module_id: moduleId,
+          module_serial: moduleSerial,
           task_id: taskId,
+          department_id: departmentId,
+          target_date: targetDate,
           status: newStatus
         }]);
       });
