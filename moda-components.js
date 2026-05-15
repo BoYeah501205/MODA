@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-14T03:42:39.267Z
+ * Generated: 2026-05-15T02:13:52.046Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14457,7 +14457,7 @@ const StationTaskBoard = ({
     setLoading(true);
     setError(null);
     try {
-      var results = await Promise.all([sb().getDepartments(), sb().getAllTasks(), sb().getCompletions(weekStart), sb().getDailyTargets(weekStart)]);
+      var results = await Promise.all([sb().getLineDepartments(), sb().getAllTasks(), sb().getCompletions(weekStart), sb().getDailyTargets(weekStart)]);
       setDepartments(results[0] || []);
       setAllTasks(results[1] || []);
       setCompletions(results[2] || []);

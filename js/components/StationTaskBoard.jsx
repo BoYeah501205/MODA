@@ -644,7 +644,7 @@ const StationTaskBoard = ({ currentUser, modules: rawModules, projectId }) => {
         setError(null);
         try {
             var results = await Promise.all([
-                sb().getDepartments(),
+                sb().getLineDepartments(),
                 sb().getAllTasks(),
                 sb().getCompletions(weekStart),
                 sb().getDailyTargets(weekStart),
