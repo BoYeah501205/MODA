@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-27T21:10:25.926Z
+ * Generated: 2026-05-27T22:33:52.377Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13902,7 +13902,7 @@ function STBEmpty(props) {
     className: "flex flex-col items-center justify-center py-12 text-center"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-4xl mb-3 text-gray-300 dark:text-gray-600"
-  }, props.icon || '\u2014'), /*#__PURE__*/React.createElement("p", {
+  }, props.icon || '—'), /*#__PURE__*/React.createElement("p", {
     className: "text-gray-500 dark:text-gray-400 text-sm"
   }, props.message || 'No data'), props.children);
 }
@@ -14078,7 +14078,7 @@ function DailyBoardTab(props) {
   if (!weekSchedule) {
     return /*#__PURE__*/React.createElement(STBEmpty, {
       icon: "!",
-      message: "No week scheduled \\u2014 contact admin to set up the week."
+      message: "No week scheduled \u2014 contact admin to set up the week."
     });
   }
   return /*#__PURE__*/React.createElement("div", {
@@ -14218,6 +14218,30 @@ function DailyBoardTab(props) {
   }));
 }
 
+// ─── buildDailyOverrides helper ────────────────────────────────────────────
+function buildDailyOverrides(depts, weekStart, dailyQtys) {
+  var dates = stbWeekDates(weekStart);
+  var dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  var dayKeyMap = {
+    monday: 'mon',
+    tuesday: 'tue',
+    wednesday: 'wed',
+    thursday: 'thu',
+    friday: 'fri',
+    saturday: 'sat',
+    sunday: 'sun'
+  };
+  var overrides = {};
+  for (var di = 0; di < depts.length; di++) {
+    for (var i = 0; i < dates.length; i++) {
+      var dayKey = dayKeyMap[dayNames[i]];
+      var qty = dailyQtys[dayKey];
+      overrides[depts[di].id + '|' + dates[i].date] = qty != null ? qty : 5;
+    }
+  }
+  return overrides;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TAB 2: WEEK SETUP (Admin only)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -14231,8 +14255,15 @@ function WeekSetupTab(props) {
   var [setupWeek, setSetupWeek] = useState(stbGetCurrentWeekStart());
   var [startSerial, setStartSerial] = useState('');
   var [lineBalance, setLineBalance] = useState(5);
-  var [shift1Qty, setShift1Qty] = useState(5);
-  var [shift2Qty, setShift2Qty] = useState(5);
+  var [dailyQtys, setDailyQtys] = useState({
+    mon: 5,
+    tue: 5,
+    wed: 5,
+    thu: 5,
+    fri: 5,
+    sat: 5,
+    sun: 5
+  });
   var [generating, setGenerating] = useState(false);
   var [completing, setCompleting] = useState(false);
   var [error, setError] = useState('');
@@ -14280,8 +14311,23 @@ function WeekSetupTab(props) {
   function handleLineBalanceChange(e) {
     var val = parseInt(e.target.value) || 5;
     setLineBalance(val);
-    setShift1Qty(val);
-    setShift2Qty(val);
+    setDailyQtys({
+      mon: val,
+      tue: val,
+      wed: val,
+      thu: val,
+      fri: val,
+      sat: val,
+      sun: val
+    });
+  }
+  function handleDailyQtyChange(dayKey, value) {
+    var val = parseInt(value) || 5;
+    setDailyQtys(function (prev) {
+      var next = Object.assign({}, prev);
+      next[dayKey] = val;
+      return next;
+    });
   }
   function handlePrevWeek() {
     setSetupWeek(function (w) {
@@ -14309,13 +14355,12 @@ function WeekSetupTab(props) {
     }
     SB.generateWeekAssignments({
       weekStartDate: setupWeek,
-      projectId: projectId,
-      startSerial: startSerial,
-      lineBalance: lineBalance,
-      shift1Qty: shift1Qty,
-      shift2Qty: shift2Qty,
+      startingSerial: startSerial,
+      lineBalance: dailyQtys.mon,
       modules: modules,
-      departments: lineDepts
+      departments: lineDepts,
+      shifts: props.shifts,
+      dailyOverrides: buildDailyOverrides(lineDepts, setupWeek, dailyQtys)
     }).then(function (result) {
       setGenerating(false);
       setSuccess('Week generated: ' + (result.totalAssignments || 0) + ' assignments created');
@@ -14452,30 +14497,28 @@ function WeekSetupTab(props) {
     min: "1",
     max: "20",
     className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
-  }, "Shift 1 Qty (Mon-Thu)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: shift1Qty,
-    onChange: function (e) {
-      setShift1Qty(parseInt(e.target.value) || 5);
-    },
-    min: "1",
-    max: "20",
-    className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
-  }, "Shift 2 Qty (Fri-Sun)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: shift2Qty,
-    onChange: function (e) {
-      setShift2Qty(parseInt(e.target.value) || 5);
-    },
-    min: "1",
-    max: "20",
-    className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+  }, "Daily Module Quantities"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-7 gap-1"
+  }, ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(function (dayKey, idx) {
+    var dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    var isShift2 = idx >= 4;
+    return /*#__PURE__*/React.createElement("div", {
+      key: dayKey,
+      className: "flex flex-col items-center"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: 'text-[10px] font-medium mb-0.5 ' + (isShift2 ? 'text-orange-500' : 'text-blue-500')
+    }, dayLabels[idx]), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      value: dailyQtys[dayKey],
+      onChange: function (e) {
+        handleDailyQtyChange(dayKey, e.target.value);
+      },
+      min: "0",
+      max: "20",
+      className: "w-full px-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-center min-h-[44px]"
+    }));
   }))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, /*#__PURE__*/React.createElement("button", {
@@ -14490,7 +14533,7 @@ function WeekSetupTab(props) {
     className: "py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium text-xs min-h-[44px] disabled:opacity-40 transition"
   }, completing ? '...' : 'Complete Shift 1'), /*#__PURE__*/React.createElement("button", {
     onClick: handleCompleteWeek,
-    disabled: completing || weekStatus === 'complete',
+    disabled: completing || weekStatus === 'complete' || weekStatus !== 'shift_1_complete',
     className: "py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-xs min-h-[44px] disabled:opacity-40 transition"
   }, completing ? '...' : 'Complete Week'))), error && /*#__PURE__*/React.createElement("div", {
     className: "p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs"
@@ -15249,6 +15292,7 @@ function StationTaskBoard(props) {
     projectId: projectId,
     weekSchedule: weekSchedule,
     lineDepts: lineDepts,
+    shifts: shifts,
     onRefresh: handleRefresh
   }), activeTab === 'handoff' && /*#__PURE__*/React.createElement(HandoffReportTab, {
     currentUser: currentUser,
