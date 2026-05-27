@@ -118,6 +118,7 @@ const FILE_ORDER = [
     
     // Admin
     'AdminPanel.jsx',
+    'SupervisorDirectory.jsx',
     
     // Activity Log
     'ActivityLogViewer.jsx',

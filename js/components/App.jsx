@@ -609,6 +609,16 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 }
             }, [activeTab, auth.visibleTabs, auth.currentUser?.email, setActiveTab]);
             
+            // Supervisor profile for current user
+            const [supervisorProfile, setSupervisorProfile] = useState(null);
+            useEffect(() => {
+                if (auth.currentUser?.email && window.MODA_SUPERVISORS?.getCurrentSupervisor) {
+                    window.MODA_SUPERVISORS.getCurrentSupervisor()
+                        .then(profile => setSupervisorProfile(profile))
+                        .catch(err => console.warn('[Dashboard] Could not load supervisor profile:', err.message));
+                }
+            }, [auth.currentUser?.email]);
+            
             // Projects state - loaded from Supabase with localStorage fallback
             const [projects, setProjectsState] = useState([]);
             const [projectsLoading, setProjectsLoading] = useState(true);
@@ -1452,6 +1462,17 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                                {/* Supervisor Directory */}
+                                <div className="mt-6">
+                                    {window.SupervisorDirectory ? (
+                                        <window.SupervisorDirectory currentUser={auth.currentUser} isAdmin={auth.isAdmin} />
+                                    ) : (
+                                        <div className="bg-white rounded-lg shadow p-6">
+                                            <h2 className="text-xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>Supervisor Directory</h2>
+                                            <p className="text-gray-500">Supervisor Directory module not loaded.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         )}
