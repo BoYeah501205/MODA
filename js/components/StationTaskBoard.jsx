@@ -533,6 +533,8 @@ function WeekSetupTab(props) {
     function handleSerialChange(e) {
         var val = e.target.value;
         setStartSerial(val);
+        console.log('[StationBoard] modules prop length:', modules ? modules.length : 'undefined');
+        console.log('[StationBoard] first module sample:', modules && modules[0] ? modules[0] : 'none');
         if (val.length >= 2 && modules) {
             var matches = modules.filter(function(m) {
                 var sn = m.serialNumber || m.serial_number || '';
@@ -568,6 +570,7 @@ function WeekSetupTab(props) {
     }
 
     function handleGenerate() {
+        console.log('[StationBoard] generating with', modules ? modules.length : 0, 'modules, startSerial:', startSerial);
         if (!startSerial) { setError('Enter a starting serial number'); return; }
         setGenerating(true);
         setError('');
