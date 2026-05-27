@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-27T22:33:52.377Z
+ * Generated: 2026-05-27T22:36:45.683Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14254,7 +14254,6 @@ function WeekSetupTab(props) {
   var onRefresh = props.onRefresh;
   var [setupWeek, setSetupWeek] = useState(stbGetCurrentWeekStart());
   var [startSerial, setStartSerial] = useState('');
-  var [lineBalance, setLineBalance] = useState(5);
   var [dailyQtys, setDailyQtys] = useState({
     mon: 5,
     tue: 5,
@@ -14295,7 +14294,7 @@ function WeekSetupTab(props) {
     setStartSerial(val);
     if (val.length >= 2 && modules) {
       var matches = modules.filter(function (m) {
-        var sn = m.serial_number || m.serialNumber || '';
+        var sn = m.serialNumber || m.serial_number || '';
         return sn.toLowerCase().includes(val.toLowerCase());
       }).slice(0, 8);
       setSerialSuggestions(matches);
@@ -14307,19 +14306,6 @@ function WeekSetupTab(props) {
   function handleSelectSerial(sn) {
     setStartSerial(sn);
     setShowSuggestions(false);
-  }
-  function handleLineBalanceChange(e) {
-    var val = parseInt(e.target.value) || 5;
-    setLineBalance(val);
-    setDailyQtys({
-      mon: val,
-      tue: val,
-      wed: val,
-      thu: val,
-      fri: val,
-      sat: val,
-      sun: val
-    });
   }
   function handleDailyQtyChange(dayKey, value) {
     var val = parseInt(value) || 5;
@@ -14480,24 +14466,15 @@ function WeekSetupTab(props) {
   }), showSuggestions && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto"
   }, serialSuggestions.map(function (m) {
-    var sn = m.serial_number || m.serialNumber || '';
+    var sn = m.serialNumber || m.serial_number || '';
     return /*#__PURE__*/React.createElement("button", {
       key: sn,
       onClick: function () {
         handleSelectSerial(sn);
       },
       className: "w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-    }, sn, " ", m.blm_id || m.blmId ? '(' + (m.blm_id || m.blmId) + ')' : '');
+    }, sn, " ", m.blmId || m.blm_id ? '(' + (m.blmId || m.blm_id) + ')' : '');
   }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
-  }, "Daily Line Balance"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: lineBalance,
-    onChange: handleLineBalanceChange,
-    min: "1",
-    max: "20",
-    className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
   }, "Daily Module Quantities"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-7 gap-1"
