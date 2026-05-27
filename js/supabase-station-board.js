@@ -258,7 +258,13 @@
         const dateDayMap = {};
         dates.forEach(d => { const dt = parseDate(d); dateDayMap[d] = dayNameMap[dt.getDay()]; });
         const sortedMods = [...modules].sort((a, b) => (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0));
-        const startIdx = sortedMods.findIndex(m => (m.serialNumber || m.id) === startingSerial);
+        console.log('[GenerateWeek] looking for serial:', startingSerial);
+        console.log('[GenerateWeek] first 3 sorted modules:', sortedMods.slice(0,3).map(function(m){ return {sn: m.serialNumber || m.id, bs: m.buildSequence ?? m.build_sequence}; }));
+        console.log('[GenerateWeek] total modules:', sortedMods.length);
+        const startIdx = sortedMods.findIndex(function(m) {
+            var sn = (m.serialNumber || '').toString().trim();
+            return sn === startingSerial.trim();
+        });
         if (startIdx === -1) throw new Error(`Starting module ${startingSerial} not found`);
         const allShiftDays = new Set(shifts.flatMap(s => s.days));
         const activeDates = dates.filter(d => allShiftDays.has(dateDayMap[d]));
