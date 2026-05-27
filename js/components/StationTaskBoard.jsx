@@ -1,803 +1,1470 @@
 // ============================================================================
-// STATION TASK BOARD v2
-// Production board with 4 tabs: Daily Board | Week Setup | Admin | Report
-// Report tab is handled by StationBoardReport.jsx (separate component).
+// STATION TASK BOARD v3 — Session C Full Rebuild
+// Production board with 4 tabs: Daily Board | Week Setup | Handoff Report | Admin
 //
 // Requires: supabase-station-board.js (window.MODA_STATION_BOARD)
+//           supabase-supervisors.js (window.MODA_SUPERVISORS)
 // Props: { currentUser, modules, projectId }
 // ============================================================================
 
-// ─── Status config ─────────────────────────────────────────────────────────
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+// ─── Constants ─────────────────────────────────────────────────────────────
 const STB_STATUSES = {
-    not_started: { label: '\u2014',  bg: 'bg-gray-100 dark:bg-gray-800',        text: 'text-gray-400',                                ring: '' },
-    wip:         { label: 'WIP',     bg: 'bg-yellow-100 dark:bg-yellow-900/40', text: 'text-yellow-700 dark:text-yellow-300',          ring: 'ring-1 ring-yellow-400' },
-    complete:    { label: 'Done',    bg: 'bg-green-100 dark:bg-green-900/40',   text: 'text-green-700 dark:text-green-300',            ring: 'ring-1 ring-green-500' },
-    stopped:     { label: 'Stop',    bg: 'bg-red-100 dark:bg-red-900/40',       text: 'text-red-700 dark:text-red-300',                ring: 'ring-1 ring-red-500' },
+    not_started: { label: 'Not Started', short: '--',   color: 'gray',   bg: 'bg-gray-100 dark:bg-gray-800',        text: 'text-gray-500 dark:text-gray-400',         ring: '', btnBg: 'bg-gray-200 dark:bg-gray-700' },
+    wip:         { label: 'WIP',         short: 'WIP',  color: 'yellow', bg: 'bg-yellow-100 dark:bg-yellow-900/40', text: 'text-yellow-700 dark:text-yellow-300',      ring: 'ring-2 ring-yellow-400', btnBg: 'bg-yellow-400 dark:bg-yellow-600' },
+    complete:    { label: 'Complete',    short: 'Done', color: 'green',  bg: 'bg-green-100 dark:bg-green-900/40',   text: 'text-green-700 dark:text-green-300',        ring: 'ring-2 ring-green-500', btnBg: 'bg-green-500 dark:bg-green-600' },
+    stopped:     { label: 'Stopped',     short: 'Stop', color: 'red',    bg: 'bg-red-100 dark:bg-red-900/40',       text: 'text-red-700 dark:text-red-300',            ring: 'ring-2 ring-red-500', btnBg: 'bg-red-500 dark:bg-red-600' },
+    na:          { label: 'N/A',         short: 'N/A',  color: 'slate',  bg: 'bg-slate-50 dark:bg-slate-900',       text: 'text-slate-400 dark:text-slate-500 italic', ring: '', btnBg: 'bg-slate-300 dark:bg-slate-600' },
 };
-const STB_CYCLE = ['not_started', 'wip', 'complete', 'stopped'];
+
+const STATUS_ORDER = ['not_started', 'wip', 'complete', 'stopped', 'na'];
+const ADMIN_EMAILS = ['trevor@autovol.com', 'stephanie@autovol.com'];
+const SHIFT1_DAYS = [0, 1, 2, 3]; // Mon-Thu (dayIndex)
+const SHIFT2_DAYS = [4, 5, 6];    // Fri-Sun (dayIndex)
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-function stbCycle(s) {
-    const i = STB_CYCLE.indexOf(s || 'not_started');
-    return STB_CYCLE[(i + 1) % STB_CYCLE.length];
+function stbIsAdmin(user) {
+    if (!user) return false;
+    if (user.dashboard_role === 'admin') return true;
+    if (ADMIN_EMAILS.includes(user.email)) return true;
+    return false;
+}
+
+function stbGetCurrentWeekStart() {
+    var now = new Date();
+    var day = now.getDay();
+    var diff = day === 0 ? -6 : 1 - day;
+    var mon = new Date(now);
+    mon.setDate(now.getDate() + diff);
+    return stbFormatDate(mon);
+}
+
+function stbFormatDate(dt) {
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
+function stbParseDate(str) {
+    if (!str) return new Date();
+    var parts = str.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
 function stbWeekDates(ws) {
     if (!ws) return [];
-    const [y, m, d] = ws.split('-').map(Number);
-    const mon = new Date(y, m - 1, d);
-    return ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((label, i) => {
-        const dt = new Date(mon);
+    var mon = stbParseDate(ws);
+    var labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var result = [];
+    for (var i = 0; i < 7; i++) {
+        var dt = new Date(mon);
         dt.setDate(mon.getDate() + i);
-        return {
-            date: dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'),
-            label: label,
-            dayNum: dt.getDate(),
-        };
-    });
+        result.push({ date: stbFormatDate(dt), label: labels[i], dayNum: dt.getDate(), dayIndex: i });
+    }
+    return result;
 }
 
 function stbWeekLabel(ws) {
     if (!ws) return '';
-    const [y, m, d] = ws.split('-').map(Number);
-    const mon = new Date(y, m - 1, d);
-    const sun = new Date(y, m - 1, d + 6);
-    const f = function(dt) { return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
-    return f(mon) + ' \u2013 ' + f(sun) + ', ' + y;
+    var mon = stbParseDate(ws);
+    var sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    function fmt(dt) { return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+    return fmt(mon) + ' \u2013 ' + fmt(sun) + ', ' + mon.getFullYear();
 }
 
 function stbShiftWeek(ws, delta) {
-    const [y, m, d] = ws.split('-').map(Number);
-    const dt = new Date(y, m - 1, d + delta * 7);
-    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    var mon = stbParseDate(ws);
+    mon.setDate(mon.getDate() + delta * 7);
+    return stbFormatDate(mon);
 }
 
 function stbToday() {
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return stbFormatDate(new Date());
 }
 
-// ─── StatusButton ──────────────────────────────────────────────────────────
-const STBStatusButton = ({ status, onClick, disabled }) => {
-    const s = STB_STATUSES[status] || STB_STATUSES.not_started;
-    return (
-        <button
-            onClick={onClick}
-            disabled={disabled}
-            className={'w-16 h-8 rounded text-xs font-bold transition ' + s.bg + ' ' + s.text + ' ' + s.ring + ' ' + (disabled ? 'opacity-50 cursor-wait' : 'hover:opacity-80 cursor-pointer')}
-        >
-            {disabled ? '...' : s.label}
-        </button>
-    );
-};
+function stbCalcCompletionPct(tasks, completionMap, moduleSerial, deptId) {
+    if (!tasks || tasks.length === 0) return 0;
+    var total = 0;
+    var done = 0;
+    for (var i = 0; i < tasks.length; i++) {
+        var key = moduleSerial + '|' + deptId + '|' + tasks[i].id;
+        var status = completionMap[key] || 'not_started';
+        if (status === 'na') continue;
+        total++;
+        if (status === 'complete') done++;
+    }
+    return total === 0 ? 100 : Math.round((done / total) * 100);
+}
 
-// ─── ModuleTaskRow ─────────────────────────────────────────────────────────
-const ModuleTaskRow = ({ moduleId, tasks, completionMap, onStatusChange, saving }) => {
+function stbCalcDeptDayPct(moduleSerials, tasks, completionMap, deptId) {
+    if (!moduleSerials || moduleSerials.length === 0 || !tasks || tasks.length === 0) return 0;
+    var totalPct = 0;
+    for (var i = 0; i < moduleSerials.length; i++) {
+        totalPct += stbCalcCompletionPct(tasks, completionMap, moduleSerials[i], deptId);
+    }
+    return Math.round(totalPct / moduleSerials.length);
+}
+
+// ─── StatusPickerModal (Bottom Sheet) ──────────────────────────────────────
+function StatusPickerModal(props) {
+    var isOpen = props.isOpen;
+    var onSelect = props.onSelect;
+    var onClose = props.onClose;
+    var currentStatus = props.currentStatus;
+    var taskName = props.taskName;
+
+    if (!isOpen) return null;
+
+    function handleSelect(status) {
+        onSelect(status);
+        onClose();
+    }
+
+    function handleBackdropClick() {
+        onClose();
+    }
+
     return (
-        <div className="flex flex-wrap gap-2 py-2 px-3 border-t border-gray-100 dark:border-gray-700">
-            {tasks.map(function(task) {
-                const key = moduleId + '|' + task.id;
-                const current = completionMap[key] ? completionMap[key].status : 'not_started';
-                return (
-                    <div key={task.id} className="flex flex-col items-center gap-1 min-w-[70px]">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 text-center leading-tight truncate max-w-[80px]" title={task.task_name}>
-                            {task.task_name}
-                        </span>
-                        <STBStatusButton
-                            status={current}
-                            onClick={function() { onStatusChange(moduleId, task.id, stbCycle(current)); }}
-                            disabled={!!saving[key]}
-                        />
-                    </div>
-                );
-            })}
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={handleBackdropClick}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-t-2xl p-4 pb-8 shadow-2xl" onClick={function(e) { e.stopPropagation(); }}>
+                <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">{taskName || 'Set Status'}</p>
+                <div className="grid grid-cols-5 gap-2">
+                    {STATUS_ORDER.map(function(statusKey) {
+                        var s = STB_STATUSES[statusKey];
+                        var isActive = statusKey === currentStatus;
+                        return (
+                            <button
+                                key={statusKey}
+                                onClick={function() { handleSelect(statusKey); }}
+                                className={'flex flex-col items-center justify-center min-h-[56px] rounded-xl font-semibold text-xs transition-all ' + s.bg + ' ' + s.text + ' ' + (isActive ? 'ring-2 ring-offset-2 ring-blue-500 scale-105' : 'hover:scale-105')}
+                            >
+                                {s.short}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     );
-};
+}
 
-// ─── DepartmentRow ─────────────────────────────────────────────────────────
-const DepartmentRow = ({ dept, modules, deptTasks, completionMap, onStatusChange, saving }) => {
-    const { useState } = React;
-    const [expanded, setExpanded] = useState(false);
-    const [expandedModules, setExpandedModules] = useState({});
+// ─── LoadingSpinner ────────────────────────────────────────────────────────
+function STBSpinner(props) {
+    var size = props.size || 'md';
+    var cls = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-8 h-8' : 'w-6 h-6';
+    return (
+        <div className={'animate-spin rounded-full border-2 border-gray-300 border-t-blue-500 ' + cls} />
+    );
+}
 
-    const totalChecks = modules.length * deptTasks.length;
-    const completedChecks = modules.reduce(function(sum, mod) {
-        return sum + deptTasks.filter(function(t) {
-            const key = mod.serialNumber + '|' + t.id;
-            return completionMap[key] && completionMap[key].status === 'complete';
-        }).length;
-    }, 0);
-    const pct = totalChecks > 0 ? Math.round((completedChecks / totalChecks) * 100) : 0;
+// ─── EmptyState ────────────────────────────────────────────────────────────
+function STBEmpty(props) {
+    return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="text-4xl mb-3 text-gray-300 dark:text-gray-600">{props.icon || '\u2014'}</div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{props.message || 'No data'}</p>
+            {props.children}
+        </div>
+    );
+}
 
-    const toggleModule = function(modId) {
-        setExpandedModules(function(prev) {
-            var next = {};
-            for (var k in prev) next[k] = prev[k];
-            next[modId] = !prev[modId];
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 1: DAILY BOARD
+// ═══════════════════════════════════════════════════════════════════════════
+function DailyBoardTab(props) {
+    var currentUser = props.currentUser;
+    var modules = props.modules;
+    var weekSchedule = props.weekSchedule;
+    var shifts = props.shifts;
+    var lineDepts = props.lineDepts;
+    var allTasks = props.allTasks;
+    var completions = props.completions;
+    var supervisorProfile = props.supervisorProfile;
+    var onUpdateCompletion = props.onUpdateCompletion;
+    var loading = props.loading;
+
+    var [selectedDay, setSelectedDay] = useState(stbToday());
+    var [expandedDepts, setExpandedDepts] = useState({});
+    var [expandedModules, setExpandedModules] = useState({});
+    var [pickerOpen, setPickerOpen] = useState(null); // { moduleSerial, deptId, taskId, taskName, currentStatus }
+    var [saving, setSaving] = useState({});
+
+    var isAdmin = stbIsAdmin(currentUser);
+    var weekStart = weekSchedule ? weekSchedule.week_start_date : null;
+    var weekDays = useMemo(function() { return stbWeekDates(weekStart); }, [weekStart]);
+
+    // Determine which days this user can see
+    var visibleDays = useMemo(function() {
+        if (isAdmin) return weekDays;
+        if (!supervisorProfile || !supervisorProfile.shift_id) return weekDays;
+        var shiftName = (supervisorProfile.shift_name || '').toLowerCase();
+        if (shiftName.includes('2') || shiftName.includes('night')) {
+            return weekDays.filter(function(d) { return SHIFT2_DAYS.includes(d.dayIndex); });
+        }
+        return weekDays.filter(function(d) { return SHIFT1_DAYS.includes(d.dayIndex); });
+    }, [weekDays, isAdmin, supervisorProfile]);
+
+    // Set selected day to today if within visible days, else first visible day
+    useEffect(function() {
+        var today = stbToday();
+        var inVisible = visibleDays.some(function(d) { return d.date === today; });
+        if (inVisible) {
+            setSelectedDay(today);
+        } else if (visibleDays.length > 0) {
+            setSelectedDay(visibleDays[0].date);
+        }
+    }, [visibleDays]);
+
+    // Determine visible departments
+    var visibleDepts = useMemo(function() {
+        if (!lineDepts) return [];
+        if (isAdmin) return lineDepts;
+        if (!supervisorProfile || !supervisorProfile.departments) return lineDepts;
+        var assignedIds = supervisorProfile.departments.map(function(d) { return d.department_id; });
+        return lineDepts.filter(function(dept) { return assignedIds.includes(dept.id); });
+    }, [lineDepts, isAdmin, supervisorProfile]);
+
+    // Build completion map for selected day: key = "moduleSerial|deptId|taskId" -> status
+    var dayCompletions = useMemo(function() {
+        var map = {};
+        if (!completions) return map;
+        for (var i = 0; i < completions.length; i++) {
+            var c = completions[i];
+            if (c.target_date === selectedDay) {
+                var key = c.module_serial + '|' + c.department_id + '|' + c.task_id;
+                map[key] = c.status;
+            }
+        }
+        return map;
+    }, [completions, selectedDay]);
+
+    // Get modules assigned to a dept on selected day from schedule
+    function getModulesForDeptDay(deptId) {
+        if (!weekSchedule || !weekSchedule.assignments) return [];
+        return weekSchedule.assignments.filter(function(a) {
+            return a.department_id === deptId && a.target_date === selectedDay;
+        }).map(function(a) {
+            var mod = modules.find(function(m) { return m.serial_number === a.module_serial || m.serialNumber === a.module_serial; });
+            return { serial: a.module_serial, blm: mod ? (mod.blm_id || mod.blmId || '') : '', module: mod };
+        });
+    }
+
+    // Get tasks for a department
+    function getTasksForDept(deptId) {
+        if (!allTasks) return [];
+        return allTasks.filter(function(t) { return t.department_id === deptId; });
+    }
+
+    function handleToggleDept(deptId) {
+        setExpandedDepts(function(prev) {
+            var next = Object.assign({}, prev);
+            next[deptId] = !prev[deptId];
             return next;
         });
-    };
+    }
+
+    function handleToggleModule(key) {
+        setExpandedModules(function(prev) {
+            var next = Object.assign({}, prev);
+            next[key] = !prev[key];
+            return next;
+        });
+    }
+
+    function handleOpenPicker(moduleSerial, deptId, taskId, taskName, currentStatus) {
+        setPickerOpen({ moduleSerial: moduleSerial, deptId: deptId, taskId: taskId, taskName: taskName, currentStatus: currentStatus });
+    }
+
+    function handleClosePicker() {
+        setPickerOpen(null);
+    }
+
+    function handleStatusSelect(newStatus) {
+        if (!pickerOpen) return;
+        var info = pickerOpen;
+        var key = info.moduleSerial + '|' + info.deptId + '|' + info.taskId;
+        setSaving(function(prev) { var n = Object.assign({}, prev); n[key] = true; return n; });
+
+        onUpdateCompletion({
+            weekStartDate: weekStart,
+            targetDate: selectedDay,
+            departmentId: info.deptId,
+            moduleSerial: info.moduleSerial,
+            taskId: info.taskId,
+            status: newStatus,
+        }).then(function() {
+            setSaving(function(prev) { var n = Object.assign({}, prev); delete n[key]; return n; });
+        }).catch(function() {
+            setSaving(function(prev) { var n = Object.assign({}, prev); delete n[key]; return n; });
+        });
+
+        setPickerOpen(null);
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-16">
+                <STBSpinner size="lg" />
+            </div>
+        );
+    }
+
+    if (!weekSchedule) {
+        return (
+            <STBEmpty icon="!" message="No week scheduled \u2014 contact admin to set up the week." />
+        );
+    }
 
     return (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg mb-2 overflow-hidden">
-            <button
-                onClick={function() { setExpanded(function(e) { return !e; }); }}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition"
-            >
-                <span className="text-gray-400 text-sm w-4">{expanded ? '\u25BC' : '\u25B6'}</span>
-                <span
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: dept.color || '#0d9488' }}
-                />
-                <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">{dept.name}</span>
-                <span className="text-xs text-gray-400 ml-1">({modules.length} modules, {deptTasks.length} tasks)</span>
-                <div className="flex-1" />
-                <div className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{
-                            width: pct + '%',
-                            backgroundColor: pct === 100 ? '#16a34a' : pct > 0 ? '#0d9488' : '#d1d5db',
-                        }}
-                    />
-                </div>
-                <span className="text-xs font-mono text-gray-500 w-10 text-right">{pct}%</span>
-            </button>
-
-            {expanded && (
-                <div className="bg-gray-50 dark:bg-gray-850">
-                    {modules.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-gray-400 italic">No modules assigned</div>
-                    ) : (
-                        modules.map(function(mod) {
-                            var modKey = mod.serialNumber || mod.id;
-                            return (
-                                <div key={modKey} className="border-t border-gray-200 dark:border-gray-700">
-                                    <button
-                                        onClick={function() { toggleModule(modKey); }}
-                                        className="w-full flex items-center gap-3 px-6 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                                    >
-                                        <span className="text-gray-400 text-xs">{expandedModules[modKey] ? '\u25BE' : '\u25B8'}</span>
-                                        <span className="font-mono text-sm font-bold text-gray-800 dark:text-gray-200">{mod.serialNumber}</span>
-                                        <span className="text-xs text-gray-400">#{mod.buildSequence}</span>
-                                        <div className="flex-1" />
-                                        <div className="flex gap-1">
-                                            {deptTasks.map(function(t) {
-                                                var key = modKey + '|' + t.id;
-                                                var st = completionMap[key] ? completionMap[key].status : 'not_started';
-                                                var dotColor = st === 'complete' ? 'bg-green-500' : st === 'wip' ? 'bg-yellow-400' : st === 'stopped' ? 'bg-red-500' : 'bg-gray-300';
-                                                return <span key={t.id} className={'w-2 h-2 rounded-full ' + dotColor} title={t.task_name + ': ' + st} />;
-                                            })}
-                                        </div>
-                                    </button>
-                                    {expandedModules[modKey] && (
-                                        <ModuleTaskRow
-                                            moduleId={modKey}
-                                            tasks={deptTasks}
-                                            completionMap={completionMap}
-                                            onStatusChange={function(modSerial, tId, st) { onStatusChange(modSerial, tId, st, dept.id); }}
-                                            saving={saving}
-                                        />
-                                    )}
-                                </div>
-                            );
-                        })
+        <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="px-3 pt-3 pb-2">
+                <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">{stbWeekLabel(weekStart)}</h2>
+                    {weekSchedule.status && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
+                            {weekSchedule.status}
+                        </span>
                     )}
                 </div>
-            )}
-        </div>
-    );
-};
+                {supervisorProfile && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {supervisorProfile.name} {supervisorProfile.departments && supervisorProfile.departments.length > 0 && (
+                            <span className="ml-1">
+                                {supervisorProfile.departments.map(function(d) { return d.department_name; }).join(', ')}
+                            </span>
+                        )}
+                    </p>
+                )}
+            </div>
 
-// ─── TAB 1: DailyBoard ────────────────────────────────────────────────────
-const STBDailyBoard = ({ weekStart, modules, departments, allTasks, completionMap, onStatusChange, saving }) => {
-    const { useState, useMemo } = React;
-    const days = useMemo(function() { return stbWeekDates(weekStart); }, [weekStart]);
-    const today = stbToday();
-    const [selectedDay, setSelectedDay] = useState(today);
-    const shiftDays = days.filter(function(_, i) { return i < 5; });
+            {/* Day Selector */}
+            <div className="px-2 pb-3 overflow-x-auto">
+                <div className="flex gap-1 min-w-max">
+                    {visibleDays.map(function(day) {
+                        var isToday = day.date === stbToday();
+                        var isSelected = day.date === selectedDay;
+                        var isShift1 = SHIFT1_DAYS.includes(day.dayIndex);
+                        var baseCls = 'flex flex-col items-center min-w-[52px] px-2 py-2 rounded-xl text-xs font-medium transition-all';
+                        var colorCls = isSelected
+                            ? (isShift1 ? 'bg-blue-500 text-white shadow-md' : 'bg-orange-500 text-white shadow-md')
+                            : isToday
+                                ? (isShift1 ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-300' : 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 ring-2 ring-orange-300')
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700';
+                        return (
+                            <button
+                                key={day.date}
+                                onClick={function() { setSelectedDay(day.date); }}
+                                className={baseCls + ' ' + colorCls}
+                            >
+                                <span className="text-[10px] uppercase opacity-70">{day.label}</span>
+                                <span className="text-base font-bold">{day.dayNum}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
 
-    var tasksByDept = useMemo(function() {
-        var map = {};
-        departments.forEach(function(d) { map[d.id] = []; });
-        allTasks.forEach(function(t) {
-            if (map[t.department_id]) map[t.department_id].push(t);
-        });
-        return map;
-    }, [departments, allTasks]);
+            {/* Department List */}
+            <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-2">
+                {visibleDepts.length === 0 && (
+                    <STBEmpty message="No departments assigned" />
+                )}
+                {visibleDepts.map(function(dept) {
+                    var deptModules = getModulesForDeptDay(dept.id);
+                    var deptTasks = getTasksForDept(dept.id);
+                    var isExpanded = !!expandedDepts[dept.id];
+                    var pct = stbCalcDeptDayPct(
+                        deptModules.map(function(m) { return m.serial; }),
+                        deptTasks, dayCompletions, dept.id
+                    );
 
-    return (
-        <div className="space-y-3">
-            <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-1">
-                {shiftDays.map(function(day) {
                     return (
-                        <button
-                            key={day.date}
-                            onClick={function() { setSelectedDay(day.date); }}
-                            className={'px-4 py-2 text-sm font-medium rounded-t transition ' + (
-                                selectedDay === day.date
-                                    ? 'bg-teal-600 text-white'
-                                    : day.date === today
-                                        ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
-                                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        <div key={dept.id} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800 shadow-sm">
+                            {/* Department Header */}
+                            <button
+                                onClick={function() { handleToggleDept(dept.id); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 min-h-[52px] hover:bg-gray-50 dark:hover:bg-gray-750 transition"
+                            >
+                                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: dept.color || '#6366f1' }} />
+                                <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 text-left">{dept.name}</span>
+                                <span className="text-xs text-gray-400 ml-1">{deptModules.length} mod</span>
+                                <div className="flex-1" />
+                                <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full transition-all duration-500"
+                                        style={{ width: pct + '%', backgroundColor: pct === 100 ? '#16a34a' : pct > 50 ? '#0d9488' : pct > 0 ? '#f59e0b' : '#d1d5db' }}
+                                    />
+                                </div>
+                                <span className="text-xs font-mono text-gray-500 w-10 text-right">{pct}%</span>
+                                <span className="text-gray-400 text-sm ml-1">{isExpanded ? '\u25BC' : '\u25B6'}</span>
+                            </button>
+
+                            {/* Expanded: Module List */}
+                            {isExpanded && (
+                                <div className="border-t border-gray-100 dark:border-gray-700">
+                                    {deptModules.length === 0 && (
+                                        <div className="px-4 py-3 text-xs text-gray-400 italic">No modules assigned today</div>
+                                    )}
+                                    {deptModules.map(function(modInfo) {
+                                        var modKey = dept.id + '|' + modInfo.serial;
+                                        var isModExpanded = !!expandedModules[modKey];
+                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, dept.id);
+
+                                        return (
+                                            <div key={modKey} className="border-b border-gray-50 dark:border-gray-700 last:border-b-0">
+                                                {/* Module Header */}
+                                                <button
+                                                    onClick={function() { handleToggleModule(modKey); }}
+                                                    className="w-full flex items-center gap-2 px-6 py-2.5 min-h-[44px] hover:bg-gray-50 dark:hover:bg-gray-750 transition text-left"
+                                                >
+                                                    <span className="text-xs text-gray-400">{isModExpanded ? '\u25BC' : '\u25B6'}</span>
+                                                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{modInfo.serial}</span>
+                                                    {modInfo.blm && (
+                                                        <span className="text-xs text-gray-400 dark:text-gray-500">{modInfo.blm}</span>
+                                                    )}
+                                                    <div className="flex-1" />
+                                                    <span className={'text-xs font-bold ' + (modPct === 100 ? 'text-green-600' : modPct > 0 ? 'text-blue-600' : 'text-gray-400')}>{modPct}%</span>
+                                                </button>
+
+                                                {/* Expanded: Task Checklist */}
+                                                {isModExpanded && (
+                                                    <div className="px-6 pb-3 space-y-1">
+                                                        {deptTasks.map(function(task) {
+                                                            var cKey = modInfo.serial + '|' + dept.id + '|' + task.id;
+                                                            var status = dayCompletions[cKey] || 'not_started';
+                                                            var sCfg = STB_STATUSES[status] || STB_STATUSES.not_started;
+                                                            var isSaving = !!saving[cKey];
+
+                                                            return (
+                                                                <button
+                                                                    key={task.id}
+                                                                    onClick={function() { handleOpenPicker(modInfo.serial, dept.id, task.id, task.task_name, status); }}
+                                                                    disabled={isSaving}
+                                                                    className={'w-full flex items-center gap-3 px-3 py-2 rounded-lg min-h-[44px] transition ' + sCfg.bg + ' ' + (isSaving ? 'opacity-50' : 'hover:opacity-80 active:scale-[0.98]')}
+                                                                >
+                                                                    <span className={'text-sm flex-1 text-left ' + sCfg.text}>{task.task_name}</span>
+                                                                    {isSaving ? (
+                                                                        <STBSpinner size="sm" />
+                                                                    ) : (
+                                                                        <span className={'text-xs font-bold px-2 py-0.5 rounded ' + sCfg.text}>{sCfg.short}</span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             )}
-                        >
-                            {day.label} {day.dayNum}
-                        </button>
+                        </div>
                     );
                 })}
             </div>
 
-            {departments.map(function(dept) {
-                return (
-                    <DepartmentRow
-                        key={dept.id}
-                        dept={dept}
-                        modules={modules}
-                        deptTasks={tasksByDept[dept.id] || []}
-                        completionMap={completionMap}
-                        onStatusChange={function(modSerial, tId, st, deptId) { onStatusChange(modSerial, tId, st, deptId, selectedDay); }}
-                        saving={saving}
-                    />
-                );
-            })}
-
-            {departments.length === 0 && (
-                <div className="text-center py-12 text-gray-400">No departments configured. Go to Admin tab to add departments.</div>
-            )}
+            {/* Status Picker Modal */}
+            <StatusPickerModal
+                isOpen={!!pickerOpen}
+                currentStatus={pickerOpen ? pickerOpen.currentStatus : 'not_started'}
+                taskName={pickerOpen ? pickerOpen.taskName : ''}
+                onSelect={handleStatusSelect}
+                onClose={handleClosePicker}
+            />
         </div>
     );
-};
+}
 
-// ─── TAB 2: WeekSetup ─────────────────────────────────────────────────────
-const STBWeekSetup = ({ weekStart, setWeekStart, modules, departments, goals, onReload }) => {
-    const { useState, useMemo } = React;
-    const [lineBalance, setLineBalance] = useState(5);
-    const [startSerial, setStartSerial] = useState('');
-    const [generating, setGenerating] = useState(false);
-    const [editingTargets, setEditingTargets] = useState({});
-    const sb = function() { return window.MODA_STATION_BOARD; };
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 2: WEEK SETUP (Admin only)
+// ═══════════════════════════════════════════════════════════════════════════
+function WeekSetupTab(props) {
+    var currentUser = props.currentUser;
+    var modules = props.modules;
+    var projectId = props.projectId;
+    var weekSchedule = props.weekSchedule;
+    var lineDepts = props.lineDepts;
+    var onRefresh = props.onRefresh;
 
-    var goalsMap = useMemo(function() {
-        var m = {};
-        (goals || []).forEach(function(g) { m[g.department_id] = g.module_count; });
-        return m;
-    }, [goals]);
+    var [setupWeek, setSetupWeek] = useState(stbGetCurrentWeekStart());
+    var [startSerial, setStartSerial] = useState('');
+    var [lineBalance, setLineBalance] = useState(5);
+    var [shift1Qty, setShift1Qty] = useState(5);
+    var [shift2Qty, setShift2Qty] = useState(5);
+    var [generating, setGenerating] = useState(false);
+    var [completing, setCompleting] = useState(false);
+    var [error, setError] = useState('');
+    var [success, setSuccess] = useState('');
+    var [serialSuggestions, setSerialSuggestions] = useState([]);
+    var [showSuggestions, setShowSuggestions] = useState(false);
+    var suggestRef = useRef(null);
 
-    var handleTargetChange = async function(deptId, value) {
-        try {
-            await sb().upsertDailyTarget({
-                departmentId: deptId,
-                weekStartDate: weekStart,
-                moduleCount: parseInt(value) || 0,
-            });
-            onReload();
-        } catch (e) {
-            console.error('[WeekSetup] Target save error:', e);
-            alert('Failed to save target: ' + e.message);
+    // Stagger config
+    var [staggers, setStaggers] = useState([]);
+    var [editingStagger, setEditingStagger] = useState(null);
+    var [staggerValue, setStaggerValue] = useState('');
+
+    useEffect(function() {
+        if (lineDepts) {
+            setStaggers(lineDepts.map(function(d) {
+                return { id: d.id, name: d.name, stagger_offset: d.stagger_offset || 0, color: d.color };
+            }));
         }
-    };
+    }, [lineDepts]);
+
+    // Serial autocomplete
+    function handleSerialChange(e) {
+        var val = e.target.value;
+        setStartSerial(val);
+        if (val.length >= 2 && modules) {
+            var matches = modules.filter(function(m) {
+                var sn = m.serial_number || m.serialNumber || '';
+                return sn.toLowerCase().includes(val.toLowerCase());
+            }).slice(0, 8);
+            setSerialSuggestions(matches);
+            setShowSuggestions(matches.length > 0);
+        } else {
+            setShowSuggestions(false);
+        }
+    }
+
+    function handleSelectSerial(sn) {
+        setStartSerial(sn);
+        setShowSuggestions(false);
+    }
+
+    function handleLineBalanceChange(e) {
+        var val = parseInt(e.target.value) || 5;
+        setLineBalance(val);
+        setShift1Qty(val);
+        setShift2Qty(val);
+    }
+
+    function handlePrevWeek() {
+        setSetupWeek(function(w) { return stbShiftWeek(w, -1); });
+    }
+
+    function handleNextWeek() {
+        setSetupWeek(function(w) { return stbShiftWeek(w, 1); });
+    }
+
+    function handleGenerate() {
+        if (!startSerial) { setError('Enter a starting serial number'); return; }
+        setGenerating(true);
+        setError('');
+        setSuccess('');
+
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB) { setError('Station board data layer not loaded'); setGenerating(false); return; }
+
+        SB.generateWeekAssignments({
+            weekStartDate: setupWeek,
+            projectId: projectId,
+            startSerial: startSerial,
+            lineBalance: lineBalance,
+            shift1Qty: shift1Qty,
+            shift2Qty: shift2Qty,
+            modules: modules,
+            departments: lineDepts,
+        }).then(function(result) {
+            setGenerating(false);
+            setSuccess('Week generated: ' + (result.totalAssignments || 0) + ' assignments created');
+            if (onRefresh) onRefresh();
+        }).catch(function(err) {
+            setGenerating(false);
+            setError(err.message || 'Failed to generate week');
+        });
+    }
+
+    function handleCompleteShift1() {
+        setCompleting(true);
+        setError('');
+        var SUP = window.MODA_SUPERVISORS;
+        if (!SUP) { setError('Supervisor data layer not loaded'); setCompleting(false); return; }
+
+        SUP.generateHandoffReport({ weekStartDate: setupWeek, projectId: projectId })
+            .then(function() {
+                var SB = window.MODA_STATION_BOARD;
+                return SB.updateWeekStatus(setupWeek, 'shift_1_complete');
+            })
+            .then(function() {
+                setCompleting(false);
+                setSuccess('Shift 1 marked complete. Handoff report generated.');
+                if (onRefresh) onRefresh();
+            })
+            .catch(function(err) {
+                setCompleting(false);
+                setError(err.message || 'Failed to complete shift 1');
+            });
+    }
+
+    function handleCompleteWeek() {
+        setCompleting(true);
+        setError('');
+        var SUP = window.MODA_SUPERVISORS;
+        if (!SUP) { setError('Supervisor data layer not loaded'); setCompleting(false); return; }
+
+        SUP.completeShift2({ weekStartDate: setupWeek, projectId: projectId })
+            .then(function() {
+                var SB = window.MODA_STATION_BOARD;
+                return SB.updateWeekStatus(setupWeek, 'complete');
+            })
+            .then(function() {
+                setCompleting(false);
+                setSuccess('Week completed.');
+                if (onRefresh) onRefresh();
+            })
+            .catch(function(err) {
+                setCompleting(false);
+                setError(err.message || 'Failed to complete week');
+            });
+    }
+
+    function handleSaveStagger(deptId) {
+        var val = parseInt(staggerValue) || 0;
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB) return;
+        SB.updateStagger(deptId, val).then(function() {
+            setStaggers(function(prev) {
+                return prev.map(function(s) { return s.id === deptId ? Object.assign({}, s, { stagger_offset: val }) : s; });
+            });
+            setEditingStagger(null);
+        }).catch(function(err) {
+            setError(err.message || 'Failed to save stagger');
+        });
+    }
+
+    var weekStatus = weekSchedule && weekSchedule.week_start_date === setupWeek ? weekSchedule.status : null;
 
     return (
-        <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-4">Week Schedule</h3>
-                <div className="flex items-center gap-3 mb-4">
-                    <button onClick={function() { setWeekStart(stbShiftWeek(weekStart, -1)); }} className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">{'\u25C0'}</button>
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200 min-w-[200px] text-center">{stbWeekLabel(weekStart)}</span>
-                    <button onClick={function() { setWeekStart(stbShiftWeek(weekStart, 1)); }} className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">{'\u25B6'}</button>
+        <div className="px-3 py-4 space-y-6 max-w-lg mx-auto">
+            {/* Section A: Schedule */}
+            <div className="space-y-4">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">Schedule Setup</h3>
+
+                {/* Week Picker */}
+                <div className="flex items-center gap-3 justify-center">
+                    <button onClick={handlePrevWeek} className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 text-lg font-bold">{'\u25C0'}</button>
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200 min-w-[180px] text-center">{stbWeekLabel(setupWeek)}</span>
+                    <button onClick={handleNextWeek} className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 text-lg font-bold">{'\u25B6'}</button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Starting Module Serial</label>
-                        <input
-                            type="text"
-                            value={startSerial}
-                            onChange={function(e) { setStartSerial(e.target.value); }}
-                            placeholder="e.g. 22-0295"
-                            className="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                        />
+
+                {/* Status Badge */}
+                {weekStatus && (
+                    <div className="text-center">
+                        <span className="inline-block text-xs px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">{weekStatus.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); })}</span>
                     </div>
+                )}
+
+                {/* Starting Serial */}
+                <div className="relative" ref={suggestRef}>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Starting Serial #</label>
+                    <input
+                        type="text"
+                        value={startSerial}
+                        onChange={handleSerialChange}
+                        onFocus={function() { if (serialSuggestions.length > 0) setShowSuggestions(true); }}
+                        onBlur={function() { setTimeout(function() { setShowSuggestions(false); }, 200); }}
+                        placeholder="e.g. AV-001"
+                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+                    />
+                    {showSuggestions && (
+                        <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {serialSuggestions.map(function(m) {
+                                var sn = m.serial_number || m.serialNumber || '';
+                                return (
+                                    <button key={sn} onClick={function() { handleSelectSerial(sn); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        {sn} {m.blm_id || m.blmId ? '(' + (m.blm_id || m.blmId) + ')' : ''}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Line Balance */}
+                <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Daily Line Balance</label>
+                    <input
+                        type="number"
+                        value={lineBalance}
+                        onChange={handleLineBalanceChange}
+                        min="1"
+                        max="20"
+                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+                    />
+                </div>
+
+                {/* Shift Quantities */}
+                <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Line Balance (modules/day)</label>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Shift 1 Qty (Mon-Thu)</label>
                         <input
                             type="number"
-                            value={lineBalance}
-                            onChange={function(e) { setLineBalance(parseInt(e.target.value) || 5); }}
-                            min={1}
-                            max={20}
-                            className="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                            value={shift1Qty}
+                            onChange={function(e) { setShift1Qty(parseInt(e.target.value) || 5); }}
+                            min="1" max="20"
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
                         />
                     </div>
-                    <div className="flex items-end gap-2">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Shift 2 Qty (Fri-Sun)</label>
+                        <input
+                            type="number"
+                            value={shift2Qty}
+                            onChange={function(e) { setShift2Qty(parseInt(e.target.value) || 5); }}
+                            min="1" max="20"
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+                        />
+                    </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                    <button
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm min-h-[48px] disabled:opacity-50 transition"
+                    >
+                        {generating ? 'Generating...' : 'Generate Week'}
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
                         <button
-                            disabled={generating}
-                            onClick={async function() {
-                                setGenerating(true);
-                                try {
-                                    alert('Week generation requires day-assignment support in the data layer. Coming soon.');
-                                } catch (e) {
-                                    alert('Error: ' + e.message);
-                                } finally {
-                                    setGenerating(false);
-                                }
-                            }}
-                            className="px-4 py-2 text-sm font-medium rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+                            onClick={handleCompleteShift1}
+                            disabled={completing || weekStatus === 'shift_1_complete' || weekStatus === 'complete'}
+                            className="py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium text-xs min-h-[44px] disabled:opacity-40 transition"
                         >
-                            {generating ? 'Generating...' : 'Generate Week'}
+                            {completing ? '...' : 'Complete Shift 1'}
+                        </button>
+                        <button
+                            onClick={handleCompleteWeek}
+                            disabled={completing || weekStatus === 'complete'}
+                            className="py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-xs min-h-[44px] disabled:opacity-40 transition"
+                        >
+                            {completing ? '...' : 'Complete Week'}
                         </button>
                     </div>
                 </div>
-                <div className="text-xs text-gray-400">
-                    {modules.length} modules loaded from project. Line balance: {lineBalance} modules/dept/day.
-                </div>
+
+                {/* Messages */}
+                {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs">{error}</div>}
+                {success && <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs">{success}</div>}
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-4">Weekly Department Targets</h3>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-gray-200 dark:border-gray-700">
-                                <th className="text-left py-2 px-3 text-gray-600 dark:text-gray-400 font-medium">Department</th>
-                                <th className="text-center py-2 px-3 text-gray-600 dark:text-gray-400 font-medium">Weekly Target</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {departments.map(function(dept) {
-                                return (
-                                    <tr key={dept.id} className="border-b border-gray-100 dark:border-gray-700">
-                                        <td className="py-2 px-3">
-                                            <div className="flex items-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: dept.color || '#0d9488' }} />
-                                                <span className="text-gray-800 dark:text-gray-200">{dept.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-2 px-3 text-center">
-                                            <input
-                                                type="number"
-                                                value={editingTargets[dept.id] !== undefined ? editingTargets[dept.id] : (goalsMap[dept.id] || '')}
-                                                onChange={function(e) { setEditingTargets(function(prev) { var n = {}; for (var k in prev) n[k] = prev[k]; n[dept.id] = e.target.value; return n; }); }}
-                                                onBlur={function(e) {
-                                                    handleTargetChange(dept.id, e.target.value);
-                                                    setEditingTargets(function(prev) { var n = {}; for (var k in prev) { if (k !== dept.id) n[k] = prev[k]; } return n; });
-                                                }}
-                                                min={0}
-                                                className="w-20 px-2 py-1 text-sm text-center rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
-                                            />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ─── TAB 3: AdminTab ───────────────────────────────────────────────────────
-const STBAdminTab = ({ departments, allTasks, onReload }) => {
-    const { useState } = React;
-    const sb = function() { return window.MODA_STATION_BOARD; };
-
-    const [newDeptName, setNewDeptName] = useState('');
-    const [newDeptColor, setNewDeptColor] = useState('#0d9488');
-    const [savingDept, setSavingDept] = useState(false);
-    const [selectedDeptId, setSelectedDeptId] = useState(departments[0] ? departments[0].id : '');
-    const [newTaskName, setNewTaskName] = useState('');
-    const [savingTask, setSavingTask] = useState(false);
-
-    var selectedDeptTasks = allTasks
-        .filter(function(t) { return t.department_id === selectedDeptId; })
-        .sort(function(a, b) { return a.display_order - b.display_order; });
-
-    var addDepartment = async function() {
-        if (!newDeptName.trim()) return;
-        setSavingDept(true);
-        try {
-            await sb().upsertDepartment({
-                name: newDeptName.trim(),
-                displayOrder: departments.length,
-                color: newDeptColor,
-            });
-            setNewDeptName('');
-            onReload();
-        } catch (e) {
-            alert('Error adding department: ' + e.message);
-        } finally {
-            setSavingDept(false);
-        }
-    };
-
-    var moveDept = async function(dept, direction) {
-        var idx = departments.findIndex(function(d) { return d.id === dept.id; });
-        var swapIdx = idx + direction;
-        if (swapIdx < 0 || swapIdx >= departments.length) return;
-        var other = departments[swapIdx];
-        try {
-            await Promise.all([
-                sb().upsertDepartment({ id: dept.id, name: dept.name, displayOrder: swapIdx, color: dept.color }),
-                sb().upsertDepartment({ id: other.id, name: other.name, displayOrder: idx, color: other.color }),
-            ]);
-            onReload();
-        } catch (e) {
-            alert('Error reordering: ' + e.message);
-        }
-    };
-
-    var addTask = async function() {
-        if (!newTaskName.trim() || !selectedDeptId) return;
-        setSavingTask(true);
-        try {
-            await sb().upsertTask({
-                departmentId: selectedDeptId,
-                taskName: newTaskName.trim(),
-                displayOrder: selectedDeptTasks.length,
-            });
-            setNewTaskName('');
-            onReload();
-        } catch (e) {
-            alert('Error adding task: ' + e.message);
-        } finally {
-            setSavingTask(false);
-        }
-    };
-
-    var removeTask = async function(taskId) {
-        if (!confirm('Remove this task? (Soft-delete, can be restored)')) return;
-        try {
-            await sb().deleteTask(taskId);
-            onReload();
-        } catch (e) {
-            alert('Error removing task: ' + e.message);
-        }
-    };
-
-    var moveTask = async function(task, direction) {
-        var idx = selectedDeptTasks.findIndex(function(t) { return t.id === task.id; });
-        var swapIdx = idx + direction;
-        if (swapIdx < 0 || swapIdx >= selectedDeptTasks.length) return;
-        var other = selectedDeptTasks[swapIdx];
-        try {
-            await Promise.all([
-                sb().upsertTask({ id: task.id, departmentId: task.department_id, taskName: task.task_name, displayOrder: swapIdx }),
-                sb().upsertTask({ id: other.id, departmentId: other.department_id, taskName: other.task_name, displayOrder: idx }),
-            ]);
-            onReload();
-        } catch (e) {
-            alert('Error reordering task: ' + e.message);
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-4">Departments &amp; Order</h3>
-                <div className="space-y-2 mb-4">
-                    {departments.map(function(dept, idx) {
+            {/* Section B: Stagger Configuration */}
+            <div className="space-y-3">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">Stagger Configuration</h3>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                    <div className="grid grid-cols-[1fr_80px_60px] px-3 py-2 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                        <span>Department</span>
+                        <span className="text-center">Offset</span>
+                        <span className="text-center">Edit</span>
+                    </div>
+                    {staggers.map(function(dept) {
+                        var isEditing = editingStagger === dept.id;
                         return (
-                            <div key={dept.id} className="flex items-center gap-3 py-2 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850">
-                                <span className="text-xs text-gray-400 w-6 text-center">{idx + 1}</span>
-                                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: dept.color || '#0d9488' }} />
-                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1">{dept.name}</span>
-                                <div className="flex gap-1">
-                                    <button onClick={function() { moveDept(dept, -1); }} disabled={idx === 0} className="px-1.5 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-200 disabled:opacity-30">{'\u25B2'}</button>
-                                    <button onClick={function() { moveDept(dept, 1); }} disabled={idx === departments.length - 1} className="px-1.5 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-200 disabled:opacity-30">{'\u25BC'}</button>
+                            <div key={dept.id} className="grid grid-cols-[1fr_80px_60px] px-3 py-2 items-center border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: dept.color || '#6366f1' }} />
+                                    <span className="text-sm text-gray-800 dark:text-gray-200">{dept.name}</span>
+                                </div>
+                                {isEditing ? (
+                                    <input
+                                        type="number"
+                                        value={staggerValue}
+                                        onChange={function(e) { setStaggerValue(e.target.value); }}
+                                        className="w-16 mx-auto px-2 py-1 text-xs text-center border border-blue-400 rounded bg-white dark:bg-gray-700"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <span className="text-sm text-center text-gray-600 dark:text-gray-300">{dept.stagger_offset}</span>
+                                )}
+                                <div className="text-center">
+                                    {isEditing ? (
+                                        <button onClick={function() { handleSaveStagger(dept.id); }} className="text-xs text-green-600 font-medium">Save</button>
+                                    ) : (
+                                        <button onClick={function() { setEditingStagger(dept.id); setStaggerValue(String(dept.stagger_offset)); }} className="text-xs text-blue-600 font-medium">Edit</button>
+                                    )}
                                 </div>
                             </div>
                         );
                     })}
                 </div>
-                <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">New Department</label>
-                        <input
-                            type="text"
-                            value={newDeptName}
-                            onChange={function(e) { setNewDeptName(e.target.value); }}
-                            placeholder="Department name"
-                            className="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
-                            onKeyDown={function(e) { if (e.key === 'Enter') addDepartment(); }}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Color</label>
-                        <input
-                            type="color"
-                            value={newDeptColor}
-                            onChange={function(e) { setNewDeptColor(e.target.value); }}
-                            className="w-10 h-9 rounded border border-gray-300 cursor-pointer"
-                        />
-                    </div>
+                {staggers.length > 0 && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                        Stagger offset = how many module positions behind the lead department (Automation).
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 3: HANDOFF REPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function HandoffReportTab(props) {
+    var currentUser = props.currentUser;
+    var weekSchedule = props.weekSchedule;
+    var projectId = props.projectId;
+    var onRefresh = props.onRefresh;
+
+    var [report, setReport] = useState(null);
+    var [loading, setLoading] = useState(true);
+    var [generating, setGenerating] = useState(false);
+    var [error, setError] = useState('');
+
+    var isAdmin = stbIsAdmin(currentUser);
+    var weekStart = weekSchedule ? weekSchedule.week_start_date : null;
+
+    useEffect(function() {
+        if (!weekStart) { setLoading(false); return; }
+        setLoading(true);
+        var SUP = window.MODA_SUPERVISORS;
+        if (!SUP || !SUP.getHandoffReport) { setLoading(false); return; }
+
+        SUP.getHandoffReport({ weekStartDate: weekStart, projectId: projectId })
+            .then(function(data) {
+                setReport(data);
+                setLoading(false);
+            })
+            .catch(function() {
+                setReport(null);
+                setLoading(false);
+            });
+    }, [weekStart, projectId]);
+
+    function handleGenerate() {
+        setGenerating(true);
+        setError('');
+        var SUP = window.MODA_SUPERVISORS;
+        if (!SUP) { setError('Supervisor data layer not loaded'); setGenerating(false); return; }
+
+        SUP.generateHandoffReport({ weekStartDate: weekStart, projectId: projectId })
+            .then(function(data) {
+                setReport(data);
+                setGenerating(false);
+                if (onRefresh) onRefresh();
+            })
+            .catch(function(err) {
+                setError(err.message || 'Failed to generate report');
+                setGenerating(false);
+            });
+    }
+
+    function handleResolveFlag(flagId) {
+        var SUP = window.MODA_SUPERVISORS;
+        if (!SUP || !SUP.resolveFlaggedModule) return;
+        SUP.resolveFlaggedModule(flagId).then(function() {
+            setReport(function(prev) {
+                if (!prev || !prev.flagged) return prev;
+                var updated = Object.assign({}, prev);
+                updated.flagged = prev.flagged.filter(function(f) { return f.id !== flagId; });
+                return updated;
+            });
+        });
+    }
+
+    if (loading) {
+        return <div className="flex items-center justify-center py-16"><STBSpinner size="lg" /></div>;
+    }
+
+    if (!weekStart) {
+        return <STBEmpty message="No week scheduled" />;
+    }
+
+    if (!report) {
+        return (
+            <STBEmpty icon="!" message="Shift 1 handoff not yet generated">
+                {isAdmin && (
                     <button
-                        onClick={addDepartment}
-                        disabled={savingDept || !newDeptName.trim()}
-                        className="px-4 py-2 text-sm font-medium rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="mt-4 px-6 py-2.5 rounded-xl bg-blue-600 text-white font-medium text-sm min-h-[44px] disabled:opacity-50"
                     >
-                        Add
+                        {generating ? 'Generating...' : 'Generate Handoff'}
                     </button>
-                </div>
+                )}
+                {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+            </STBEmpty>
+        );
+    }
+
+    // Report exists
+    var summary = report.summary || {};
+    var deptBreakdown = report.departments || [];
+    var flagged = report.flagged || [];
+
+    return (
+        <div className="px-3 py-4 space-y-4 max-w-2xl mx-auto">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">Shift 1 Handoff Report</h3>
+            <p className="text-xs text-gray-500">{stbWeekLabel(weekStart)}</p>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                    { label: 'Total', value: summary.total || 0, color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200' },
+                    { label: 'Complete', value: summary.complete || 0, color: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
+                    { label: 'WIP', value: summary.wip || 0, color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' },
+                    { label: 'Stopped', value: summary.stopped || 0, color: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' },
+                    { label: 'Incomplete', value: summary.incomplete || 0, color: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' },
+                ].map(function(card) {
+                    return (
+                        <div key={card.label} className={'rounded-xl p-3 text-center ' + card.color}>
+                            <div className="text-2xl font-bold">{card.value}</div>
+                            <div className="text-xs font-medium mt-0.5">{card.label}</div>
+                        </div>
+                    );
+                })}
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-4">Task Lists</h3>
-                <select
-                    value={selectedDeptId}
-                    onChange={function(e) { setSelectedDeptId(e.target.value); }}
-                    className="w-full max-w-xs px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 mb-4"
-                >
-                    <option value="">Select department...</option>
-                    {departments.map(function(d) { return <option key={d.id} value={d.id}>{d.name}</option>; })}
-                </select>
+            {/* Department Breakdown */}
+            {deptBreakdown.length > 0 && (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                    <div className="grid grid-cols-[1fr_repeat(5,_40px)_50px] px-3 py-2 bg-gray-50 dark:bg-gray-800 text-[10px] font-medium text-gray-500 uppercase border-b border-gray-200 dark:border-gray-700">
+                        <span>Dept</span>
+                        <span className="text-center">Tot</span>
+                        <span className="text-center">OK</span>
+                        <span className="text-center">WIP</span>
+                        <span className="text-center">Stp</span>
+                        <span className="text-center">Inc</span>
+                        <span className="text-center">%</span>
+                    </div>
+                    {deptBreakdown.map(function(row) {
+                        var hasStopped = (row.stopped || 0) > 0;
+                        var hasWip = (row.wip || 0) > 0;
+                        var rowCls = hasStopped ? 'bg-red-50 dark:bg-red-900/10' : hasWip ? 'bg-yellow-50 dark:bg-yellow-900/10' : '';
+                        return (
+                            <div key={row.department_id || row.name} className={'grid grid-cols-[1fr_repeat(5,_40px)_50px] px-3 py-2 items-center border-b border-gray-100 dark:border-gray-700 last:border-b-0 text-xs ' + rowCls}>
+                                <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{row.name}</span>
+                                <span className="text-center text-gray-600 dark:text-gray-400">{row.total || 0}</span>
+                                <span className="text-center text-green-600">{row.complete || 0}</span>
+                                <span className="text-center text-yellow-600">{row.wip || 0}</span>
+                                <span className="text-center text-red-600">{row.stopped || 0}</span>
+                                <span className="text-center text-orange-600">{row.incomplete || 0}</span>
+                                <span className="text-center font-bold text-gray-700 dark:text-gray-300">{row.pct || 0}%</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
-                {selectedDeptId && (
-                    <div>
-                        <div className="space-y-1 mb-4">
-                            {selectedDeptTasks.map(function(task, idx) {
-                                return (
-                                    <div key={task.id} className="flex items-center gap-2 py-1.5 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850">
-                                        <span className="text-xs text-gray-400 w-6 text-center">{idx + 1}</span>
-                                        <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{task.task_name}</span>
-                                        <div className="flex gap-1">
-                                            <button onClick={function() { moveTask(task, -1); }} disabled={idx === 0} className="px-1.5 py-0.5 text-xs rounded border border-gray-300 hover:bg-gray-200 disabled:opacity-30">{'\u25B2'}</button>
-                                            <button onClick={function() { moveTask(task, 1); }} disabled={idx === selectedDeptTasks.length - 1} className="px-1.5 py-0.5 text-xs rounded border border-gray-300 hover:bg-gray-200 disabled:opacity-30">{'\u25BC'}</button>
-                                            <button onClick={function() { removeTask(task.id); }} className="px-1.5 py-0.5 text-xs rounded border border-red-300 text-red-600 hover:bg-red-50">X</button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {selectedDeptTasks.length === 0 && (
-                                <div className="text-sm text-gray-400 italic py-2">No tasks for this department.</div>
-                            )}
-                        </div>
-                        <div className="flex gap-2">
+            {/* Flagged Modules */}
+            {flagged.length > 0 && (
+                <div className="space-y-2">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Flagged Modules</h4>
+                    {flagged.map(function(flag) {
+                        var badgeColor = flag.flag_type === 'stopped' ? 'bg-red-100 text-red-700' :
+                            flag.flag_type === 'wip' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-orange-100 text-orange-700';
+                        return (
+                            <div key={flag.id || flag.module_serial} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <span className={'text-[10px] font-bold px-2 py-0.5 rounded uppercase ' + badgeColor}>{flag.flag_type}</span>
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{flag.module_serial}</span>
+                                    {flag.department_name && <span className="text-xs text-gray-400 ml-2">{flag.department_name}</span>}
+                                </div>
+                                <span className="text-xs text-gray-500">{flag.pct || 0}%</span>
+                                <button
+                                    onClick={function() { handleResolveFlag(flag.id); }}
+                                    className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium min-h-[32px]"
+                                >
+                                    Resolve
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Print Button */}
+            <div className="text-center pt-2">
+                <button
+                    onClick={function() { window.print(); }}
+                    className="px-6 py-2.5 rounded-xl bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 font-medium text-sm min-h-[44px]"
+                >
+                    Print / Export
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 4: ADMIN
+// ═══════════════════════════════════════════════════════════════════════════
+function AdminConfigTab(props) {
+    var lineDepts = props.lineDepts;
+    var allTasks = props.allTasks;
+    var shifts = props.shifts;
+    var onRefresh = props.onRefresh;
+
+    var [openPanel, setOpenPanel] = useState('departments');
+    var [selectedDeptForTasks, setSelectedDeptForTasks] = useState(null);
+    var [newDeptName, setNewDeptName] = useState('');
+    var [newDeptColor, setNewDeptColor] = useState('#6366f1');
+    var [newTaskName, setNewTaskName] = useState('');
+    var [editingShift, setEditingShift] = useState(null);
+    var [shiftName, setShiftName] = useState('');
+    var [shiftDays, setShiftDays] = useState('');
+    var [saving, setSaving] = useState(false);
+    var [error, setError] = useState('');
+
+    function handleTogglePanel(panel) {
+        setOpenPanel(function(prev) { return prev === panel ? null : panel; });
+    }
+
+    // Department Management
+    function handleAddDept() {
+        if (!newDeptName.trim()) return;
+        setSaving(true);
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB) { setError('Data layer not loaded'); setSaving(false); return; }
+        SB.addDepartment({ name: newDeptName.trim(), color: newDeptColor, is_active: true })
+            .then(function() { setNewDeptName(''); setSaving(false); if (onRefresh) onRefresh(); })
+            .catch(function(err) { setError(err.message); setSaving(false); });
+    }
+
+    function handleDeactivateDept(deptId) {
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB) return;
+        SB.deactivateDepartment(deptId).then(function() { if (onRefresh) onRefresh(); });
+    }
+
+    // Task Management
+    function handleAddTask() {
+        if (!newTaskName.trim() || !selectedDeptForTasks) return;
+        setSaving(true);
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB) { setError('Data layer not loaded'); setSaving(false); return; }
+        SB.addTask({ department_id: selectedDeptForTasks, task_name: newTaskName.trim() })
+            .then(function() { setNewTaskName(''); setSaving(false); if (onRefresh) onRefresh(); })
+            .catch(function(err) { setError(err.message); setSaving(false); });
+    }
+
+    function handleRemoveTask(taskId) {
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB) return;
+        SB.removeTask(taskId).then(function() { if (onRefresh) onRefresh(); });
+    }
+
+    // Shift Management
+    function handleSaveShift() {
+        if (!editingShift || !shiftName.trim()) return;
+        setSaving(true);
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB) { setSaving(false); return; }
+        SB.upsertShift({ id: editingShift.id, name: shiftName, days: shiftDays })
+            .then(function() { setSaving(false); setEditingShift(null); if (onRefresh) onRefresh(); })
+            .catch(function(err) { setError(err.message); setSaving(false); });
+    }
+
+    var deptTasks = useMemo(function() {
+        if (!selectedDeptForTasks || !allTasks) return [];
+        return allTasks.filter(function(t) { return t.department_id === selectedDeptForTasks; });
+    }, [selectedDeptForTasks, allTasks]);
+
+    return (
+        <div className="px-3 py-4 space-y-3 max-w-lg mx-auto">
+            {error && <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 text-xs">{error}</div>}
+
+            {/* Department Manager */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <button onClick={function() { handleTogglePanel('departments'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
+                    <span className="font-semibold text-sm text-gray-900 dark:text-white">Department Manager</span>
+                    <span className="text-gray-400">{openPanel === 'departments' ? '\u25BC' : '\u25B6'}</span>
+                </button>
+                {openPanel === 'departments' && (
+                    <div className="p-3 space-y-2 border-t border-gray-200 dark:border-gray-700">
+                        {(lineDepts || []).map(function(dept) {
+                            return (
+                                <div key={dept.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800">
+                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: dept.color || '#6366f1' }} />
+                                    <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{dept.name}</span>
+                                    <span className="text-[10px] text-gray-400">stg: {dept.stagger_offset || 0}</span>
+                                    <button onClick={function() { handleDeactivateDept(dept.id); }} className="text-xs text-red-500 px-2 py-1 min-h-[32px]">Remove</button>
+                                </div>
+                            );
+                        })}
+                        <div className="flex gap-2 pt-2">
                             <input
                                 type="text"
-                                value={newTaskName}
-                                onChange={function(e) { setNewTaskName(e.target.value); }}
-                                placeholder="New task name"
-                                className="flex-1 px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
-                                onKeyDown={function(e) { if (e.key === 'Enter') addTask(); }}
+                                value={newDeptName}
+                                onChange={function(e) { setNewDeptName(e.target.value); }}
+                                placeholder="New department name"
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
                             />
-                            <button
-                                onClick={addTask}
-                                disabled={savingTask || !newTaskName.trim()}
-                                className="px-4 py-2 text-sm font-medium rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
-                            >
-                                Add Task
-                            </button>
+                            <input
+                                type="color"
+                                value={newDeptColor}
+                                onChange={function(e) { setNewDeptColor(e.target.value); }}
+                                className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                            />
+                            <button onClick={handleAddDept} disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px] disabled:opacity-50">Add</button>
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-4">Shift Configuration</h3>
-                <div className="space-y-3">
-                    <div className="flex items-center gap-3 py-2 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850">
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 w-24">Shift 1</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Mon &ndash; Thu</span>
+            {/* Task List Manager */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <button onClick={function() { handleTogglePanel('tasks'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
+                    <span className="font-semibold text-sm text-gray-900 dark:text-white">Task List Manager</span>
+                    <span className="text-gray-400">{openPanel === 'tasks' ? '\u25BC' : '\u25B6'}</span>
+                </button>
+                {openPanel === 'tasks' && (
+                    <div className="p-3 space-y-2 border-t border-gray-200 dark:border-gray-700">
+                        {/* Dept selector */}
+                        <select
+                            value={selectedDeptForTasks || ''}
+                            onChange={function(e) { setSelectedDeptForTasks(e.target.value || null); }}
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+                        >
+                            <option value="">Select department...</option>
+                            {(lineDepts || []).map(function(dept) {
+                                return <option key={dept.id} value={dept.id}>{dept.name}</option>;
+                            })}
+                        </select>
+                        {/* Task list */}
+                        {deptTasks.map(function(task) {
+                            return (
+                                <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800">
+                                    <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{task.task_name}</span>
+                                    <button onClick={function() { handleRemoveTask(task.id); }} className="text-xs text-red-500 px-2 py-1 min-h-[32px]">Remove</button>
+                                </div>
+                            );
+                        })}
+                        {selectedDeptForTasks && (
+                            <div className="flex gap-2 pt-2">
+                                <input
+                                    type="text"
+                                    value={newTaskName}
+                                    onChange={function(e) { setNewTaskName(e.target.value); }}
+                                    placeholder="New task name"
+                                    className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+                                />
+                                <button onClick={handleAddTask} disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px] disabled:opacity-50">Add</button>
+                            </div>
+                        )}
                     </div>
-                    <div className="flex items-center gap-3 py-2 px-3 rounded border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-850">
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 w-24">Shift 2</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Fri &ndash; Sun</span>
+                )}
+            </div>
+
+            {/* Shift Configuration */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <button onClick={function() { handleTogglePanel('shifts'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
+                    <span className="font-semibold text-sm text-gray-900 dark:text-white">Shift Configuration</span>
+                    <span className="text-gray-400">{openPanel === 'shifts' ? '\u25BC' : '\u25B6'}</span>
+                </button>
+                {openPanel === 'shifts' && (
+                    <div className="p-3 space-y-2 border-t border-gray-200 dark:border-gray-700">
+                        {(shifts || []).map(function(shift) {
+                            var isEditing = editingShift && editingShift.id === shift.id;
+                            return (
+                                <div key={shift.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800">
+                                    {isEditing ? (
+                                        <React.Fragment>
+                                            <input
+                                                type="text"
+                                                value={shiftName}
+                                                onChange={function(e) { setShiftName(e.target.value); }}
+                                                className="flex-1 px-2 py-1 text-sm border border-blue-400 rounded"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={shiftDays}
+                                                onChange={function(e) { setShiftDays(e.target.value); }}
+                                                placeholder="Mon-Thu"
+                                                className="w-24 px-2 py-1 text-xs border border-blue-400 rounded"
+                                            />
+                                            <button onClick={handleSaveShift} className="text-xs text-green-600 font-medium px-2 py-1 min-h-[32px]">Save</button>
+                                        </React.Fragment>
+                                    ) : (
+                                        <React.Fragment>
+                                            <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{shift.name}</span>
+                                            <span className="text-xs text-gray-400">{shift.days || ''}</span>
+                                            <button onClick={function() { setEditingShift(shift); setShiftName(shift.name); setShiftDays(shift.days || ''); }} className="text-xs text-blue-600 font-medium px-2 py-1 min-h-[32px]">Edit</button>
+                                        </React.Fragment>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        {(!shifts || shifts.length === 0) && (
+                            <p className="text-xs text-gray-400 italic py-2">No shifts configured</p>
+                        )}
                     </div>
-                </div>
-                <p className="text-xs text-gray-400 mt-3">Shift editing requires the station_shifts table. Coming soon.</p>
+                )}
             </div>
         </div>
     );
-};
+}
 
-// ─── Main Component ────────────────────────────────────────────────────────
-const StationTaskBoard = ({ currentUser, modules: rawModules, projectId }) => {
-    const { useState, useEffect, useCallback, useMemo, useRef } = React;
-    const sb = function() { return window.MODA_STATION_BOARD; };
-    const initialWeek = sb() ? sb().weekStart() : '';
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT: StationTaskBoard
+// ═══════════════════════════════════════════════════════════════════════════
+function StationTaskBoard(props) {
+    var currentUser = props.currentUser;
+    var modules = props.modules;
+    var projectId = props.projectId;
 
-    const [activeTab, setActiveTab] = useState('daily');
-    const [weekStart, setWeekStart] = useState(initialWeek);
-    const [departments, setDepartments] = useState([]);
-    const [allTasks, setAllTasks] = useState([]);
-    const [completions, setCompletions] = useState([]);
-    const [goals, setGoals] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [saving, setSaving] = useState({});
-    const unsubRef = useRef(null);
+    var isAdmin = stbIsAdmin(currentUser);
 
-    // Normalize modules from JSONB to consistent shape
-    const modules = useMemo(function() {
-        return (rawModules || []).map(function(m) {
-            return {
-                id: m.id,
-                serialNumber: m.serialNumber || m.id,
-                buildSequence: m.buildSequence,
-                status: m.status,
-                projectName: m.projectName || '',
-            };
-        });
-    }, [rawModules]);
+    // State
+    var [activeTab, setActiveTab] = useState('daily');
+    var [loading, setLoading] = useState(true);
+    var [error, setError] = useState('');
 
-    const isAdmin = currentUser && (
-        currentUser.dashboard_role === 'admin' ||
-        currentUser.email === 'trevor@autovol.com' ||
-        currentUser.email === 'stephanie@autovol.com'
-    );
+    // Data
+    var [supervisorProfile, setSupervisorProfile] = useState(null);
+    var [weekSchedule, setWeekSchedule] = useState(null);
+    var [shifts, setShifts] = useState([]);
+    var [lineDepts, setLineDepts] = useState([]);
+    var [allTasks, setAllTasks] = useState([]);
+    var [completions, setCompletions] = useState([]);
 
-    // Build completion map: { 'moduleSerialNumber|taskId': { status, ... } }
-    const completionMap = useMemo(function() {
-        var map = {};
-        completions.forEach(function(c) {
-            map[c.module_serial + '|' + c.task_id] = c;
-        });
-        return map;
-    }, [completions]);
+    // Subscription ref
+    var subRef = useRef(null);
 
-    // Load all data
-    var loadData = useCallback(async function() {
-        if (!sb()) return;
-        setLoading(true);
-        setError(null);
-        try {
-            var results = await Promise.all([
-                sb().getLineDepartments(),
-                sb().getAllTasks(),
-                sb().getCompletions(weekStart),
-                sb().getDailyTargets(weekStart),
-            ]);
-            setDepartments(results[0] || []);
-            setAllTasks(results[1] || []);
-            setCompletions(results[2] || []);
-            setGoals(results[3] || []);
-        } catch (e) {
-            console.error('[StationTaskBoard] Load error:', e);
-            setError(e.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [weekStart]);
-
-    useEffect(function() { loadData(); }, [loadData]);
-
-    // Real-time subscription
+    // Load all data on mount
     useEffect(function() {
-        if (!sb()) return;
-        if (unsubRef.current) unsubRef.current();
-        unsubRef.current = sb().subscribeToCompletions(weekStart, function() {
-            sb().getCompletions(weekStart).then(function(c) { setCompletions(c || []); }).catch(function() {});
-        });
-        return function() { if (unsubRef.current) unsubRef.current(); };
-    }, [weekStart]);
+        loadData();
+        return function() {
+            if (subRef.current && subRef.current.unsubscribe) {
+                subRef.current.unsubscribe();
+            }
+        };
+    }, [projectId]);
 
-    // Status change handler
-    var handleStatusChange = useCallback(async function(moduleSerial, taskId, newStatus, departmentId, targetDate) {
-        var key = moduleSerial + '|' + taskId;
-        setSaving(function(s) { var n = {}; for (var k in s) n[k] = s[k]; n[key] = true; return n; });
-        try {
-            await sb().upsertCompletion({
-                moduleSerial: moduleSerial,
-                taskId: taskId,
-                weekStartDate: weekStart,
-                targetDate: targetDate,
-                departmentId: departmentId,
-                status: newStatus,
-            });
-            // Optimistic update
-            setCompletions(function(prev) {
-                var idx = prev.findIndex(function(c) { return c.module_serial === moduleSerial && c.task_id === taskId; });
-                if (idx >= 0) {
-                    var updated = prev.slice();
-                    updated[idx] = Object.assign({}, updated[idx], { status: newStatus });
-                    return updated;
-                }
-                return prev.concat([{ module_serial: moduleSerial, task_id: taskId, department_id: departmentId, target_date: targetDate, status: newStatus }]);
-            });
-        } catch (e) {
-            console.error('[StationTaskBoard] Save error:', e);
-            alert('Save failed: ' + e.message);
-        } finally {
-            setSaving(function(s) { var n = {}; for (var k in s) { if (k !== key) n[k] = s[k]; } return n; });
+    function loadData() {
+        setLoading(true);
+        setError('');
+
+        var SB = window.MODA_STATION_BOARD;
+        var SUP = window.MODA_SUPERVISORS;
+
+        if (!SB) {
+            setError('Station board data layer (MODA_STATION_BOARD) not loaded');
+            setLoading(false);
+            return;
         }
-    }, [weekStart]);
 
+        var weekStart = stbGetCurrentWeekStart();
+
+        var promises = [
+            SUP ? SUP.getCurrentSupervisor() : Promise.resolve(null),
+            SB.getWeeklySchedule ? SB.getWeeklySchedule(weekStart) : Promise.resolve(null),
+            SB.getShifts ? SB.getShifts() : Promise.resolve([]),
+            SB.getLineDepartments ? SB.getLineDepartments() : Promise.resolve([]),
+            SB.getAllTasks ? SB.getAllTasks() : Promise.resolve([]),
+        ];
+
+        Promise.all(promises).then(function(results) {
+            setSupervisorProfile(results[0]);
+            setWeekSchedule(results[1]);
+            setShifts(results[2] || []);
+            setLineDepts(results[3] || []);
+            setAllTasks(results[4] || []);
+            setLoading(false);
+
+            // Load completions for current week
+            if (results[1] && results[1].week_start_date) {
+                loadCompletions(results[1].week_start_date);
+                subscribeToCompletions(results[1].week_start_date);
+            }
+        }).catch(function(err) {
+            console.error('[StationTaskBoard] Load error:', err);
+            setError(err.message || 'Failed to load data');
+            setLoading(false);
+        });
+    }
+
+    function loadCompletions(weekStart) {
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB || !SB.getCompletions) return;
+        SB.getCompletions(weekStart).then(function(data) {
+            setCompletions(data || []);
+        }).catch(function(err) {
+            console.error('[StationTaskBoard] Completions load error:', err);
+        });
+    }
+
+    function subscribeToCompletions(weekStart) {
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB || !SB.subscribeToCompletions) return;
+        if (subRef.current && subRef.current.unsubscribe) {
+            subRef.current.unsubscribe();
+        }
+        subRef.current = SB.subscribeToCompletions(weekStart, function(payload) {
+            // Real-time update: merge new completion into state
+            if (payload && payload.new) {
+                setCompletions(function(prev) {
+                    var updated = prev.filter(function(c) {
+                        return !(c.module_serial === payload.new.module_serial &&
+                                 c.department_id === payload.new.department_id &&
+                                 c.task_id === payload.new.task_id &&
+                                 c.target_date === payload.new.target_date);
+                    });
+                    updated.push(payload.new);
+                    return updated;
+                });
+            }
+        });
+    }
+
+    // Optimistic completion update
+    function handleUpdateCompletion(params) {
+        // Optimistic: update local immediately
+        var optimisticCompletion = {
+            week_start_date: params.weekStartDate,
+            target_date: params.targetDate,
+            department_id: params.departmentId,
+            module_serial: params.moduleSerial,
+            task_id: params.taskId,
+            status: params.status,
+        };
+
+        setCompletions(function(prev) {
+            var filtered = prev.filter(function(c) {
+                return !(c.module_serial === params.moduleSerial &&
+                         c.department_id === params.departmentId &&
+                         c.task_id === params.taskId &&
+                         c.target_date === params.targetDate);
+            });
+            filtered.push(optimisticCompletion);
+            return filtered;
+        });
+
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB || !SB.upsertCompletion) return Promise.reject(new Error('Data layer not loaded'));
+
+        return SB.upsertCompletion({
+            weekStartDate: params.weekStartDate,
+            targetDate: params.targetDate,
+            departmentId: params.departmentId,
+            moduleSerial: params.moduleSerial,
+            taskId: params.taskId,
+            status: params.status,
+        }).catch(function(err) {
+            // Revert on error
+            setCompletions(function(prev) {
+                return prev.filter(function(c) {
+                    return !(c.module_serial === params.moduleSerial &&
+                             c.department_id === params.departmentId &&
+                             c.task_id === params.taskId &&
+                             c.target_date === params.targetDate);
+                });
+            });
+            throw err;
+        });
+    }
+
+    function handleRefresh() {
+        loadData();
+    }
+
+    // Tab definitions
     var tabs = [
-        { id: 'daily', label: 'Daily Board' },
-        { id: 'setup', label: 'Week Setup' },
+        { id: 'daily', label: 'Daily Board', visible: true },
+        { id: 'setup', label: 'Week Setup', visible: isAdmin },
+        { id: 'handoff', label: 'Handoff', visible: true },
+        { id: 'admin', label: 'Admin', visible: isAdmin },
     ];
-    if (isAdmin) tabs.push({ id: 'admin', label: 'Admin' });
 
-    if (!sb()) {
+    var visibleTabs = tabs.filter(function(t) { return t.visible; });
+
+    // Loading state
+    if (loading) {
         return (
-            <div className="p-6 text-center text-red-500">
-                Station board data layer not loaded. Add supabase-station-board.js to index.html.
+            <div className="flex flex-col items-center justify-center py-20">
+                <STBSpinner size="lg" />
+                <p className="text-sm text-gray-500 mt-4">Loading Station Board...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error && !weekSchedule && !lineDepts.length) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20">
+                <div className="text-red-500 text-4xl mb-3">!</div>
+                <p className="text-sm text-red-600 dark:text-red-400 text-center max-w-sm">{error}</p>
+                <button onClick={handleRefresh} className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px]">Retry</button>
             </div>
         );
     }
 
     return (
-        <div className="p-4">
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-                <div>
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Station Task Board</h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{stbWeekLabel(weekStart)} &mdash; {modules.length} modules</p>
-                </div>
-                <div className="flex-1" />
-                <div className="flex items-center gap-2">
-                    <button onClick={function() { setWeekStart(stbShiftWeek(weekStart, -1)); }} className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">{'\u25C0'}</button>
-                    {weekStart !== initialWeek && (
-                        <button onClick={function() { setWeekStart(initialWeek); }} className="px-2 py-1 text-xs rounded bg-teal-600 text-white hover:bg-teal-700">Today</button>
-                    )}
-                    <button onClick={function() { setWeekStart(stbShiftWeek(weekStart, 1)); }} className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">{'\u25B6'}</button>
-                </div>
-            </div>
-
-            <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4">
-                {tabs.map(function(t) {
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden">
+            {/* Tab Navigation */}
+            <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-1 overflow-x-auto">
+                {visibleTabs.map(function(tab) {
+                    var isActive = activeTab === tab.id;
                     return (
                         <button
-                            key={t.id}
-                            onClick={function() { setActiveTab(t.id); }}
-                            className={'px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ' + (
-                                activeTab === t.id
-                                    ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            )}
+                            key={tab.id}
+                            onClick={function() { setActiveTab(tab.id); }}
+                            className={'flex-1 min-w-[80px] py-3 px-2 text-xs sm:text-sm font-medium transition-all border-b-2 min-h-[48px] ' +
+                                (isActive
+                                    ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20'
+                                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                )
+                            }
                         >
-                            {t.label}
+                            {tab.label}
                         </button>
                     );
                 })}
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <div className="animate-spin w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full" />
-                    <span className="ml-3 text-gray-500">Loading...</span>
-                </div>
-            ) : error ? (
-                <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
-                    Error: {error}
-                    <button onClick={loadData} className="ml-3 underline">Retry</button>
-                </div>
-            ) : (
-                <div>
-                    {activeTab === 'daily' && (
-                        <STBDailyBoard
-                            weekStart={weekStart}
-                            modules={modules}
-                            departments={departments}
-                            allTasks={allTasks}
-                            completionMap={completionMap}
-                            onStatusChange={handleStatusChange}
-                            saving={saving}
-                        />
-                    )}
-                    {activeTab === 'setup' && (
-                        <STBWeekSetup
-                            weekStart={weekStart}
-                            setWeekStart={setWeekStart}
-                            modules={modules}
-                            departments={departments}
-                            goals={goals}
-                            onReload={loadData}
-                        />
-                    )}
-                    {activeTab === 'admin' && isAdmin && (
-                        <STBAdminTab
-                            departments={departments}
-                            allTasks={allTasks}
-                            onReload={loadData}
-                        />
-                    )}
-                </div>
-            )}
+            {/* Tab Content */}
+            <div className="flex-1 overflow-hidden">
+                {activeTab === 'daily' && (
+                    <DailyBoardTab
+                        currentUser={currentUser}
+                        modules={modules}
+                        weekSchedule={weekSchedule}
+                        shifts={shifts}
+                        lineDepts={lineDepts}
+                        allTasks={allTasks}
+                        completions={completions}
+                        supervisorProfile={supervisorProfile}
+                        onUpdateCompletion={handleUpdateCompletion}
+                        loading={false}
+                    />
+                )}
+                {activeTab === 'setup' && isAdmin && (
+                    <WeekSetupTab
+                        currentUser={currentUser}
+                        modules={modules}
+                        projectId={projectId}
+                        weekSchedule={weekSchedule}
+                        lineDepts={lineDepts}
+                        onRefresh={handleRefresh}
+                    />
+                )}
+                {activeTab === 'handoff' && (
+                    <HandoffReportTab
+                        currentUser={currentUser}
+                        weekSchedule={weekSchedule}
+                        projectId={projectId}
+                        onRefresh={handleRefresh}
+                    />
+                )}
+                {activeTab === 'admin' && isAdmin && (
+                    <AdminConfigTab
+                        lineDepts={lineDepts}
+                        allTasks={allTasks}
+                        shifts={shifts}
+                        onRefresh={handleRefresh}
+                    />
+                )}
+            </div>
         </div>
     );
-};
+}
 
-// Export for MODA App.jsx
+// Export
 window.StationTaskBoard = StationTaskBoard;
