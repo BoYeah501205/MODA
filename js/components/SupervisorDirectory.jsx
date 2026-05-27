@@ -9,9 +9,11 @@ function SupervisorDirectory({ currentUser, isAdmin }) {
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const loadData = useCallback(async (retries = 5) => {
+        if (retries === 5) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             const [sups, depts] = await Promise.all([
                 window.MODA_SUPERVISORS.getSupervisors(false),
@@ -19,10 +21,14 @@ function SupervisorDirectory({ currentUser, isAdmin }) {
             ]);
             setSupervisors(sups || []);
             setDepartments(depts || []);
+            setLoading(false);
         } catch (err) {
+            if (err.message && err.message.includes('not ready') && retries > 0) {
+                setTimeout(() => loadData(retries - 1), 500);
+                return;
+            }
             console.error('[SupervisorDirectory] Load error:', err);
             setError(err.message || 'Failed to load data');
-        } finally {
             setLoading(false);
         }
     }, []);

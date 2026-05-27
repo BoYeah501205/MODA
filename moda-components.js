@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-27T19:41:25.379Z
+ * Generated: 2026-05-27T20:01:51.622Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -53361,17 +53361,23 @@ function SupervisorDirectory({
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadData = useCallback(async (retries = 5) => {
+    if (retries === 5) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [sups, depts] = await Promise.all([window.MODA_SUPERVISORS.getSupervisors(false), window.MODA_STATION_BOARD.getLineDepartments()]);
       setSupervisors(sups || []);
       setDepartments(depts || []);
+      setLoading(false);
     } catch (err) {
+      if (err.message && err.message.includes('not ready') && retries > 0) {
+        setTimeout(() => loadData(retries - 1), 500);
+        return;
+      }
       console.error('[SupervisorDirectory] Load error:', err);
       setError(err.message || 'Failed to load data');
-    } finally {
       setLoading(false);
     }
   }, []);
