@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-27T22:39:29.894Z
+ * Generated: 2026-05-27T22:48:38.340Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13927,7 +13927,7 @@ function DailyBoardTab(props) {
   var [pickerOpen, setPickerOpen] = useState(null); // { moduleSerial, deptId, taskId, taskName, currentStatus }
   var [saving, setSaving] = useState({});
   var isAdmin = stbIsAdmin(currentUser);
-  var weekStart = weekSchedule ? weekSchedule.week_start_date : null;
+  var weekStart = weekSchedule ? weekSchedule.week_start : null;
   var weekDays = useMemo(function () {
     return stbWeekDates(weekStart);
   }, [weekStart]);
@@ -14293,6 +14293,7 @@ function WeekSetupTab(props) {
     var val = e.target.value;
     setStartSerial(val);
     console.log('[StationBoard] modules prop length:', modules ? modules.length : 'undefined');
+    console.log('[StationBoard] module keys:', modules && modules[0] ? Object.keys(modules[0]) : 'no modules');
     console.log('[StationBoard] first module sample:', modules && modules[0] ? modules[0] : 'none');
     if (val.length >= 2 && modules) {
       var matches = modules.filter(function (m) {
@@ -14587,7 +14588,7 @@ function HandoffReportTab(props) {
   var [generating, setGenerating] = useState(false);
   var [error, setError] = useState('');
   var isAdmin = stbIsAdmin(currentUser);
-  var weekStart = weekSchedule ? weekSchedule.week_start_date : null;
+  var weekStart = weekSchedule ? weekSchedule.week_start : null;
   useEffect(function () {
     if (!weekStart) {
       setLoading(false);
@@ -15114,9 +15115,9 @@ function StationTaskBoard(props) {
       setLoading(false);
 
       // Load completions for current week
-      if (results[1] && results[1].week_start_date) {
-        loadCompletions(results[1].week_start_date);
-        subscribeToCompletions(results[1].week_start_date);
+      if (results[1] && results[1].week_start) {
+        loadCompletions(results[1].week_start);
+        subscribeToCompletions(results[1].week_start);
       }
     }).catch(function (err) {
       console.error('[StationTaskBoard] Load error:', err);
@@ -15157,7 +15158,7 @@ function StationTaskBoard(props) {
   function handleUpdateCompletion(params) {
     // Optimistic: update local immediately
     var optimisticCompletion = {
-      week_start_date: params.weekStartDate,
+      week_start: params.weekStartDate,
       target_date: params.targetDate,
       department_id: params.departmentId,
       module_serial: params.moduleSerial,
