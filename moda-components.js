@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-27T22:48:38.340Z
+ * Generated: 2026-05-27T22:52:06.284Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13821,6 +13821,12 @@ function stbShiftWeek(ws, delta) {
 function stbToday() {
   return stbFormatDate(new Date());
 }
+function safeWeekStart(val) {
+  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  var SB = window.MODA_STATION_BOARD;
+  if (SB && SB.weekStart) return SB.weekStart();
+  return stbGetCurrentWeekStart();
+}
 function stbCalcCompletionPct(tasks, completionMap, moduleSerial, deptId) {
   if (!tasks || tasks.length === 0) return 0;
   var total = 0;
@@ -14259,9 +14265,9 @@ function WeekSetupTab(props) {
     tue: 5,
     wed: 5,
     thu: 5,
-    fri: 5,
-    sat: 5,
-    sun: 5
+    fri: 2,
+    sat: 2,
+    sun: 2
   });
   var [generating, setGenerating] = useState(false);
   var [completing, setCompleting] = useState(false);
@@ -14292,13 +14298,9 @@ function WeekSetupTab(props) {
   function handleSerialChange(e) {
     var val = e.target.value;
     setStartSerial(val);
-    console.log('[StationBoard] modules prop length:', modules ? modules.length : 'undefined');
-    console.log('[StationBoard] module keys:', modules && modules[0] ? Object.keys(modules[0]) : 'no modules');
-    console.log('[StationBoard] first module sample:', modules && modules[0] ? modules[0] : 'none');
     if (val.length >= 2 && modules) {
       var matches = modules.filter(function (m) {
-        var sn = m.serialNumber || m.serial_number || '';
-        return sn.toLowerCase().includes(val.toLowerCase());
+        return (m.serialNumber || '').toLowerCase().includes(val.toLowerCase());
       }).slice(0, 8);
       setSerialSuggestions(matches);
       setShowSuggestions(matches.length > 0);
@@ -14329,7 +14331,6 @@ function WeekSetupTab(props) {
     });
   }
   function handleGenerate() {
-    console.log('[StationBoard] generating with', modules ? modules.length : 0, 'modules, startSerial:', startSerial);
     if (!startSerial) {
       setError('Enter a starting serial number');
       return;
@@ -14344,7 +14345,7 @@ function WeekSetupTab(props) {
       return;
     }
     SB.generateWeekAssignments({
-      weekStartDate: setupWeek,
+      weekStartDate: safeWeekStart(setupWeek),
       startingSerial: startSerial,
       lineBalance: dailyQtys.mon,
       modules: modules,
@@ -14370,11 +14371,11 @@ function WeekSetupTab(props) {
       return;
     }
     SUP.generateHandoffReport({
-      weekStartDate: setupWeek,
+      weekStartDate: safeWeekStart(setupWeek),
       projectId: projectId
     }).then(function () {
       var SB = window.MODA_STATION_BOARD;
-      return SB.updateWeekStatus(setupWeek, 'shift_1_complete');
+      return SB.updateWeekStatus(safeWeekStart(setupWeek), 'shift_1_complete');
     }).then(function () {
       setCompleting(false);
       setSuccess('Shift 1 marked complete. Handoff report generated.');
@@ -14394,11 +14395,11 @@ function WeekSetupTab(props) {
       return;
     }
     SUP.completeShift2({
-      weekStartDate: setupWeek,
+      weekStartDate: safeWeekStart(setupWeek),
       projectId: projectId
     }).then(function () {
       var SB = window.MODA_STATION_BOARD;
-      return SB.updateWeekStatus(setupWeek, 'complete');
+      return SB.updateWeekStatus(safeWeekStart(setupWeek), 'complete');
     }).then(function () {
       setCompleting(false);
       setSuccess('Week completed.');
@@ -14465,19 +14466,19 @@ function WeekSetupTab(props) {
         setShowSuggestions(false);
       }, 200);
     },
-    placeholder: "e.g. AV-001",
+    placeholder: "e.g. 26-0413",
     className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
   }), showSuggestions && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto"
   }, serialSuggestions.map(function (m) {
-    var sn = m.serialNumber || m.serial_number || '';
+    var sn = m.serialNumber || '';
     return /*#__PURE__*/React.createElement("button", {
       key: sn,
       onClick: function () {
         handleSelectSerial(sn);
       },
       className: "w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-    }, sn, " ", m.blmId || m.blm_id ? '(' + (m.blmId || m.blm_id) + ')' : '');
+    }, sn, " ", m.hitchBLM ? '(' + m.hitchBLM + ')' : '');
   }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
   }, "Daily Module Quantities"), /*#__PURE__*/React.createElement("div", {
@@ -14601,7 +14602,7 @@ function HandoffReportTab(props) {
       return;
     }
     SUP.getHandoffReport({
-      weekStartDate: weekStart,
+      weekStartDate: safeWeekStart(weekStart),
       projectId: projectId
     }).then(function (data) {
       setReport(data);
@@ -14621,7 +14622,7 @@ function HandoffReportTab(props) {
       return;
     }
     SUP.generateHandoffReport({
-      weekStartDate: weekStart,
+      weekStartDate: safeWeekStart(weekStart),
       projectId: projectId
     }).then(function (data) {
       setReport(data);
@@ -15116,8 +15117,8 @@ function StationTaskBoard(props) {
 
       // Load completions for current week
       if (results[1] && results[1].week_start) {
-        loadCompletions(results[1].week_start);
-        subscribeToCompletions(results[1].week_start);
+        loadCompletions(safeWeekStart(results[1].week_start));
+        subscribeToCompletions(safeWeekStart(results[1].week_start));
       }
     }).catch(function (err) {
       console.error('[StationTaskBoard] Load error:', err);

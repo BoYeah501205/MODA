@@ -82,6 +82,13 @@ function stbToday() {
     return stbFormatDate(new Date());
 }
 
+function safeWeekStart(val) {
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+    var SB = window.MODA_STATION_BOARD;
+    if (SB && SB.weekStart) return SB.weekStart();
+    return stbGetCurrentWeekStart();
+}
+
 function stbCalcCompletionPct(tasks, completionMap, moduleSerial, deptId) {
     if (!tasks || tasks.length === 0) return 0;
     var total = 0;
@@ -507,7 +514,7 @@ function WeekSetupTab(props) {
 
     var [setupWeek, setSetupWeek] = useState(stbGetCurrentWeekStart());
     var [startSerial, setStartSerial] = useState('');
-    var [dailyQtys, setDailyQtys] = useState({ mon: 5, tue: 5, wed: 5, thu: 5, fri: 5, sat: 5, sun: 5 });
+    var [dailyQtys, setDailyQtys] = useState({ mon: 5, tue: 5, wed: 5, thu: 5, fri: 2, sat: 2, sun: 2 });
     var [generating, setGenerating] = useState(false);
     var [completing, setCompleting] = useState(false);
     var [error, setError] = useState('');
@@ -533,13 +540,9 @@ function WeekSetupTab(props) {
     function handleSerialChange(e) {
         var val = e.target.value;
         setStartSerial(val);
-        console.log('[StationBoard] modules prop length:', modules ? modules.length : 'undefined');
-        console.log('[StationBoard] module keys:', modules && modules[0] ? Object.keys(modules[0]) : 'no modules');
-        console.log('[StationBoard] first module sample:', modules && modules[0] ? modules[0] : 'none');
         if (val.length >= 2 && modules) {
             var matches = modules.filter(function(m) {
-                var sn = m.serialNumber || m.serial_number || '';
-                return sn.toLowerCase().includes(val.toLowerCase());
+                return (m.serialNumber || '').toLowerCase().includes(val.toLowerCase());
             }).slice(0, 8);
             setSerialSuggestions(matches);
             setShowSuggestions(matches.length > 0);
@@ -571,7 +574,6 @@ function WeekSetupTab(props) {
     }
 
     function handleGenerate() {
-        console.log('[StationBoard] generating with', modules ? modules.length : 0, 'modules, startSerial:', startSerial);
         if (!startSerial) { setError('Enter a starting serial number'); return; }
         setGenerating(true);
         setError('');
@@ -581,7 +583,7 @@ function WeekSetupTab(props) {
         if (!SB) { setError('Station board data layer not loaded'); setGenerating(false); return; }
 
         SB.generateWeekAssignments({
-            weekStartDate: setupWeek,
+            weekStartDate: safeWeekStart(setupWeek),
             startingSerial: startSerial,
             lineBalance: dailyQtys.mon,
             modules: modules,
@@ -604,10 +606,10 @@ function WeekSetupTab(props) {
         var SUP = window.MODA_SUPERVISORS;
         if (!SUP) { setError('Supervisor data layer not loaded'); setCompleting(false); return; }
 
-        SUP.generateHandoffReport({ weekStartDate: setupWeek, projectId: projectId })
+        SUP.generateHandoffReport({ weekStartDate: safeWeekStart(setupWeek), projectId: projectId })
             .then(function() {
                 var SB = window.MODA_STATION_BOARD;
-                return SB.updateWeekStatus(setupWeek, 'shift_1_complete');
+                return SB.updateWeekStatus(safeWeekStart(setupWeek), 'shift_1_complete');
             })
             .then(function() {
                 setCompleting(false);
@@ -626,10 +628,10 @@ function WeekSetupTab(props) {
         var SUP = window.MODA_SUPERVISORS;
         if (!SUP) { setError('Supervisor data layer not loaded'); setCompleting(false); return; }
 
-        SUP.completeShift2({ weekStartDate: setupWeek, projectId: projectId })
+        SUP.completeShift2({ weekStartDate: safeWeekStart(setupWeek), projectId: projectId })
             .then(function() {
                 var SB = window.MODA_STATION_BOARD;
-                return SB.updateWeekStatus(setupWeek, 'complete');
+                return SB.updateWeekStatus(safeWeekStart(setupWeek), 'complete');
             })
             .then(function() {
                 setCompleting(false);
@@ -687,16 +689,16 @@ function WeekSetupTab(props) {
                         onChange={handleSerialChange}
                         onFocus={function() { if (serialSuggestions.length > 0) setShowSuggestions(true); }}
                         onBlur={function() { setTimeout(function() { setShowSuggestions(false); }, 200); }}
-                        placeholder="e.g. AV-001"
+                        placeholder="e.g. 26-0413"
                         className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
                     />
                     {showSuggestions && (
                         <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                             {serialSuggestions.map(function(m) {
-                                var sn = m.serialNumber || m.serial_number || '';
+                                var sn = m.serialNumber || '';
                                 return (
                                     <button key={sn} onClick={function() { handleSelectSerial(sn); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
-                                        {sn} {m.blmId || m.blm_id ? '(' + (m.blmId || m.blm_id) + ')' : ''}
+                                        {sn} {m.hitchBLM ? '(' + m.hitchBLM + ')' : ''}
                                     </button>
                                 );
                             })}
@@ -831,7 +833,7 @@ function HandoffReportTab(props) {
         var SUP = window.MODA_SUPERVISORS;
         if (!SUP || !SUP.getHandoffReport) { setLoading(false); return; }
 
-        SUP.getHandoffReport({ weekStartDate: weekStart, projectId: projectId })
+        SUP.getHandoffReport({ weekStartDate: safeWeekStart(weekStart), projectId: projectId })
             .then(function(data) {
                 setReport(data);
                 setLoading(false);
@@ -848,7 +850,7 @@ function HandoffReportTab(props) {
         var SUP = window.MODA_SUPERVISORS;
         if (!SUP) { setError('Supervisor data layer not loaded'); setGenerating(false); return; }
 
-        SUP.generateHandoffReport({ weekStartDate: weekStart, projectId: projectId })
+        SUP.generateHandoffReport({ weekStartDate: safeWeekStart(weekStart), projectId: projectId })
             .then(function(data) {
                 setReport(data);
                 setGenerating(false);
@@ -1276,8 +1278,8 @@ function StationTaskBoard(props) {
 
             // Load completions for current week
             if (results[1] && results[1].week_start) {
-                loadCompletions(results[1].week_start);
-                subscribeToCompletions(results[1].week_start);
+                loadCompletions(safeWeekStart(results[1].week_start));
+                subscribeToCompletions(safeWeekStart(results[1].week_start));
             }
         }).catch(function(err) {
             console.error('[StationTaskBoard] Load error:', err);
