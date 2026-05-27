@@ -585,8 +585,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
         function Dashboard({ auth }) {
             // Use URL-based navigation if feature flag is enabled, otherwise use local state
             const useUrlNav = isFeatureEnabled('enableUrlNavigation', auth.currentUser?.email) && window.useUrlNavigation;
-            const [urlActiveTab, urlSetActiveTab] = useUrlNav ? window.useUrlNavigation('home') : [null, null];
-            const [localActiveTab, setLocalActiveTab] = useState('home');
+            const [urlActiveTab, urlSetActiveTab] = useUrlNav ? window.useUrlNavigation('production') : [null, null];
+            const [localActiveTab, setLocalActiveTab] = useState('production');
             
             // Use URL navigation if available, otherwise fall back to local state
             const activeTab = useUrlNav ? urlActiveTab : localActiveTab;
@@ -1085,9 +1085,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 {window.MobileNavigation && (
                                     <window.MobileNavigation
                                         tabs={[
-                                            {id: 'executive', label: 'Executive', icon: 'icon-executive'},
-                                            {id: 'production', label: 'Production', icon: 'icon-production'},
                                             {id: 'projects', label: 'Projects', icon: 'icon-projects'},
+                                            {id: 'production', label: 'Operations', icon: 'icon-production'}
+                                            /* HIDDEN MOBILE NAV ITEMS - re-enable by uncommenting:
+                                            ,{id: 'executive', label: 'Executive', icon: 'icon-executive'},
                                             {id: 'people', label: 'People', icon: 'icon-people'},
                                             {id: 'qa', label: 'QA', icon: 'icon-qa'},
                                             {id: 'transport', label: 'Transport', icon: 'icon-transport'},
@@ -1098,7 +1099,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                             {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
                                             {id: 'onsite', label: 'On-Site', icon: 'icon-building'},
                                             {id: 'reports', label: 'Reports', icon: 'icon-reports'},
-                                            {id: 'automation', label: 'Automation', icon: 'icon-automation'}
+                                            {id: 'automation', label: 'Automation', icon: 'icon-automation'},
+                                            */
                                         ].filter(tab => auth.visibleTabs.includes(tab.id))}
                                         activeTab={activeTab}
                                         onTabChange={(tabId) => { setActiveTab(tabId); setSelectedProject(null); }}
@@ -1164,9 +1166,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         </button>
                                     )}
                                     {[
-                                        {id: 'executive', label: 'Executive', icon: 'icon-executive'},
-                                        {id: 'production', label: 'Production', icon: 'icon-production'},
                                         {id: 'projects', label: 'Projects', icon: 'icon-projects'},
+                                        {id: 'production', label: 'Operations', icon: 'icon-production'}
+                                        /* HIDDEN NAV ITEMS - re-enable by uncommenting:
+                                        {id: 'executive', label: 'Executive', icon: 'icon-executive'},
                                         {id: 'people', label: 'People', icon: 'icon-people'},
                                         {id: 'qa', label: 'QA', icon: 'icon-qa'},
                                         {id: 'transport', label: 'Transport', icon: 'icon-transport'},
@@ -1175,7 +1178,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         {id: 'onsite', label: 'On-Site', icon: 'icon-onsite'},
                                         {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
                                         {id: 'automation', label: 'Automation', icon: 'icon-automation'},
-                                        {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'}
+                                        {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'},
+                                        */
                                     ]
                                     .filter(tab => auth.visibleTabs.includes(tab.id)) // FILTER BASED ON ROLE
                                     .map(tab => (
@@ -1748,12 +1752,14 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 <div className="border-b flex overflow-x-auto">
                                     {[
                                         { id: 'station-task-board', label: 'Station Board' },
-                                        { id: 'station-board-report', label: 'Board Report' },
-                                        { id: 'weekly-board', label: 'Weekly Board' },
+                                        { id: 'station-board-report', label: 'Board Report' }
+                                        /* HIDDEN SUB-TABS - re-enable by uncommenting:
+                                        ,{ id: 'weekly-board', label: 'Weekly Board' },
                                         { id: 'module-status', label: 'Module Status' },
                                         { id: 'staggers', label: 'Station Stagger' },
                                         { id: 'schedule-setup', label: 'Schedule Setup' },
                                         { id: 'reports', label: 'Reports' }
+                                        */
                                     ].map(tab => (
                                         <button
                                             key={tab.id}

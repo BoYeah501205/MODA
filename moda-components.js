@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-15T02:13:52.046Z
+ * Generated: 2026-05-27T18:20:22.905Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -17743,87 +17743,76 @@ window.DashboardHome = DashboardHome;
  * Single-tab groups auto-render as standalone buttons (no dropdown)
  */
 
-// Navigation group definitions
+// Navigation group definitions - SIMPLIFIED: Only Projects and Operations shown
 const NAV_GROUPS = [{
   id: 'operations',
   label: 'Operations',
   iconClass: 'icon-production',
   tabs: [{
     id: 'production',
-    label: 'Production Board',
+    label: 'Station Board',
     iconClass: 'icon-production'
-  }, {
-    id: 'tracker',
-    label: 'Tracker',
-    iconClass: 'icon-tracker'
-  }, {
-    id: 'people',
-    label: 'People',
-    iconClass: 'icon-people'
-  }, {
-    id: 'automation',
-    label: 'Automation',
-    iconClass: 'icon-automation'
-  }, {
-    id: 'equipment',
-    label: 'Tools & Equipment',
-    iconClass: 'icon-equipment'
-  }, {
-    id: 'supplychain',
-    label: 'Supply Chain',
-    iconClass: 'icon-supply-chain'
   }]
 }, {
   id: 'design',
   label: 'Projects',
-  iconClass: 'icon-precon',
+  iconClass: 'icon-projects',
   tabs: [{
     id: 'projects',
     label: 'Projects',
     iconClass: 'icon-projects'
-  }, {
-    id: 'precon',
-    label: 'Precon',
-    iconClass: 'icon-precon'
-  }, {
-    id: 'engineering',
-    label: 'Engineering',
-    iconClass: 'icon-engineering'
-  }, {
-    id: 'drawings',
-    label: 'Drawings',
-    iconClass: 'icon-drawings'
   }]
-}, {
-  id: 'quality-site',
-  label: 'Quality & Site',
-  iconClass: 'icon-qa',
-  tabs: [{
-    id: 'qa',
-    label: 'QA',
-    iconClass: 'icon-qa'
-  }, {
-    id: 'onsite',
-    label: 'On-Site',
-    iconClass: 'icon-onsite'
-  }]
-}, {
-  id: 'supply-logistics',
-  label: 'Supply & Logistics',
-  iconClass: 'icon-transport',
-  tabs: [{
-    id: 'transport',
-    label: 'Transport',
-    iconClass: 'icon-transport'
-  }]
-}];
+}
+/* HIDDEN NAV GROUPS - re-enable by uncommenting:
+,{
+    id: 'operations-full',
+    label: 'Operations (Full)',
+    iconClass: 'icon-production',
+    tabs: [
+        { id: 'production', label: 'Production Board', iconClass: 'icon-production' },
+        { id: 'tracker', label: 'Tracker', iconClass: 'icon-tracker' },
+        { id: 'people', label: 'People', iconClass: 'icon-people' },
+        { id: 'automation', label: 'Automation', iconClass: 'icon-automation' },
+        { id: 'equipment', label: 'Tools & Equipment', iconClass: 'icon-equipment' },
+        { id: 'supplychain', label: 'Supply Chain', iconClass: 'icon-supply-chain' }
+    ]
+},
+{
+    id: 'design-full',
+    label: 'Projects (Full)',
+    iconClass: 'icon-precon',
+    tabs: [
+        { id: 'projects', label: 'Projects', iconClass: 'icon-projects' },
+        { id: 'precon', label: 'Precon', iconClass: 'icon-precon' },
+        { id: 'engineering', label: 'Engineering', iconClass: 'icon-engineering' },
+        { id: 'drawings', label: 'Drawings', iconClass: 'icon-drawings' }
+    ]
+},
+{
+    id: 'quality-site',
+    label: 'Quality & Site',
+    iconClass: 'icon-qa',
+    tabs: [
+        { id: 'qa', label: 'QA', iconClass: 'icon-qa' },
+        { id: 'onsite', label: 'On-Site', iconClass: 'icon-onsite' }
+    ]
+},
+{
+    id: 'supply-logistics',
+    label: 'Supply & Logistics',
+    iconClass: 'icon-transport',
+    tabs: [
+        { id: 'transport', label: 'Transport', iconClass: 'icon-transport' }
+    ]
+}
+*/];
 
-// Standalone tabs (not in groups)
-const STANDALONE_TABS = [{
-  id: 'executive',
-  label: 'Executive',
-  iconClass: 'icon-executive'
-}];
+// Standalone tabs (not in groups) - HIDDEN: Executive tab commented out
+const STANDALONE_TABS = [
+  /* HIDDEN STANDALONE TABS - re-enable by uncommenting:
+  { id: 'executive', label: 'Executive', iconClass: 'icon-executive' }
+  */
+];
 
 // Navigation Group Component
 function NavigationGroups({
@@ -59079,8 +59068,8 @@ function Dashboard({
 }) {
   // Use URL-based navigation if feature flag is enabled, otherwise use local state
   const useUrlNav = isFeatureEnabled('enableUrlNavigation', auth.currentUser?.email) && window.useUrlNavigation;
-  const [urlActiveTab, urlSetActiveTab] = useUrlNav ? window.useUrlNavigation('home') : [null, null];
-  const [localActiveTab, setLocalActiveTab] = useState('home');
+  const [urlActiveTab, urlSetActiveTab] = useUrlNav ? window.useUrlNavigation('production') : [null, null];
+  const [localActiveTab, setLocalActiveTab] = useState('production');
 
   // Use URL navigation if available, otherwise fall back to local state
   const activeTab = useUrlNav ? urlActiveTab : localActiveTab;
@@ -59593,62 +59582,28 @@ function Dashboard({
     className: "flex items-center gap-4"
   }, window.MobileNavigation && /*#__PURE__*/React.createElement(window.MobileNavigation, {
     tabs: [{
-      id: 'executive',
-      label: 'Executive',
-      icon: 'icon-executive'
-    }, {
-      id: 'production',
-      label: 'Production',
-      icon: 'icon-production'
-    }, {
       id: 'projects',
       label: 'Projects',
       icon: 'icon-projects'
     }, {
-      id: 'people',
-      label: 'People',
-      icon: 'icon-people'
-    }, {
-      id: 'qa',
-      label: 'QA',
-      icon: 'icon-qa'
-    }, {
-      id: 'transport',
-      label: 'Transport',
-      icon: 'icon-transport'
-    }, {
-      id: 'equipment',
-      label: 'Tools & Equipment',
-      icon: 'icon-equipment'
-    }, {
-      id: 'precon',
-      label: 'Precon',
-      icon: 'icon-precon'
-    }, {
-      id: 'tracker',
-      label: 'Tracker',
-      icon: 'icon-tracker'
-    }, {
-      id: 'drawings',
-      label: 'Drawings',
-      icon: 'icon-drawings'
-    }, {
-      id: 'engineering',
-      label: 'Engineering',
-      icon: 'icon-engineering'
-    }, {
-      id: 'onsite',
-      label: 'On-Site',
-      icon: 'icon-building'
-    }, {
-      id: 'reports',
-      label: 'Reports',
-      icon: 'icon-reports'
-    }, {
-      id: 'automation',
-      label: 'Automation',
-      icon: 'icon-automation'
-    }].filter(tab => auth.visibleTabs.includes(tab.id)),
+      id: 'production',
+      label: 'Operations',
+      icon: 'icon-production'
+    }
+    /* HIDDEN MOBILE NAV ITEMS - re-enable by uncommenting:
+    ,{id: 'executive', label: 'Executive', icon: 'icon-executive'},
+    {id: 'people', label: 'People', icon: 'icon-people'},
+    {id: 'qa', label: 'QA', icon: 'icon-qa'},
+    {id: 'transport', label: 'Transport', icon: 'icon-transport'},
+    {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
+    {id: 'precon', label: 'Precon', icon: 'icon-precon'},
+    {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'},
+    {id: 'drawings', label: 'Drawings', icon: 'icon-drawings'},
+    {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
+    {id: 'onsite', label: 'On-Site', icon: 'icon-building'},
+    {id: 'reports', label: 'Reports', icon: 'icon-reports'},
+    {id: 'automation', label: 'Automation', icon: 'icon-automation'},
+    */].filter(tab => auth.visibleTabs.includes(tab.id)),
     activeTab: activeTab,
     onTabChange: tabId => {
       setActiveTab(tabId);
@@ -59726,54 +59681,26 @@ function Dashboard({
   }, /*#__PURE__*/React.createElement("span", {
     className: "tab-icon icon-home"
   }), "Home"), [{
-    id: 'executive',
-    label: 'Executive',
-    icon: 'icon-executive'
-  }, {
-    id: 'production',
-    label: 'Production',
-    icon: 'icon-production'
-  }, {
     id: 'projects',
     label: 'Projects',
     icon: 'icon-projects'
   }, {
-    id: 'people',
-    label: 'People',
-    icon: 'icon-people'
-  }, {
-    id: 'qa',
-    label: 'QA',
-    icon: 'icon-qa'
-  }, {
-    id: 'transport',
-    label: 'Transport',
-    icon: 'icon-transport'
-  }, {
-    id: 'equipment',
-    label: 'Tools & Equipment',
-    icon: 'icon-equipment'
-  }, {
-    id: 'precon',
-    label: 'Precon',
-    icon: 'icon-precon'
-  }, {
-    id: 'onsite',
-    label: 'On-Site',
-    icon: 'icon-onsite'
-  }, {
-    id: 'engineering',
-    label: 'Engineering',
-    icon: 'icon-engineering'
-  }, {
-    id: 'automation',
-    label: 'Automation',
-    icon: 'icon-automation'
-  }, {
-    id: 'tracker',
-    label: 'Tracker',
-    icon: 'icon-tracker'
-  }].filter(tab => auth.visibleTabs.includes(tab.id)) // FILTER BASED ON ROLE
+    id: 'production',
+    label: 'Operations',
+    icon: 'icon-production'
+  }
+  /* HIDDEN NAV ITEMS - re-enable by uncommenting:
+  {id: 'executive', label: 'Executive', icon: 'icon-executive'},
+  {id: 'people', label: 'People', icon: 'icon-people'},
+  {id: 'qa', label: 'QA', icon: 'icon-qa'},
+  {id: 'transport', label: 'Transport', icon: 'icon-transport'},
+  {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
+  {id: 'precon', label: 'Precon', icon: 'icon-precon'},
+  {id: 'onsite', label: 'On-Site', icon: 'icon-onsite'},
+  {id: 'engineering', label: 'Engineering', icon: 'icon-engineering'},
+  {id: 'automation', label: 'Automation', icon: 'icon-automation'},
+  {id: 'tracker', label: 'Tracker', icon: 'icon-tracker'},
+  */].filter(tab => auth.visibleTabs.includes(tab.id)) // FILTER BASED ON ROLE
   .map(tab => /*#__PURE__*/React.createElement("button", {
     key: tab.id,
     onClick: () => {
@@ -60370,22 +60297,14 @@ function ProductionDashboard({
   }, {
     id: 'station-board-report',
     label: 'Board Report'
-  }, {
-    id: 'weekly-board',
-    label: 'Weekly Board'
-  }, {
-    id: 'module-status',
-    label: 'Module Status'
-  }, {
-    id: 'staggers',
-    label: 'Station Stagger'
-  }, {
-    id: 'schedule-setup',
-    label: 'Schedule Setup'
-  }, {
-    id: 'reports',
-    label: 'Reports'
-  }].map(tab => /*#__PURE__*/React.createElement("button", {
+  }
+  /* HIDDEN SUB-TABS - re-enable by uncommenting:
+  ,{ id: 'weekly-board', label: 'Weekly Board' },
+  { id: 'module-status', label: 'Module Status' },
+  { id: 'staggers', label: 'Station Stagger' },
+  { id: 'schedule-setup', label: 'Schedule Setup' },
+  { id: 'reports', label: 'Reports' }
+  */].map(tab => /*#__PURE__*/React.createElement("button", {
     key: tab.id,
     onClick: () => setProductionTab(tab.id),
     className: `px-6 py-3 text-sm font-medium transition ${productionTab === tab.id ? 'text-autovol-teal border-b-2 border-autovol-teal' : 'text-gray-500 hover:text-gray-700'}`

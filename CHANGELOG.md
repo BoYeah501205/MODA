@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.80**
+**Current Version: 1.5.81**
 
 ---
+
+## [1.5.81] - 2026-05-27
+### Changed
+- **Simplified navigation** to three tabs: Projects, Operations, Admin
+- Operations sub-tabs reduced to Station Board and Board Report only
+- Default landing page changed to Operations/Station Board
+- All hidden tabs preserved as commented-out code for easy re-enabling
+- Backup branch `backup/full-feature-set` pushed before changes
 
 ## [1.5.80] - 2026-05-13
 ### Feature

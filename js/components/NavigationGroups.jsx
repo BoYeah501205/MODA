@@ -15,11 +15,28 @@
  * Single-tab groups auto-render as standalone buttons (no dropdown)
  */
 
-// Navigation group definitions
+// Navigation group definitions - SIMPLIFIED: Only Projects and Operations shown
 const NAV_GROUPS = [
     {
         id: 'operations',
         label: 'Operations',
+        iconClass: 'icon-production',
+        tabs: [
+            { id: 'production', label: 'Station Board', iconClass: 'icon-production' }
+        ]
+    },
+    {
+        id: 'design',
+        label: 'Projects',
+        iconClass: 'icon-projects',
+        tabs: [
+            { id: 'projects', label: 'Projects', iconClass: 'icon-projects' }
+        ]
+    }
+    /* HIDDEN NAV GROUPS - re-enable by uncommenting:
+    ,{
+        id: 'operations-full',
+        label: 'Operations (Full)',
         iconClass: 'icon-production',
         tabs: [
             { id: 'production', label: 'Production Board', iconClass: 'icon-production' },
@@ -31,8 +48,8 @@ const NAV_GROUPS = [
         ]
     },
     {
-        id: 'design',
-        label: 'Projects',
+        id: 'design-full',
+        label: 'Projects (Full)',
         iconClass: 'icon-precon',
         tabs: [
             { id: 'projects', label: 'Projects', iconClass: 'icon-projects' },
@@ -58,11 +75,14 @@ const NAV_GROUPS = [
             { id: 'transport', label: 'Transport', iconClass: 'icon-transport' }
         ]
     }
+    */
 ];
 
-// Standalone tabs (not in groups)
+// Standalone tabs (not in groups) - HIDDEN: Executive tab commented out
 const STANDALONE_TABS = [
+    /* HIDDEN STANDALONE TABS - re-enable by uncommenting:
     { id: 'executive', label: 'Executive', iconClass: 'icon-executive' }
+    */
 ];
 
 // Navigation Group Component
