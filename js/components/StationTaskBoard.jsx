@@ -200,6 +200,11 @@ function DailyBoardTab(props) {
 
     var isAdmin = stbIsAdmin(currentUser);
     var weekStart = weekSchedule ? weekSchedule.week_start : null;
+    console.log('[DailyBoard] weekSchedule:', weekSchedule);
+    console.log('[DailyBoard] weekStart:', weekStart, 'type:', typeof weekStart);
+    console.log('[DailyBoard] assignments on weekSchedule:', weekSchedule ? (weekSchedule.assignments ? weekSchedule.assignments.length : 'NO .assignments key') : 'no weekSchedule');
+    console.log('[DailyBoard] lineDepts:', lineDepts ? lineDepts.length : 'null');
+    console.log('[DailyBoard] modules prop:', modules ? modules.length : 'null');
     var weekDays = useMemo(function() { return stbWeekDates(weekStart); }, [weekStart]);
 
     // Determine which days this user can see
@@ -249,10 +254,15 @@ function DailyBoardTab(props) {
 
     // Get modules assigned to a dept on selected day from schedule
     function getModulesForDeptDay(deptId) {
-        if (!weekSchedule || !weekSchedule.assignments) return [];
-        return weekSchedule.assignments.filter(function(a) {
+        if (!weekSchedule || !weekSchedule.assignments) {
+            console.log('[DailyBoard] getModulesForDeptDay - no assignments for dept:', deptId, 'selectedDay:', selectedDay);
+            return [];
+        }
+        var filtered = weekSchedule.assignments.filter(function(a) {
             return a.department_id === deptId && a.target_date === selectedDay;
-        }).map(function(a) {
+        });
+        console.log('[DailyBoard] getModulesForDeptDay dept:', deptId, 'day:', selectedDay, 'found:', filtered.length, 'of', weekSchedule.assignments.length, 'total assignments');
+        return filtered.map(function(a) {
             var mod = modules.find(function(m) { return m.serialNumber === a.module_serial; });
             return { serial: a.module_serial, blm: mod ? (mod.hitchBLM || '') : '', module: mod };
         });
@@ -675,6 +685,15 @@ function WeekCard(props) {
                 dailyOverrides: buildDailyOverrides(lineDepts || [], weekStart, dailyQtys),
             });
         }).then(function(result) {
+            // Re-fetch schedule to update local state with saved status
+            var SB2 = window.MODA_STATION_BOARD;
+            return SB2.getWeeklySchedule(safeWeekStart(weekStart)).then(function(updated) {
+                if (updated && props.onScheduleUpdated) {
+                    props.onScheduleUpdated(safeWeekStart(weekStart), updated);
+                }
+                return result;
+            });
+        }).then(function(result) {
             setSaving(false);
             setSuccess('Saved: ' + (result.totalAssignments || 0) + ' assignments');
             if (onRefresh) onRefresh();
@@ -917,6 +936,15 @@ function WeekSetupTab(props) {
         });
     }, [weekStarts]);
 
+    // Callback: when a WeekCard saves, update local schedules state
+    function handleScheduleUpdated(ws, updatedSchedule) {
+        setSchedules(function(prev) {
+            var next = Object.assign({}, prev);
+            next[ws] = updatedSchedule;
+            return next;
+        });
+    }
+
     // Track cascade data from each week card: { weekIdx: { serial, total } }
     var cascadeRef = useRef({});
     function handleQtysChange(weekIdx, serial, total) {
@@ -992,6 +1020,7 @@ function WeekSetupTab(props) {
                             prevWeekSerial={prev.serial}
                             prevWeekTotal={prev.total}
                             onQtysChange={handleQtysChange}
+                            onScheduleUpdated={handleScheduleUpdated}
                             defaultExpanded={idx === 0}
                         />
                     );
@@ -1509,16 +1538,34 @@ function StationTaskBoard(props) {
 
         Promise.all(promises).then(function(results) {
             setSupervisorProfile(results[0]);
-            setWeekSchedule(results[1]);
+            var schedule = results[1];
             setShifts(results[2] || []);
             setLineDepts(results[3] || []);
             setAllTasks(results[4] || []);
-            setLoading(false);
 
-            // Load completions for current week
-            if (results[1] && results[1].week_start) {
-                loadCompletions(safeWeekStart(results[1].week_start));
-                subscribeToCompletions(safeWeekStart(results[1].week_start));
+            // Also load assignments for this week and attach to schedule
+            if (schedule && schedule.week_start) {
+                var ws = safeWeekStart(schedule.week_start);
+                console.log('[StationTaskBoard] Schedule loaded, fetching assignments for ws:', ws);
+                SB.getDayAssignments(ws).then(function(assignments) {
+                    console.log('[StationTaskBoard] Assignments loaded:', assignments ? assignments.length : 0);
+                    schedule.assignments = assignments || [];
+                    setWeekSchedule(Object.assign({}, schedule));
+                    setLoading(false);
+                    loadCompletions(ws);
+                    subscribeToCompletions(ws);
+                }).catch(function(err) {
+                    console.error('[StationTaskBoard] Assignments load error:', err);
+                    schedule.assignments = [];
+                    setWeekSchedule(Object.assign({}, schedule));
+                    setLoading(false);
+                    loadCompletions(ws);
+                    subscribeToCompletions(ws);
+                });
+            } else {
+                console.warn('[StationTaskBoard] No weekly schedule found for', weekStart);
+                setWeekSchedule(null);
+                setLoading(false);
             }
         }).catch(function(err) {
             console.error('[StationTaskBoard] Load error:', err);
