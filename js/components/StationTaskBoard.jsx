@@ -253,8 +253,8 @@ function DailyBoardTab(props) {
         return weekSchedule.assignments.filter(function(a) {
             return a.department_id === deptId && a.target_date === selectedDay;
         }).map(function(a) {
-            var mod = modules.find(function(m) { return m.serial_number === a.module_serial || m.serialNumber === a.module_serial; });
-            return { serial: a.module_serial, blm: mod ? (mod.blm_id || mod.blmId || '') : '', module: mod };
+            var mod = modules.find(function(m) { return m.serialNumber === a.module_serial; });
+            return { serial: a.module_serial, blm: mod ? (mod.hitchBLM || '') : '', module: mod };
         });
     }
 

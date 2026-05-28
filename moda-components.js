@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-28T11:18:14.233Z
+ * Generated: 2026-05-28T11:24:37.573Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14000,11 +14000,11 @@ function DailyBoardTab(props) {
       return a.department_id === deptId && a.target_date === selectedDay;
     }).map(function (a) {
       var mod = modules.find(function (m) {
-        return m.serial_number === a.module_serial || m.serialNumber === a.module_serial;
+        return m.serialNumber === a.module_serial;
       });
       return {
         serial: a.module_serial,
-        blm: mod ? mod.blm_id || mod.blmId || '' : '',
+        blm: mod ? mod.hitchBLM || '' : '',
         module: mod
       };
     });
