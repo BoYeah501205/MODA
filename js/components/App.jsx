@@ -640,9 +640,10 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // Load projects from Supabase on mount
             useEffect(() => {
                 const loadProjects = async () => {
-                    // Wait for Supabase to initialize (up to 5 seconds)
+                    // Wait for Supabase AND data layer to initialize (up to 5 seconds)
                     let attempts = 0;
-                    while (attempts < 50 && !window.MODA_SUPABASE?.isInitialized) {
+                    while (attempts < 50) {
+                        if (window.MODA_SUPABASE?.isInitialized && window.MODA_SUPABASE_DATA?.isAvailable?.()) break;
                         await new Promise(r => setTimeout(r, 100));
                         attempts++;
                     }

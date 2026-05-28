@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-28T02:47:26.082Z
+ * Generated: 2026-05-28T11:01:36.302Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -60195,9 +60195,10 @@ function Dashboard({
   // Load projects from Supabase on mount
   useEffect(() => {
     const loadProjects = async () => {
-      // Wait for Supabase to initialize (up to 5 seconds)
+      // Wait for Supabase AND data layer to initialize (up to 5 seconds)
       let attempts = 0;
-      while (attempts < 50 && !window.MODA_SUPABASE?.isInitialized) {
+      while (attempts < 50) {
+        if (window.MODA_SUPABASE?.isInitialized && window.MODA_SUPABASE_DATA?.isAvailable?.()) break;
         await new Promise(r => setTimeout(r, 100));
         attempts++;
       }
