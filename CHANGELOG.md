@@ -2,9 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.81**
+**Current Version: 1.5.82**
 
 ---
+
+## [1.5.82] - 2026-05-28
+### Changed
+- **Rebuild DailyBoardTab** - iPad-optimized two-column layout (Option B)
+  - Left panel (280px fixed): department list with colored dots, completion bars, module count; horizontal scrollable module pills below
+  - Right panel (flex): task checklist with inline status picker (no modal), module header with BLM/unit info, large dept % summary
+  - Day selector: large date tabs (60px wide, 48px tall), shift 1 blue / shift 2 orange color coding
+  - Inline status picker: 5 buttons (--/WIP/Done/Stop/N/A) below tapped task row, 52px min height, closes after selection
+  - Phone portrait: stacks vertically (dept pills → module pills → tasks)
+  - Optimistic updates with revert on error
+  - SVG status icons (circle-check, dashed-circle, circle-x, minus)
 
 ## [1.5.81] - 2026-05-27
 ### Changed

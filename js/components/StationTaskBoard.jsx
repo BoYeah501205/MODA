@@ -178,8 +178,46 @@ function STBEmpty(props) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 1: DAILY BOARD
+// TAB 1: DAILY BOARD — iPad Optimized (Option B)
+// Two-column layout: Left=dept list+module pills, Right=task checklist
+// Phone portrait: stacks vertically
 // ═══════════════════════════════════════════════════════════════════════════
+
+function DailyBoardStatusIcon(props) {
+    var status = props.status;
+    var size = props.size || 20;
+    var colors = { complete: '#16a34a', wip: '#f59e0b', not_started: '#9ca3af', stopped: '#dc2626', na: '#94a3b8' };
+    var color = colors[status] || colors.not_started;
+
+    if (status === 'complete') {
+        return React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' },
+            React.createElement('circle', { cx: 12, cy: 12, r: 10 }),
+            React.createElement('path', { d: 'M9 12l2 2 4-4' })
+        );
+    }
+    if (status === 'wip') {
+        return React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round', strokeDasharray: '3 3' },
+            React.createElement('circle', { cx: 12, cy: 12, r: 10 })
+        );
+    }
+    if (status === 'stopped') {
+        return React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' },
+            React.createElement('circle', { cx: 12, cy: 12, r: 10 }),
+            React.createElement('path', { d: 'M15 9l-6 6' }),
+            React.createElement('path', { d: 'M9 9l6 6' })
+        );
+    }
+    if (status === 'na') {
+        return React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2.5, strokeLinecap: 'round' },
+            React.createElement('path', { d: 'M5 12h14' })
+        );
+    }
+    // not_started
+    return React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round' },
+        React.createElement('circle', { cx: 12, cy: 12, r: 10 })
+    );
+}
+
 function DailyBoardTab(props) {
     var currentUser = props.currentUser;
     var modules = props.modules;
@@ -193,18 +231,13 @@ function DailyBoardTab(props) {
     var loading = props.loading;
 
     var [selectedDay, setSelectedDay] = useState(stbToday());
-    var [expandedDepts, setExpandedDepts] = useState({});
-    var [expandedModules, setExpandedModules] = useState({});
-    var [pickerOpen, setPickerOpen] = useState(null); // { moduleSerial, deptId, taskId, taskName, currentStatus }
+    var [selectedDept, setSelectedDept] = useState(null);
+    var [selectedModule, setSelectedModule] = useState(null);
+    var [inlinePickerTask, setInlinePickerTask] = useState(null);
     var [saving, setSaving] = useState({});
 
     var isAdmin = stbIsAdmin(currentUser);
     var weekStart = weekSchedule ? weekSchedule.week_start : null;
-    console.log('[DailyBoard] weekSchedule:', weekSchedule);
-    console.log('[DailyBoard] weekStart:', weekStart, 'type:', typeof weekStart);
-    console.log('[DailyBoard] assignments on weekSchedule:', weekSchedule ? (weekSchedule.assignments ? weekSchedule.assignments.length : 'NO .assignments key') : 'no weekSchedule');
-    console.log('[DailyBoard] lineDepts:', lineDepts ? lineDepts.length : 'null');
-    console.log('[DailyBoard] modules prop:', modules ? modules.length : 'null');
     var weekDays = useMemo(function() { return stbWeekDates(weekStart); }, [weekStart]);
 
     // Determine which days this user can see
@@ -238,6 +271,13 @@ function DailyBoardTab(props) {
         return lineDepts.filter(function(dept) { return assignedIds.includes(dept.id); });
     }, [lineDepts, isAdmin, supervisorProfile]);
 
+    // Auto-select first dept
+    useEffect(function() {
+        if (visibleDepts.length > 0 && !selectedDept) {
+            setSelectedDept(visibleDepts[0].id);
+        }
+    }, [visibleDepts]);
+
     // Build completion map for selected day: key = "moduleSerial|deptId|taskId" -> status
     var dayCompletions = useMemo(function() {
         var map = {};
@@ -252,19 +292,15 @@ function DailyBoardTab(props) {
         return map;
     }, [completions, selectedDay]);
 
-    // Get modules assigned to a dept on selected day from schedule
+    // Get modules assigned to a dept on selected day
     function getModulesForDeptDay(deptId) {
-        if (!weekSchedule || !weekSchedule.assignments) {
-            console.log('[DailyBoard] getModulesForDeptDay - no assignments for dept:', deptId, 'selectedDay:', selectedDay);
-            return [];
-        }
+        if (!weekSchedule || !weekSchedule.assignments) return [];
         var filtered = weekSchedule.assignments.filter(function(a) {
             return a.department_id === deptId && a.target_date === selectedDay;
         });
-        console.log('[DailyBoard] getModulesForDeptDay dept:', deptId, 'day:', selectedDay, 'found:', filtered.length, 'of', weekSchedule.assignments.length, 'total assignments');
         return filtered.map(function(a) {
             var mod = modules.find(function(m) { return m.serialNumber === a.module_serial; });
-            return { serial: a.module_serial, blm: mod ? (mod.hitchBLM || '') : '', module: mod };
+            return { serial: a.module_serial, blm: mod ? (mod.hitchBLM || '') : '', unitType: mod ? (mod.unitType || '') : '', module: mod };
         });
     }
 
@@ -274,51 +310,100 @@ function DailyBoardTab(props) {
         return allTasks.filter(function(t) { return t.department_id === deptId; });
     }
 
-    function handleToggleDept(deptId) {
-        setExpandedDepts(function(prev) {
-            var next = Object.assign({}, prev);
-            next[deptId] = !prev[deptId];
-            return next;
-        });
+    // Computed: modules for currently selected dept
+    var deptModules = useMemo(function() {
+        if (!selectedDept) return [];
+        return getModulesForDeptDay(selectedDept);
+    }, [selectedDept, selectedDay, weekSchedule, modules]);
+
+    // Auto-select first module when dept changes or day changes
+    useEffect(function() {
+        if (deptModules.length > 0) {
+            setSelectedModule(deptModules[0].serial);
+        } else {
+            setSelectedModule(null);
+        }
+        setInlinePickerTask(null);
+    }, [selectedDept, selectedDay, deptModules.length]);
+
+    // Selected dept object
+    var selectedDeptObj = useMemo(function() {
+        if (!selectedDept || !visibleDepts) return null;
+        return visibleDepts.find(function(d) { return d.id === selectedDept; }) || null;
+    }, [selectedDept, visibleDepts]);
+
+    // Tasks for current dept
+    var deptTasks = useMemo(function() {
+        if (!selectedDept) return [];
+        return getTasksForDept(selectedDept);
+    }, [selectedDept, allTasks]);
+
+    // Current module info
+    var currentModInfo = useMemo(function() {
+        if (!selectedModule || !deptModules) return null;
+        return deptModules.find(function(m) { return m.serial === selectedModule; }) || null;
+    }, [selectedModule, deptModules]);
+
+    // Dept completion stats
+    var deptStats = useMemo(function() {
+        if (!selectedDept || !deptModules || deptModules.length === 0) return { complete: 0, total: 0, pct: 0 };
+        var complete = 0;
+        for (var i = 0; i < deptModules.length; i++) {
+            var pct = stbCalcCompletionPct(deptTasks, dayCompletions, deptModules[i].serial, selectedDept);
+            if (pct === 100) complete++;
+        }
+        var total = deptModules.length;
+        return { complete: complete, total: total, pct: total === 0 ? 0 : Math.round((complete / total) * 100) };
+    }, [selectedDept, deptModules, deptTasks, dayCompletions]);
+
+    // Handle dept selection
+    function handleSelectDept(deptId) {
+        setSelectedDept(deptId);
+        setInlinePickerTask(null);
     }
 
-    function handleToggleModule(key) {
-        setExpandedModules(function(prev) {
-            var next = Object.assign({}, prev);
-            next[key] = !prev[key];
-            return next;
-        });
+    // Handle module selection
+    function handleSelectModule(serial) {
+        setSelectedModule(serial);
+        setInlinePickerTask(null);
     }
 
-    function handleOpenPicker(moduleSerial, deptId, taskId, taskName, currentStatus) {
-        setPickerOpen({ moduleSerial: moduleSerial, deptId: deptId, taskId: taskId, taskName: taskName, currentStatus: currentStatus });
+    // Handle inline picker toggle
+    function handleToggleInlinePicker(taskId) {
+        setInlinePickerTask(function(prev) { return prev === taskId ? null : taskId; });
     }
 
-    function handleClosePicker() {
-        setPickerOpen(null);
-    }
-
-    function handleStatusSelect(newStatus) {
-        if (!pickerOpen) return;
-        var info = pickerOpen;
-        var key = info.moduleSerial + '|' + info.deptId + '|' + info.taskId;
+    // Handle status change with optimistic update
+    function handleStatusChange(taskId, newStatus) {
+        if (!selectedModule || !selectedDept) return;
+        var key = selectedModule + '|' + selectedDept + '|' + taskId;
         setSaving(function(prev) { var n = Object.assign({}, prev); n[key] = true; return n; });
+        setInlinePickerTask(null);
 
         onUpdateCompletion({
             weekStartDate: weekStart,
             targetDate: selectedDay,
-            departmentId: info.deptId,
-            moduleSerial: info.moduleSerial,
-            taskId: info.taskId,
+            departmentId: selectedDept,
+            moduleSerial: selectedModule,
+            taskId: taskId,
             status: newStatus,
         }).then(function() {
             setSaving(function(prev) { var n = Object.assign({}, prev); delete n[key]; return n; });
         }).catch(function() {
             setSaving(function(prev) { var n = Object.assign({}, prev); delete n[key]; return n; });
         });
-
-        setPickerOpen(null);
     }
+
+    // Selected day label for summary
+    var selectedDayObj = useMemo(function() {
+        return visibleDays.find(function(d) { return d.date === selectedDay; }) || null;
+    }, [visibleDays, selectedDay]);
+
+    var selectedDayLabel = useMemo(function() {
+        if (!selectedDayObj) return '';
+        var dt = stbParseDate(selectedDay);
+        return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }, [selectedDayObj, selectedDay]);
 
     if (loading) {
         return (
@@ -330,167 +415,299 @@ function DailyBoardTab(props) {
 
     if (!weekSchedule) {
         return (
-            <STBEmpty icon="!" message="No week scheduled — contact admin to set up the week." />
+            <STBEmpty icon="!" message="No week scheduled -- contact admin to set up the week." />
         );
     }
 
-    return (
-        <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="px-3 pt-3 pb-2">
-                <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">{stbWeekLabel(weekStart)}</h2>
-                    {weekSchedule.status && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
-                            {weekSchedule.status}
-                        </span>
-                    )}
-                </div>
-                {supervisorProfile && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {supervisorProfile.name} {supervisorProfile.departments && supervisorProfile.departments.length > 0 && (
-                            <span className="ml-1">
-                                {supervisorProfile.departments.map(function(d) { return d.department_name; }).join(', ')}
-                            </span>
-                        )}
-                    </p>
-                )}
+    // ─── DAY SELECTOR ────────────────────────────────────────────────────────
+    var daySelector = (
+        <div className="px-2 py-2 overflow-x-auto bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-1 min-w-max">
+                {visibleDays.map(function(day) {
+                    var isToday = day.date === stbToday();
+                    var isSelected = day.date === selectedDay;
+                    var isShift1 = SHIFT1_DAYS.includes(day.dayIndex);
+                    var baseCls = 'flex flex-col items-center justify-center min-w-[60px] min-h-[48px] px-3 py-1.5 rounded-xl text-xs font-semibold transition-all';
+                    var colorCls;
+                    if (isSelected) {
+                        colorCls = isShift1 ? 'bg-blue-600 text-white shadow-lg' : 'bg-orange-500 text-white shadow-lg';
+                    } else if (isToday) {
+                        colorCls = isShift1 ? 'border-2 border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30' : 'border-2 border-orange-400 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30';
+                    } else {
+                        colorCls = isShift1 ? 'border border-blue-200 dark:border-blue-800 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20' : 'border border-orange-200 dark:border-orange-800 text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-orange-900/20';
+                    }
+                    return (
+                        <button
+                            key={day.date}
+                            onClick={function() { setSelectedDay(day.date); }}
+                            className={baseCls + ' ' + colorCls}
+                        >
+                            <span className="text-[10px] uppercase tracking-wide">{day.label}</span>
+                            <span className="text-lg font-bold leading-tight">{day.dayNum}</span>
+                        </button>
+                    );
+                })}
             </div>
+        </div>
+    );
 
-            {/* Day Selector */}
-            <div className="px-2 pb-3 overflow-x-auto">
-                <div className="flex gap-1 min-w-max">
-                    {visibleDays.map(function(day) {
-                        var isToday = day.date === stbToday();
-                        var isSelected = day.date === selectedDay;
-                        var isShift1 = SHIFT1_DAYS.includes(day.dayIndex);
-                        var baseCls = 'flex flex-col items-center min-w-[52px] px-2 py-2 rounded-xl text-xs font-medium transition-all';
-                        var colorCls = isSelected
-                            ? (isShift1 ? 'bg-blue-500 text-white shadow-md' : 'bg-orange-500 text-white shadow-md')
-                            : isToday
-                                ? (isShift1 ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-300' : 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 ring-2 ring-orange-300')
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700';
-                        return (
-                            <button
-                                key={day.date}
-                                onClick={function() { setSelectedDay(day.date); }}
-                                className={baseCls + ' ' + colorCls}
-                            >
-                                <span className="text-[10px] uppercase opacity-70">{day.label}</span>
-                                <span className="text-base font-bold">{day.dayNum}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Department List */}
-            <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-2">
+    // ─── LEFT PANEL: Department list ─────────────────────────────────────────
+    var leftPanel = (
+        <div className="flex flex-col h-full" style={{ width: '280px', minWidth: '280px' }}>
+            {/* Department list - scrollable */}
+            <div className="flex-1 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                 {visibleDepts.length === 0 && (
-                    <STBEmpty message="No departments assigned" />
+                    <div className="p-4 text-xs text-gray-400 italic text-center">No departments</div>
                 )}
                 {visibleDepts.map(function(dept) {
-                    var deptModules = getModulesForDeptDay(dept.id);
-                    var deptTasks = getTasksForDept(dept.id);
-                    var isExpanded = !!expandedDepts[dept.id];
-                    var pct = stbCalcDeptDayPct(
-                        deptModules.map(function(m) { return m.serial; }),
-                        deptTasks, dayCompletions, dept.id
-                    );
+                    var isActive = dept.id === selectedDept;
+                    var deptMods = getModulesForDeptDay(dept.id);
+                    var dTasks = getTasksForDept(dept.id);
+                    var completeCount = 0;
+                    for (var i = 0; i < deptMods.length; i++) {
+                        if (stbCalcCompletionPct(dTasks, dayCompletions, deptMods[i].serial, dept.id) === 100) completeCount++;
+                    }
+                    var dPct = deptMods.length === 0 ? 0 : Math.round((completeCount / deptMods.length) * 100);
+                    var borderStyle = isActive ? { borderLeft: '4px solid ' + (dept.color || '#6366f1') } : { borderLeft: '4px solid transparent' };
 
                     return (
-                        <div key={dept.id} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800 shadow-sm">
-                            {/* Department Header */}
-                            <button
-                                onClick={function() { handleToggleDept(dept.id); }}
-                                className="w-full flex items-center gap-3 px-4 py-3 min-h-[52px] hover:bg-gray-50 dark:hover:bg-gray-750 transition"
-                            >
+                        <button
+                            key={dept.id}
+                            onClick={function() { handleSelectDept(dept.id); }}
+                            className={'w-full flex flex-col gap-1 px-3 py-3 min-h-[52px] text-left transition-all ' + (isActive ? 'bg-white dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800')}
+                            style={borderStyle}
+                        >
+                            <div className="flex items-center gap-2">
                                 <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: dept.color || '#6366f1' }} />
-                                <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 text-left">{dept.name}</span>
-                                <span className="text-xs text-gray-400 ml-1">{deptModules.length} mod</span>
-                                <div className="flex-1" />
-                                <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full rounded-full transition-all duration-500"
-                                        style={{ width: pct + '%', backgroundColor: pct === 100 ? '#16a34a' : pct > 50 ? '#0d9488' : pct > 0 ? '#f59e0b' : '#d1d5db' }}
-                                    />
+                                <span className={'text-sm font-semibold ' + (isActive ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300')}>{dept.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 pl-5">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{completeCount}/{deptMods.length} complete</span>
+                                <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-300" style={{ width: dPct + '%', backgroundColor: dPct === 100 ? '#16a34a' : dPct > 50 ? '#0d9488' : dPct > 0 ? '#f59e0b' : '#e5e7eb' }} />
                                 </div>
-                                <span className="text-xs font-mono text-gray-500 w-10 text-right">{pct}%</span>
-                                <span className="text-gray-400 text-sm ml-1">{isExpanded ? '▼' : '▶'}</span>
+                                <span className="text-[10px] font-mono text-gray-500 w-8 text-right">{dPct}%</span>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Module pills - horizontal scrollable */}
+            {selectedDept && (
+                <div className="border-r border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-2 overflow-x-auto">
+                    <div className="flex gap-1.5 min-w-max">
+                        {deptModules.length === 0 && (
+                            <span className="text-xs text-gray-400 italic py-2 px-2">No modules today</span>
+                        )}
+                        {deptModules.map(function(modInfo) {
+                            var isModActive = modInfo.serial === selectedModule;
+                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                            var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
+                            var pillStyle = isModActive ? { backgroundColor: deptColor, color: '#fff' } : {};
+                            var pillCls = 'relative flex items-center justify-center min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ' +
+                                (isModActive ? 'shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600');
+
+                            return (
+                                <button
+                                    key={modInfo.serial}
+                                    onClick={function() { handleSelectModule(modInfo.serial); }}
+                                    className={pillCls}
+                                    style={pillStyle}
+                                >
+                                    {modInfo.serial}
+                                    <span className={'absolute -top-1 -right-1 text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center ' + (modPct === 100 ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200')}>
+                                        {modPct}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    // ─── RIGHT PANEL: Task checklist ─────────────────────────────────────────
+    var rightPanel = (
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800">
+            {/* Header: dept summary + module info */}
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div className="flex items-center justify-between">
+                    {/* Module info */}
+                    {currentModInfo ? (
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg font-bold text-gray-900 dark:text-white">{currentModInfo.serial}</span>
+                                {currentModInfo.blm && (
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">{currentModInfo.blm}</span>
+                                )}
+                            </div>
+                            {currentModInfo.unitType && (
+                                <span className="text-xs text-gray-400">{currentModInfo.unitType}</span>
+                            )}
+                        </div>
+                    ) : (
+                        <span className="text-sm text-gray-400 italic">Select a module</span>
+                    )}
+
+                    {/* Dept day summary */}
+                    <div className="text-right">
+                        <div className="text-2xl font-bold" style={{ color: deptStats.pct === 100 ? '#16a34a' : deptStats.pct > 50 ? '#0d9488' : deptStats.pct > 0 ? '#f59e0b' : '#9ca3af' }}>
+                            {deptStats.pct}%
+                        </div>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+                            {selectedDeptObj ? selectedDeptObj.name : ''} {selectedDayLabel ? ' \u00B7 ' + selectedDayLabel : ''} {' \u00B7 '} {deptStats.complete}/{deptStats.total} modules
+                        </div>
+                    </div>
+                </div>
+
+                {/* Module-level completion bar */}
+                {currentModInfo && (
+                    <div className="mt-2 flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-300" style={{ width: stbCalcCompletionPct(deptTasks, dayCompletions, currentModInfo.serial, selectedDept) + '%', backgroundColor: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1' }} />
+                        </div>
+                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{stbCalcCompletionPct(deptTasks, dayCompletions, currentModInfo.serial, selectedDept)}%</span>
+                    </div>
+                )}
+            </div>
+
+            {/* Task list - scrollable */}
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+                {!selectedModule && (
+                    <STBEmpty message="Select a department and module to view tasks" />
+                )}
+                {selectedModule && deptTasks.length === 0 && (
+                    <STBEmpty message="No tasks configured for this department" />
+                )}
+                {selectedModule && deptTasks.map(function(task) {
+                    var cKey = selectedModule + '|' + selectedDept + '|' + task.id;
+                    var status = dayCompletions[cKey] || 'not_started';
+                    var sCfg = STB_STATUSES[status] || STB_STATUSES.not_started;
+                    var isSaving = !!saving[cKey];
+                    var isPickerOpen = inlinePickerTask === task.id;
+
+                    return (
+                        <div key={task.id}>
+                            {/* Task Row */}
+                            <button
+                                onClick={function() { handleToggleInlinePicker(task.id); }}
+                                disabled={isSaving}
+                                className={'w-full flex items-center gap-3 px-3 min-h-[52px] rounded-lg transition-all ' + (isPickerOpen ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-750') + ' ' + (isSaving ? 'opacity-50' : '')}
+                            >
+                                {/* Status icon */}
+                                <span className="flex-shrink-0">
+                                    {isSaving ? <STBSpinner size="sm" /> : <DailyBoardStatusIcon status={status} size={22} />}
+                                </span>
+                                {/* Task name */}
+                                <span className="flex-1 text-left text-base text-gray-800 dark:text-gray-200">{task.task_name}</span>
+                                {/* Status pill */}
+                                <span className={'text-xs font-bold px-2.5 py-1 rounded-full ' + sCfg.bg + ' ' + sCfg.text}>{sCfg.short}</span>
                             </button>
 
-                            {/* Expanded: Module List */}
-                            {isExpanded && (
-                                <div className="border-t border-gray-100 dark:border-gray-700">
-                                    {deptModules.length === 0 && (
-                                        <div className="px-4 py-3 text-xs text-gray-400 italic">No modules assigned today</div>
-                                    )}
-                                    {deptModules.map(function(modInfo) {
-                                        var modKey = dept.id + '|' + modInfo.serial;
-                                        var isModExpanded = !!expandedModules[modKey];
-                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, dept.id);
-
-                                        return (
-                                            <div key={modKey} className="border-b border-gray-50 dark:border-gray-700 last:border-b-0">
-                                                {/* Module Header */}
-                                                <button
-                                                    onClick={function() { handleToggleModule(modKey); }}
-                                                    className="w-full flex items-center gap-2 px-6 py-2.5 min-h-[44px] hover:bg-gray-50 dark:hover:bg-gray-750 transition text-left"
-                                                >
-                                                    <span className="text-xs text-gray-400">{isModExpanded ? '▼' : '▶'}</span>
-                                                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{modInfo.serial}</span>
-                                                    {modInfo.blm && (
-                                                        <span className="text-xs text-gray-400 dark:text-gray-500">{modInfo.blm}</span>
-                                                    )}
-                                                    <div className="flex-1" />
-                                                    <span className={'text-xs font-bold ' + (modPct === 100 ? 'text-green-600' : modPct > 0 ? 'text-blue-600' : 'text-gray-400')}>{modPct}%</span>
-                                                </button>
-
-                                                {/* Expanded: Task Checklist */}
-                                                {isModExpanded && (
-                                                    <div className="px-6 pb-3 space-y-1">
-                                                        {deptTasks.map(function(task) {
-                                                            var cKey = modInfo.serial + '|' + dept.id + '|' + task.id;
-                                                            var status = dayCompletions[cKey] || 'not_started';
-                                                            var sCfg = STB_STATUSES[status] || STB_STATUSES.not_started;
-                                                            var isSaving = !!saving[cKey];
-
-                                                            return (
-                                                                <button
-                                                                    key={task.id}
-                                                                    onClick={function() { handleOpenPicker(modInfo.serial, dept.id, task.id, task.task_name, status); }}
-                                                                    disabled={isSaving}
-                                                                    className={'w-full flex items-center gap-3 px-3 py-2 rounded-lg min-h-[44px] transition ' + sCfg.bg + ' ' + (isSaving ? 'opacity-50' : 'hover:opacity-80 active:scale-[0.98]')}
-                                                                >
-                                                                    <span className={'text-sm flex-1 text-left ' + sCfg.text}>{task.task_name}</span>
-                                                                    {isSaving ? (
-                                                                        <STBSpinner size="sm" />
-                                                                    ) : (
-                                                                        <span className={'text-xs font-bold px-2 py-0.5 rounded ' + sCfg.text}>{sCfg.short}</span>
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                            {/* Inline Status Picker */}
+                            {isPickerOpen && !isSaving && (
+                                <div className="flex gap-1.5 px-3 py-2 ml-8">
+                                    <button
+                                        onClick={function() { handleStatusChange(task.id, 'not_started'); }}
+                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 ' + (status === 'not_started' ? 'ring-2 ring-gray-500' : 'hover:bg-gray-300 dark:hover:bg-gray-600')}
+                                    >
+                                        --
+                                    </button>
+                                    <button
+                                        onClick={function() { handleStatusChange(task.id, 'wip'); }}
+                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 ' + (status === 'wip' ? 'ring-2 ring-amber-500' : 'hover:bg-amber-200 dark:hover:bg-amber-800')}
+                                    >
+                                        WIP
+                                    </button>
+                                    <button
+                                        onClick={function() { handleStatusChange(task.id, 'complete'); }}
+                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 ' + (status === 'complete' ? 'ring-2 ring-green-500' : 'hover:bg-green-200 dark:hover:bg-green-800')}
+                                    >
+                                        Done
+                                    </button>
+                                    <button
+                                        onClick={function() { handleStatusChange(task.id, 'stopped'); }}
+                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 ' + (status === 'stopped' ? 'ring-2 ring-red-500' : 'hover:bg-red-200 dark:hover:bg-red-800')}
+                                    >
+                                        Stop
+                                    </button>
+                                    <button
+                                        onClick={function() { handleStatusChange(task.id, 'na'); }}
+                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 italic ' + (status === 'na' ? 'ring-2 ring-slate-400' : 'hover:bg-slate-200 dark:hover:bg-slate-700')}
+                                    >
+                                        N/A
+                                    </button>
                                 </div>
                             )}
                         </div>
                     );
                 })}
             </div>
+        </div>
+    );
 
-            {/* Status Picker Modal */}
-            <StatusPickerModal
-                isOpen={!!pickerOpen}
-                currentStatus={pickerOpen ? pickerOpen.currentStatus : 'not_started'}
-                taskName={pickerOpen ? pickerOpen.taskName : ''}
-                onSelect={handleStatusSelect}
-                onClose={handleClosePicker}
-            />
+    // ─── MOBILE LAYOUT (phone portrait): stack vertically ────────────────────
+    // ─── TABLET/DESKTOP: two-column side by side ─────────────────────────────
+    return (
+        <div className="flex flex-col h-full">
+            {daySelector}
+
+            {/* Two-column for md+ (iPad landscape), stacked for sm (phone) */}
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                {/* On phone: show dept list, then module pills, then tasks stacked */}
+                <div className="md:hidden flex flex-col overflow-y-auto flex-1">
+                    {/* Dept horizontal scroll on mobile */}
+                    <div className="overflow-x-auto px-2 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                        <div className="flex gap-1.5 min-w-max">
+                            {visibleDepts.map(function(dept) {
+                                var isActive = dept.id === selectedDept;
+                                return (
+                                    <button
+                                        key={dept.id}
+                                        onClick={function() { handleSelectDept(dept.id); }}
+                                        className={'flex items-center gap-1.5 px-3 min-h-[44px] rounded-lg text-xs font-semibold whitespace-nowrap transition-all ' + (isActive ? 'bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-300 dark:ring-gray-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400')}
+                                    >
+                                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: dept.color || '#6366f1' }} />
+                                        {dept.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    {/* Module pills on mobile */}
+                    {selectedDept && deptModules.length > 0 && (
+                        <div className="overflow-x-auto px-2 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                            <div className="flex gap-1.5 min-w-max">
+                                {deptModules.map(function(modInfo) {
+                                    var isModActive = modInfo.serial === selectedModule;
+                                    var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
+                                    var pillStyle = isModActive ? { backgroundColor: deptColor, color: '#fff' } : {};
+                                    return (
+                                        <button
+                                            key={modInfo.serial}
+                                            onClick={function() { handleSelectModule(modInfo.serial); }}
+                                            className={'min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-all ' + (isModActive ? 'shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300')}
+                                            style={pillStyle}
+                                        >
+                                            {modInfo.serial}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {/* Tasks on mobile */}
+                    {rightPanel}
+                </div>
+
+                {/* Desktop / iPad landscape: side by side */}
+                <div className="hidden md:flex flex-1 overflow-hidden">
+                    {leftPanel}
+                    {rightPanel}
+                </div>
+            </div>
         </div>
     );
 }
