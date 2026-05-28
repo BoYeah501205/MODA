@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-27T23:00:51.115Z
+ * Generated: 2026-05-28T02:47:26.082Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -15067,6 +15067,7 @@ function AdminConfigTab(props) {
 function StationTaskBoard(props) {
   var currentUser = props.currentUser;
   var modules = props.modules;
+  var allModules = props.allModules || props.modules;
   var projectId = props.projectId;
   var isAdmin = stbIsAdmin(currentUser);
 
@@ -15270,7 +15271,7 @@ function StationTaskBoard(props) {
     loading: false
   }), activeTab === 'setup' && isAdmin && /*#__PURE__*/React.createElement(WeekSetupTab, {
     currentUser: currentUser,
-    modules: modules,
+    modules: allModules,
     projectId: projectId,
     weekSchedule: weekSchedule,
     lineDepts: lineDepts,
@@ -60183,14 +60184,10 @@ function Dashboard({
   // Ref to track last synced projects (prevents unnecessary sync on first load)
   const lastSyncedProjects = useRef(null);
 
-  // Wrapper to save projects to both state and localStorage
+  // Wrapper to update projects in React state (Supabase is source of truth)
   const setProjects = useCallback(newProjects => {
     setProjectsState(prevProjects => {
       const projectsArray = typeof newProjects === 'function' ? newProjects(prevProjects) : newProjects;
-      // Save to localStorage as backup (only if valid array)
-      if (Array.isArray(projectsArray)) {
-        localStorage.setItem('autovol_projects', JSON.stringify(projectsArray));
-      }
       return projectsArray || [];
     });
   }, []);
@@ -60235,35 +60232,14 @@ function Dashboard({
               window.debugError(`Supabase projects failed: ${supabaseError.message || 'Unknown error'}`);
               if (supabaseError.code) window.debugError(`Error code: ${supabaseError.code}`);
             }
-            // Fallback to localStorage
-            const saved = localStorage.getItem('autovol_projects');
-            if (saved && saved !== 'undefined' && saved !== 'null') {
-              setProjectsState(JSON.parse(saved));
-              if (window.debugInfo) window.debugInfo(`Loaded ${JSON.parse(saved).length} projects from localStorage`);
-            }
           }
         } else {
-          // Fallback to localStorage
-          try {
-            const saved = localStorage.getItem('autovol_projects');
-            if (saved && saved !== 'undefined' && saved !== 'null') {
-              setProjectsState(JSON.parse(saved));
-            }
-          } catch (e) {
-            console.error('[App] Error parsing projects from localStorage:', e);
-          }
+          console.error('[App] Supabase not available — cannot load projects');
+          if (window.debugError) window.debugError('Supabase not available — cannot load projects');
         }
       } catch (error) {
         console.error('[App] Error loading projects:', error);
-        // Fallback to localStorage on error
-        try {
-          const saved = localStorage.getItem('autovol_projects');
-          if (saved && saved !== 'undefined' && saved !== 'null') {
-            setProjectsState(JSON.parse(saved));
-          }
-        } catch (e) {
-          console.error('[App] Error parsing projects fallback:', e);
-        }
+        if (window.debugError) window.debugError(`Failed to load projects: ${error.message}`);
       } finally {
         setProjectsLoading(false);
       }
@@ -60490,12 +60466,8 @@ function Dashboard({
     loadPeopleData();
   }, []);
 
-  // Save to localStorage and sync to Supabase when projects change
+  // Sync to Supabase when projects change
   useEffect(() => {
-    // Only save to localStorage if not using Firestore (Firestore handles its own persistence)
-    if (!projectsSynced && Array.isArray(projects) && projects.length > 0) {
-      localStorage.setItem('autovol_projects', JSON.stringify(projects));
-    }
     // Sync to unified layer for any modules with close-up at 100%
     MODA_UNIFIED.migrateFromProjects();
 
@@ -61276,7 +61248,8 @@ function ProductionDashboard({
     alert(`Issue ${newIssue.issue_display_id} submitted successfully!`);
   };
   const selectedProject = projects.find(p => p.id === selectedProjectId);
-  const modules = selectedProject?.modules || [];
+  const allModules = selectedProject?.modules || [];
+  const modules = allModules;
 
   // Sort modules by build sequence (lower = further along)
   const sortedModules = [...modules].sort((a, b) => (a.buildSequence || 0) - (b.buildSequence || 0));
@@ -61574,7 +61547,8 @@ function ProductionDashboard({
   }, "Loading Reports Hub...")), productionTab === 'station-task-board' && /*#__PURE__*/React.createElement(StationTaskBoard, {
     currentUser: auth.currentUser,
     projectId: selectedProjectId,
-    modules: modules
+    modules: modules,
+    allModules: allModules
   }), productionTab === 'station-board-report' && /*#__PURE__*/React.createElement(StationBoardReport, {
     currentUser: auth.currentUser,
     projectId: selectedProjectId
@@ -63624,12 +63598,7 @@ function ModuleDetailModal({
       // Module just completed production - mark as Ready for Yard
       console.log(`[MODA] Module ${editingModule.serialNumber} completed close-up - marking Ready for Yard`);
 
-      // IMPORTANT: Save to localStorage IMMEDIATELY before sync
-      // React setState is async, so migrateFromProjects would read stale data
-      localStorage.setItem('autovol_projects', JSON.stringify(updatedProjects));
-      console.log(`[MODA] Saved project data to localStorage`);
-
-      // Now sync to unified layer with fresh data
+      // Sync to unified layer with fresh data
       MODA_UNIFIED.migrateFromProjects();
 
       // Then update transport status to 'ready' (Ready for Yard)

@@ -1215,6 +1215,7 @@ function AdminConfigTab(props) {
 function StationTaskBoard(props) {
     var currentUser = props.currentUser;
     var modules = props.modules;
+    var allModules = props.allModules || props.modules;
     var projectId = props.projectId;
 
     var isAdmin = stbIsAdmin(currentUser);
@@ -1445,7 +1446,7 @@ function StationTaskBoard(props) {
                 {activeTab === 'setup' && isAdmin && (
                     <WeekSetupTab
                         currentUser={currentUser}
-                        modules={modules}
+                        modules={allModules}
                         projectId={projectId}
                         weekSchedule={weekSchedule}
                         lineDepts={lineDepts}
