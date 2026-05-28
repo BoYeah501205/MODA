@@ -501,21 +501,47 @@ function buildDailyOverrides(depts, weekStart, dailyQtys) {
     return overrides;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TAB 2: WEEK SETUP (Admin only)
-// ═══════════════════════════════════════════════════════════════════════════
-function WeekSetupTab(props) {
-    var currentUser = props.currentUser;
-    var modules = props.modules;
-    var projectId = props.projectId;
-    var weekSchedule = props.weekSchedule;
-    var lineDepts = props.lineDepts;
-    var onRefresh = props.onRefresh;
+// ─── Week status helpers ────────────────────────────────────────────────────
+var WEEK_STATUS_CFG = {
+    not_set_up:        { label: 'Not Set Up',        bg: 'bg-gray-100 dark:bg-gray-700',         text: 'text-gray-500 dark:text-gray-400' },
+    active:            { label: 'Active',             bg: 'bg-teal-100 dark:bg-teal-900/40',      text: 'text-teal-700 dark:text-teal-300' },
+    shift_1_complete:  { label: 'Shift 1 Complete',   bg: 'bg-orange-100 dark:bg-orange-900/40',  text: 'text-orange-700 dark:text-orange-300' },
+    complete:          { label: 'Complete',            bg: 'bg-green-100 dark:bg-green-900/40',    text: 'text-green-700 dark:text-green-300' },
+};
 
-    var [setupWeek, setSetupWeek] = useState(stbGetCurrentWeekStart());
+function weekStatusBadge(status) {
+    var cfg = WEEK_STATUS_CFG[status] || WEEK_STATUS_CFG.not_set_up;
+    return cfg;
+}
+
+// ─── Lookup module serial by index in sorted array ──────────────────────────
+function lookupSerial(sortedMods, idx) {
+    if (!sortedMods || idx < 0 || idx >= sortedMods.length) return '---';
+    return sortedMods[idx].serialNumber || '---';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 2: WEEK SETUP (Admin only) — Rolling 4-week view
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Single Week Card (expandable) ──────────────────────────────────────────
+function WeekCard(props) {
+    var weekStart = props.weekStart;
+    var weekIdx = props.weekIdx;
+    var schedule = props.schedule;
+    var allModules = props.allModules;
+    var lineDepts = props.lineDepts;
+    var shifts = props.shifts;
+    var projectId = props.projectId;
+    var onRefresh = props.onRefresh;
+    var prevWeekSerial = props.prevWeekSerial;
+    var prevWeekTotal = props.prevWeekTotal;
+    var onQtysChange = props.onQtysChange;
+
+    var [expanded, setExpanded] = useState(props.defaultExpanded || false);
     var [startSerial, setStartSerial] = useState('');
     var [dailyQtys, setDailyQtys] = useState({ mon: 5, tue: 5, wed: 5, thu: 5, fri: 2, sat: 2, sun: 2 });
-    var [generating, setGenerating] = useState(false);
+    var [saving, setSaving] = useState(false);
     var [completing, setCompleting] = useState(false);
     var [error, setError] = useState('');
     var [success, setSuccess] = useState('');
@@ -523,25 +549,65 @@ function WeekSetupTab(props) {
     var [showSuggestions, setShowSuggestions] = useState(false);
     var suggestRef = useRef(null);
 
-    // Stagger config
-    var [staggers, setStaggers] = useState([]);
-    var [editingStagger, setEditingStagger] = useState(null);
-    var [staggerValue, setStaggerValue] = useState('');
+    var status = schedule ? (schedule.status || 'active') : 'not_set_up';
+    var statusCfg = weekStatusBadge(status);
+    var dates = stbWeekDates(weekStart);
 
+    // Sort modules by buildSequence for index lookups
+    var sortedMods = useMemo(function() {
+        if (!allModules || allModules.length === 0) return [];
+        return [].concat(allModules).sort(function(a, b) {
+            return (a.buildSequence || 0) - (b.buildSequence || 0);
+        });
+    }, [allModules]);
+
+    // Load from schedule if exists, otherwise auto-calculate from previous week
     useEffect(function() {
-        if (lineDepts) {
-            setStaggers(lineDepts.map(function(d) {
-                return { id: d.id, name: d.name, stagger_offset: d.stagger_offset || 0, color: d.color };
-            }));
+        if (schedule) {
+            setStartSerial(schedule.starting_serial || '');
+            if (schedule.line_balance) {
+                // If we have daily targets stored, they'd come from a separate query
+                // For now use line_balance as default
+                setDailyQtys({ mon: schedule.line_balance, tue: schedule.line_balance, wed: schedule.line_balance, thu: schedule.line_balance, fri: 2, sat: 2, sun: 2 });
+            }
+        } else if (prevWeekSerial && prevWeekTotal > 0 && sortedMods.length > 0) {
+            // Auto-calculate: find prev serial index, add prev total
+            var prevIdx = sortedMods.findIndex(function(m) {
+                return (m.serialNumber || '').toString().trim() === (prevWeekSerial || '').toString().trim();
+            });
+            if (prevIdx !== -1) {
+                var nextIdx = prevIdx + prevWeekTotal;
+                if (nextIdx < sortedMods.length) {
+                    setStartSerial(sortedMods[nextIdx].serialNumber || '');
+                }
+            }
         }
-    }, [lineDepts]);
+    }, [schedule, prevWeekSerial, prevWeekTotal, sortedMods]);
+
+    // Notify parent of qty changes for cascade calculation
+    var totalWeekQty = dailyQtys.mon + dailyQtys.tue + dailyQtys.wed + dailyQtys.thu + dailyQtys.fri + dailyQtys.sat + dailyQtys.sun;
+    useEffect(function() {
+        if (onQtysChange) onQtysChange(weekIdx, startSerial, totalWeekQty);
+    }, [startSerial, totalWeekQty]);
+
+    // Shift calculations
+    var shift1Total = dailyQtys.mon + dailyQtys.tue + dailyQtys.wed + dailyQtys.thu;
+    var shift2Total = dailyQtys.fri + dailyQtys.sat + dailyQtys.sun;
+    var startIdx = sortedMods.findIndex(function(m) {
+        return (m.serialNumber || '').toString().trim() === (startSerial || '').toString().trim();
+    });
+
+    var shift1First = startIdx !== -1 ? lookupSerial(sortedMods, startIdx) : '---';
+    var shift1Last = startIdx !== -1 ? lookupSerial(sortedMods, startIdx + shift1Total - 1) : '---';
+    var shift2First = startIdx !== -1 ? lookupSerial(sortedMods, startIdx + shift1Total) : '---';
+    var shift2Last = startIdx !== -1 ? lookupSerial(sortedMods, startIdx + totalWeekQty - 1) : '---';
 
     // Serial autocomplete
-    function handleSerialChange(e) {
+    function handleSerialInput(e) {
         var val = e.target.value;
         setStartSerial(val);
-        if (val.length >= 2 && modules) {
-            var matches = modules.filter(function(m) {
+        if (val.length >= 2 && allModules) {
+            var matches = allModules.filter(function(m) {
                 return (m.serialNumber || '').toLowerCase().includes(val.toLowerCase());
             }).slice(0, 8);
             setSerialSuggestions(matches);
@@ -551,13 +617,13 @@ function WeekSetupTab(props) {
         }
     }
 
-    function handleSelectSerial(sn) {
+    function handlePickSerial(sn) {
         setStartSerial(sn);
         setShowSuggestions(false);
     }
 
-    function handleDailyQtyChange(dayKey, value) {
-        var val = parseInt(value) || 5;
+    function handleQtyChange(dayKey, value) {
+        var val = parseInt(value) || 0;
         setDailyQtys(function(prev) {
             var next = Object.assign({}, prev);
             next[dayKey] = val;
@@ -565,55 +631,75 @@ function WeekSetupTab(props) {
         });
     }
 
-    function handlePrevWeek() {
-        setSetupWeek(function(w) { return stbShiftWeek(w, -1); });
-    }
-
-    function handleNextWeek() {
-        setSetupWeek(function(w) { return stbShiftWeek(w, 1); });
-    }
-
-    function handleGenerate() {
+    // Save Week
+    function handleSave() {
         if (!startSerial) { setError('Enter a starting serial number'); return; }
-        setGenerating(true);
+        setSaving(true);
         setError('');
         setSuccess('');
 
         var SB = window.MODA_STATION_BOARD;
-        if (!SB) { setError('Station board data layer not loaded'); setGenerating(false); return; }
+        if (!SB) { setError('Station board data layer not loaded'); setSaving(false); return; }
 
-        SB.generateWeekAssignments({
-            weekStartDate: safeWeekStart(setupWeek),
+        // 1. Upsert schedule
+        SB.upsertWeeklySchedule({
+            weekStartDate: safeWeekStart(weekStart),
             startingSerial: startSerial,
             lineBalance: dailyQtys.mon,
-            modules: modules,
-            departments: lineDepts,
-            shifts: props.shifts,
-            dailyOverrides: buildDailyOverrides(lineDepts, setupWeek, dailyQtys),
+        }).then(function() {
+            // 2. Upsert daily targets for each dept/day
+            var targetPromises = [];
+            if (lineDepts && lineDepts.length > 0) {
+                var dayKeys = ['mon','tue','wed','thu','fri','sat','sun'];
+                for (var di = 0; di < lineDepts.length; di++) {
+                    for (var i = 0; i < dates.length; i++) {
+                        targetPromises.push(SB.upsertDailyTarget({
+                            weekStartDate: safeWeekStart(weekStart),
+                            departmentId: lineDepts[di].id,
+                            targetDate: dates[i].date,
+                            moduleCount: dailyQtys[dayKeys[i]],
+                        }));
+                    }
+                }
+            }
+            return Promise.all(targetPromises);
+        }).then(function() {
+            // 3. Generate assignments
+            return SB.generateWeekAssignments({
+                weekStartDate: safeWeekStart(weekStart),
+                startingSerial: startSerial,
+                lineBalance: dailyQtys.mon,
+                modules: allModules || [],
+                departments: lineDepts || [],
+                shifts: shifts || [],
+                dailyOverrides: buildDailyOverrides(lineDepts || [], weekStart, dailyQtys),
+            });
         }).then(function(result) {
-            setGenerating(false);
-            setSuccess('Week generated: ' + (result.totalAssignments || 0) + ' assignments created');
+            setSaving(false);
+            setSuccess('Saved: ' + (result.totalAssignments || 0) + ' assignments');
             if (onRefresh) onRefresh();
         }).catch(function(err) {
-            setGenerating(false);
-            setError(err.message || 'Failed to generate week');
+            setSaving(false);
+            setError(err.message || 'Failed to save week');
         });
     }
 
+    // Complete Shift 1
     function handleCompleteShift1() {
+        if (!window.confirm('Complete Shift 1 and generate handoff report?')) return;
         setCompleting(true);
         setError('');
         var SUP = window.MODA_SUPERVISORS;
         if (!SUP) { setError('Supervisor data layer not loaded'); setCompleting(false); return; }
 
-        SUP.generateHandoffReport({ weekStartDate: safeWeekStart(setupWeek), projectId: projectId })
+        SUP.generateHandoffReport({ weekStartDate: safeWeekStart(weekStart), projectId: projectId })
             .then(function() {
                 var SB = window.MODA_STATION_BOARD;
-                return SB.updateWeekStatus(safeWeekStart(setupWeek), 'shift_1_complete');
+                return SB.upsertWeeklySchedule({ weekStartDate: safeWeekStart(weekStart), startingSerial: startSerial, lineBalance: dailyQtys.mon });
             })
             .then(function() {
                 setCompleting(false);
-                setSuccess('Shift 1 marked complete. Handoff report generated.');
+                setSuccess('Shift 1 complete. Handoff report generated.');
                 if (onRefresh) onRefresh();
             })
             .catch(function(err) {
@@ -622,16 +708,18 @@ function WeekSetupTab(props) {
             });
     }
 
+    // Complete Week
     function handleCompleteWeek() {
+        if (!window.confirm('Complete this week? This action cannot be undone.')) return;
         setCompleting(true);
         setError('');
         var SUP = window.MODA_SUPERVISORS;
         if (!SUP) { setError('Supervisor data layer not loaded'); setCompleting(false); return; }
 
-        SUP.completeShift2({ weekStartDate: safeWeekStart(setupWeek), projectId: projectId })
+        SUP.completeShift2({ weekStartDate: safeWeekStart(weekStart), projectId: projectId })
             .then(function() {
                 var SB = window.MODA_STATION_BOARD;
-                return SB.updateWeekStatus(safeWeekStart(setupWeek), 'complete');
+                return SB.completeWeek(safeWeekStart(weekStart));
             })
             .then(function() {
                 setCompleting(false);
@@ -644,6 +732,226 @@ function WeekSetupTab(props) {
             });
     }
 
+    return (
+        <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
+            {/* Header — always visible */}
+            <button
+                onClick={function() { setExpanded(function(v) { return !v; }); }}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition"
+            >
+                <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{stbWeekLabel(weekStart)}</span>
+                    <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + statusCfg.bg + ' ' + statusCfg.text}>{statusCfg.label}</span>
+                </div>
+                <span className="text-gray-400 text-xs">{expanded ? '\u25B2' : '\u25BC'}</span>
+            </button>
+
+            {/* Expanded body */}
+            {expanded && (
+                <div className="px-4 pb-4 pt-1 space-y-4 border-t border-gray-100 dark:border-gray-700">
+                    {/* Starting Serial */}
+                    <div className="relative" ref={suggestRef}>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Starting Serial #</label>
+                        <input
+                            type="text"
+                            value={startSerial}
+                            onChange={handleSerialInput}
+                            onFocus={function() { if (serialSuggestions.length > 0) setShowSuggestions(true); }}
+                            onBlur={function() { setTimeout(function() { setShowSuggestions(false); }, 200); }}
+                            placeholder="e.g. 26-0413"
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+                        />
+                        {showSuggestions && (
+                            <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                {serialSuggestions.map(function(m) {
+                                    var sn = m.serialNumber || '';
+                                    return (
+                                        <button key={sn} onClick={function() { handlePickSerial(sn); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
+                                            {sn} {m.hitchBLM ? '(' + m.hitchBLM + ')' : ''}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Shift 1: Mon-Thu */}
+                    <div>
+                        <label className="block text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Shift 1 (Mon \u2013 Thu)</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[{key:'mon',idx:0},{key:'tue',idx:1},{key:'wed',idx:2},{key:'thu',idx:3}].map(function(d) {
+                                var dt = dates[d.idx];
+                                return (
+                                    <div key={d.key} className="flex flex-col items-center">
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">{dt ? dt.label + ' ' + dt.dayNum : d.key}</span>
+                                        <input
+                                            type="number"
+                                            value={dailyQtys[d.key]}
+                                            onChange={function(e) { handleQtyChange(d.key, e.target.value); }}
+                                            min="0" max="20"
+                                            className="w-full px-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-center min-h-[44px]"
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Shift 2: Fri-Sun */}
+                    <div>
+                        <label className="block text-xs font-medium text-orange-500 dark:text-orange-400 mb-1">Shift 2 (Fri \u2013 Sun)</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[{key:'fri',idx:4},{key:'sat',idx:5},{key:'sun',idx:6}].map(function(d) {
+                                var dt = dates[d.idx];
+                                return (
+                                    <div key={d.key} className="flex flex-col items-center">
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">{dt ? dt.label + ' ' + dt.dayNum : d.key}</span>
+                                        <input
+                                            type="number"
+                                            value={dailyQtys[d.key]}
+                                            onChange={function(e) { handleQtyChange(d.key, e.target.value); }}
+                                            min="0" max="20"
+                                            className="w-full px-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-center min-h-[44px]"
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Line Summary */}
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2.5 space-y-1">
+                        <div className="flex justify-between text-xs">
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">Shift 1:</span>
+                            <span className="text-gray-700 dark:text-gray-300">{shift1First} \u2192 {shift1Last} <span className="text-gray-400">({shift1Total} modules)</span></span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-orange-500 dark:text-orange-400 font-medium">Shift 2:</span>
+                            <span className="text-gray-700 dark:text-gray-300">{shift2First} \u2192 {shift2Last} <span className="text-gray-400">({shift2Total} modules)</span></span>
+                        </div>
+                        <div className="flex justify-between text-xs font-bold border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
+                            <span className="text-gray-800 dark:text-gray-200">Total:</span>
+                            <span className="text-gray-800 dark:text-gray-200">{totalWeekQty} modules</span>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-2">
+                        <button
+                            onClick={handleSave}
+                            disabled={saving || !startSerial}
+                            className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm min-h-[44px] disabled:opacity-50 transition"
+                        >
+                            {saving ? 'Saving...' : 'Save Week'}
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={handleCompleteShift1}
+                                disabled={completing || status === 'not_set_up' || status === 'shift_1_complete' || status === 'complete'}
+                                className="py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium text-xs min-h-[40px] disabled:opacity-40 transition"
+                            >
+                                {completing ? '...' : 'Complete Shift 1'}
+                            </button>
+                            <button
+                                onClick={handleCompleteWeek}
+                                disabled={completing || status !== 'shift_1_complete'}
+                                className="py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-xs min-h-[40px] disabled:opacity-40 transition"
+                            >
+                                {completing ? '...' : 'Complete Week'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Messages */}
+                    {error && <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs">{error}</div>}
+                    {success && <div className="p-2.5 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs">{success}</div>}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── WeekSetupTab — rolling 4-week container ────────────────────────────────
+function WeekSetupTab(props) {
+    var currentUser = props.currentUser;
+    var allModules = props.modules;
+    var projectId = props.projectId;
+    var lineDepts = props.lineDepts;
+    var shifts = props.shifts;
+    var onRefresh = props.onRefresh;
+
+    // Generate 4 rolling week start dates (current + 3 future)
+    var currentWeekStart = stbGetCurrentWeekStart();
+    var weekStarts = useMemo(function() {
+        var result = [];
+        for (var i = 0; i < 4; i++) {
+            result.push(stbShiftWeek(currentWeekStart, i));
+        }
+        return result;
+    }, [currentWeekStart]);
+
+    // Load existing schedules for all 4 weeks
+    var [schedules, setSchedules] = useState({});
+    var [loadingSchedules, setLoadingSchedules] = useState(true);
+
+    useEffect(function() {
+        setLoadingSchedules(true);
+        var SB = window.MODA_STATION_BOARD;
+        if (!SB || !SB.getWeeklySchedule) { setLoadingSchedules(false); return; }
+
+        var promises = weekStarts.map(function(ws) {
+            return SB.getWeeklySchedule(ws).then(function(data) {
+                return { ws: ws, data: data };
+            }).catch(function() {
+                return { ws: ws, data: null };
+            });
+        });
+
+        Promise.all(promises).then(function(results) {
+            var map = {};
+            results.forEach(function(r) {
+                if (r.data) map[r.ws] = r.data;
+            });
+            setSchedules(map);
+            setLoadingSchedules(false);
+        });
+    }, [weekStarts]);
+
+    // Track cascade data from each week card: { weekIdx: { serial, total } }
+    var cascadeRef = useRef({});
+    function handleQtysChange(weekIdx, serial, total) {
+        cascadeRef.current[weekIdx] = { serial: serial, total: total };
+    }
+
+    // Derive previous week serial and total for each card
+    function getPrevWeekData(weekIdx) {
+        if (weekIdx === 0) {
+            // First card: use schedule data if available, otherwise no cascade
+            var firstSched = schedules[weekStarts[0]];
+            return { serial: firstSched ? firstSched.starting_serial : '', total: 0 };
+        }
+        var prevData = cascadeRef.current[weekIdx - 1];
+        if (prevData) return { serial: prevData.serial, total: prevData.total };
+        // Fallback: check if previous week has a schedule
+        var prevSched = schedules[weekStarts[weekIdx - 1]];
+        if (prevSched) return { serial: prevSched.starting_serial || '', total: prevSched.line_balance ? prevSched.line_balance * 7 : 0 };
+        return { serial: '', total: 0 };
+    }
+
+    // Stagger config state
+    var [staggers, setStaggers] = useState([]);
+    var [editingStagger, setEditingStagger] = useState(null);
+    var [staggerValue, setStaggerValue] = useState('');
+    var [staggerError, setStaggerError] = useState('');
+
+    useEffect(function() {
+        if (lineDepts) {
+            setStaggers(lineDepts.map(function(d) {
+                return { id: d.id, name: d.name, stagger_offset: d.stagger_offset || 0, color: d.color };
+            }));
+        }
+    }, [lineDepts]);
+
     function handleSaveStagger(deptId) {
         var val = parseInt(staggerValue) || 0;
         var SB = window.MODA_STATION_BOARD;
@@ -654,115 +962,44 @@ function WeekSetupTab(props) {
             });
             setEditingStagger(null);
         }).catch(function(err) {
-            setError(err.message || 'Failed to save stagger');
+            setStaggerError(err.message || 'Failed to save stagger');
         });
     }
 
-    var weekStatus = weekSchedule && weekSchedule.week_start_date === setupWeek ? weekSchedule.status : null;
+    if (loadingSchedules) {
+        return <div className="flex items-center justify-center py-16"><STBSpinner size="lg" /></div>;
+    }
 
     return (
-        <div className="px-3 py-4 space-y-6 max-w-lg mx-auto">
-            {/* Section A: Schedule */}
-            <div className="space-y-4">
-                <h3 className="text-base font-bold text-gray-900 dark:text-white">Schedule Setup</h3>
+        <div className="px-3 py-4 space-y-4 max-w-lg mx-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 160px)' }}>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">Week Setup</h3>
 
-                {/* Week Picker */}
-                <div className="flex items-center gap-3 justify-center">
-                    <button onClick={handlePrevWeek} className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 text-lg font-bold">{'\u25C0'}</button>
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200 min-w-[180px] text-center">{stbWeekLabel(setupWeek)}</span>
-                    <button onClick={handleNextWeek} className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 text-lg font-bold">{'\u25B6'}</button>
-                </div>
-
-                {/* Status Badge */}
-                {weekStatus && (
-                    <div className="text-center">
-                        <span className="inline-block text-xs px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">{weekStatus.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); })}</span>
-                    </div>
-                )}
-
-                {/* Starting Serial */}
-                <div className="relative" ref={suggestRef}>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Starting Serial #</label>
-                    <input
-                        type="text"
-                        value={startSerial}
-                        onChange={handleSerialChange}
-                        onFocus={function() { if (serialSuggestions.length > 0) setShowSuggestions(true); }}
-                        onBlur={function() { setTimeout(function() { setShowSuggestions(false); }, 200); }}
-                        placeholder="e.g. 26-0413"
-                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
-                    />
-                    {showSuggestions && (
-                        <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            {serialSuggestions.map(function(m) {
-                                var sn = m.serialNumber || '';
-                                return (
-                                    <button key={sn} onClick={function() { handleSelectSerial(sn); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
-                                        {sn} {m.hitchBLM ? '(' + m.hitchBLM + ')' : ''}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                {/* Per-Day Quantities */}
-                <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Daily Module Quantities</label>
-                    <div className="grid grid-cols-7 gap-1">
-                        {['mon','tue','wed','thu','fri','sat','sun'].map(function(dayKey, idx) {
-                            var dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-                            var isShift2 = idx >= 4;
-                            return (
-                                <div key={dayKey} className="flex flex-col items-center">
-                                    <span className={'text-[10px] font-medium mb-0.5 ' + (isShift2 ? 'text-orange-500' : 'text-blue-500')}>{dayLabels[idx]}</span>
-                                    <input
-                                        type="number"
-                                        value={dailyQtys[dayKey]}
-                                        onChange={function(e) { handleDailyQtyChange(dayKey, e.target.value); }}
-                                        min="0" max="20"
-                                        className="w-full px-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-center min-h-[44px]"
-                                    />
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-2">
-                    <button
-                        onClick={handleGenerate}
-                        disabled={generating}
-                        className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm min-h-[48px] disabled:opacity-50 transition"
-                    >
-                        {generating ? 'Generating...' : 'Generate Week'}
-                    </button>
-                    <div className="grid grid-cols-2 gap-2">
-                        <button
-                            onClick={handleCompleteShift1}
-                            disabled={completing || weekStatus === 'shift_1_complete' || weekStatus === 'complete'}
-                            className="py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium text-xs min-h-[44px] disabled:opacity-40 transition"
-                        >
-                            {completing ? '...' : 'Complete Shift 1'}
-                        </button>
-                        <button
-                            onClick={handleCompleteWeek}
-                            disabled={completing || weekStatus === 'complete' || weekStatus !== 'shift_1_complete'}
-                            className="py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-xs min-h-[44px] disabled:opacity-40 transition"
-                        >
-                            {completing ? '...' : 'Complete Week'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Messages */}
-                {error && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs">{error}</div>}
-                {success && <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs">{success}</div>}
+            {/* Rolling 4-week cards */}
+            <div className="space-y-3">
+                {weekStarts.map(function(ws, idx) {
+                    var prev = getPrevWeekData(idx);
+                    return (
+                        <WeekCard
+                            key={ws}
+                            weekStart={ws}
+                            weekIdx={idx}
+                            schedule={schedules[ws] || null}
+                            allModules={allModules}
+                            lineDepts={lineDepts}
+                            shifts={shifts}
+                            projectId={projectId}
+                            onRefresh={onRefresh}
+                            prevWeekSerial={prev.serial}
+                            prevWeekTotal={prev.total}
+                            onQtysChange={handleQtysChange}
+                            defaultExpanded={idx === 0}
+                        />
+                    );
+                })}
             </div>
 
             {/* Section B: Stagger Configuration */}
-            <div className="space-y-3">
+            <div className="space-y-3 pt-2">
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">Stagger Configuration</h3>
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                     <div className="grid grid-cols-[1fr_80px_60px] px-3 py-2 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
@@ -800,6 +1037,7 @@ function WeekSetupTab(props) {
                         );
                     })}
                 </div>
+                {staggerError && <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs">{staggerError}</div>}
                 {staggers.length > 0 && (
                     <p className="text-xs text-gray-400 dark:text-gray-500 italic">
                         Stagger offset = how many module positions behind the lead department (Automation).
