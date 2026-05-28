@@ -272,10 +272,9 @@
                 if (idx !== -1) {
                     sortedMods = sortedAll;
                     startIdx = idx;
-                    console.log('[GenerateWeek] Found serial in full Supabase data, total:', sortedAll.length);
                 }
             } catch (e) {
-                console.warn('[GenerateWeek] Supabase fallback failed:', e.message);
+                // Supabase fallback failed silently
             }
         }
         if (startIdx === -1) throw new Error(`Starting module ${startingSerial} not found`);
@@ -299,8 +298,19 @@
                 }
             });
         });
-        if (assignments.length > 0) await bulkSetAssignments(assignments);
-        return assignments;
+        if (assignments.length > 0) {
+            // Ensure weekly schedule record exists (FK constraint on station_day_assignments)
+            var existingSchedule = await getWeeklySchedule(ws);
+            if (!existingSchedule) {
+                await upsertWeeklySchedule({
+                    weekStartDate: ws,
+                    startingSerial: startingSerial,
+                    lineBalance: lineBalance || 5,
+                });
+            }
+            await bulkSetAssignments(assignments);
+        }
+        return { totalAssignments: assignments.length, assignments: assignments };
     }
 
     async function getCompletions(ws, targetDate) {
