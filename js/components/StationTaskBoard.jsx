@@ -69,7 +69,7 @@ function stbWeekLabel(ws) {
     var sun = new Date(mon);
     sun.setDate(mon.getDate() + 6);
     function fmt(dt) { return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
-    return fmt(mon) + ' \u2013 ' + fmt(sun) + ', ' + mon.getFullYear();
+    return fmt(mon) + ' – ' + fmt(sun) + ', ' + mon.getFullYear();
 }
 
 function stbShiftWeek(ws, delta) {
@@ -406,7 +406,7 @@ function DailyBoardTab(props) {
                                     />
                                 </div>
                                 <span className="text-xs font-mono text-gray-500 w-10 text-right">{pct}%</span>
-                                <span className="text-gray-400 text-sm ml-1">{isExpanded ? '\u25BC' : '\u25B6'}</span>
+                                <span className="text-gray-400 text-sm ml-1">{isExpanded ? '▼' : '▶'}</span>
                             </button>
 
                             {/* Expanded: Module List */}
@@ -427,7 +427,7 @@ function DailyBoardTab(props) {
                                                     onClick={function() { handleToggleModule(modKey); }}
                                                     className="w-full flex items-center gap-2 px-6 py-2.5 min-h-[44px] hover:bg-gray-50 dark:hover:bg-gray-750 transition text-left"
                                                 >
-                                                    <span className="text-xs text-gray-400">{isModExpanded ? '\u25BC' : '\u25B6'}</span>
+                                                    <span className="text-xs text-gray-400">{isModExpanded ? '▼' : '▶'}</span>
                                                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{modInfo.serial}</span>
                                                     {modInfo.blm && (
                                                         <span className="text-xs text-gray-400 dark:text-gray-500">{modInfo.blm}</span>
@@ -743,7 +743,7 @@ function WeekCard(props) {
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{stbWeekLabel(weekStart)}</span>
                     <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + statusCfg.bg + ' ' + statusCfg.text}>{statusCfg.label}</span>
                 </div>
-                <span className="text-gray-400 text-xs">{expanded ? '\u25B2' : '\u25BC'}</span>
+                <span className="text-gray-400 text-xs">{expanded ? '▲' : '▼'}</span>
             </button>
 
             {/* Expanded body */}
@@ -777,7 +777,7 @@ function WeekCard(props) {
 
                     {/* Shift 1: Mon-Thu */}
                     <div>
-                        <label className="block text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Shift 1 (Mon \u2013 Thu)</label>
+                        <label className="block text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Shift 1 (Mon – Thu)</label>
                         <div className="grid grid-cols-4 gap-2">
                             {[{key:'mon',idx:0},{key:'tue',idx:1},{key:'wed',idx:2},{key:'thu',idx:3}].map(function(d) {
                                 var dt = dates[d.idx];
@@ -799,7 +799,7 @@ function WeekCard(props) {
 
                     {/* Shift 2: Fri-Sun */}
                     <div>
-                        <label className="block text-xs font-medium text-orange-500 dark:text-orange-400 mb-1">Shift 2 (Fri \u2013 Sun)</label>
+                        <label className="block text-xs font-medium text-orange-500 dark:text-orange-400 mb-1">Shift 2 (Fri – Sun)</label>
                         <div className="grid grid-cols-3 gap-2">
                             {[{key:'fri',idx:4},{key:'sat',idx:5},{key:'sun',idx:6}].map(function(d) {
                                 var dt = dates[d.idx];
@@ -823,11 +823,11 @@ function WeekCard(props) {
                     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2.5 space-y-1">
                         <div className="flex justify-between text-xs">
                             <span className="text-blue-600 dark:text-blue-400 font-medium">Shift 1:</span>
-                            <span className="text-gray-700 dark:text-gray-300">{shift1First} \u2192 {shift1Last} <span className="text-gray-400">({shift1Total} modules)</span></span>
+                            <span className="text-gray-700 dark:text-gray-300">{shift1First} → {shift1Last} <span className="text-gray-400">({shift1Total} modules)</span></span>
                         </div>
                         <div className="flex justify-between text-xs">
                             <span className="text-orange-500 dark:text-orange-400 font-medium">Shift 2:</span>
-                            <span className="text-gray-700 dark:text-gray-300">{shift2First} \u2192 {shift2Last} <span className="text-gray-400">({shift2Total} modules)</span></span>
+                            <span className="text-gray-700 dark:text-gray-300">{shift2First} → {shift2Last} <span className="text-gray-400">({shift2Total} modules)</span></span>
                         </div>
                         <div className="flex justify-between text-xs font-bold border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
                             <span className="text-gray-800 dark:text-gray-200">Total:</span>
@@ -1320,7 +1320,7 @@ function AdminConfigTab(props) {
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                 <button onClick={function() { handleTogglePanel('departments'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
                     <span className="font-semibold text-sm text-gray-900 dark:text-white">Department Manager</span>
-                    <span className="text-gray-400">{openPanel === 'departments' ? '\u25BC' : '\u25B6'}</span>
+                    <span className="text-gray-400">{openPanel === 'departments' ? '▼' : '▶'}</span>
                 </button>
                 {openPanel === 'departments' && (
                     <div className="p-3 space-y-2 border-t border-gray-200 dark:border-gray-700">
@@ -1358,7 +1358,7 @@ function AdminConfigTab(props) {
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                 <button onClick={function() { handleTogglePanel('tasks'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
                     <span className="font-semibold text-sm text-gray-900 dark:text-white">Task List Manager</span>
-                    <span className="text-gray-400">{openPanel === 'tasks' ? '\u25BC' : '\u25B6'}</span>
+                    <span className="text-gray-400">{openPanel === 'tasks' ? '▼' : '▶'}</span>
                 </button>
                 {openPanel === 'tasks' && (
                     <div className="p-3 space-y-2 border-t border-gray-200 dark:border-gray-700">
@@ -1402,7 +1402,7 @@ function AdminConfigTab(props) {
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                 <button onClick={function() { handleTogglePanel('shifts'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
                     <span className="font-semibold text-sm text-gray-900 dark:text-white">Shift Configuration</span>
-                    <span className="text-gray-400">{openPanel === 'shifts' ? '\u25BC' : '\u25B6'}</span>
+                    <span className="text-gray-400">{openPanel === 'shifts' ? '▼' : '▶'}</span>
                 </button>
                 {openPanel === 'shifts' && (
                     <div className="p-3 space-y-2 border-t border-gray-200 dark:border-gray-700">

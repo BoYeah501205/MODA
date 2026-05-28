@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-28T13:56:32.627Z
+ * Generated: 2026-05-28T18:15:17.771Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13811,7 +13811,7 @@ function stbWeekLabel(ws) {
       day: 'numeric'
     });
   }
-  return fmt(mon) + ' \u2013 ' + fmt(sun) + ', ' + mon.getFullYear();
+  return fmt(mon) + ' – ' + fmt(sun) + ', ' + mon.getFullYear();
 }
 function stbShiftWeek(ws, delta) {
   var mon = stbParseDate(ws);
@@ -14166,7 +14166,7 @@ function DailyBoardTab(props) {
       className: "text-xs font-mono text-gray-500 w-10 text-right"
     }, pct, "%"), /*#__PURE__*/React.createElement("span", {
       className: "text-gray-400 text-sm ml-1"
-    }, isExpanded ? '\u25BC' : '\u25B6')), isExpanded && /*#__PURE__*/React.createElement("div", {
+    }, isExpanded ? '▼' : '▶')), isExpanded && /*#__PURE__*/React.createElement("div", {
       className: "border-t border-gray-100 dark:border-gray-700"
     }, deptModules.length === 0 && /*#__PURE__*/React.createElement("div", {
       className: "px-4 py-3 text-xs text-gray-400 italic"
@@ -14184,7 +14184,7 @@ function DailyBoardTab(props) {
         className: "w-full flex items-center gap-2 px-6 py-2.5 min-h-[44px] hover:bg-gray-50 dark:hover:bg-gray-750 transition text-left"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-xs text-gray-400"
-      }, isModExpanded ? '\u25BC' : '\u25B6'), /*#__PURE__*/React.createElement("span", {
+      }, isModExpanded ? '▼' : '▶'), /*#__PURE__*/React.createElement("span", {
         className: "text-sm font-medium text-gray-800 dark:text-gray-200"
       }, modInfo.serial), modInfo.blm && /*#__PURE__*/React.createElement("span", {
         className: "text-xs text-gray-400 dark:text-gray-500"
@@ -14537,7 +14537,7 @@ function WeekCard(props) {
     className: 'text-[10px] font-bold px-2 py-0.5 rounded-full ' + statusCfg.bg + ' ' + statusCfg.text
   }, statusCfg.label)), /*#__PURE__*/React.createElement("span", {
     className: "text-gray-400 text-xs"
-  }, expanded ? '\u25B2' : '\u25BC')), expanded && /*#__PURE__*/React.createElement("div", {
+  }, expanded ? '▲' : '▼')), expanded && /*#__PURE__*/React.createElement("div", {
     className: "px-4 pb-4 pt-1 space-y-4 border-t border-gray-100 dark:border-gray-700"
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative",
@@ -14571,7 +14571,7 @@ function WeekCard(props) {
     }, sn, " ", m.hitchBLM ? '(' + m.hitchBLM + ')' : '');
   }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-xs font-medium text-blue-600 dark:text-blue-400 mb-1"
-  }, "Shift 1 (Mon \\u2013 Thu)"), /*#__PURE__*/React.createElement("div", {
+  }, "Shift 1 (Mon \u2013 Thu)"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-4 gap-2"
   }, [{
     key: 'mon',
@@ -14604,7 +14604,7 @@ function WeekCard(props) {
     }));
   }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-xs font-medium text-orange-500 dark:text-orange-400 mb-1"
-  }, "Shift 2 (Fri \\u2013 Sun)"), /*#__PURE__*/React.createElement("div", {
+  }, "Shift 2 (Fri \u2013 Sun)"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-2"
   }, [{
     key: 'fri',
@@ -14640,7 +14640,7 @@ function WeekCard(props) {
     className: "text-blue-600 dark:text-blue-400 font-medium"
   }, "Shift 1:"), /*#__PURE__*/React.createElement("span", {
     className: "text-gray-700 dark:text-gray-300"
-  }, shift1First, " \\u2192 ", shift1Last, " ", /*#__PURE__*/React.createElement("span", {
+  }, shift1First, " \u2192 ", shift1Last, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-gray-400"
   }, "(", shift1Total, " modules)"))), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-xs"
@@ -14648,7 +14648,7 @@ function WeekCard(props) {
     className: "text-orange-500 dark:text-orange-400 font-medium"
   }, "Shift 2:"), /*#__PURE__*/React.createElement("span", {
     className: "text-gray-700 dark:text-gray-300"
-  }, shift2First, " \\u2192 ", shift2Last, " ", /*#__PURE__*/React.createElement("span", {
+  }, shift2First, " \u2192 ", shift2Last, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-gray-400"
   }, "(", shift2Total, " modules)"))), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-xs font-bold border-t border-gray-200 dark:border-gray-700 pt-1 mt-1"
@@ -15229,7 +15229,7 @@ function AdminConfigTab(props) {
     className: "font-semibold text-sm text-gray-900 dark:text-white"
   }, "Department Manager"), /*#__PURE__*/React.createElement("span", {
     className: "text-gray-400"
-  }, openPanel === 'departments' ? '\u25BC' : '\u25B6')), openPanel === 'departments' && /*#__PURE__*/React.createElement("div", {
+  }, openPanel === 'departments' ? '▼' : '▶')), openPanel === 'departments' && /*#__PURE__*/React.createElement("div", {
     className: "p-3 space-y-2 border-t border-gray-200 dark:border-gray-700"
   }, (lineDepts || []).map(function (dept) {
     return /*#__PURE__*/React.createElement("div", {
@@ -15282,7 +15282,7 @@ function AdminConfigTab(props) {
     className: "font-semibold text-sm text-gray-900 dark:text-white"
   }, "Task List Manager"), /*#__PURE__*/React.createElement("span", {
     className: "text-gray-400"
-  }, openPanel === 'tasks' ? '\u25BC' : '\u25B6')), openPanel === 'tasks' && /*#__PURE__*/React.createElement("div", {
+  }, openPanel === 'tasks' ? '▼' : '▶')), openPanel === 'tasks' && /*#__PURE__*/React.createElement("div", {
     className: "p-3 space-y-2 border-t border-gray-200 dark:border-gray-700"
   }, /*#__PURE__*/React.createElement("select", {
     value: selectedDeptForTasks || '',
@@ -15334,7 +15334,7 @@ function AdminConfigTab(props) {
     className: "font-semibold text-sm text-gray-900 dark:text-white"
   }, "Shift Configuration"), /*#__PURE__*/React.createElement("span", {
     className: "text-gray-400"
-  }, openPanel === 'shifts' ? '\u25BC' : '\u25B6')), openPanel === 'shifts' && /*#__PURE__*/React.createElement("div", {
+  }, openPanel === 'shifts' ? '▼' : '▶')), openPanel === 'shifts' && /*#__PURE__*/React.createElement("div", {
     className: "p-3 space-y-2 border-t border-gray-200 dark:border-gray-700"
   }, (shifts || []).map(function (shift) {
     var isEditing = editingShift && editingShift.id === shift.id;
