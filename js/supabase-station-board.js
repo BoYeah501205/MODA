@@ -257,14 +257,27 @@
         const dayNameMap = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
         const dateDayMap = {};
         dates.forEach(d => { const dt = parseDate(d); dateDayMap[d] = dayNameMap[dt.getDay()]; });
-        const sortedMods = [...modules].sort((a, b) => (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0));
-        console.log('[GenerateWeek] looking for serial:', startingSerial);
-        console.log('[GenerateWeek] first 3 sorted modules:', sortedMods.slice(0,3).map(function(m){ return {sn: m.serialNumber || m.id, bs: m.buildSequence ?? m.build_sequence}; }));
-        console.log('[GenerateWeek] total modules:', sortedMods.length);
-        const startIdx = sortedMods.findIndex(function(m) {
+        let sortedMods = [...modules].sort((a, b) => (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0));
+        let startIdx = sortedMods.findIndex(function(m) {
             var sn = (m.serialNumber || '').toString().trim();
             return sn === startingSerial.trim();
         });
+        // If serial not found in passed modules, try fetching from Supabase directly
+        if (startIdx === -1 && window.MODA_SUPABASE_DATA?.projects?.getAll) {
+            try {
+                const allProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
+                const allMods = allProjects.flatMap(function(p) { return p.modules || []; });
+                const sortedAll = allMods.sort(function(a, b) { return (a.buildSequence || 0) - (b.buildSequence || 0); });
+                const idx = sortedAll.findIndex(function(m) { return (m.serialNumber || '').toString().trim() === startingSerial.trim(); });
+                if (idx !== -1) {
+                    sortedMods = sortedAll;
+                    startIdx = idx;
+                    console.log('[GenerateWeek] Found serial in full Supabase data, total:', sortedAll.length);
+                }
+            } catch (e) {
+                console.warn('[GenerateWeek] Supabase fallback failed:', e.message);
+            }
+        }
         if (startIdx === -1) throw new Error(`Starting module ${startingSerial} not found`);
         const allShiftDays = new Set(shifts.flatMap(s => s.days));
         const activeDates = dates.filter(d => allShiftDays.has(dateDayMap[d]));

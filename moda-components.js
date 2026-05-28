@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-28T11:01:36.302Z
+ * Generated: 2026-05-28T11:13:05.246Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -60192,8 +60192,9 @@ function Dashboard({
     });
   }, []);
 
-  // Load projects from Supabase on mount
+  // Load projects from Supabase on mount AND on auth ready
   useEffect(() => {
+    let loaded = false;
     const loadProjects = async () => {
       // Wait for Supabase AND data layer to initialize (up to 5 seconds)
       let attempts = 0;
@@ -60204,48 +60205,46 @@ function Dashboard({
       }
       try {
         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
-          try {
-            const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
-            // Map Supabase field names to UI field names
-            const mappedProjects = (supabaseProjects || []).map(p => ({
-              ...p,
-              customer: p.client || p.customer || '',
-              // Supabase uses 'client', UI uses 'customer'
-              startDate: p.start_date || p.startDate,
-              endDate: p.end_date || p.endDate
-            }));
-            setProjectsState(mappedProjects);
-            // Initialize lastSyncedProjects to prevent unnecessary sync on first load
-            if (lastSyncedProjects.current === null) {
-              lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
-            }
-            setProjectsSynced(true);
-          } catch (supabaseError) {
-            // Log detailed error info for debugging
-            const errorDetails = {
-              message: supabaseError.message,
-              code: supabaseError.code,
-              hint: supabaseError.hint,
-              details: supabaseError.details
-            };
-            console.error('[App] Supabase projects error:', JSON.stringify(errorDetails));
-            if (window.debugError) {
-              window.debugError(`Supabase projects failed: ${supabaseError.message || 'Unknown error'}`);
-              if (supabaseError.code) window.debugError(`Error code: ${supabaseError.code}`);
-            }
+          const supabaseProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
+          // Map Supabase field names to UI field names
+          const mappedProjects = (supabaseProjects || []).map(p => ({
+            ...p,
+            customer: p.client || p.customer || '',
+            // Supabase uses 'client', UI uses 'customer'
+            startDate: p.start_date || p.startDate,
+            endDate: p.end_date || p.endDate
+          }));
+          setProjectsState(mappedProjects);
+          // Initialize lastSyncedProjects to prevent unnecessary sync on first load
+          if (lastSyncedProjects.current === null) {
+            lastSyncedProjects.current = JSON.parse(JSON.stringify(mappedProjects));
           }
+          setProjectsSynced(true);
+          loaded = true;
+          console.log('[App] Loaded', mappedProjects.length, 'projects from Supabase');
         } else {
-          console.error('[App] Supabase not available — cannot load projects');
-          if (window.debugError) window.debugError('Supabase not available — cannot load projects');
+          console.warn('[App] Supabase not available yet after wait — will retry on auth ready');
         }
       } catch (error) {
-        console.error('[App] Error loading projects:', error);
+        console.error('[App] Error loading projects:', error.message);
         if (window.debugError) window.debugError(`Failed to load projects: ${error.message}`);
       } finally {
         setProjectsLoading(false);
       }
     };
+
+    // Retry loadProjects when auth profile confirms Supabase is ready
+    const handleProfileLoaded = () => {
+      if (!loaded) {
+        console.log('[App] Auth profile loaded — retrying loadProjects');
+        loadProjects();
+      }
+    };
+    window.addEventListener('moda-profile-loaded', handleProfileLoaded);
     loadProjects();
+    return () => {
+      window.removeEventListener('moda-profile-loaded', handleProfileLoaded);
+    };
   }, []);
 
   // Real-time subscription for projects (live updates across devices)
