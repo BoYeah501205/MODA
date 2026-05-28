@@ -253,33 +253,43 @@
 
     async function generateWeekAssignments({ weekStartDate, startingSerial, lineBalance, modules, departments, shifts, dailyOverrides = {} }) {
         const ws = weekStartDate || weekStart();
+        console.log('[GenerateWeek] Starting with ws:', ws, 'type:', typeof ws);
+        console.log('[GenerateWeek] startingSerial:', startingSerial);
+        console.log('[GenerateWeek] lineBalance:', lineBalance, 'depts:', departments.length, 'shifts:', shifts.length);
         const dates = weekDates(ws);
         const dayNameMap = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
         const dateDayMap = {};
         dates.forEach(d => { const dt = parseDate(d); dateDayMap[d] = dayNameMap[dt.getDay()]; });
         let sortedMods = [...modules].sort((a, b) => (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0));
+        console.log('[GenerateWeek] modules count:', sortedMods.length);
         let startIdx = sortedMods.findIndex(function(m) {
             var sn = (m.serialNumber || '').toString().trim();
             return sn === startingSerial.trim();
         });
+        console.log('[GenerateWeek] startIdx from props:', startIdx);
         // If serial not found in passed modules, try fetching from Supabase directly
         if (startIdx === -1 && window.MODA_SUPABASE_DATA?.projects?.getAll) {
+            console.log('[GenerateWeek] Serial not in props, trying Supabase fallback...');
             try {
                 const allProjects = await window.MODA_SUPABASE_DATA.projects.getAll();
                 const allMods = allProjects.flatMap(function(p) { return p.modules || []; });
                 const sortedAll = allMods.sort(function(a, b) { return (a.buildSequence || 0) - (b.buildSequence || 0); });
                 const idx = sortedAll.findIndex(function(m) { return (m.serialNumber || '').toString().trim() === startingSerial.trim(); });
+                console.log('[GenerateWeek] Supabase fallback: found', allMods.length, 'modules, idx:', idx);
                 if (idx !== -1) {
                     sortedMods = sortedAll;
                     startIdx = idx;
                 }
             } catch (e) {
-                // Supabase fallback failed silently
+                console.error('[GenerateWeek] Supabase fallback error:', e.message);
             }
         }
         if (startIdx === -1) throw new Error(`Starting module ${startingSerial} not found`);
+        console.log('[GenerateWeek] Final startIdx:', startIdx);
         const allShiftDays = new Set(shifts.flatMap(s => s.days));
+        console.log('[GenerateWeek] allShiftDays:', [...allShiftDays]);
         const activeDates = dates.filter(d => allShiftDays.has(dateDayMap[d]));
+        console.log('[GenerateWeek] activeDates:', activeDates);
         const assignments = [];
         departments.forEach(dept => {
             const stagger = dept.stagger_offset ?? 0;
@@ -298,17 +308,28 @@
                 }
             });
         });
+        console.log('[GenerateWeek] assignments to insert:', assignments.length);
         if (assignments.length > 0) {
             // Ensure weekly schedule record exists (FK constraint on station_day_assignments)
             var existingSchedule = await getWeeklySchedule(ws);
+            console.log('[GenerateWeek] existingSchedule:', existingSchedule ? 'yes' : 'no');
             if (!existingSchedule) {
                 await upsertWeeklySchedule({
                     weekStartDate: ws,
                     startingSerial: startingSerial,
                     lineBalance: lineBalance || 5,
                 });
+                console.log('[GenerateWeek] Created weekly schedule record');
             }
-            await bulkSetAssignments(assignments);
+            try {
+                await bulkSetAssignments(assignments);
+                console.log('[GenerateWeek] Assignments saved successfully:', assignments.length);
+            } catch (e) {
+                console.error('[GenerateWeek] bulkSetAssignments failed:', e.message, e);
+                throw e;
+            }
+        } else {
+            console.warn('[GenerateWeek] No assignments generated — check shifts/departments/dailyOverrides');
         }
         return { totalAssignments: assignments.length, assignments: assignments };
     }
@@ -380,11 +401,20 @@
     }
 
     function subscribeToCompletions(ws, callback) {
-        const channel = getClient()
-            .channel(`sb_completions_${ws}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'station_task_completions', filter: `week_start=eq.${ws}` }, callback)
+        var channelName = 'sb_completions_' + ws;
+        try {
+            var existing = getClient().getChannels().find(function(c) { return c.topic === 'realtime:' + channelName; });
+            if (existing) getClient().removeChannel(existing);
+        } catch(e) {}
+        var channel = getClient()
+            .channel(channelName)
+            .on('postgres_changes', {
+                event: '*', schema: 'public',
+                table: 'station_task_completions',
+                filter: 'week_start=eq.' + ws,
+            }, callback)
             .subscribe();
-        return () => getClient().removeChannel(channel);
+        return function() { getClient().removeChannel(channel); };
     }
 
     window.MODA_STATION_BOARD = {
