@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.91**
+**Current Version: 1.5.92**
 
 ---
+
+## [1.5.92] - 2026-05-29
+### Fixed
+- **weekStart() UTC timezone bug** (true root cause): `toISOString().slice(0,10)` converts to UTC before formatting — on Mountain Time (UTC-6) this shifts Monday dates back to Sunday. Replaced with `fmtDate(mon)` using local time
+- `getDayAssignments` confirmed correct (no unintended target_date filter)
+- Enhanced diagnostic logs in WeeklySummaryTab to show week_start + all 7 weekDates
 
 ## [1.5.91] - 2026-05-29
 ### Fixed

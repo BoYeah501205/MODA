@@ -17,11 +17,12 @@
     }
 
     function weekStart(date) {
-        const d = date ? new Date(date) : new Date();
+        const d = date ? parseDate(date.slice(0, 10)) : new Date();
         const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(d.setDate(diff));
-        return mon.toISOString().slice(0, 10);
+        const diff = day === 0 ? -6 : 1 - day;
+        const mon = new Date(d);
+        mon.setDate(d.getDate() + diff);
+        return fmtDate(mon);
     }
 
     function parseDate(str) {

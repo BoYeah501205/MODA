@@ -1950,8 +1950,10 @@ function WeeklySummaryTab(props) {
     // Diagnostic: log date formats on first render to verify alignment
     useMemo(function() {
         if (weekAssignments.length > 0 && weekDays.length > 0) {
+            console.log('[WeeklySummary] week_start:', selectedWeek);
             console.log('[WeeklySummary] Sample target_dates:', weekAssignments.slice(0, 5).map(function(a) { return a.target_date; }));
-            console.log('[WeeklySummary] Sample weekDates:', weekDays.slice(0, 3).map(function(d) { return d.date; }));
+            console.log('[WeeklySummary] Sample weekDates:', weekDays.slice(0, 7).map(function(d) { return d.date; }));
+            console.log('[WeeklySummary] dayModules keys will be:', weekDays.map(function(d) { return d.date; }));
         }
     }, [weekAssignments, weekDays]);
 
