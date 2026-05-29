@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.90**
+**Current Version: 1.5.91**
 
 ---
+
+## [1.5.91] - 2026-05-29
+### Fixed
+- **Weekly Summary day alignment (root cause)**: `loadData()` was using `stbGetCurrentWeekStart()` (today's Monday = 2026-05-26) but the active week in Supabase has `week_start = '2026-05-25'` — one-day offset meant zero assignment matches
+- New `getActiveOrCurrentWeekSchedule()` in `supabase-station-board.js` queries up to 4 recent weeks from `station_weekly_schedule`, checks which has actual assignments, and returns that schedule
+- `loadData()` now uses DB week_start instead of computed Monday
+- Diagnostic log: `[StationTaskBoard] Using week_start from DB: ... (computed was: ...)`
 
 ## [1.5.90] - 2026-05-29
 ### Fixed

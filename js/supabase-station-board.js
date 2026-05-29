@@ -158,6 +158,35 @@
         return data;
     }
 
+    async function getActiveOrCurrentWeekSchedule(fallbackWeekStart) {
+        // Try to find the most recently updated week that has assignments
+        const { data, error } = await getClient()
+            .from('station_weekly_schedule')
+            .select('*')
+            .order('week_start', { ascending: false })
+            .limit(4);
+
+        if (error || !data || data.length === 0) {
+            return getWeeklySchedule(fallbackWeekStart);
+        }
+
+        // Prefer any week that has assignments, prioritizing most recent
+        for (var i = 0; i < data.length; i++) {
+            const ws = data[i].week_start;
+            const { data: assignments } = await getClient()
+                .from('station_day_assignments')
+                .select('week_start')
+                .eq('week_start', ws)
+                .limit(1);
+            if (assignments && assignments.length > 0) {
+                return data[i];
+            }
+        }
+
+        // No week with assignments found — fall back
+        return getWeeklySchedule(fallbackWeekStart);
+    }
+
     async function upsertWeeklySchedule({ weekStartDate, startingSerial, lineBalance }) {
         const ws = weekStartDate || weekStart();
         const user = getUser();
@@ -432,7 +461,7 @@
         getDepartments, getLineDepartments, upsertDepartment, deleteDepartment, updateStagger,
         getTasks, getAllTasks, upsertTask, deleteTask, addTask, removeTask,
         getShifts, upsertShift,
-        getWeeklySchedule, upsertWeeklySchedule, completeWeek,
+        getWeeklySchedule, getActiveOrCurrentWeekSchedule, upsertWeeklySchedule, completeWeek,
         getDailyTargets, upsertDailyTarget,
         getDayAssignments, bulkSetAssignments, deleteAssignment, clearDayAssignments, generateWeekAssignments,
         getCompletions, upsertCompletion,

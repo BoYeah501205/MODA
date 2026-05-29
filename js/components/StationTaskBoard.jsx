@@ -2389,11 +2389,16 @@ function StationTaskBoard(props) {
             return;
         }
 
-        var weekStart = stbGetCurrentWeekStart();
+        var computedWeekStart = stbGetCurrentWeekStart();
+
+        // First try to find the active week from DB, fall back to computed
+        var schedulePromise = SB.getActiveOrCurrentWeekSchedule
+            ? SB.getActiveOrCurrentWeekSchedule(computedWeekStart)
+            : (SB.getWeeklySchedule ? SB.getWeeklySchedule(computedWeekStart) : Promise.resolve(null));
 
         var promises = [
             SUP ? SUP.getCurrentSupervisor() : Promise.resolve(null),
-            SB.getWeeklySchedule ? SB.getWeeklySchedule(weekStart) : Promise.resolve(null),
+            schedulePromise,
             SB.getShifts ? SB.getShifts() : Promise.resolve([]),
             SB.getLineDepartments ? SB.getLineDepartments() : Promise.resolve([]),
             SB.getAllTasks ? SB.getAllTasks() : Promise.resolve([]),
@@ -2409,6 +2414,7 @@ function StationTaskBoard(props) {
             // Also load assignments for this week and attach to schedule
             if (schedule && schedule.week_start) {
                 var ws = safeWeekStart(schedule.week_start);
+                console.log('[StationTaskBoard] Using week_start from DB:', ws, '(computed was:', computedWeekStart, ')');
                 console.log('[StationTaskBoard] Schedule loaded, fetching assignments for ws:', ws);
                 SB.getDayAssignments(ws).then(function(assignments) {
                     console.log('[StationTaskBoard] Assignments loaded:', assignments ? assignments.length : 0);
@@ -2426,7 +2432,7 @@ function StationTaskBoard(props) {
                     subscribeToCompletions(ws);
                 });
             } else {
-                console.warn('[StationTaskBoard] No weekly schedule found for', weekStart);
+                console.warn('[StationTaskBoard] No weekly schedule found for', computedWeekStart);
                 setWeekSchedule(null);
                 setLoading(false);
             }
