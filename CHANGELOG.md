@@ -2,9 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.82**
+**Current Version: 1.5.83**
 
 ---
+
+## [1.5.83] - 2026-05-28
+### Changed
+- **Dynamic module pill overflow** - Module nav row now expands to fill available width; "More" dropdown only appears when pills overflow the container
+- **Module Info button** - Added "Info" button next to module serial in Daily Board header; opens modal with full module details (BLM, build sequence, level, building, stack, unit type, floor plan, sides, difficulty flags)
 
 ## [1.5.82] - 2026-05-28
 ### Changed

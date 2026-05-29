@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T01:53:07.197Z
+ * Generated: 2026-05-29T02:30:12.303Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14030,6 +14030,9 @@ function DailyBoardTab(props) {
   var [inlinePickerTask, setInlinePickerTask] = useState(null);
   var [saving, setSaving] = useState({});
   var [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
+  var [showModuleInfo, setShowModuleInfo] = useState(false);
+  var moduleNavRef = useRef(null);
+  var [visibleCount, setVisibleCount] = useState(null);
   var isAdmin = stbIsAdmin(currentUser);
   var weekStart = weekSchedule ? weekSchedule.week_start : null;
   var weekDays = useMemo(function () {
@@ -14139,7 +14142,22 @@ function DailyBoardTab(props) {
       setSelectedModule(null);
     }
     setInlinePickerTask(null);
+    setShowModuleInfo(false);
   }, [selectedDept, selectedDay, deptModules.length]);
+
+  // Calculate how many module pills fit in the nav row
+  useEffect(function () {
+    if (!moduleNavRef.current || !deptModules || !deptModules.length) {
+      setVisibleCount(null);
+      return;
+    }
+    var container = moduleNavRef.current;
+    var containerWidth = container.offsetWidth;
+    var pillWidth = 106;
+    var dropdownWidth = 90;
+    var maxPills = Math.floor((containerWidth - dropdownWidth) / pillWidth);
+    setVisibleCount(Math.max(1, maxPills));
+  }, [deptModules.length]);
 
   // Selected dept object
   var selectedDeptObj = useMemo(function () {
@@ -14193,6 +14211,7 @@ function DailyBoardTab(props) {
   function handleSelectModule(serial) {
     setSelectedModule(serial);
     setInlinePickerTask(null);
+    setShowModuleInfo(false);
   }
 
   // Handle inline picker toggle
@@ -14363,7 +14382,23 @@ function DailyBoardTab(props) {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-lg font-bold text-gray-900 dark:text-white"
-  }, currentModInfo.serial), currentModInfo.blm && /*#__PURE__*/React.createElement("span", {
+  }, currentModInfo.serial), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setShowModuleInfo(true);
+    },
+    style: {
+      marginLeft: '10px',
+      padding: '3px 10px',
+      fontSize: '12px',
+      fontWeight: '500',
+      borderRadius: '6px',
+      border: '1.5px solid #6366f1',
+      color: '#6366f1',
+      background: 'transparent',
+      cursor: 'pointer',
+      verticalAlign: 'middle'
+    }
+  }, "Info"), currentModInfo.blm && /*#__PURE__*/React.createElement("span", {
     className: "text-sm text-gray-500 dark:text-gray-400"
   }, currentModInfo.blm)), currentModInfo.unitType && /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-gray-400"
@@ -14379,8 +14414,17 @@ function DailyBoardTab(props) {
   }, deptStats.pct, "%"), /*#__PURE__*/React.createElement("div", {
     className: "text-[10px] text-gray-500 dark:text-gray-400 leading-tight"
   }, selectedDeptObj ? selectedDeptObj.name : '', " ", selectedDayLabel ? ' \u00B7 ' + selectedDayLabel : '', " ", ' \u00B7 ', " ", deptStats.complete, "/", deptStats.total, " modules"))), deptModules.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 flex items-center gap-1.5 relative"
-  }, (deptModules.length <= 4 ? deptModules : deptModules.slice(0, 3)).map(function (modInfo) {
+    ref: moduleNavRef,
+    className: "mt-2 relative",
+    style: {
+      display: 'flex',
+      flexWrap: 'nowrap',
+      gap: '8px',
+      alignItems: 'center',
+      width: '100%',
+      overflow: 'hidden'
+    }
+  }, (visibleCount === null || visibleCount >= deptModules.length ? deptModules : deptModules.slice(0, visibleCount)).map(function (modInfo) {
     var isModActive = modInfo.serial === selectedModule;
     var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
     var deptColor = selectedDeptObj ? selectedDeptObj.color || '#6366f1' : '#6366f1';
@@ -14391,13 +14435,15 @@ function DailyBoardTab(props) {
       padding: '5px 10px',
       borderRadius: '8px',
       fontSize: '12px',
-      fontWeight: 500
+      fontWeight: 500,
+      flexShrink: 0
     } : {
       padding: '5px 10px',
       borderRadius: '8px',
       fontSize: '12px',
       fontWeight: 500,
-      border: '1px solid #d1d5db'
+      border: '1px solid #d1d5db',
+      flexShrink: 0
     };
     return /*#__PURE__*/React.createElement("button", {
       key: modInfo.serial,
@@ -14412,8 +14458,11 @@ function DailyBoardTab(props) {
         backgroundColor: dotColor
       }
     }), modInfo.serial);
-  }), deptModules.length > 4 && /*#__PURE__*/React.createElement("div", {
-    className: "relative"
+  }), visibleCount !== null && visibleCount < deptModules.length && /*#__PURE__*/React.createElement("div", {
+    className: "relative",
+    style: {
+      flexShrink: 0
+    }
   }, /*#__PURE__*/React.createElement("button", {
     onClick: function () {
       setMoreDropdownOpen(function (v) {
@@ -14430,7 +14479,7 @@ function DailyBoardTab(props) {
     className: "text-gray-600 dark:text-gray-300 dark:border-gray-600 transition-all"
   }, "More \u25BC"), moreDropdownOpen && /*#__PURE__*/React.createElement("div", {
     className: "absolute top-full left-0 mt-1 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 min-w-[120px]"
-  }, deptModules.slice(3).map(function (modInfo) {
+  }, deptModules.slice(visibleCount).map(function (modInfo) {
     var isModActive = modInfo.serial === selectedModule;
     var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
     var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
@@ -14553,7 +14602,108 @@ function DailyBoardTab(props) {
       },
       className: 'flex-1 font-semibold italic transition-all ' + (status === 'na' ? 'bg-slate-400 text-white' : 'bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800')
     }, "N/A")));
-  })));
+  })), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement("div", {
+    onClick: function () {
+      setShowModuleInfo(false);
+    },
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: function (e) {
+      e.stopPropagation();
+    },
+    style: {
+      background: '#fff',
+      borderRadius: '12px',
+      padding: '28px 32px',
+      minWidth: '340px',
+      maxWidth: '520px',
+      width: '90%',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '18px'
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: 0,
+      fontSize: '20px',
+      fontWeight: '700'
+    }
+  }, currentModInfo.serial), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setShowModuleInfo(false);
+    },
+    style: {
+      fontSize: '20px',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: '#888'
+    }
+  }, "\\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '140px 1fr',
+      gap: '10px 16px',
+      fontSize: '14px'
+    }
+  }, [['Hitch BLM', currentModInfo.module.hitchBLM], ['Rear BLM', currentModInfo.module.rearBLM], ['Build Sequence', currentModInfo.module.buildSequence], ['Level', currentModInfo.module.level], ['Building', currentModInfo.module.building], ['Stack', currentModInfo.module.stack], ['Unit Type', currentModInfo.module.unitType], ['Floor Plan', currentModInfo.module.floorPlan], ['Hitch Side', currentModInfo.module.hitchSide], ['Rear Side', currentModInfo.module.rearSide]].filter(function (pair) {
+    return pair[1] !== undefined && pair[1] !== null && pair[1] !== '';
+  }).map(function (pair) {
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: pair[0]
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#888',
+        fontWeight: '500'
+      }
+    }, pair[0]), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: '600'
+      }
+    }, String(pair[1])));
+  })), currentModInfo.module.tags && currentModInfo.module.tags.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: '18px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: '12px',
+      color: '#888',
+      fontWeight: '500',
+      marginBottom: '8px'
+    }
+  }, "DIFFICULTY FLAGS"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px'
+    }
+  }, currentModInfo.module.tags.map(function (tag) {
+    return /*#__PURE__*/React.createElement("span", {
+      key: tag,
+      style: {
+        padding: '3px 10px',
+        borderRadius: '20px',
+        fontSize: '12px',
+        fontWeight: '600',
+        background: '#f3f4f6',
+        color: '#374151'
+      }
+    }, tag);
+  }))))));
 
   // ─── MOBILE LAYOUT (phone portrait): stack vertically ────────────────────
   // ─── TABLET/DESKTOP: two-column side by side ─────────────────────────────
