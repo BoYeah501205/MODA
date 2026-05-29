@@ -2,9 +2,18 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.89**
+**Current Version: 1.5.90**
 
 ---
+
+## [1.5.90] - 2026-05-29
+### Fixed
+- **Weekly Summary day alignment**: Root cause was `target_date` from Supabase containing ISO timestamp suffix (e.g. `"2026-05-26T00:00:00"`) which failed strict `===` comparison with `"2026-05-26"` — fixed by normalizing with `.split('T')[0]`
+- Added diagnostic `console.log` to surface raw `target_date` values vs generated weekDates for verification
+
+### Added
+- **PDF Export range selector modal**: Replace direct `window.print()` with modal offering 5 options — Previous Week, Current Week, Next Week, Current + Next, All 3 Weeks
+- Multi-week export renders selected weeks stacked vertically in the print area, then resets to current week after print dialog closes
 
 ## [1.5.89] - 2026-05-28
 ### Fixed

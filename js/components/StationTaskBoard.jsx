@@ -1932,9 +1932,31 @@ function WeeklySummaryTab(props) {
     var selectedWeek = weekSchedule ? weekSchedule.week_start : null;
     var weekAssignments = (weekSchedule && weekSchedule.assignments) ? weekSchedule.assignments : [];
 
+    // Export modal state
+    var [showExportModal, setShowExportModal] = useState(false);
+    var [exportRange, setExportRange] = useState('current');
+    var [exportWeekRange, setExportWeekRange] = useState('current');
+
+    var EXPORT_OPTIONS = [
+        { value: 'prev', label: 'Previous Week' },
+        { value: 'current', label: 'Current Week' },
+        { value: 'next', label: 'Next Week' },
+        { value: 'curr+next', label: 'Current + Next Week' },
+        { value: 'all3', label: 'Previous + Current + Next Week' },
+    ];
+
     var weekDays = useMemo(function() { return stbWeekDates(selectedWeek); }, [selectedWeek]);
 
+    // Diagnostic: log date formats on first render to verify alignment
+    useMemo(function() {
+        if (weekAssignments.length > 0 && weekDays.length > 0) {
+            console.log('[WeeklySummary] Sample target_dates:', weekAssignments.slice(0, 5).map(function(a) { return a.target_date; }));
+            console.log('[WeeklySummary] Sample weekDates:', weekDays.slice(0, 3).map(function(d) { return d.date; }));
+        }
+    }, [weekAssignments, weekDays]);
+
     // Build day → unique module serials (ordered by first dept appearance)
+    // FIX: Normalize target_date by splitting on 'T' to handle ISO timestamps from Supabase
     var dayModules = useMemo(function() {
         var result = {};
         for (var i = 0; i < weekDays.length; i++) {
@@ -1943,7 +1965,8 @@ function WeeklySummaryTab(props) {
             var list = [];
             for (var j = 0; j < weekAssignments.length; j++) {
                 var a = weekAssignments[j];
-                if (a.target_date === date && !seen[a.module_serial]) {
+                var aDate = (a.target_date || '').split('T')[0];
+                if (aDate === date && !seen[a.module_serial]) {
                     seen[a.module_serial] = true;
                     list.push(a.module_serial);
                 }
@@ -2016,6 +2039,106 @@ function WeeklySummaryTab(props) {
     var shift1Bg = 'rgba(24,95,165,0.025)';
     var shift2Bg = 'rgba(133,79,11,0.03)';
 
+    // Multi-week export: compute additional weeks' data when exporting
+    var exportWeeks = useMemo(function() {
+        if (exportWeekRange === 'current' || !selectedWeek) return null;
+        // Compute which weeks to render for export (replaces the main table)
+        var offsets = [];
+        if (exportWeekRange === 'prev') offsets = [-1];
+        else if (exportWeekRange === 'next') offsets = [1];
+        else if (exportWeekRange === 'curr+next') offsets = [0, 1];
+        else if (exportWeekRange === 'all3') offsets = [-1, 0, 1];
+        else return null;
+
+        return offsets.map(function(offset) {
+            var ws = stbShiftWeek(selectedWeek, offset);
+            var wDays = stbWeekDates(ws);
+            var wLabel = stbWeekLabel(ws);
+            // Filter assignments for this week using normalized dates
+            var wRows = [];
+            for (var di = 0; di < wDays.length; di++) {
+                var d = wDays[di];
+                var seen = {};
+                var dayMods = [];
+                for (var j = 0; j < weekAssignments.length; j++) {
+                    var a = weekAssignments[j];
+                    var aDate = (a.target_date || '').split('T')[0];
+                    if (aDate === d.date && !seen[a.module_serial]) {
+                        seen[a.module_serial] = true;
+                        dayMods.push(a.module_serial);
+                    }
+                }
+                for (var mi = 0; mi < dayMods.length; mi++) {
+                    wRows.push({ date: d.date, dayIndex: d.dayIndex, label: d.label, dayNum: d.dayNum, moduleSerial: dayMods[mi], moduleIdx: mi, dayModCount: dayMods.length });
+                }
+                if (dayMods.length === 0) {
+                    wRows.push({ date: d.date, dayIndex: d.dayIndex, label: d.label, dayNum: d.dayNum, moduleSerial: null, moduleIdx: 0, dayModCount: 0 });
+                }
+            }
+            return { weekStart: ws, weekLabel: wLabel, rows: wRows, weekDays: wDays };
+        });
+    }, [exportWeekRange, selectedWeek, weekAssignments]);
+
+    // Helper to render a week table
+    function renderWeekTable(wRows, wLabel, wDepts) {
+        return (
+            <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#374151' }}>{wLabel}</div>
+                <table style={{ borderCollapse: 'collapse', minWidth: '100%', marginBottom: '8px' }}>
+                    <thead>
+                        <tr>
+                            <th style={{ width: '140px', minWidth: '140px', padding: '6px 8px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#374151', background: '#f9fafb', border: cellBorder, borderRight: '2px solid #e5e7eb' }}>Day</th>
+                            <th style={{ width: '32px', minWidth: '32px', padding: '4px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>#</th>
+                            {wDepts.map(function(dept) {
+                                return <th key={dept.id} style={{ padding: '4px 6px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#374151', border: cellBorder, minWidth: '76px' }}>{deptLabel(dept)}</th>;
+                            })}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {wRows.map(function(row, rowIdx) {
+                            var isShift1 = SHIFT1_DAYS.includes(row.dayIndex);
+                            var rowBg = isShift1 ? shift1Bg : shift2Bg;
+                            var isFirstOfDay = row.moduleIdx === 0;
+                            var isShiftDivider = row.dayIndex === 4 && row.moduleIdx === 0;
+                            var shiftDividerStyle = isShiftDivider ? { borderTop: '3px solid #d1d5db' } : {};
+                            var mod = row.moduleSerial ? moduleMap[row.moduleSerial] : null;
+                            var buildSeq = mod ? (mod.buildSequence || '') : '';
+                            var serialNumber = row.moduleSerial || '';
+                            return (
+                                <tr key={row.date + '|' + row.moduleIdx} style={Object.assign({ background: rowBg }, shiftDividerStyle)}>
+                                    {isFirstOfDay && (
+                                        <td rowSpan={row.dayModCount || 1} style={{ width: '140px', minWidth: '140px', padding: '6px 8px', verticalAlign: 'top', background: '#f9fafb', borderRight: '2px solid #e5e7eb', border: cellBorder }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{row.label}</div>
+                                            <div style={{ fontSize: '10px', color: '#6b7280' }}>{stbParseDate(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                            <div style={{ fontSize: '9px', fontWeight: 600, marginTop: '2px', color: isShift1 ? '#185FA5' : '#854F0B' }}>{isShift1 ? 'Shift 1' : 'Shift 2'}</div>
+                                        </td>
+                                    )}
+                                    <td style={{ width: '32px', padding: '2px 4px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>
+                                        {row.moduleSerial ? (row.moduleIdx + 1) : ''}
+                                    </td>
+                                    {wDepts.map(function(dept) {
+                                        if (!row.moduleSerial) return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
+                                        var pct = calcPct(row.moduleSerial, dept.id);
+                                        var colors = summaryGetPctColor(pct);
+                                        return (
+                                            <td key={dept.id} style={{ border: cellBorder, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                <div className="module-tile" style={{ borderRadius: '6px', padding: '5px 4px', margin: '2px auto', width: '64px', textAlign: 'center', background: colors.bg, border: '1px solid ' + colors.border, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                                    <div className="mt-seq" style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({buildSeq})</div>
+                                                    <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serialNumber}</div>
+                                                    <div className="mt-pct" style={{ fontSize: '11px', fontWeight: 500, marginTop: '1px', color: colors.text }}>{pct}%</div>
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        );
+    }
+
     return (
         <div style={{ padding: '16px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Print-specific CSS */}
@@ -2039,7 +2162,7 @@ function WeeklySummaryTab(props) {
             <div className="wsb-print-area">
                 {/* Print-only header */}
                 <div className="wsb-print-header" style={{ display: 'none' }}>
-                    <h2 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>{'Weekly Production Summary \u2014 ' + weekLabel}</h2>
+                    <h2 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>{'Weekly Production Summary \u2014 ' + (exportWeeks && exportWeeks.length > 0 ? exportWeeks.map(function(w) { return w.weekLabel; }).join(' + ') : weekLabel)}</h2>
                     <p style={{ fontSize: '11px', color: '#666', margin: 0 }}>{'Generated ' + new Date().toLocaleDateString()}</p>
                 </div>
 
@@ -2059,7 +2182,7 @@ function WeeklySummaryTab(props) {
                             <span style={{ color: '#888' }}>100%</span>
                             <button
                                 className="wsb-no-print"
-                                onClick={function() { window.print(); }}
+                                onClick={function() { setShowExportModal(true); }}
                                 style={{
                                     padding: '6px 14px', fontSize: '12px', fontWeight: '500',
                                     borderRadius: '6px', border: '1.5px solid #6366f1',
@@ -2079,8 +2202,8 @@ function WeeklySummaryTab(props) {
                     </div>
                 </div>
 
-                {/* Table wrapper */}
-                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto' }}>
+                {/* Table wrapper — hidden when multi-week export is active */}
+                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', display: (exportWeeks && exportWeeks.length > 0) ? 'none' : undefined }}>
                     <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
                         <thead>
                             <tr>
@@ -2152,7 +2275,66 @@ function WeeklySummaryTab(props) {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Multi-week export: rendered only when exportWeekRange !== 'current' */}
+                {exportWeeks && exportWeeks.length > 0 && (
+                    <div style={{ marginTop: '16px' }}>
+                        {exportWeeks.map(function(ew) {
+                            return <div key={ew.weekStart}>{renderWeekTable(ew.rows, ew.weekLabel, depts)}</div>;
+                        })}
+                    </div>
+                )}
             </div>
+
+            {/* Export PDF Modal */}
+            {showExportModal && (
+                <div onClick={function() { setShowExportModal(false); }} style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div onClick={function(e) { e.stopPropagation(); }} style={{
+                        background: '#fff', borderRadius: '12px', padding: '28px 32px',
+                        minWidth: '320px', boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
+                    }}>
+                        <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600' }}>Export Weekly Summary PDF</h3>
+                        <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#666' }}>Select date range to include:</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+                            {EXPORT_OPTIONS.map(function(opt) {
+                                return (
+                                    <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', cursor: 'pointer' }}>
+                                        <input
+                                            type="radio"
+                                            name="exportRange"
+                                            value={opt.value}
+                                            checked={exportRange === opt.value}
+                                            onChange={function() { setExportRange(opt.value); }}
+                                        />
+                                        {opt.label}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={function() { setShowExportModal(false); }} style={{
+                                padding: '8px 16px', borderRadius: '6px', border: '1px solid #e5e7eb',
+                                background: '#fff', cursor: 'pointer', fontSize: '13px'
+                            }}>Cancel</button>
+                            <button onClick={function() {
+                                setShowExportModal(false);
+                                setExportWeekRange(exportRange);
+                                setTimeout(function() {
+                                    window.print();
+                                    setTimeout(function() { setExportWeekRange('current'); }, 1000);
+                                }, 300);
+                            }} style={{
+                                padding: '8px 16px', borderRadius: '6px', border: 'none',
+                                background: '#6366f1', color: '#fff', cursor: 'pointer',
+                                fontSize: '13px', fontWeight: '500'
+                            }}>Export PDF</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
