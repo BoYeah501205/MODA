@@ -2,9 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.83**
+**Current Version: 1.5.84**
 
 ---
+
+## [1.5.84] - 2026-05-28
+### Changed
+- **Extract ModuleDetailPanel as shared component** - Module detail modal now lives in `js/components/ModuleDetailPanel.jsx` and is used by both Projects tab and Station Task Board Info button
+- Removed ~370 lines of duplicate inline modal code from App.jsx
+- Station Board Info modal now shows full module details (shop drawing, license plate, dimensions, difficulty indicators) instead of minimal grid
+- Production Progress section shown in Station Board context (when departments/tasks available)
 
 ## [1.5.83] - 2026-05-28
 ### Changed

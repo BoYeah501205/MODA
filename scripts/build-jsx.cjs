@@ -45,6 +45,7 @@ const FILE_ORDER = [
     'MobileNavigation.jsx',
     'TrainingMatrix.jsx',
     'WeeklyBoard.jsx',
+    'ModuleDetailPanel.jsx',
     'StationTaskBoard.jsx',
     'StationBoardReport.jsx',
     'RFIManager.jsx',

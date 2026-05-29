@@ -686,67 +686,13 @@ function DailyBoardTab(props) {
             </div>
 
             {showModuleInfo && currentModInfo && currentModInfo.module && (
-                <div
-                    onClick={function() { setShowModuleInfo(false); }}
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                    }}
-                >
-                    <div
-                        onClick={function(e) { e.stopPropagation(); }}
-                        style={{
-                            background: '#fff', borderRadius: '12px', padding: '28px 32px',
-                            minWidth: '340px', maxWidth: '520px', width: '90%',
-                            boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>
-                                {currentModInfo.serial}
-                            </h2>
-                            <button onClick={function() { setShowModuleInfo(false); }} style={{ fontSize: '20px', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>\u2715</button>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '10px 16px', fontSize: '14px' }}>
-                            {[
-                                ['Hitch BLM', currentModInfo.module.hitchBLM],
-                                ['Rear BLM', currentModInfo.module.rearBLM],
-                                ['Build Sequence', currentModInfo.module.buildSequence],
-                                ['Level', currentModInfo.module.level],
-                                ['Building', currentModInfo.module.building],
-                                ['Stack', currentModInfo.module.stack],
-                                ['Unit Type', currentModInfo.module.unitType],
-                                ['Floor Plan', currentModInfo.module.floorPlan],
-                                ['Hitch Side', currentModInfo.module.hitchSide],
-                                ['Rear Side', currentModInfo.module.rearSide],
-                            ].filter(function(pair) { return pair[1] !== undefined && pair[1] !== null && pair[1] !== ''; }).map(function(pair) {
-                                return (
-                                    <React.Fragment key={pair[0]}>
-                                        <span style={{ color: '#888', fontWeight: '500' }}>{pair[0]}</span>
-                                        <span style={{ fontWeight: '600' }}>{String(pair[1])}</span>
-                                    </React.Fragment>
-                                );
-                            })}
-                        </div>
-
-                        {currentModInfo.module.tags && currentModInfo.module.tags.length > 0 && (
-                            <div style={{ marginTop: '18px' }}>
-                                <div style={{ fontSize: '12px', color: '#888', fontWeight: '500', marginBottom: '8px' }}>DIFFICULTY FLAGS</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                    {currentModInfo.module.tags.map(function(tag) {
-                                        return (
-                                            <span key={tag} style={{
-                                                padding: '3px 10px', borderRadius: '20px', fontSize: '12px',
-                                                fontWeight: '600', background: '#f3f4f6', color: '#374151'
-                                            }}>{tag}</span>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <ModuleDetailPanel
+                    module={currentModInfo.module}
+                    onClose={function() { setShowModuleInfo(false); }}
+                    departments={lineDepts}
+                    assignments={completions}
+                    tasks={allTasks}
+                />
             )}
         </div>
     );

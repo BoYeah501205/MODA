@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T02:30:12.303Z
+ * Generated: 2026-05-29T02:51:47.033Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13695,6 +13695,231 @@ if (typeof window !== 'undefined') {
 
 
 // ============================================================================
+// FILE: ModuleDetailPanel.jsx
+// ============================================================================
+(function() {
+// ModuleDetailPanel.jsx - Shared module detail modal
+// Used by Projects tab (App.jsx) and Station Task Board (DailyBoardTab)
+// [Removed duplicate React destructuring]
+// Difficulty color mappings (shared constants)
+const DIFFICULTY_COLORS = {
+  sidewall: 'bg-orange-100 text-orange-800',
+  stair: 'bg-purple-100 text-purple-800',
+  hr3Wall: 'bg-red-100 text-red-800',
+  hr2Wall: 'bg-lime-100 text-lime-800',
+  short: 'bg-yellow-100 text-yellow-800',
+  doubleStudio: 'bg-indigo-100 text-indigo-800',
+  common: 'bg-cyan-100 text-cyan-800',
+  tile: 'bg-pink-100 text-pink-800',
+  sawbox: 'bg-violet-100 text-violet-800'
+};
+const DIFFICULTY_LABELS = {
+  sidewall: 'Ext Sidewall',
+  stair: 'Stair',
+  hr3Wall: '3HR-Wall',
+  hr2Wall: '2HR-Wall',
+  short: 'Short',
+  doubleStudio: 'Dbl Studio',
+  common: 'Common Area',
+  tile: 'Tile',
+  sawbox: 'Sawbox'
+};
+
+/**
+ * ModuleDetailPanel - Shared module detail overlay
+ * 
+ * @param {object} module - Full module object (serialNumber, hitchBLM, rearBLM, buildSequence, etc.)
+ * @param {function} onClose - Callback to close the panel
+ * @param {array} departments - (optional) Array of dept objects for Production Progress (Station Board)
+ * @param {array} assignments - (optional) Task assignment records for completion calculation
+ * @param {array} tasks - (optional) Task definitions per department
+ */
+function ModuleDetailPanel({
+  module,
+  onClose,
+  departments,
+  assignments,
+  tasks
+}) {
+  if (!module) return null;
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEscapeKey = e => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => document.removeEventListener('keydown', handleEscapeKey);
+  }, [onClose]);
+
+  // Shop Drawing handler
+  const handleOpenShopDrawing = async () => {
+    // Try the new Drawings Module system
+    if (window.MODA_MODULE_DRAWINGS?.isAvailable()) {
+      try {
+        let hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(module.serialNumber);
+        let searchTerm = module.serialNumber;
+        if (!hasDrawings && module.hitchBLM) {
+          hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(module.hitchBLM);
+          if (hasDrawings) searchTerm = module.hitchBLM;
+        }
+        if (!hasDrawings && module.rearBLM && module.rearBLM !== module.hitchBLM) {
+          hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(module.rearBLM);
+          if (hasDrawings) searchTerm = module.rearBLM;
+        }
+        if (hasDrawings) {
+          if (window.location.hash !== '#drawings') {
+            window.location.hash = 'drawings';
+          }
+          sessionStorage.setItem('moda_drawings_module_filter', searchTerm);
+          onClose();
+          return;
+        }
+      } catch (error) {
+        console.error('[ModuleDetailPanel] Error checking drawings:', error);
+      }
+    }
+
+    // Fallback: alert
+    const blmToCheck = [module.hitchBLM, module.rearBLM].filter(Boolean);
+    const blmList = blmToCheck.length > 0 ? blmToCheck.join(', ') : 'No BLM';
+    alert(`Shop Drawing Not Found\n\nNo shop drawing link found for module ${module.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings > Shop Drawings > Module Packages\n2. Upload drawings to the folder for this module`);
+  };
+
+  // Calculate production progress from station board data if departments provided
+  const renderProductionProgress = () => {
+    if (!departments || departments.length === 0) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "mt-4"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "font-semibold text-gray-700 mb-2"
+    }, "Production Progress"), /*#__PURE__*/React.createElement("div", {
+      className: "space-y-2"
+    }, departments.map(dept => {
+      // Get tasks for this department
+      const deptTasks = (tasks || []).filter(t => t.department_id === dept.id);
+      if (deptTasks.length === 0) return null;
+
+      // Calculate completion: complete / (total - na)
+      let complete = 0;
+      let na = 0;
+      const total = deptTasks.length;
+      deptTasks.forEach(task => {
+        const key = module.serialNumber + '|' + dept.id + '|' + task.id;
+        const status = getCompletionStatus(key);
+        if (status === 'complete') complete++;else if (status === 'na') na++;
+      });
+      const denominator = total - na;
+      const pct = denominator > 0 ? Math.round(complete / denominator * 100) : 0;
+      return /*#__PURE__*/React.createElement("div", {
+        key: dept.id,
+        className: "flex items-center gap-3"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "w-36 text-sm text-gray-600 truncate"
+      }, dept.name), /*#__PURE__*/React.createElement("div", {
+        className: "flex-1 bg-gray-200 rounded-full h-3"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: `h-3 rounded-full ${pct === 100 ? 'bg-green-500' : 'bg-blue-500'}`,
+        style: {
+          width: `${pct}%`
+        }
+      })), /*#__PURE__*/React.createElement("span", {
+        className: "w-10 text-right text-sm"
+      }, pct, "%"));
+    })));
+  };
+
+  // Helper: get completion status from assignments
+  const getCompletionStatus = key => {
+    if (!assignments) return 'not_started';
+    // assignments is typically an array of { module_serial, department_id, task_id, status, ... }
+    // key format: "serial|deptId|taskId"
+    const parts = key.split('|');
+    if (parts.length !== 3) return 'not_started';
+    const [serial, deptId, taskId] = parts;
+    const match = assignments.find(a => a.module_serial === serial && a.department_id === deptId && a.task_id === taskId);
+    return match ? match.status : 'not_started';
+  };
+
+  // Build key-value pairs for the info grid
+  const infoFields = [['Hitch BLM', module.hitchBLM], ['Rear BLM', module.rearBLM], ['Build Sequence', module.buildSequence], ['Width', module.moduleWidth ? module.moduleWidth + "'" : null], ['Length', module.moduleLength ? module.moduleLength + "'" : null], ['Square Footage', module.squareFootage ? parseFloat(module.squareFootage).toFixed(2) + ' SF' : null], ['Level', module.level], ['Building', module.building], ['Stack', module.stack], ['Hitch Unit', module.hitchUnit], ['Hitch Room', module.hitchRoom], ['Hitch Room Type', module.hitchRoomType], ['Rear Unit', module.rearUnit], ['Rear Room', module.rearRoom], ['Rear Room Type', module.rearRoomType], ['Unit Type', module.unitType], ['Floor Plan', module.floorPlan]].filter(pair => pair[1] !== undefined && pair[1] !== null && pair[1] !== '');
+
+  // Difficulty flags (from either .difficulties object or .tags array)
+  const hasDifficulties = module.difficulties && Object.values(module.difficulties).some(v => v);
+  const hasTags = module.tags && module.tags.length > 0;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between items-start p-4 md:p-6 border-b bg-white rounded-t-lg flex-shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl md:text-2xl font-bold text-autovol-navy truncate"
+  }, module.serialNumber), module.buildSequence && /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-500 text-sm"
+  }, "Build Sequence: ", module.buildSequence)), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full text-2xl flex-shrink-0 ml-2",
+    "aria-label": "Close"
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto p-4 md:p-6",
+    style: {
+      WebkitOverflowScrolling: 'touch'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mb-6 grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: handleOpenShopDrawing,
+    className: "py-3 bg-autovol-navy text-white rounded-lg font-medium hover:bg-autovol-navy-light transition flex items-center justify-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-file"
+  }), " Open Shop Drawing"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => alert('License Plate Viewer - Coming Soon!\n\nThis will show the module license plate with download and QR code options.'),
+    className: "py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition flex items-center justify-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "icon-tag"
+  }), " View License Plate")), infoFields.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-6 p-4 bg-gray-50 rounded-lg"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-x-6 gap-y-3 text-sm"
+  }, infoFields.map(([label, value]) => /*#__PURE__*/React.createElement("div", {
+    key: label
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, label), /*#__PURE__*/React.createElement("p", {
+    className: "font-medium"
+  }, String(value)))))), hasDifficulties && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold text-gray-700 mb-2"
+  }, "Difficulty Indicators"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, Object.entries(DIFFICULTY_LABELS).map(([key, label]) => {
+    if (!module.difficulties[key]) return null;
+    return /*#__PURE__*/React.createElement("span", {
+      key: key,
+      className: `px-3 py-1.5 rounded-lg text-sm font-medium ${DIFFICULTY_COLORS[key]}`
+    }, label);
+  }))), !hasDifficulties && hasTags && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold text-gray-700 mb-2"
+  }, "Difficulty Flags"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, module.tags.map(tag => /*#__PURE__*/React.createElement("span", {
+    key: tag,
+    className: "px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700"
+  }, tag)))), renderProductionProgress())));
+}
+window.ModuleDetailPanel = ModuleDetailPanel;
+})();
+
+
+// ============================================================================
 // FILE: StationTaskBoard.jsx
 // ============================================================================
 (function() {
@@ -14602,108 +14827,15 @@ function DailyBoardTab(props) {
       },
       className: 'flex-1 font-semibold italic transition-all ' + (status === 'na' ? 'bg-slate-400 text-white' : 'bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800')
     }, "N/A")));
-  })), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement("div", {
-    onClick: function () {
+  })), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
+    module: currentModInfo.module,
+    onClose: function () {
       setShowModuleInfo(false);
     },
-    style: {
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    onClick: function (e) {
-      e.stopPropagation();
-    },
-    style: {
-      background: '#fff',
-      borderRadius: '12px',
-      padding: '28px 32px',
-      minWidth: '340px',
-      maxWidth: '520px',
-      width: '90%',
-      boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '18px'
-    }
-  }, /*#__PURE__*/React.createElement("h2", {
-    style: {
-      margin: 0,
-      fontSize: '20px',
-      fontWeight: '700'
-    }
-  }, currentModInfo.serial), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      setShowModuleInfo(false);
-    },
-    style: {
-      fontSize: '20px',
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer',
-      color: '#888'
-    }
-  }, "\\u2715")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'grid',
-      gridTemplateColumns: '140px 1fr',
-      gap: '10px 16px',
-      fontSize: '14px'
-    }
-  }, [['Hitch BLM', currentModInfo.module.hitchBLM], ['Rear BLM', currentModInfo.module.rearBLM], ['Build Sequence', currentModInfo.module.buildSequence], ['Level', currentModInfo.module.level], ['Building', currentModInfo.module.building], ['Stack', currentModInfo.module.stack], ['Unit Type', currentModInfo.module.unitType], ['Floor Plan', currentModInfo.module.floorPlan], ['Hitch Side', currentModInfo.module.hitchSide], ['Rear Side', currentModInfo.module.rearSide]].filter(function (pair) {
-    return pair[1] !== undefined && pair[1] !== null && pair[1] !== '';
-  }).map(function (pair) {
-    return /*#__PURE__*/React.createElement(React.Fragment, {
-      key: pair[0]
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: '#888',
-        fontWeight: '500'
-      }
-    }, pair[0]), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontWeight: '600'
-      }
-    }, String(pair[1])));
-  })), currentModInfo.module.tags && currentModInfo.module.tags.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: '18px'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: '12px',
-      color: '#888',
-      fontWeight: '500',
-      marginBottom: '8px'
-    }
-  }, "DIFFICULTY FLAGS"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '6px'
-    }
-  }, currentModInfo.module.tags.map(function (tag) {
-    return /*#__PURE__*/React.createElement("span", {
-      key: tag,
-      style: {
-        padding: '3px 10px',
-        borderRadius: '20px',
-        fontSize: '12px',
-        fontWeight: '600',
-        background: '#f3f4f6',
-        color: '#374151'
-      }
-    }, tag);
-  }))))));
+    departments: lineDepts,
+    assignments: completions,
+    tasks: allTasks
+  }));
 
   // ─── MOBILE LAYOUT (phone portrait): stack vertically ────────────────────
   // ─── TABLET/DESKTOP: two-column side by side ─────────────────────────────
@@ -62465,17 +62597,12 @@ function ProductionDashboard({
       setShowReportIssueModal(false);
       setReportIssueContext(null);
     }
-  })), selectedModuleDetail && /*#__PURE__*/React.createElement(ModuleDetailModal, {
+  })), selectedModuleDetail && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
     module: selectedModuleDetail,
-    project: selectedProject,
-    projects: projects,
-    setProjects: setProjects,
     onClose: () => {
       setSelectedModuleDetail(null);
       setEditMode(false);
-    },
-    editMode: editMode,
-    setEditMode: setEditMode
+    }
   }));
 }
 
@@ -63555,17 +63682,12 @@ function ProjectDetail({
   }))))), showImportModal && /*#__PURE__*/React.createElement(ImportModal, {
     onClose: () => setShowImportModal(false),
     onImport: handleImport
-  }), selectedModule && /*#__PURE__*/React.createElement(ModuleDetailModal, {
+  }), selectedModule && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
     module: selectedModule,
-    project: project,
-    projects: projects,
-    setProjects: setProjects,
     onClose: () => {
       setSelectedModule(null);
       setEditMode(false);
-    },
-    editMode: editMode,
-    setEditMode: setEditMode
+    }
   }), showLicensePlates && /*#__PURE__*/React.createElement(LicensePlateGenerator, {
     project: currentProject,
     modules: modules,
@@ -64443,367 +64565,6 @@ function LicensePlateGenerator({
   }, isGenerating ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     className: "animate-spin"
   }, "\u23F3"), "Generating...") : /*#__PURE__*/React.createElement(React.Fragment, null, "\uD83D\uDCCB\u201E Generate ", selectedInFiltered * 2, " Plates")))))));
-}
-
-// Module Detail Modal
-function ModuleDetailModal({
-  module,
-  project,
-  projects,
-  setProjects,
-  onClose,
-  editMode,
-  setEditMode
-}) {
-  const [editingModule, setEditingModule] = useState({
-    ...module
-  });
-
-  // Close on Escape key
-  useEffect(() => {
-    const handleEscapeKey = e => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleEscapeKey);
-    return () => document.removeEventListener('keydown', handleEscapeKey);
-  }, [onClose]);
-  const handleSave = () => {
-    const updatedProjects = projects.map(p => {
-      if (p.id === project.id) {
-        return {
-          ...p,
-          modules: p.modules.map(m => m.id === module.id ? editingModule : m)
-        };
-      }
-      return p;
-    });
-    setProjects(updatedProjects);
-
-    // DUAL-WRITE: When close-up hits 100%, update unified layer to "Ready for Yard"
-    const closeUpProgress = editingModule.stageProgress?.['close-up'] || 0;
-    const wasCloseUpComplete = module.stageProgress?.['close-up'] === 100;
-    if (closeUpProgress === 100 && !wasCloseUpComplete) {
-      // Module just completed production - mark as Ready for Yard
-      console.log(`[MODA] Module ${editingModule.serialNumber} completed close-up - marking Ready for Yard`);
-
-      // Sync to unified layer with fresh data
-      MODA_UNIFIED.migrateFromProjects();
-
-      // Then update transport status to 'ready' (Ready for Yard)
-      MODA_UNIFIED.updateTransport(editingModule.id, {
-        status: MODA_UNIFIED.TRANSPORT_STAGES.READY,
-        completedProductionAt: new Date().toISOString()
-      }, 'station-board');
-      console.log(`[MODA] Module ${editingModule.serialNumber} now in Yard phase - Ready for Transport`);
-    }
-    setEditMode(false);
-    onClose();
-  };
-  const updateField = (field, value) => {
-    setEditingModule(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-  const updateStageProgress = (stageId, value) => {
-    setEditingModule(prev => ({
-      ...prev,
-      stageProgress: {
-        ...prev.stageProgress,
-        [stageId]: parseInt(value)
-      }
-    }));
-  };
-  const displayModule = editMode ? editingModule : module;
-  const handleOpenShopDrawing = async () => {
-    // First, try the new Drawings Module system
-    if (window.MODA_MODULE_DRAWINGS?.isAvailable()) {
-      try {
-        // Try searching by serial number first
-        let hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.serialNumber);
-        let searchTerm = displayModule.serialNumber;
-
-        // If not found, try searching by BLM IDs
-        if (!hasDrawings && displayModule.hitchBLM) {
-          hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.hitchBLM);
-          if (hasDrawings) searchTerm = displayModule.hitchBLM;
-        }
-        if (!hasDrawings && displayModule.rearBLM && displayModule.rearBLM !== displayModule.hitchBLM) {
-          hasDrawings = await window.MODA_MODULE_DRAWINGS.hasDrawings(displayModule.rearBLM);
-          if (hasDrawings) searchTerm = displayModule.rearBLM;
-        }
-        if (hasDrawings) {
-          // Open the Drawings Module filtered to this module
-          // Navigate to Drawings tab with module filter
-          if (window.location.hash !== '#drawings') {
-            window.location.hash = 'drawings';
-          }
-          // Store the search term for the Drawings Module to pick up
-          sessionStorage.setItem('moda_drawings_module_filter', searchTerm);
-          onClose();
-          return;
-        }
-      } catch (error) {
-        console.error('[Module Detail] Error checking drawings:', error);
-      }
-    }
-
-    // Fallback to old shopDrawingLinks system
-    const shopDrawingLinks = project?.shopDrawingLinks || {};
-    const blmToCheck = [displayModule.hitchBLM, displayModule.rearBLM].filter(Boolean);
-    let foundUrl = null;
-    for (const blm of blmToCheck) {
-      if (shopDrawingLinks[blm]) {
-        foundUrl = shopDrawingLinks[blm];
-        break;
-      }
-    }
-    if (foundUrl) {
-      window.open(foundUrl, '_blank');
-    } else {
-      const blmList = blmToCheck.length > 0 ? blmToCheck.join(', ') : 'No BLM';
-      alert(`Shop Drawing Not Found\n\nNo shop drawing link found for module ${displayModule.serialNumber} (BLM: ${blmList}).\n\nTo add shop drawings:\n1. Go to Drawings → Shop Drawings → Module Packages\n2. Upload drawings to the folder for this module\n\nOr add legacy links: Projects → Edit Project → Shop Drawing Links.`);
-    }
-  };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 md:p-4",
-    onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col",
-    onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-between items-start p-4 md:p-6 border-b bg-white rounded-t-lg flex-shrink-0"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 min-w-0"
-  }, editMode ? /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-3 items-center flex-wrap"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-xs text-gray-500"
-  }, "Serial Number"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.serialNumber || '',
-    onChange: e => updateField('serialNumber', e.target.value),
-    className: "block text-xl font-bold px-2 py-1 border rounded w-32"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-xs text-gray-500"
-  }, "Build Seq"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: displayModule.buildSequence || '',
-    onChange: e => updateField('buildSequence', parseInt(e.target.value) || 0),
-    className: "block text-lg px-2 py-1 border rounded w-20"
-  }))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
-    className: "text-xl md:text-2xl font-bold text-autovol-navy truncate"
-  }, displayModule.serialNumber), /*#__PURE__*/React.createElement("p", {
-    className: "text-gray-500 text-sm"
-  }, "Build Sequence: ", displayModule.buildSequence))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 items-center flex-shrink-0 ml-2"
-  }, editMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-    onClick: handleSave,
-    className: "px-3 py-1 btn-secondary rounded text-sm"
-  }, "Save"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setEditMode(false);
-      setEditingModule({
-        ...module
-      });
-    },
-    className: "px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-  }, "Cancel")) : /*#__PURE__*/React.createElement("button", {
-    onClick: () => setEditMode(true),
-    className: "px-3 py-1 btn-primary rounded text-sm"
-  }, "Edit"), /*#__PURE__*/React.createElement("button", {
-    onClick: onClose,
-    className: "w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full text-2xl",
-    "aria-label": "Close"
-  }, "\xD7"))), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto p-4 md:p-6",
-    style: {
-      WebkitOverflowScrolling: 'touch'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-6 grid grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: handleOpenShopDrawing,
-    className: "py-3 bg-autovol-navy text-white rounded-lg font-medium hover:bg-autovol-navy-light transition flex items-center justify-center gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "icon-file"
-  }), " Open Shop Drawing"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => alert('License Plate Viewer - Coming Soon!\n\nThis will show the module license plate with download and QR code options.'),
-    className: "py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition flex items-center justify-center gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "icon-tag"
-  }), " View License Plate")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-500"
-  }, "Width"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: displayModule.moduleWidth,
-    onChange: e => updateField('moduleWidth', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-semibold"
-  }, displayModule.moduleWidth, "'")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-500"
-  }, "Length"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: displayModule.moduleLength,
-    onChange: e => updateField('moduleLength', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-semibold"
-  }, displayModule.moduleLength, "'")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-gray-500"
-  }, "Square Footage"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: displayModule.squareFootage,
-    onChange: e => updateField('squareFootage', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-semibold"
-  }, displayModule.squareFootage ? parseFloat(displayModule.squareFootage).toFixed(2) : '—', " SF"))), /*#__PURE__*/React.createElement("div", {
-    className: "mb-4"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "font-semibold text-gray-700 mb-2"
-  }, "HITCH Side"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg text-sm"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "BLM ID"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.hitchBLM || '',
-    onChange: e => updateField('hitchBLM', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.hitchBLM)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "Unit"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.hitchUnit || '',
-    onChange: e => updateField('hitchUnit', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.hitchUnit)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "Room"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.hitchRoom || '',
-    onChange: e => updateField('hitchRoom', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.hitchRoom)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "Room Type"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.hitchRoomType || '',
-    onChange: e => updateField('hitchRoomType', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.hitchRoomType)))), /*#__PURE__*/React.createElement("div", {
-    className: "mb-4"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "font-semibold text-gray-700 mb-2"
-  }, "REAR Side"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg text-sm"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "BLM ID"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.rearBLM || '',
-    onChange: e => updateField('rearBLM', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.rearBLM)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "Unit"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.rearUnit || '',
-    onChange: e => updateField('rearUnit', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.rearUnit)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "Room"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.rearRoom || '',
-    onChange: e => updateField('rearRoom', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.rearRoom)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-500"
-  }, "Room Type"), editMode ? /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: displayModule.rearRoomType || '',
-    onChange: e => updateField('rearRoomType', e.target.value),
-    className: "w-full mt-1 px-2 py-1 border rounded"
-  }) : /*#__PURE__*/React.createElement("p", {
-    className: "font-medium"
-  }, displayModule.rearRoomType)))), /*#__PURE__*/React.createElement("div", {
-    className: "mb-4"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "font-semibold text-gray-700 mb-2"
-  }, "Difficulty Indicators"), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-2"
-  }, Object.entries(difficultyLabels).map(([key, label]) => /*#__PURE__*/React.createElement("label", {
-    key: key,
-    className: `flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer ${displayModule.difficulties?.[key] ? difficultyColors[key] : 'bg-gray-100'}`
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: displayModule.difficulties?.[key] || false,
-    onChange: e => {
-      if (editMode) {
-        setEditingModule(prev => ({
-          ...prev,
-          difficulties: {
-            ...prev.difficulties,
-            [key]: e.target.checked
-          }
-        }));
-      }
-    },
-    disabled: !editMode,
-    className: "rounded"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm"
-  }, label))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "font-semibold text-gray-700 mb-2"
-  }, "Production Progress"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, productionStages.map(stage => {
-    const progress = displayModule.stageProgress?.[stage.id] || 0;
-    return /*#__PURE__*/React.createElement("div", {
-      key: stage.id,
-      className: "flex items-center gap-3"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "w-36 text-sm text-gray-600"
-    }, stage.name), editMode ? /*#__PURE__*/React.createElement("input", {
-      type: "range",
-      min: "0",
-      max: "100",
-      step: "25",
-      value: progress,
-      onChange: e => updateStageProgress(stage.id, e.target.value),
-      className: "flex-1"
-    }) : /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 bg-gray-200 rounded-full h-3"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: `h-3 rounded-full ${progress === 100 ? 'bg-green-500' : 'bg-autovol-teal'}`,
-      style: {
-        width: `${progress}%`
-      }
-    })), /*#__PURE__*/React.createElement("span", {
-      className: "w-10 text-right text-sm"
-    }, progress, "%"));
-  }))))));
 }
 
 // Import Modal Component
