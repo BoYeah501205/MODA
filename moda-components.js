@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T01:47:09.054Z
+ * Generated: 2026-05-29T01:53:07.197Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -15490,6 +15490,8 @@ function AdminConfigTab(props) {
   var allTasks = props.allTasks;
   var shifts = props.shifts;
   var onRefresh = props.onRefresh;
+  var onTaskAdded = props.onTaskAdded;
+  var onTaskRemoved = props.onTaskRemoved;
   var [openPanel, setOpenPanel] = useState('departments');
   var [selectedDeptForTasks, setSelectedDeptForTasks] = useState(null);
   var [newDeptName, setNewDeptName] = useState('');
@@ -15547,13 +15549,18 @@ function AdminConfigTab(props) {
       setSaving(false);
       return;
     }
+    var taskName = newTaskName.trim();
     SB.addTask({
       department_id: selectedDeptForTasks,
-      task_name: newTaskName.trim()
-    }).then(function () {
+      task_name: taskName
+    }).then(function (newTask) {
       setNewTaskName('');
       setSaving(false);
-      if (onRefresh) onRefresh();
+      if (onTaskAdded && newTask) {
+        onTaskAdded(newTask);
+      } else if (onRefresh) {
+        onRefresh();
+      }
     }).catch(function (err) {
       setError(err.message);
       setSaving(false);
@@ -15563,7 +15570,11 @@ function AdminConfigTab(props) {
     var SB = window.MODA_STATION_BOARD;
     if (!SB) return;
     SB.removeTask(taskId).then(function () {
-      if (onRefresh) onRefresh();
+      if (onTaskRemoved) {
+        onTaskRemoved(taskId);
+      } else if (onRefresh) {
+        onRefresh();
+      }
     });
   }
 
@@ -15626,6 +15637,7 @@ function AdminConfigTab(props) {
     }, dept.name), /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] text-gray-400"
     }, "stg: ", dept.stagger_offset || 0), /*#__PURE__*/React.createElement("button", {
+      type: "button",
       onClick: function () {
         handleDeactivateDept(dept.id);
       },
@@ -15685,6 +15697,7 @@ function AdminConfigTab(props) {
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-sm text-gray-800 dark:text-gray-200 flex-1"
     }, task.task_name), /*#__PURE__*/React.createElement("button", {
+      type: "button",
       onClick: function () {
         handleRemoveTask(task.id);
       },
@@ -15701,6 +15714,7 @@ function AdminConfigTab(props) {
     placeholder: "New task name",
     className: "flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
   }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: handleAddTask,
     disabled: saving,
     className: "px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px] disabled:opacity-50"
@@ -16000,7 +16014,19 @@ function StationTaskBoard(props) {
     lineDepts: lineDepts,
     allTasks: allTasks,
     shifts: shifts,
-    onRefresh: handleRefresh
+    onRefresh: handleRefresh,
+    onTaskAdded: function (task) {
+      setAllTasks(function (prev) {
+        return prev.concat([task]);
+      });
+    },
+    onTaskRemoved: function (taskId) {
+      setAllTasks(function (prev) {
+        return prev.filter(function (t) {
+          return t.id !== taskId;
+        });
+      });
+    }
   })));
 }
 

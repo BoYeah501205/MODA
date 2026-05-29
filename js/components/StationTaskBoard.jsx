@@ -1476,6 +1476,8 @@ function AdminConfigTab(props) {
     var allTasks = props.allTasks;
     var shifts = props.shifts;
     var onRefresh = props.onRefresh;
+    var onTaskAdded = props.onTaskAdded;
+    var onTaskRemoved = props.onTaskRemoved;
 
     var [openPanel, setOpenPanel] = useState('departments');
     var [selectedDeptForTasks, setSelectedDeptForTasks] = useState(null);
@@ -1515,15 +1517,23 @@ function AdminConfigTab(props) {
         setSaving(true);
         var SB = window.MODA_STATION_BOARD;
         if (!SB) { setError('Data layer not loaded'); setSaving(false); return; }
-        SB.addTask({ department_id: selectedDeptForTasks, task_name: newTaskName.trim() })
-            .then(function() { setNewTaskName(''); setSaving(false); if (onRefresh) onRefresh(); })
+        var taskName = newTaskName.trim();
+        SB.addTask({ department_id: selectedDeptForTasks, task_name: taskName })
+            .then(function(newTask) {
+                setNewTaskName(''); setSaving(false);
+                if (onTaskAdded && newTask) { onTaskAdded(newTask); }
+                else if (onRefresh) { onRefresh(); }
+            })
             .catch(function(err) { setError(err.message); setSaving(false); });
     }
 
     function handleRemoveTask(taskId) {
         var SB = window.MODA_STATION_BOARD;
         if (!SB) return;
-        SB.removeTask(taskId).then(function() { if (onRefresh) onRefresh(); });
+        SB.removeTask(taskId).then(function() {
+            if (onTaskRemoved) { onTaskRemoved(taskId); }
+            else if (onRefresh) { onRefresh(); }
+        });
     }
 
     // Shift Management
@@ -1560,7 +1570,7 @@ function AdminConfigTab(props) {
                                     <span className="w-3 h-3 rounded-full" style={{ backgroundColor: dept.color || '#6366f1' }} />
                                     <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{dept.name}</span>
                                     <span className="text-[10px] text-gray-400">stg: {dept.stagger_offset || 0}</span>
-                                    <button onClick={function() { handleDeactivateDept(dept.id); }} className="text-xs text-red-500 px-2 py-1 min-h-[32px]">Remove</button>
+                                    <button type="button" onClick={function() { handleDeactivateDept(dept.id); }} className="text-xs text-red-500 px-2 py-1 min-h-[32px]">Remove</button>
                                 </div>
                             );
                         })}
@@ -1608,7 +1618,7 @@ function AdminConfigTab(props) {
                             return (
                                 <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800">
                                     <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{task.task_name}</span>
-                                    <button onClick={function() { handleRemoveTask(task.id); }} className="text-xs text-red-500 px-2 py-1 min-h-[32px]">Remove</button>
+                                    <button type="button" onClick={function() { handleRemoveTask(task.id); }} className="text-xs text-red-500 px-2 py-1 min-h-[32px]">Remove</button>
                                 </div>
                             );
                         })}
@@ -1621,7 +1631,7 @@ function AdminConfigTab(props) {
                                     placeholder="New task name"
                                     className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
                                 />
-                                <button onClick={handleAddTask} disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px] disabled:opacity-50">Add</button>
+                                <button type="button" onClick={handleAddTask} disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px] disabled:opacity-50">Add</button>
                             </div>
                         )}
                     </div>
@@ -1954,6 +1964,8 @@ function StationTaskBoard(props) {
                         allTasks={allTasks}
                         shifts={shifts}
                         onRefresh={handleRefresh}
+                        onTaskAdded={function(task) { setAllTasks(function(prev) { return prev.concat([task]); }); }}
+                        onTaskRemoved={function(taskId) { setAllTasks(function(prev) { return prev.filter(function(t) { return t.id !== taskId; }); }); }}
                     />
                 )}
             </div>
