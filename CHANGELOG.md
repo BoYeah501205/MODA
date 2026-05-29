@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.85**
+**Current Version: 1.5.86**
 
 ---
+
+## [1.5.86] - 2026-05-28
+### Fixed
+- Task List Manager: fix scroll-to-top on drag by converting drag state from useState to useRef
 
 ## [1.5.85] - 2026-05-28
 ### Added

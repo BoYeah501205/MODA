@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T03:25:47.754Z
+ * Generated: 2026-05-29T03:45:07.084Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -15784,8 +15784,8 @@ function AdminConfigTab(props) {
   var [shiftDays, setShiftDays] = useState('');
   var [saving, setSaving] = useState(false);
   var [error, setError] = useState('');
-  var [draggingTask, setDraggingTask] = useState(null);
-  var [dragOverTask, setDragOverTask] = useState(null);
+  var draggingTaskRef = useRef(null);
+  var dragOverTaskRef = useRef(null);
   function handleTogglePanel(panel) {
     setOpenPanel(function (prev) {
       return prev === panel ? null : panel;
@@ -15862,38 +15862,34 @@ function AdminConfigTab(props) {
     });
   }
 
-  // Drag-to-reorder handlers
+  // Drag-to-reorder handlers (useRef to avoid re-renders/scroll jumps)
   function handleTaskDragStart(e, task) {
-    setDraggingTask(task);
+    draggingTaskRef.current = task;
     e.dataTransfer.effectAllowed = 'move';
   }
   function handleTaskDragOver(e, task) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    setDragOverTask(task);
+    dragOverTaskRef.current = task;
   }
   function handleTaskDrop(e, targetTask) {
     e.preventDefault();
-    if (!draggingTask || draggingTask.id === targetTask.id) return;
+    var dragging = draggingTaskRef.current;
+    if (!dragging || dragging.id === targetTask.id) return;
     var currentDeptTasks = deptTasks.slice();
     var fromIdx = currentDeptTasks.findIndex(function (t) {
-      return t.id === draggingTask.id;
+      return t.id === dragging.id;
     });
     var toIdx = currentDeptTasks.findIndex(function (t) {
       return t.id === targetTask.id;
     });
     currentDeptTasks.splice(fromIdx, 1);
-    currentDeptTasks.splice(toIdx, 0, draggingTask);
+    currentDeptTasks.splice(toIdx, 0, dragging);
     var updated = currentDeptTasks.map(function (t, i) {
       return Object.assign({}, t, {
         display_order: i + 1
       });
     });
-
-    // Optimistic update via parent callback
-    if (onTaskAdded) {
-      // Use onRefresh to reload from server after persist
-    }
 
     // Persist to Supabase
     var client = window.supabaseClient;
@@ -15909,12 +15905,12 @@ function AdminConfigTab(props) {
         if (onRefresh) onRefresh();
       });
     }
-    setDraggingTask(null);
-    setDragOverTask(null);
+    draggingTaskRef.current = null;
+    dragOverTaskRef.current = null;
   }
   function handleTaskDragEnd() {
-    setDraggingTask(null);
-    setDragOverTask(null);
+    draggingTaskRef.current = null;
+    dragOverTaskRef.current = null;
   }
 
   // Shift Management
@@ -16030,7 +16026,6 @@ function AdminConfigTab(props) {
       value: dept.id
     }, dept.name);
   })), deptTasks.map(function (task) {
-    var isDragOver = dragOverTask && dragOverTask.id === task.id && draggingTask && draggingTask.id !== task.id;
     return /*#__PURE__*/React.createElement("div", {
       key: task.id,
       draggable: true,
@@ -16049,12 +16044,11 @@ function AdminConfigTab(props) {
         alignItems: 'center',
         gap: '10px',
         padding: '10px 12px',
-        background: draggingTask && draggingTask.id === task.id ? '#f3f4f6' : '#fff',
+        background: '#fff',
         borderRadius: '8px',
         border: '1px solid #e5e7eb',
         marginBottom: '4px',
-        cursor: 'grab',
-        borderTop: isDragOver ? '2px solid #6366f1' : undefined
+        cursor: 'grab'
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {

@@ -1532,8 +1532,8 @@ function AdminConfigTab(props) {
     var [shiftDays, setShiftDays] = useState('');
     var [saving, setSaving] = useState(false);
     var [error, setError] = useState('');
-    var [draggingTask, setDraggingTask] = useState(null);
-    var [dragOverTask, setDragOverTask] = useState(null);
+    var draggingTaskRef = useRef(null);
+    var dragOverTaskRef = useRef(null);
 
     function handleTogglePanel(panel) {
         setOpenPanel(function(prev) { return prev === panel ? null : panel; });
@@ -1581,34 +1581,30 @@ function AdminConfigTab(props) {
         });
     }
 
-    // Drag-to-reorder handlers
+    // Drag-to-reorder handlers (useRef to avoid re-renders/scroll jumps)
     function handleTaskDragStart(e, task) {
-        setDraggingTask(task);
+        draggingTaskRef.current = task;
         e.dataTransfer.effectAllowed = 'move';
     }
 
     function handleTaskDragOver(e, task) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        setDragOverTask(task);
+        dragOverTaskRef.current = task;
     }
 
     function handleTaskDrop(e, targetTask) {
         e.preventDefault();
-        if (!draggingTask || draggingTask.id === targetTask.id) return;
+        var dragging = draggingTaskRef.current;
+        if (!dragging || dragging.id === targetTask.id) return;
 
         var currentDeptTasks = deptTasks.slice();
-        var fromIdx = currentDeptTasks.findIndex(function(t) { return t.id === draggingTask.id; });
+        var fromIdx = currentDeptTasks.findIndex(function(t) { return t.id === dragging.id; });
         var toIdx = currentDeptTasks.findIndex(function(t) { return t.id === targetTask.id; });
         currentDeptTasks.splice(fromIdx, 1);
-        currentDeptTasks.splice(toIdx, 0, draggingTask);
+        currentDeptTasks.splice(toIdx, 0, dragging);
 
         var updated = currentDeptTasks.map(function(t, i) { return Object.assign({}, t, { display_order: i + 1 }); });
-
-        // Optimistic update via parent callback
-        if (onTaskAdded) {
-            // Use onRefresh to reload from server after persist
-        }
 
         // Persist to Supabase
         var client = window.supabaseClient;
@@ -1625,13 +1621,13 @@ function AdminConfigTab(props) {
             });
         }
 
-        setDraggingTask(null);
-        setDragOverTask(null);
+        draggingTaskRef.current = null;
+        dragOverTaskRef.current = null;
     }
 
     function handleTaskDragEnd() {
-        setDraggingTask(null);
-        setDragOverTask(null);
+        draggingTaskRef.current = null;
+        dragOverTaskRef.current = null;
     }
 
     // Shift Management
@@ -1713,7 +1709,6 @@ function AdminConfigTab(props) {
                         </select>
                         {/* Task list */}
                         {deptTasks.map(function(task) {
-                            var isDragOver = dragOverTask && dragOverTask.id === task.id && draggingTask && draggingTask.id !== task.id;
                             return (
                                 <div
                                     key={task.id}
@@ -1722,7 +1717,7 @@ function AdminConfigTab(props) {
                                     onDragOver={function(e) { handleTaskDragOver(e, task); }}
                                     onDrop={function(e) { handleTaskDrop(e, task); }}
                                     onDragEnd={handleTaskDragEnd}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: draggingTask && draggingTask.id === task.id ? '#f3f4f6' : '#fff', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '4px', cursor: 'grab', borderTop: isDragOver ? '2px solid #6366f1' : undefined }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '4px', cursor: 'grab' }}
                                 >
                                     <span style={{ color: '#aaa', fontSize: '16px', cursor: 'grab', flexShrink: 0 }}>{"\u2807\u2807"}</span>
                                     <span style={{ flex: 1, fontSize: '14px' }}>{task.task_name}</span>
