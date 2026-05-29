@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T03:45:07.084Z
+ * Generated: 2026-05-29T04:03:38.915Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -15774,6 +15774,9 @@ function AdminConfigTab(props) {
   var onRefresh = props.onRefresh;
   var onTaskAdded = props.onTaskAdded;
   var onTaskRemoved = props.onTaskRemoved;
+  var onTasksReordered = props.onTasksReordered;
+  var adminScrollRef = useRef(null);
+  var adminScrollPos = useRef(0);
   var [openPanel, setOpenPanel] = useState('departments');
   var [selectedDeptForTasks, setSelectedDeptForTasks] = useState(null);
   var [newDeptName, setNewDeptName] = useState('');
@@ -15786,6 +15789,29 @@ function AdminConfigTab(props) {
   var [error, setError] = useState('');
   var draggingTaskRef = useRef(null);
   var dragOverTaskRef = useRef(null);
+
+  // Summary Column Order state
+  var [summaryDepts, setSummaryDepts] = useState([]);
+  var [summaryAbbrevs, setSummaryAbbrevs] = useState({});
+  var [summarySaved, setSummarySaved] = useState(false);
+  var [summarySaving, setSummarySaving] = useState(false);
+  var draggingSummaryRef = useRef(null);
+  var dragOverSummaryRef = useRef(null);
+
+  // Init summary depts when lineDepts loads
+  useEffect(function () {
+    if (lineDepts && lineDepts.length > 0 && summaryDepts.length === 0) {
+      var sorted = lineDepts.slice().sort(function (a, b) {
+        return (a.summary_order != null ? a.summary_order : 999) - (b.summary_order != null ? b.summary_order : 999);
+      });
+      setSummaryDepts(sorted);
+      var abbrevMap = {};
+      for (var i = 0; i < sorted.length; i++) {
+        abbrevMap[sorted[i].id] = sorted[i].abbreviation || '';
+      }
+      setSummaryAbbrevs(abbrevMap);
+    }
+  }, [lineDepts]);
   function handleTogglePanel(panel) {
     setOpenPanel(function (prev) {
       return prev === panel ? null : panel;
@@ -15891,18 +15917,20 @@ function AdminConfigTab(props) {
       });
     });
 
-    // Persist to Supabase
+    // Optimistic update — avoids full loadData/setLoading cycle
+    if (onTasksReordered) {
+      onTasksReordered(updated, selectedDeptForTasks);
+    }
+
+    // Persist to Supabase silently — no onRefresh
     var client = window.supabaseClient;
     if (client) {
       Promise.all(updated.map(function (t) {
         return client.from('station_tasks').update({
           display_order: t.display_order
         }).eq('id', t.id);
-      })).then(function () {
-        if (onRefresh) onRefresh();
-      }).catch(function (err) {
+      })).catch(function (err) {
         console.error('Failed to save task order:', err);
-        if (onRefresh) onRefresh();
       });
     }
     draggingTaskRef.current = null;
@@ -15941,8 +15969,22 @@ function AdminConfigTab(props) {
       return t.department_id === selectedDeptForTasks;
     });
   }, [selectedDeptForTasks, allTasks]);
+
+  // Restore scroll position after re-renders
+  useEffect(function () {
+    if (adminScrollRef.current) {
+      adminScrollRef.current.scrollTop = adminScrollPos.current;
+    }
+  });
   return /*#__PURE__*/React.createElement("div", {
-    className: "px-3 py-4 space-y-3 max-w-lg mx-auto"
+    ref: adminScrollRef,
+    onScroll: function (e) {
+      adminScrollPos.current = e.target.scrollTop;
+    },
+    className: "px-3 py-4 space-y-3 max-w-lg mx-auto overflow-y-auto",
+    style: {
+      maxHeight: '100%'
+    }
   }, error && /*#__PURE__*/React.createElement("div", {
     className: "p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 text-xs"
   }, error), /*#__PURE__*/React.createElement("div", {
@@ -16140,7 +16182,161 @@ function AdminConfigTab(props) {
     }, "Edit")));
   }), (!shifts || shifts.length === 0) && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-400 italic py-2"
-  }, "No shifts configured"))));
+  }, "No shifts configured"))), /*#__PURE__*/React.createElement("div", {
+    className: "border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleTogglePanel('summaryOrder');
+    },
+    className: "w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-sm text-gray-900 dark:text-white"
+  }, "Summary Column Order"), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-400"
+  }, openPanel === 'summaryOrder' ? '\u25BC' : '\u25B6')), openPanel === 'summaryOrder' && /*#__PURE__*/React.createElement("div", {
+    className: "p-3 space-y-2 border-t border-gray-200 dark:border-gray-700"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400 mb-2"
+  }, "Drag to reorder departments as they appear left-to-right in the Weekly Summary grid."), summaryDepts.map(function (dept) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: dept.id,
+      draggable: true,
+      onDragStart: function (e) {
+        draggingSummaryRef.current = dept;
+        e.dataTransfer.effectAllowed = 'move';
+      },
+      onDragOver: function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        dragOverSummaryRef.current = dept;
+      },
+      onDrop: function (e) {
+        e.preventDefault();
+        var dragging = draggingSummaryRef.current;
+        if (!dragging || dragging.id === dept.id) return;
+        setSummaryDepts(function (prev) {
+          var arr = prev.slice();
+          var fromIdx = arr.findIndex(function (d) {
+            return d.id === dragging.id;
+          });
+          var toIdx = arr.findIndex(function (d) {
+            return d.id === dept.id;
+          });
+          arr.splice(fromIdx, 1);
+          arr.splice(toIdx, 0, dragging);
+          return arr;
+        });
+        draggingSummaryRef.current = null;
+        dragOverSummaryRef.current = null;
+      },
+      onDragEnd: function () {
+        draggingSummaryRef.current = null;
+        dragOverSummaryRef.current = null;
+      },
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '8px 12px',
+        background: '#fff',
+        borderRadius: '8px',
+        border: '1px solid #e5e7eb',
+        marginBottom: '4px',
+        cursor: 'grab'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#aaa',
+        fontSize: '16px',
+        cursor: 'grab',
+        flexShrink: 0
+      }
+    }, "\u2807\u2807"), /*#__PURE__*/React.createElement("span", {
+      className: "w-3 h-3 rounded-full flex-shrink-0",
+      style: {
+        backgroundColor: dept.color || '#6366f1'
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1,
+        fontSize: '13px',
+        color: '#374151'
+      }
+    }, dept.name), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      maxLength: 10,
+      value: summaryAbbrevs[dept.id] || '',
+      onChange: function (e) {
+        var val = e.target.value;
+        var id = dept.id;
+        setSummaryAbbrevs(function (prev) {
+          var n = Object.assign({}, prev);
+          n[id] = val;
+          return n;
+        });
+      },
+      placeholder: "Abbrev",
+      style: {
+        width: '90px',
+        padding: '4px 8px',
+        fontSize: '12px',
+        borderRadius: '6px',
+        border: '1px solid #d1d5db'
+      }
+    }));
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      paddingTop: '8px'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setSummarySaving(true);
+      var client = window.supabaseClient;
+      if (!client) {
+        setError('Supabase client not available');
+        setSummarySaving(false);
+        return;
+      }
+      Promise.all(summaryDepts.map(function (d, i) {
+        return client.from('station_departments').update({
+          summary_order: i + 1,
+          abbreviation: summaryAbbrevs[d.id] || null
+        }).eq('id', d.id);
+      })).then(function () {
+        setSummarySaving(false);
+        setSummarySaved(true);
+        setTimeout(function () {
+          setSummarySaved(false);
+        }, 2000);
+        if (onRefresh) onRefresh();
+      }).catch(function (err) {
+        setSummarySaving(false);
+        setError(err.message || 'Failed to save order');
+      });
+    },
+    disabled: summarySaving,
+    style: {
+      padding: '8px 20px',
+      fontSize: '13px',
+      fontWeight: 500,
+      borderRadius: '8px',
+      background: '#2563eb',
+      color: '#fff',
+      border: 'none',
+      cursor: 'pointer',
+      minHeight: '40px',
+      opacity: summarySaving ? 0.5 : 1
+    }
+  }, summarySaving ? 'Saving...' : 'Save Order'), summarySaved && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: '12px',
+      color: '#16a34a',
+      fontWeight: 500
+    }
+  }, "Saved")))));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16280,7 +16476,9 @@ function WeeklySummaryTab(props) {
       });
     }
   }
-  var depts = lineDepts || [];
+  var depts = (lineDepts || []).slice().sort(function (a, b) {
+    return (a.summary_order != null ? a.summary_order : 999) - (b.summary_order != null ? b.summary_order : 999);
+  });
   var cellBorder = '1px solid #e5e7eb';
   var shift1Bg = 'rgba(24,95,165,0.025)';
   var shift2Bg = 'rgba(133,79,11,0.03)';
@@ -16292,10 +16490,48 @@ function WeeklySummaryTab(props) {
       display: 'flex',
       flexDirection: 'column'
     }
+  }, /*#__PURE__*/React.createElement("style", {
+    dangerouslySetInnerHTML: {
+      __html: '\
+@media print {\
+  body * { visibility: hidden; }\
+  .wsb-print-area, .wsb-print-area * { visibility: visible; }\
+  .wsb-print-area { position: absolute; left: 0; top: 0; width: 100%; }\
+  .wsb-no-print { display: none !important; }\
+  .wsb-print-header { display: block !important; }\
+  @page { size: A3 landscape; margin: 10mm; }\
+  .wsb-print-area table { font-size: 8px; width: 100%; }\
+  .wsb-print-area .module-tile { width: 48px; padding: 3px 2px; }\
+  .wsb-print-area .mt-serial { font-size: 8px; }\
+  .wsb-print-area .mt-pct { font-size: 9px; }\
+  .wsb-print-area .mt-seq { font-size: 7px; }\
+}\
+'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "wsb-print-area"
   }, /*#__PURE__*/React.createElement("div", {
+    className: "wsb-print-header",
+    style: {
+      display: 'none',
+      marginBottom: '8px'
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: '14px',
+      marginBottom: '4px',
+      fontWeight: 700
+    }
+  }, 'Weekly Production Summary \u2014 ' + weekLabel), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: '10px',
+      color: '#666'
+    }
+  }, 'Generated ' + new Date().toLocaleDateString())), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: '12px'
-    }
+    },
+    className: "wsb-no-print"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -16361,7 +16597,23 @@ function WeeklySummaryTab(props) {
     style: {
       color: '#888'
     }
-  }, "100%"))), /*#__PURE__*/React.createElement("div", {
+  }, "100%"), /*#__PURE__*/React.createElement("button", {
+    className: "wsb-no-print",
+    onClick: function () {
+      window.print();
+    },
+    style: {
+      padding: '6px 14px',
+      fontSize: '12px',
+      fontWeight: '500',
+      borderRadius: '6px',
+      border: '1.5px solid #6366f1',
+      color: '#6366f1',
+      background: 'transparent',
+      cursor: 'pointer',
+      marginLeft: '8px'
+    }
+  }, "Export PDF"))), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: '11px',
       color: '#6b7280',
@@ -16517,6 +16769,7 @@ function WeeklySummaryTab(props) {
           verticalAlign: 'middle'
         }
       }, /*#__PURE__*/React.createElement("div", {
+        className: "module-tile",
         style: {
           borderRadius: '6px',
           padding: '5px 4px',
@@ -16527,18 +16780,21 @@ function WeeklySummaryTab(props) {
           border: '1px solid ' + colors.border
         }
       }, /*#__PURE__*/React.createElement("div", {
+        className: "mt-seq",
         style: {
           fontSize: '9px',
           opacity: 0.75,
           color: colors.text
         }
       }, "(", buildSeq, ")"), /*#__PURE__*/React.createElement("div", {
+        className: "mt-serial",
         style: {
           fontSize: '10px',
           fontWeight: 500,
           color: colors.text
         }
       }, serialNumber), /*#__PURE__*/React.createElement("div", {
+        className: "mt-pct",
         style: {
           fontSize: '11px',
           fontWeight: 500,
@@ -16547,7 +16803,7 @@ function WeeklySummaryTab(props) {
         }
       }, pct, "%")));
     }));
-  })))));
+  }))))));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16814,6 +17070,14 @@ function StationTaskBoard(props) {
         return prev.filter(function (t) {
           return t.id !== taskId;
         });
+      });
+    },
+    onTasksReordered: function (reorderedTasks, deptId) {
+      setAllTasks(function (prev) {
+        var other = prev.filter(function (t) {
+          return t.department_id !== deptId;
+        });
+        return other.concat(reorderedTasks);
       });
     }
   })));

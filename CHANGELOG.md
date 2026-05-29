@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.86**
+**Current Version: 1.5.87**
 
 ---
+
+## [1.5.87] - 2026-05-28
+### Added
+- **Summary Column Order** admin section — drag-to-reorder departments for Weekly Summary grid, editable abbreviations (max 10 chars), saves `summary_order` and `abbreviation` to `station_departments`
+- **Export PDF** button on Weekly Summary — uses `window.print()` with print-specific CSS (A3 landscape, scaled tiles, print-only header)
+- Weekly Summary now sorts departments by `summary_order` instead of `display_order`
 
 ## [1.5.86] - 2026-05-28
 ### Fixed

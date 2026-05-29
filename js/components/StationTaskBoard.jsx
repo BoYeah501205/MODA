@@ -1521,6 +1521,10 @@ function AdminConfigTab(props) {
     var onRefresh = props.onRefresh;
     var onTaskAdded = props.onTaskAdded;
     var onTaskRemoved = props.onTaskRemoved;
+    var onTasksReordered = props.onTasksReordered;
+
+    var adminScrollRef = useRef(null);
+    var adminScrollPos = useRef(0);
 
     var [openPanel, setOpenPanel] = useState('departments');
     var [selectedDeptForTasks, setSelectedDeptForTasks] = useState(null);
@@ -1534,6 +1538,27 @@ function AdminConfigTab(props) {
     var [error, setError] = useState('');
     var draggingTaskRef = useRef(null);
     var dragOverTaskRef = useRef(null);
+
+    // Summary Column Order state
+    var [summaryDepts, setSummaryDepts] = useState([]);
+    var [summaryAbbrevs, setSummaryAbbrevs] = useState({});
+    var [summarySaved, setSummarySaved] = useState(false);
+    var [summarySaving, setSummarySaving] = useState(false);
+    var draggingSummaryRef = useRef(null);
+    var dragOverSummaryRef = useRef(null);
+
+    // Init summary depts when lineDepts loads
+    useEffect(function() {
+        if (lineDepts && lineDepts.length > 0 && summaryDepts.length === 0) {
+            var sorted = lineDepts.slice().sort(function(a, b) { return (a.summary_order != null ? a.summary_order : 999) - (b.summary_order != null ? b.summary_order : 999); });
+            setSummaryDepts(sorted);
+            var abbrevMap = {};
+            for (var i = 0; i < sorted.length; i++) {
+                abbrevMap[sorted[i].id] = sorted[i].abbreviation || '';
+            }
+            setSummaryAbbrevs(abbrevMap);
+        }
+    }, [lineDepts]);
 
     function handleTogglePanel(panel) {
         setOpenPanel(function(prev) { return prev === panel ? null : panel; });
@@ -1606,18 +1631,20 @@ function AdminConfigTab(props) {
 
         var updated = currentDeptTasks.map(function(t, i) { return Object.assign({}, t, { display_order: i + 1 }); });
 
-        // Persist to Supabase
+        // Optimistic update — avoids full loadData/setLoading cycle
+        if (onTasksReordered) {
+            onTasksReordered(updated, selectedDeptForTasks);
+        }
+
+        // Persist to Supabase silently — no onRefresh
         var client = window.supabaseClient;
         if (client) {
             Promise.all(
                 updated.map(function(t) {
                     return client.from('station_tasks').update({ display_order: t.display_order }).eq('id', t.id);
                 })
-            ).then(function() {
-                if (onRefresh) onRefresh();
-            }).catch(function(err) {
+            ).catch(function(err) {
                 console.error('Failed to save task order:', err);
-                if (onRefresh) onRefresh();
             });
         }
 
@@ -1646,8 +1673,15 @@ function AdminConfigTab(props) {
         return allTasks.filter(function(t) { return t.department_id === selectedDeptForTasks; });
     }, [selectedDeptForTasks, allTasks]);
 
+    // Restore scroll position after re-renders
+    useEffect(function() {
+        if (adminScrollRef.current) {
+            adminScrollRef.current.scrollTop = adminScrollPos.current;
+        }
+    });
+
     return (
-        <div className="px-3 py-4 space-y-3 max-w-lg mx-auto">
+        <div ref={adminScrollRef} onScroll={function(e) { adminScrollPos.current = e.target.scrollTop; }} className="px-3 py-4 space-y-3 max-w-lg mx-auto overflow-y-auto" style={{ maxHeight: '100%' }}>
             {error && <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 text-xs">{error}</div>}
 
             {/* Department Manager */}
@@ -1786,6 +1820,91 @@ function AdminConfigTab(props) {
                     </div>
                 )}
             </div>
+
+            {/* Summary Column Order */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <button onClick={function() { handleTogglePanel('summaryOrder'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
+                    <span className="font-semibold text-sm text-gray-900 dark:text-white">Summary Column Order</span>
+                    <span className="text-gray-400">{openPanel === 'summaryOrder' ? '\u25BC' : '\u25B6'}</span>
+                </button>
+                {openPanel === 'summaryOrder' && (
+                    <div className="p-3 space-y-2 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-400 mb-2">Drag to reorder departments as they appear left-to-right in the Weekly Summary grid.</p>
+                        {summaryDepts.map(function(dept) {
+                            return (
+                                <div
+                                    key={dept.id}
+                                    draggable
+                                    onDragStart={function(e) { draggingSummaryRef.current = dept; e.dataTransfer.effectAllowed = 'move'; }}
+                                    onDragOver={function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dragOverSummaryRef.current = dept; }}
+                                    onDrop={function(e) {
+                                        e.preventDefault();
+                                        var dragging = draggingSummaryRef.current;
+                                        if (!dragging || dragging.id === dept.id) return;
+                                        setSummaryDepts(function(prev) {
+                                            var arr = prev.slice();
+                                            var fromIdx = arr.findIndex(function(d) { return d.id === dragging.id; });
+                                            var toIdx = arr.findIndex(function(d) { return d.id === dept.id; });
+                                            arr.splice(fromIdx, 1);
+                                            arr.splice(toIdx, 0, dragging);
+                                            return arr;
+                                        });
+                                        draggingSummaryRef.current = null;
+                                        dragOverSummaryRef.current = null;
+                                    }}
+                                    onDragEnd={function() { draggingSummaryRef.current = null; dragOverSummaryRef.current = null; }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '4px', cursor: 'grab' }}
+                                >
+                                    <span style={{ color: '#aaa', fontSize: '16px', cursor: 'grab', flexShrink: 0 }}>{"\u2807\u2807"}</span>
+                                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: dept.color || '#6366f1' }} />
+                                    <span style={{ flex: 1, fontSize: '13px', color: '#374151' }}>{dept.name}</span>
+                                    <input
+                                        type="text"
+                                        maxLength={10}
+                                        value={summaryAbbrevs[dept.id] || ''}
+                                        onChange={function(e) {
+                                            var val = e.target.value;
+                                            var id = dept.id;
+                                            setSummaryAbbrevs(function(prev) { var n = Object.assign({}, prev); n[id] = val; return n; });
+                                        }}
+                                        placeholder="Abbrev"
+                                        style={{ width: '90px', padding: '4px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #d1d5db' }}
+                                    />
+                                </div>
+                            );
+                        })}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '8px' }}>
+                            <button
+                                onClick={function() {
+                                    setSummarySaving(true);
+                                    var client = window.supabaseClient;
+                                    if (!client) { setError('Supabase client not available'); setSummarySaving(false); return; }
+                                    Promise.all(
+                                        summaryDepts.map(function(d, i) {
+                                            return client.from('station_departments').update({ summary_order: i + 1, abbreviation: summaryAbbrevs[d.id] || null }).eq('id', d.id);
+                                        })
+                                    ).then(function() {
+                                        setSummarySaving(false);
+                                        setSummarySaved(true);
+                                        setTimeout(function() { setSummarySaved(false); }, 2000);
+                                        if (onRefresh) onRefresh();
+                                    }).catch(function(err) {
+                                        setSummarySaving(false);
+                                        setError(err.message || 'Failed to save order');
+                                    });
+                                }}
+                                disabled={summarySaving}
+                                style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 500, borderRadius: '8px', background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer', minHeight: '40px', opacity: summarySaving ? 0.5 : 1 }}
+                            >
+                                {summarySaving ? 'Saving...' : 'Save Order'}
+                            </button>
+                            {summarySaved && (
+                                <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 500 }}>Saved</span>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -1883,7 +2002,7 @@ function WeeklySummaryTab(props) {
         }
     }
 
-    var depts = lineDepts || [];
+    var depts = (lineDepts || []).slice().sort(function(a, b) { return (a.summary_order != null ? a.summary_order : 999) - (b.summary_order != null ? b.summary_order : 999); });
 
     var cellBorder = '1px solid #e5e7eb';
     var shift1Bg = 'rgba(24,95,165,0.025)';
@@ -1891,100 +2010,137 @@ function WeeklySummaryTab(props) {
 
     return (
         <div style={{ padding: '16px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Header */}
-            <div style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <div>
-                        <span style={{ fontSize: '16px', fontWeight: 700 }}>Weekly Summary</span>
-                        <span style={{ fontSize: '13px', marginLeft: '8px', color: '#6b7280' }}>{weekLabel}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
-                        <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#ffffff', border: '1px solid #ddd', borderRadius: '3px' }} />
-                        <span style={{ color: '#888' }}>0%</span>
-                        <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#97C459', border: '1px solid rgba(0,0,0,0.09)', borderRadius: '3px' }} />
-                        <span style={{ color: '#888' }}>~50%</span>
-                        <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#27500A', border: '1px solid rgba(39,80,10,0.3)', borderRadius: '3px' }} />
-                        <span style={{ color: '#888' }}>100%</span>
-                    </div>
-                </div>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                    <span style={{ display: 'inline-block', width: '10px', height: '10px', background: '#185FA5', borderRadius: '2px', marginRight: '4px' }} />
-                    <span style={{ marginRight: '12px' }}>Shift 1</span>
-                    <span style={{ display: 'inline-block', width: '10px', height: '10px', background: '#854F0B', borderRadius: '2px', marginRight: '4px' }} />
-                    <span>Shift 2</span>
-                </div>
-            </div>
+            {/* Print-specific CSS */}
+            <style dangerouslySetInnerHTML={{ __html: '\
+@media print {\
+  body * { visibility: hidden; }\
+  .wsb-print-area, .wsb-print-area * { visibility: visible; }\
+  .wsb-print-area { position: absolute; left: 0; top: 0; width: 100%; }\
+  .wsb-no-print { display: none !important; }\
+  .wsb-print-header { display: block !important; }\
+  @page { size: A3 landscape; margin: 10mm; }\
+  .wsb-print-area table { font-size: 8px; width: 100%; }\
+  .wsb-print-area .module-tile { width: 48px; padding: 3px 2px; }\
+  .wsb-print-area .mt-serial { font-size: 8px; }\
+  .wsb-print-area .mt-pct { font-size: 9px; }\
+  .wsb-print-area .mt-seq { font-size: 7px; }\
+}\
+' }} />
 
-            {/* Table wrapper */}
-            <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-                    <thead>
-                        <tr>
-                            <th style={{ width: '140px', minWidth: '140px', padding: '6px 8px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#374151', background: '#f9fafb', border: cellBorder, borderRight: '2px solid #e5e7eb' }}>Day</th>
-                            <th style={{ width: '32px', minWidth: '32px', padding: '4px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>#</th>
-                            {depts.map(function(dept) {
+            <div className="wsb-print-area">
+                {/* Print-only header */}
+                <div className="wsb-print-header" style={{ display: 'none', marginBottom: '8px' }}>
+                    <h2 style={{ fontSize: '14px', marginBottom: '4px', fontWeight: 700 }}>{'Weekly Production Summary \u2014 ' + weekLabel}</h2>
+                    <p style={{ fontSize: '10px', color: '#666' }}>{'Generated ' + new Date().toLocaleDateString()}</p>
+                </div>
+
+                {/* Header */}
+                <div style={{ marginBottom: '12px' }} className="wsb-no-print">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                            <span style={{ fontSize: '16px', fontWeight: 700 }}>Weekly Summary</span>
+                            <span style={{ fontSize: '13px', marginLeft: '8px', color: '#6b7280' }}>{weekLabel}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                            <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#ffffff', border: '1px solid #ddd', borderRadius: '3px' }} />
+                            <span style={{ color: '#888' }}>0%</span>
+                            <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#97C459', border: '1px solid rgba(0,0,0,0.09)', borderRadius: '3px' }} />
+                            <span style={{ color: '#888' }}>~50%</span>
+                            <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#27500A', border: '1px solid rgba(39,80,10,0.3)', borderRadius: '3px' }} />
+                            <span style={{ color: '#888' }}>100%</span>
+                            <button
+                                className="wsb-no-print"
+                                onClick={function() { window.print(); }}
+                                style={{
+                                    padding: '6px 14px', fontSize: '12px', fontWeight: '500',
+                                    borderRadius: '6px', border: '1.5px solid #6366f1',
+                                    color: '#6366f1', background: 'transparent', cursor: 'pointer',
+                                    marginLeft: '8px',
+                                }}
+                            >
+                                Export PDF
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                        <span style={{ display: 'inline-block', width: '10px', height: '10px', background: '#185FA5', borderRadius: '2px', marginRight: '4px' }} />
+                        <span style={{ marginRight: '12px' }}>Shift 1</span>
+                        <span style={{ display: 'inline-block', width: '10px', height: '10px', background: '#854F0B', borderRadius: '2px', marginRight: '4px' }} />
+                        <span>Shift 2</span>
+                    </div>
+                </div>
+
+                {/* Table wrapper */}
+                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto' }}>
+                    <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+                        <thead>
+                            <tr>
+                                <th style={{ width: '140px', minWidth: '140px', padding: '6px 8px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#374151', background: '#f9fafb', border: cellBorder, borderRight: '2px solid #e5e7eb' }}>Day</th>
+                                <th style={{ width: '32px', minWidth: '32px', padding: '4px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>#</th>
+                                {depts.map(function(dept) {
+                                    return (
+                                        <th key={dept.id} style={{ padding: '4px 6px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#374151', border: cellBorder, minWidth: '76px' }}>{deptLabel(dept)}</th>
+                                    );
+                                })}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map(function(row, rowIdx) {
+                                var isShift1 = SHIFT1_DAYS.includes(row.dayIndex);
+                                var rowBg = isShift1 ? shift1Bg : shift2Bg;
+                                var isFirstOfDay = row.moduleIdx === 0;
+                                var isShiftDivider = row.dayIndex === 4 && row.moduleIdx === 0;
+                                var shiftDividerStyle = isShiftDivider ? { borderTop: '3px solid #d1d5db' } : {};
+
+                                var mod = row.moduleSerial ? moduleMap[row.moduleSerial] : null;
+                                var buildSeq = mod ? (mod.buildSequence || '') : '';
+                                var serialNumber = row.moduleSerial || '';
+
                                 return (
-                                    <th key={dept.id} style={{ padding: '4px 6px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#374151', border: cellBorder, minWidth: '76px' }}>{deptLabel(dept)}</th>
+                                    <tr key={row.date + '|' + row.moduleIdx} style={Object.assign({ background: rowBg }, shiftDividerStyle)}>
+                                        {/* Day cell - rowSpan */}
+                                        {isFirstOfDay && (
+                                            <td rowSpan={row.dayModCount || 1} style={{ width: '140px', minWidth: '140px', padding: '6px 8px', verticalAlign: 'top', background: '#f9fafb', borderRight: '2px solid #e5e7eb', border: cellBorder }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{row.label}</div>
+                                                <div style={{ fontSize: '10px', color: '#6b7280' }}>{stbParseDate(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                                <div style={{ fontSize: '9px', fontWeight: 600, marginTop: '2px', color: isShift1 ? '#185FA5' : '#854F0B' }}>{isShift1 ? 'Shift 1' : 'Shift 2'}</div>
+                                            </td>
+                                        )}
+                                        {/* # cell */}
+                                        <td style={{ width: '32px', padding: '2px 4px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>
+                                            {row.moduleSerial ? (row.moduleIdx + 1) : ''}
+                                        </td>
+                                        {/* Dept cells */}
+                                        {depts.map(function(dept) {
+                                            if (!row.moduleSerial) {
+                                                return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
+                                            }
+                                            var pct = calcPct(row.moduleSerial, dept.id);
+                                            var colors = summaryGetPctColor(pct);
+                                            return (
+                                                <td key={dept.id} style={{ border: cellBorder, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                    <div className="module-tile" style={{
+                                                        borderRadius: '6px',
+                                                        padding: '5px 4px',
+                                                        margin: '2px auto',
+                                                        width: '64px',
+                                                        textAlign: 'center',
+                                                        background: colors.bg,
+                                                        border: '1px solid ' + colors.border,
+                                                    }}>
+                                                        <div className="mt-seq" style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({buildSeq})</div>
+                                                        <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serialNumber}</div>
+                                                        <div className="mt-pct" style={{ fontSize: '11px', fontWeight: 500, marginTop: '1px', color: colors.text }}>{pct}%</div>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
                                 );
                             })}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map(function(row, rowIdx) {
-                            var isShift1 = SHIFT1_DAYS.includes(row.dayIndex);
-                            var rowBg = isShift1 ? shift1Bg : shift2Bg;
-                            var isFirstOfDay = row.moduleIdx === 0;
-                            var isShiftDivider = row.dayIndex === 4 && row.moduleIdx === 0;
-                            var shiftDividerStyle = isShiftDivider ? { borderTop: '3px solid #d1d5db' } : {};
-
-                            var mod = row.moduleSerial ? moduleMap[row.moduleSerial] : null;
-                            var buildSeq = mod ? (mod.buildSequence || '') : '';
-                            var serialNumber = row.moduleSerial || '';
-
-                            return (
-                                <tr key={row.date + '|' + row.moduleIdx} style={Object.assign({ background: rowBg }, shiftDividerStyle)}>
-                                    {/* Day cell - rowSpan */}
-                                    {isFirstOfDay && (
-                                        <td rowSpan={row.dayModCount || 1} style={{ width: '140px', minWidth: '140px', padding: '6px 8px', verticalAlign: 'top', background: '#f9fafb', borderRight: '2px solid #e5e7eb', border: cellBorder }}>
-                                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{row.label}</div>
-                                            <div style={{ fontSize: '10px', color: '#6b7280' }}>{stbParseDate(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                            <div style={{ fontSize: '9px', fontWeight: 600, marginTop: '2px', color: isShift1 ? '#185FA5' : '#854F0B' }}>{isShift1 ? 'Shift 1' : 'Shift 2'}</div>
-                                        </td>
-                                    )}
-                                    {/* # cell */}
-                                    <td style={{ width: '32px', padding: '2px 4px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>
-                                        {row.moduleSerial ? (row.moduleIdx + 1) : ''}
-                                    </td>
-                                    {/* Dept cells */}
-                                    {depts.map(function(dept) {
-                                        if (!row.moduleSerial) {
-                                            return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
-                                        }
-                                        var pct = calcPct(row.moduleSerial, dept.id);
-                                        var colors = summaryGetPctColor(pct);
-                                        return (
-                                            <td key={dept.id} style={{ border: cellBorder, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
-                                                <div style={{
-                                                    borderRadius: '6px',
-                                                    padding: '5px 4px',
-                                                    margin: '2px auto',
-                                                    width: '64px',
-                                                    textAlign: 'center',
-                                                    background: colors.bg,
-                                                    border: '1px solid ' + colors.border,
-                                                }}>
-                                                    <div style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({buildSeq})</div>
-                                                    <div style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serialNumber}</div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 500, marginTop: '1px', color: colors.text }}>{pct}%</div>
-                                                </div>
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );
@@ -2279,6 +2435,12 @@ function StationTaskBoard(props) {
                         onRefresh={handleRefresh}
                         onTaskAdded={function(task) { setAllTasks(function(prev) { return prev.concat([task]); }); }}
                         onTaskRemoved={function(taskId) { setAllTasks(function(prev) { return prev.filter(function(t) { return t.id !== taskId; }); }); }}
+                        onTasksReordered={function(reorderedTasks, deptId) {
+                            setAllTasks(function(prev) {
+                                var other = prev.filter(function(t) { return t.department_id !== deptId; });
+                                return other.concat(reorderedTasks);
+                            });
+                        }}
                     />
                 )}
             </div>
