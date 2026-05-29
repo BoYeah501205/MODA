@@ -1957,10 +1957,19 @@ function WeeklySummaryTab(props) {
         }
     }, [weekAssignments, weekDays]);
 
-    // Build day → unique module serials (ordered by first dept appearance)
-    // FIX: Normalize target_date by splitting on 'T' to handle ISO timestamps from Supabase
+    // Build day → unique module serials using reference dept (stagger_offset = 0)
     var dayModules = useMemo(function() {
         var result = {};
+
+        // Find the reference department (lowest display_order or stagger_offset = 0)
+        var refDept = null;
+        if (lineDepts && lineDepts.length > 0) {
+            var sorted = lineDepts.slice().sort(function(a, b) {
+                return (a.display_order != null ? a.display_order : 999) - (b.display_order != null ? b.display_order : 999);
+            });
+            refDept = sorted.find(function(d) { return (d.stagger_offset || 0) === 0; }) || sorted[0];
+        }
+
         for (var i = 0; i < weekDays.length; i++) {
             var date = weekDays[i].date;
             var seen = {};
@@ -1968,16 +1977,29 @@ function WeeklySummaryTab(props) {
             for (var j = 0; j < weekAssignments.length; j++) {
                 var a = weekAssignments[j];
                 var aDate = (a.target_date || '').split('T')[0];
-                if (aDate === date && !seen[a.module_serial]) {
+                if (aDate !== date) continue;
+                if (refDept && a.department_id !== refDept.id) continue;
+                if (!seen[a.module_serial]) {
                     seen[a.module_serial] = true;
                     list.push(a.module_serial);
                 }
             }
+
+            // Sort by build_sequence if available
+            list.sort(function(serialA, serialB) {
+                var modA = weekAssignments.find(function(a) { return a.module_serial === serialA && a.department_id === (refDept ? refDept.id : a.department_id); });
+                var modB = weekAssignments.find(function(a) { return a.module_serial === serialB && a.department_id === (refDept ? refDept.id : a.department_id); });
+                return ((modA && modA.build_sequence) || 9999) - ((modB && modB.build_sequence) || 9999);
+            });
+
             result[date] = list;
         }
-        console.log('[WeeklySummary] dayModules result:', JSON.stringify(Object.keys(result).map(function(k){ return {date: k, count: result[k].length}; })));
+
+        console.log('[WeeklySummary] dayModules (ref dept:', refDept ? refDept.name : 'none', '):', 
+            JSON.stringify(Object.keys(result).map(function(k){ return {date: k, count: result[k].length}; })));
+
         return result;
-    }, [weekDays, weekAssignments]);
+    }, [weekDays, weekAssignments, lineDepts]);
 
     // Module lookup by serial (from modules prop + fallback from assignments)
     var moduleMap = useMemo(function() {
@@ -2053,11 +2075,18 @@ function WeeklySummaryTab(props) {
         else if (exportWeekRange === 'all3') offsets = [-1, 0, 1];
         else return null;
 
+        // Find reference dept for export (same logic as dayModules)
+        var refDeptId = null;
+        if (lineDepts && lineDepts.length > 0) {
+            var sDepts = lineDepts.slice().sort(function(a, b) { return (a.display_order != null ? a.display_order : 999) - (b.display_order != null ? b.display_order : 999); });
+            var rDept = sDepts.find(function(d) { return (d.stagger_offset || 0) === 0; }) || sDepts[0];
+            if (rDept) refDeptId = rDept.id;
+        }
+
         return offsets.map(function(offset) {
             var ws = stbShiftWeek(selectedWeek, offset);
             var wDays = stbWeekDates(ws);
             var wLabel = stbWeekLabel(ws);
-            // Filter assignments for this week using normalized dates
             var wRows = [];
             for (var di = 0; di < wDays.length; di++) {
                 var d = wDays[di];
@@ -2066,7 +2095,9 @@ function WeeklySummaryTab(props) {
                 for (var j = 0; j < weekAssignments.length; j++) {
                     var a = weekAssignments[j];
                     var aDate = (a.target_date || '').split('T')[0];
-                    if (aDate === d.date && !seen[a.module_serial]) {
+                    if (aDate !== d.date) continue;
+                    if (refDeptId && a.department_id !== refDeptId) continue;
+                    if (!seen[a.module_serial]) {
                         seen[a.module_serial] = true;
                         dayMods.push(a.module_serial);
                     }
@@ -2080,7 +2111,7 @@ function WeeklySummaryTab(props) {
             }
             return { weekStart: ws, weekLabel: wLabel, rows: wRows, weekDays: wDays };
         });
-    }, [exportWeekRange, selectedWeek, weekAssignments]);
+    }, [exportWeekRange, selectedWeek, weekAssignments, lineDepts]);
 
     // Helper to render a week table
     function renderWeekTable(wRows, wLabel, wDepts) {
