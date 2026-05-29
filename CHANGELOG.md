@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.88**
+**Current Version: 1.5.89**
 
 ---
+
+## [1.5.89] - 2026-05-28
+### Fixed
+- **Weekly Summary print colors**: Added `print-color-adjust: exact` CSS directive + inline styles so tile backgrounds render in PDF/print
+- **Weekly Summary module alignment**: Enhanced moduleMap with fallback from assignment records (`build_sequence`) for modules not in props
+- Print header: updated to 16px/600 weight, shown only when printing via `@media print`
 
 ## [1.5.88] - 2026-05-28
 ### Fixed

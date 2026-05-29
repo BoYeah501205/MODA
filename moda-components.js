@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T04:03:38.915Z
+ * Generated: 2026-05-29T04:48:31.423Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -16406,16 +16406,27 @@ function WeeklySummaryTab(props) {
     return result;
   }, [weekDays, weekAssignments]);
 
-  // Module lookup by serial
+  // Module lookup by serial (from modules prop + fallback from assignments)
   var moduleMap = useMemo(function () {
     var map = {};
-    if (!modules) return map;
-    for (var i = 0; i < modules.length; i++) {
-      var m = modules[i];
-      map[m.serialNumber] = m;
+    if (modules) {
+      for (var i = 0; i < modules.length; i++) {
+        var m = modules[i];
+        if (m.serialNumber) map[m.serialNumber] = m;
+      }
+    }
+    // Fallback: build minimal module info from assignments themselves
+    for (var j = 0; j < weekAssignments.length; j++) {
+      var a = weekAssignments[j];
+      if (a.module_serial && !map[a.module_serial]) {
+        map[a.module_serial] = {
+          serialNumber: a.module_serial,
+          buildSequence: a.build_sequence || ''
+        };
+      }
     }
     return map;
-  }, [modules]);
+  }, [modules, weekAssignments]);
 
   // Completion % for a module+dept
   function calcPct(moduleSerial, deptId) {
@@ -16494,11 +16505,12 @@ function WeeklySummaryTab(props) {
     dangerouslySetInnerHTML: {
       __html: '\
 @media print {\
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }\
   body * { visibility: hidden; }\
   .wsb-print-area, .wsb-print-area * { visibility: visible; }\
   .wsb-print-area { position: absolute; left: 0; top: 0; width: 100%; }\
   .wsb-no-print { display: none !important; }\
-  .wsb-print-header { display: block !important; }\
+  .wsb-print-header { display: block !important; margin-bottom: 12px; }\
   @page { size: A3 landscape; margin: 10mm; }\
   .wsb-print-area table { font-size: 8px; width: 100%; }\
   .wsb-print-area .module-tile { width: 48px; padding: 3px 2px; }\
@@ -16513,19 +16525,19 @@ function WeeklySummaryTab(props) {
   }, /*#__PURE__*/React.createElement("div", {
     className: "wsb-print-header",
     style: {
-      display: 'none',
-      marginBottom: '8px'
+      display: 'none'
     }
   }, /*#__PURE__*/React.createElement("h2", {
     style: {
-      fontSize: '14px',
-      marginBottom: '4px',
-      fontWeight: 700
+      fontSize: '16px',
+      fontWeight: '600',
+      marginBottom: '4px'
     }
   }, 'Weekly Production Summary \u2014 ' + weekLabel), /*#__PURE__*/React.createElement("p", {
     style: {
-      fontSize: '10px',
-      color: '#666'
+      fontSize: '11px',
+      color: '#666',
+      margin: 0
     }
   }, 'Generated ' + new Date().toLocaleDateString())), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -16777,7 +16789,9 @@ function WeeklySummaryTab(props) {
           width: '64px',
           textAlign: 'center',
           background: colors.bg,
-          border: '1px solid ' + colors.border
+          border: '1px solid ' + colors.border,
+          WebkitPrintColorAdjust: 'exact',
+          printColorAdjust: 'exact'
         }
       }, /*#__PURE__*/React.createElement("div", {
         className: "mt-seq",

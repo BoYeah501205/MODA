@@ -1953,16 +1953,24 @@ function WeeklySummaryTab(props) {
         return result;
     }, [weekDays, weekAssignments]);
 
-    // Module lookup by serial
+    // Module lookup by serial (from modules prop + fallback from assignments)
     var moduleMap = useMemo(function() {
         var map = {};
-        if (!modules) return map;
-        for (var i = 0; i < modules.length; i++) {
-            var m = modules[i];
-            map[m.serialNumber] = m;
+        if (modules) {
+            for (var i = 0; i < modules.length; i++) {
+                var m = modules[i];
+                if (m.serialNumber) map[m.serialNumber] = m;
+            }
+        }
+        // Fallback: build minimal module info from assignments themselves
+        for (var j = 0; j < weekAssignments.length; j++) {
+            var a = weekAssignments[j];
+            if (a.module_serial && !map[a.module_serial]) {
+                map[a.module_serial] = { serialNumber: a.module_serial, buildSequence: a.build_sequence || '' };
+            }
         }
         return map;
-    }, [modules]);
+    }, [modules, weekAssignments]);
 
     // Completion % for a module+dept
     function calcPct(moduleSerial, deptId) {
@@ -2013,11 +2021,12 @@ function WeeklySummaryTab(props) {
             {/* Print-specific CSS */}
             <style dangerouslySetInnerHTML={{ __html: '\
 @media print {\
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }\
   body * { visibility: hidden; }\
   .wsb-print-area, .wsb-print-area * { visibility: visible; }\
   .wsb-print-area { position: absolute; left: 0; top: 0; width: 100%; }\
   .wsb-no-print { display: none !important; }\
-  .wsb-print-header { display: block !important; }\
+  .wsb-print-header { display: block !important; margin-bottom: 12px; }\
   @page { size: A3 landscape; margin: 10mm; }\
   .wsb-print-area table { font-size: 8px; width: 100%; }\
   .wsb-print-area .module-tile { width: 48px; padding: 3px 2px; }\
@@ -2029,9 +2038,9 @@ function WeeklySummaryTab(props) {
 
             <div className="wsb-print-area">
                 {/* Print-only header */}
-                <div className="wsb-print-header" style={{ display: 'none', marginBottom: '8px' }}>
-                    <h2 style={{ fontSize: '14px', marginBottom: '4px', fontWeight: 700 }}>{'Weekly Production Summary \u2014 ' + weekLabel}</h2>
-                    <p style={{ fontSize: '10px', color: '#666' }}>{'Generated ' + new Date().toLocaleDateString()}</p>
+                <div className="wsb-print-header" style={{ display: 'none' }}>
+                    <h2 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>{'Weekly Production Summary \u2014 ' + weekLabel}</h2>
+                    <p style={{ fontSize: '11px', color: '#666', margin: 0 }}>{'Generated ' + new Date().toLocaleDateString()}</p>
                 </div>
 
                 {/* Header */}
@@ -2127,6 +2136,8 @@ function WeeklySummaryTab(props) {
                                                         textAlign: 'center',
                                                         background: colors.bg,
                                                         border: '1px solid ' + colors.border,
+                                                        WebkitPrintColorAdjust: 'exact',
+                                                        printColorAdjust: 'exact',
                                                     }}>
                                                         <div className="mt-seq" style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({buildSeq})</div>
                                                         <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serialNumber}</div>
