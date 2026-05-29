@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T22:21:25.375Z
+ * Generated: 2026-05-29T22:28:06.384Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -16408,22 +16408,6 @@ function WeeklySummaryTab(props) {
     return stbWeekDates(selectedWeek);
   }, [selectedWeek]);
 
-  // Diagnostic: log date formats on first render to verify alignment
-  useMemo(function () {
-    if (weekAssignments.length > 0 && weekDays.length > 0) {
-      console.log('[WeeklySummary] week_start:', selectedWeek);
-      console.log('[WeeklySummary] Sample target_dates:', weekAssignments.slice(0, 5).map(function (a) {
-        return a.target_date;
-      }));
-      console.log('[WeeklySummary] Sample weekDates:', weekDays.slice(0, 7).map(function (d) {
-        return d.date;
-      }));
-      console.log('[WeeklySummary] dayModules keys will be:', weekDays.map(function (d) {
-        return d.date;
-      }));
-    }
-  }, [weekAssignments, weekDays]);
-
   // Build day → unique module serials using reference dept (stagger_offset = 0)
   var dayModules = useMemo(function () {
     var result = {};
@@ -16465,12 +16449,6 @@ function WeeklySummaryTab(props) {
       });
       result[date] = list;
     }
-    console.log('[WeeklySummary] dayModules (ref dept:', refDept ? refDept.name : 'none', '):', JSON.stringify(Object.keys(result).map(function (k) {
-      return {
-        date: k,
-        count: result[k].length
-      };
-    })));
     return result;
   }, [weekDays, weekAssignments, lineDepts]);
 
@@ -16717,14 +16695,23 @@ function WeeklySummaryTab(props) {
         }
       }, /*#__PURE__*/React.createElement("div", {
         style: {
-          fontSize: '12px',
-          fontWeight: 600,
-          color: '#111827'
+          background: isShift1 ? 'rgba(24,95,165,0.07)' : 'rgba(133,79,11,0.07)',
+          border: isShift1 ? '1px solid rgba(24,95,165,0.2)' : '1px solid rgba(133,79,11,0.2)',
+          borderRadius: '8px',
+          padding: '8px 10px'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: '13px',
+          fontWeight: 700,
+          color: '#111827',
+          lineHeight: 1.2
         }
       }, row.label), /*#__PURE__*/React.createElement("div", {
         style: {
-          fontSize: '10px',
-          color: '#6b7280'
+          fontSize: '11px',
+          color: '#6b7280',
+          marginTop: '1px'
         }
       }, stbParseDate(row.date).toLocaleDateString('en-US', {
         month: 'short',
@@ -16733,10 +16720,23 @@ function WeeklySummaryTab(props) {
         style: {
           fontSize: '9px',
           fontWeight: 600,
-          marginTop: '2px',
-          color: isShift1 ? '#185FA5' : '#854F0B'
+          marginTop: '4px',
+          color: isShift1 ? '#185FA5' : '#854F0B',
+          textTransform: 'uppercase',
+          letterSpacing: '0.3px'
         }
-      }, isShift1 ? 'Shift 1' : 'Shift 2')), /*#__PURE__*/React.createElement("td", {
+      }, "Shift ", isShift1 ? '1' : '2'), /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginTop: '6px',
+          display: 'inline-block',
+          fontSize: '10px',
+          fontWeight: 600,
+          color: isShift1 ? '#185FA5' : '#854F0B',
+          background: isShift1 ? 'rgba(24,95,165,0.1)' : 'rgba(133,79,11,0.1)',
+          borderRadius: '10px',
+          padding: '2px 8px'
+        }
+      }, row.dayModCount, " mod", row.dayModCount !== 1 ? 's' : ''))), /*#__PURE__*/React.createElement("td", {
         style: {
           width: '32px',
           padding: '2px 4px',
@@ -17044,14 +17044,23 @@ function WeeklySummaryTab(props) {
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: '12px',
-        fontWeight: 600,
-        color: '#111827'
+        background: isShift1 ? 'rgba(24,95,165,0.07)' : 'rgba(133,79,11,0.07)',
+        border: isShift1 ? '1px solid rgba(24,95,165,0.2)' : '1px solid rgba(133,79,11,0.2)',
+        borderRadius: '8px',
+        padding: '8px 10px'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: '13px',
+        fontWeight: 700,
+        color: '#111827',
+        lineHeight: 1.2
       }
     }, row.label), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: '10px',
-        color: '#6b7280'
+        fontSize: '11px',
+        color: '#6b7280',
+        marginTop: '1px'
       }
     }, stbParseDate(row.date).toLocaleDateString('en-US', {
       month: 'short',
@@ -17060,10 +17069,23 @@ function WeeklySummaryTab(props) {
       style: {
         fontSize: '9px',
         fontWeight: 600,
-        marginTop: '2px',
-        color: isShift1 ? '#185FA5' : '#854F0B'
+        marginTop: '4px',
+        color: isShift1 ? '#185FA5' : '#854F0B',
+        textTransform: 'uppercase',
+        letterSpacing: '0.3px'
       }
-    }, isShift1 ? 'Shift 1' : 'Shift 2')), /*#__PURE__*/React.createElement("td", {
+    }, "Shift ", isShift1 ? '1' : '2'), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: '6px',
+        display: 'inline-block',
+        fontSize: '10px',
+        fontWeight: 600,
+        color: isShift1 ? '#185FA5' : '#854F0B',
+        background: isShift1 ? 'rgba(24,95,165,0.1)' : 'rgba(133,79,11,0.1)',
+        borderRadius: '10px',
+        padding: '2px 8px'
+      }
+    }, row.dayModCount, " mod", row.dayModCount !== 1 ? 's' : ''))), /*#__PURE__*/React.createElement("td", {
       style: {
         width: '32px',
         padding: '2px 4px',
