@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.87**
+**Current Version: 1.5.88**
 
 ---
+
+## [1.5.88] - 2026-05-28
+### Fixed
+- Admin tab: fix scroll jump on task drag-reorder — root cause was onRefresh calling loadData/setLoading which unmounts entire tab
+- Replace onRefresh with targeted onTasksReordered callback for optimistic state update without full reload
+- Add scroll position preservation ref on admin container
 
 ## [1.5.87] - 2026-05-28
 ### Added
