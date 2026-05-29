@@ -1975,6 +1975,7 @@ function WeeklySummaryTab(props) {
             }
             result[date] = list;
         }
+        console.log('[WeeklySummary] dayModules result:', JSON.stringify(Object.keys(result).map(function(k){ return {date: k, count: result[k].length}; })));
         return result;
     }, [weekDays, weekAssignments]);
 
@@ -2420,6 +2421,12 @@ function StationTaskBoard(props) {
                 console.log('[StationTaskBoard] Schedule loaded, fetching assignments for ws:', ws);
                 SB.getDayAssignments(ws).then(function(assignments) {
                     console.log('[StationTaskBoard] Assignments loaded:', assignments ? assignments.length : 0);
+                    if (assignments && assignments.length > 0) {
+                        var dateCounts = {};
+                        assignments.forEach(function(a) { dateCounts[a.target_date] = (dateCounts[a.target_date] || 0) + 1; });
+                        console.log('[StationTaskBoard] Assignments by target_date:', JSON.stringify(dateCounts));
+                        console.log('[StationTaskBoard] First 3 assignments:', JSON.stringify(assignments.slice(0,3).map(function(a){ return {serial: a.module_serial, target_date: a.target_date, dept: a.department_id}; })));
+                    }
                     schedule.assignments = assignments || [];
                     setWeekSchedule(Object.assign({}, schedule));
                     setLoading(false);
