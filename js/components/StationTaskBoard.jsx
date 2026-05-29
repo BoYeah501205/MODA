@@ -235,6 +235,7 @@ function DailyBoardTab(props) {
     var [selectedModule, setSelectedModule] = useState(null);
     var [inlinePickerTask, setInlinePickerTask] = useState(null);
     var [saving, setSaving] = useState({});
+    var [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
 
     var isAdmin = stbIsAdmin(currentUser);
     var weekStart = weekSchedule ? weekSchedule.week_start : null;
@@ -562,6 +563,47 @@ function DailyBoardTab(props) {
                     </div>
                 </div>
 
+                {/* Module navigation tiles */}
+                {deptModules.length > 0 && (
+                    <div className="mt-2 flex items-center gap-1.5 relative">
+                        {(deptModules.length <= 4 ? deptModules : deptModules.slice(0, 3)).map(function(modInfo) {
+                            var isModActive = modInfo.serial === selectedModule;
+                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                            var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
+                            var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                            var tileStyle = isModActive ? { backgroundColor: deptColor, color: '#fff', padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500 } : { padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, border: '1px solid #d1d5db' };
+                            return (
+                                <button key={modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1.5 transition-all ' + (isModActive ? '' : 'text-gray-600 dark:text-gray-300 dark:border-gray-600')}>
+                                    {!isModActive && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
+                                    {modInfo.serial}
+                                </button>
+                            );
+                        })}
+                        {deptModules.length > 4 && (
+                            <div className="relative">
+                                <button onClick={function() { setMoreDropdownOpen(function(v) { return !v; }); }} style={{ padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, border: '1px solid #d1d5db' }} className="text-gray-600 dark:text-gray-300 dark:border-gray-600 transition-all">
+                                    More &#9660;
+                                </button>
+                                {moreDropdownOpen && (
+                                    <div className="absolute top-full left-0 mt-1 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 min-w-[120px]">
+                                        {deptModules.slice(3).map(function(modInfo) {
+                                            var isModActive = modInfo.serial === selectedModule;
+                                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                                            var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                                            return (
+                                                <button key={modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); setMoreDropdownOpen(false); }} className={'w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-gray-100 dark:hover:bg-gray-700 ' + (isModActive ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300')}>
+                                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
+                                                    {modInfo.serial}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Module-level completion bar */}
                 {currentModInfo && (
                     <div className="mt-2 flex items-center gap-2">
@@ -584,63 +626,60 @@ function DailyBoardTab(props) {
                 {selectedModule && deptTasks.map(function(task) {
                     var cKey = selectedModule + '|' + selectedDept + '|' + task.id;
                     var status = dayCompletions[cKey] || 'not_started';
-                    var sCfg = STB_STATUSES[status] || STB_STATUSES.not_started;
                     var isSaving = !!saving[cKey];
-                    var isPickerOpen = inlinePickerTask === task.id;
 
                     return (
-                        <div key={task.id}>
-                            {/* Task Row */}
-                            <button
-                                onClick={function() { handleToggleInlinePicker(task.id); }}
-                                disabled={isSaving}
-                                className={'w-full flex items-center gap-3 px-3 min-h-[52px] rounded-lg transition-all ' + (isPickerOpen ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-750') + ' ' + (isSaving ? 'opacity-50' : '')}
-                            >
-                                {/* Status icon */}
+                        <div key={task.id} className={'px-3 py-2 rounded-lg ' + (isSaving ? 'opacity-50' : '')}>
+                            {/* Task name */}
+                            <div className="flex items-center gap-2 mb-1">
                                 <span className="flex-shrink-0">
-                                    {isSaving ? <STBSpinner size="sm" /> : <DailyBoardStatusIcon status={status} size={22} />}
+                                    {isSaving ? <STBSpinner size="sm" /> : <DailyBoardStatusIcon status={status} size={18} />}
                                 </span>
-                                {/* Task name */}
-                                <span className="flex-1 text-left text-base text-gray-800 dark:text-gray-200">{task.task_name}</span>
-                                {/* Status pill */}
-                                <span className={'text-xs font-bold px-2.5 py-1 rounded-full ' + sCfg.bg + ' ' + sCfg.text}>{sCfg.short}</span>
-                            </button>
-
-                            {/* Inline Status Picker */}
-                            {isPickerOpen && !isSaving && (
-                                <div className="flex gap-1.5 px-3 py-2 ml-8">
-                                    <button
-                                        onClick={function() { handleStatusChange(task.id, 'not_started'); }}
-                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 ' + (status === 'not_started' ? 'ring-2 ring-gray-500' : 'hover:bg-gray-300 dark:hover:bg-gray-600')}
-                                    >
-                                        --
-                                    </button>
-                                    <button
-                                        onClick={function() { handleStatusChange(task.id, 'wip'); }}
-                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 ' + (status === 'wip' ? 'ring-2 ring-amber-500' : 'hover:bg-amber-200 dark:hover:bg-amber-800')}
-                                    >
-                                        WIP
-                                    </button>
-                                    <button
-                                        onClick={function() { handleStatusChange(task.id, 'complete'); }}
-                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 ' + (status === 'complete' ? 'ring-2 ring-green-500' : 'hover:bg-green-200 dark:hover:bg-green-800')}
-                                    >
-                                        Done
-                                    </button>
-                                    <button
-                                        onClick={function() { handleStatusChange(task.id, 'stopped'); }}
-                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 ' + (status === 'stopped' ? 'ring-2 ring-red-500' : 'hover:bg-red-200 dark:hover:bg-red-800')}
-                                    >
-                                        Stop
-                                    </button>
-                                    <button
-                                        onClick={function() { handleStatusChange(task.id, 'na'); }}
-                                        className={'flex-1 flex items-center justify-center min-h-[52px] rounded-xl text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 italic ' + (status === 'na' ? 'ring-2 ring-slate-400' : 'hover:bg-slate-200 dark:hover:bg-slate-700')}
-                                    >
-                                        N/A
-                                    </button>
-                                </div>
-                            )}
+                                <span style={{ fontSize: '15px' }} className="text-gray-800 dark:text-gray-200">{task.task_name}</span>
+                            </div>
+                            {/* Always-visible status buttons */}
+                            <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                                <button
+                                    onClick={function() { handleStatusChange(task.id, 'not_started'); }}
+                                    disabled={isSaving}
+                                    style={{ padding: '4px 10px', fontSize: '12px', borderRadius: '6px', minHeight: '36px' }}
+                                    className={'flex-1 font-semibold transition-all ' + (status === 'not_started' ? 'bg-gray-500 text-white' : 'bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700')}
+                                >
+                                    --
+                                </button>
+                                <button
+                                    onClick={function() { handleStatusChange(task.id, 'wip'); }}
+                                    disabled={isSaving}
+                                    style={{ padding: '4px 10px', fontSize: '12px', borderRadius: '6px', minHeight: '36px' }}
+                                    className={'flex-1 font-semibold transition-all ' + (status === 'wip' ? 'bg-amber-500 text-white' : 'bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30')}
+                                >
+                                    WIP
+                                </button>
+                                <button
+                                    onClick={function() { handleStatusChange(task.id, 'complete'); }}
+                                    disabled={isSaving}
+                                    style={{ padding: '4px 10px', fontSize: '12px', borderRadius: '6px', minHeight: '36px' }}
+                                    className={'flex-1 font-semibold transition-all ' + (status === 'complete' ? 'bg-green-600 text-white' : 'bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30')}
+                                >
+                                    Complete
+                                </button>
+                                <button
+                                    onClick={function() { handleStatusChange(task.id, 'stopped'); }}
+                                    disabled={isSaving}
+                                    style={{ padding: '4px 10px', fontSize: '12px', borderRadius: '6px', minHeight: '36px' }}
+                                    className={'flex-1 font-semibold transition-all ' + (status === 'stopped' ? 'bg-red-600 text-white' : 'bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30')}
+                                >
+                                    Stop
+                                </button>
+                                <button
+                                    onClick={function() { handleStatusChange(task.id, 'na'); }}
+                                    disabled={isSaving}
+                                    style={{ padding: '4px 10px', fontSize: '12px', borderRadius: '6px', minHeight: '36px' }}
+                                    className={'flex-1 font-semibold italic transition-all ' + (status === 'na' ? 'bg-slate-400 text-white' : 'bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800')}
+                                >
+                                    N/A
+                                </button>
+                            </div>
                         </div>
                     );
                 })}
