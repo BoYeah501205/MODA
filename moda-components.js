@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T02:51:47.033Z
+ * Generated: 2026-05-29T03:23:48.412Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -15784,6 +15784,8 @@ function AdminConfigTab(props) {
   var [shiftDays, setShiftDays] = useState('');
   var [saving, setSaving] = useState(false);
   var [error, setError] = useState('');
+  var [draggingTask, setDraggingTask] = useState(null);
+  var [dragOverTask, setDragOverTask] = useState(null);
   function handleTogglePanel(panel) {
     setOpenPanel(function (prev) {
       return prev === panel ? null : panel;
@@ -15858,6 +15860,61 @@ function AdminConfigTab(props) {
         onRefresh();
       }
     });
+  }
+
+  // Drag-to-reorder handlers
+  function handleTaskDragStart(e, task) {
+    setDraggingTask(task);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function handleTaskDragOver(e, task) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverTask(task);
+  }
+  function handleTaskDrop(e, targetTask) {
+    e.preventDefault();
+    if (!draggingTask || draggingTask.id === targetTask.id) return;
+    var currentDeptTasks = deptTasks.slice();
+    var fromIdx = currentDeptTasks.findIndex(function (t) {
+      return t.id === draggingTask.id;
+    });
+    var toIdx = currentDeptTasks.findIndex(function (t) {
+      return t.id === targetTask.id;
+    });
+    currentDeptTasks.splice(fromIdx, 1);
+    currentDeptTasks.splice(toIdx, 0, draggingTask);
+    var updated = currentDeptTasks.map(function (t, i) {
+      return Object.assign({}, t, {
+        display_order: i + 1
+      });
+    });
+
+    // Optimistic update via parent callback
+    if (onTaskAdded) {
+      // Use onRefresh to reload from server after persist
+    }
+
+    // Persist to Supabase
+    var client = window.supabaseClient;
+    if (client) {
+      Promise.all(updated.map(function (t) {
+        return client.from('station_tasks').update({
+          display_order: t.display_order
+        }).eq('id', t.id);
+      })).then(function () {
+        if (onRefresh) onRefresh();
+      }).catch(function (err) {
+        console.error('Failed to save task order:', err);
+        if (onRefresh) onRefresh();
+      });
+    }
+    setDraggingTask(null);
+    setDragOverTask(null);
+  }
+  function handleTaskDragEnd() {
+    setDraggingTask(null);
+    setDragOverTask(null);
   }
 
   // Shift Management
@@ -15973,17 +16030,56 @@ function AdminConfigTab(props) {
       value: dept.id
     }, dept.name);
   })), deptTasks.map(function (task) {
+    var isDragOver = dragOverTask && dragOverTask.id === task.id && draggingTask && draggingTask.id !== task.id;
     return /*#__PURE__*/React.createElement("div", {
       key: task.id,
-      className: "flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800"
+      draggable: true,
+      onDragStart: function (e) {
+        handleTaskDragStart(e, task);
+      },
+      onDragOver: function (e) {
+        handleTaskDragOver(e, task);
+      },
+      onDrop: function (e) {
+        handleTaskDrop(e, task);
+      },
+      onDragEnd: handleTaskDragEnd,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '10px 12px',
+        background: draggingTask && draggingTask.id === task.id ? '#f3f4f6' : '#fff',
+        borderRadius: '8px',
+        border: '1px solid #e5e7eb',
+        marginBottom: '4px',
+        cursor: 'grab',
+        borderTop: isDragOver ? '2px solid #6366f1' : undefined
+      }
     }, /*#__PURE__*/React.createElement("span", {
-      className: "text-sm text-gray-800 dark:text-gray-200 flex-1"
+      style: {
+        color: '#aaa',
+        fontSize: '16px',
+        cursor: 'grab',
+        flexShrink: 0
+      }
+    }, "\u2807\u2807"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1,
+        fontSize: '14px'
+      }
     }, task.task_name), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function () {
         handleRemoveTask(task.id);
       },
-      className: "text-xs text-red-500 px-2 py-1 min-h-[32px]"
+      style: {
+        color: '#ef4444',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '13px'
+      }
     }, "Remove"));
   }), selectedDeptForTasks && /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 pt-2"
