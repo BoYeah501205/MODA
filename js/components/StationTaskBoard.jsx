@@ -493,39 +493,6 @@ function DailyBoardTab(props) {
                     );
                 })}
             </div>
-
-            {/* Module pills - horizontal scrollable */}
-            {selectedDept && (
-                <div className="border-r border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-2 overflow-x-auto">
-                    <div className="flex gap-1.5 min-w-max">
-                        {deptModules.length === 0 && (
-                            <span className="text-xs text-gray-400 italic py-2 px-2">No modules today</span>
-                        )}
-                        {deptModules.map(function(modInfo) {
-                            var isModActive = modInfo.serial === selectedModule;
-                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-                            var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
-                            var pillStyle = isModActive ? { backgroundColor: deptColor, color: '#fff' } : {};
-                            var pillCls = 'relative flex items-center justify-center min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ' +
-                                (isModActive ? 'shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600');
-
-                            return (
-                                <button
-                                    key={modInfo.serial}
-                                    onClick={function() { handleSelectModule(modInfo.serial); }}
-                                    className={pillCls}
-                                    style={pillStyle}
-                                >
-                                    {modInfo.serial}
-                                    <span className={'absolute -top-1 -right-1 text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center ' + (modPct === 100 ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200')}>
-                                        {modPct}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
         </div>
     );
 
@@ -715,28 +682,6 @@ function DailyBoardTab(props) {
                             })}
                         </div>
                     </div>
-                    {/* Module pills on mobile */}
-                    {selectedDept && deptModules.length > 0 && (
-                        <div className="overflow-x-auto px-2 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                            <div className="flex gap-1.5 min-w-max">
-                                {deptModules.map(function(modInfo) {
-                                    var isModActive = modInfo.serial === selectedModule;
-                                    var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
-                                    var pillStyle = isModActive ? { backgroundColor: deptColor, color: '#fff' } : {};
-                                    return (
-                                        <button
-                                            key={modInfo.serial}
-                                            onClick={function() { handleSelectModule(modInfo.serial); }}
-                                            className={'min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-all ' + (isModActive ? 'shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300')}
-                                            style={pillStyle}
-                                        >
-                                            {modInfo.serial}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
                     {/* Tasks on mobile */}
                     {rightPanel}
                 </div>

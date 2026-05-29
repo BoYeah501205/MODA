@@ -417,10 +417,20 @@
         return function() { getClient().removeChannel(channel); };
     }
 
+    // Aliases for admin tab compatibility
+    async function removeTask(taskId) { return deleteTask(taskId); }
+    async function addTask(opts) {
+        return upsertTask({
+            departmentId: opts.department_id || opts.departmentId,
+            taskName: opts.task_name || opts.taskName,
+            displayOrder: opts.display_order || opts.displayOrder || 999,
+        });
+    }
+
     window.MODA_STATION_BOARD = {
         weekStart, weekDates, parseDate, fmtDate,
         getDepartments, getLineDepartments, upsertDepartment, deleteDepartment, updateStagger,
-        getTasks, getAllTasks, upsertTask, deleteTask,
+        getTasks, getAllTasks, upsertTask, deleteTask, addTask, removeTask,
         getShifts, upsertShift,
         getWeeklySchedule, upsertWeeklySchedule, completeWeek,
         getDailyTargets, upsertDailyTarget,

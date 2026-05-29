@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T01:32:52.588Z
+ * Generated: 2026-05-29T01:47:09.054Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14350,32 +14350,7 @@ function DailyBoardTab(props) {
     })), /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] font-mono text-gray-500 w-8 text-right"
     }, dPct, "%")));
-  })), selectedDept && /*#__PURE__*/React.createElement("div", {
-    className: "border-r border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-2 overflow-x-auto"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5 min-w-max"
-  }, deptModules.length === 0 && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-gray-400 italic py-2 px-2"
-  }, "No modules today"), deptModules.map(function (modInfo) {
-    var isModActive = modInfo.serial === selectedModule;
-    var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-    var deptColor = selectedDeptObj ? selectedDeptObj.color || '#6366f1' : '#6366f1';
-    var pillStyle = isModActive ? {
-      backgroundColor: deptColor,
-      color: '#fff'
-    } : {};
-    var pillCls = 'relative flex items-center justify-center min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ' + (isModActive ? 'shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600');
-    return /*#__PURE__*/React.createElement("button", {
-      key: modInfo.serial,
-      onClick: function () {
-        handleSelectModule(modInfo.serial);
-      },
-      className: pillCls,
-      style: pillStyle
-    }, modInfo.serial, /*#__PURE__*/React.createElement("span", {
-      className: 'absolute -top-1 -right-1 text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center ' + (modPct === 100 ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200')
-    }, modPct));
-  }))));
+  })));
 
   // ─── RIGHT PANEL: Task checklist ─────────────────────────────────────────
   var rightPanel = /*#__PURE__*/React.createElement("div", {
@@ -14606,25 +14581,6 @@ function DailyBoardTab(props) {
         backgroundColor: dept.color || '#6366f1'
       }
     }), dept.name);
-  }))), selectedDept && deptModules.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "overflow-x-auto px-2 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5 min-w-max"
-  }, deptModules.map(function (modInfo) {
-    var isModActive = modInfo.serial === selectedModule;
-    var deptColor = selectedDeptObj ? selectedDeptObj.color || '#6366f1' : '#6366f1';
-    var pillStyle = isModActive ? {
-      backgroundColor: deptColor,
-      color: '#fff'
-    } : {};
-    return /*#__PURE__*/React.createElement("button", {
-      key: modInfo.serial,
-      onClick: function () {
-        handleSelectModule(modInfo.serial);
-      },
-      className: 'min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-all ' + (isModActive ? 'shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'),
-      style: pillStyle
-    }, modInfo.serial);
   }))), rightPanel), /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex flex-1 overflow-hidden"
   }, leftPanel, rightPanel)));
