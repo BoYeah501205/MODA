@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.84**
+**Current Version: 1.5.85**
 
 ---
+
+## [1.5.85] - 2026-05-28
+### Added
+- **Weekly Summary tab** on Station Task Board — full-width scrollable grid showing module completion % by department with green heat scale
+- Columns: Day | # | one per department (abbreviation or truncated name)
+- Rows: each module assigned per day with colored tiles (white=0% through dark green=100%)
+- Shift 1/2 visual divider and row tinting (blue/amber)
+- Legend and shift indicators in header
 
 ## [1.5.84] - 2026-05-28
 ### Changed

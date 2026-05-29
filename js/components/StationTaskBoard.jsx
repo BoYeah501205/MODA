@@ -1796,6 +1796,206 @@ function AdminConfigTab(props) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TAB: WEEKLY SUMMARY — Completion grid by dept with green heat scale
+// ═══════════════════════════════════════════════════════════════════════════
+
+function summaryGetPctColor(pct) {
+    if (pct === 0)   return { bg: '#ffffff', text: '#bbb',    border: 'rgba(0,0,0,0.12)' };
+    if (pct < 25)    return { bg: '#EAF3DE', text: '#3B6D11', border: 'rgba(0,0,0,0.09)' };
+    if (pct < 50)    return { bg: '#C0DD97', text: '#27500A', border: 'rgba(0,0,0,0.09)' };
+    if (pct < 75)    return { bg: '#97C459', text: '#173404', border: 'rgba(0,0,0,0.09)' };
+    if (pct < 100)   return { bg: '#639922', text: '#EAF3DE', border: 'rgba(0,0,0,0.09)' };
+    return           { bg: '#27500A', text: '#C0DD97', border: 'rgba(39,80,10,0.3)' };
+}
+
+function WeeklySummaryTab(props) {
+    var weekSchedule = props.weekSchedule;
+    var completions = props.completions;
+    var allTasks = props.allTasks;
+    var lineDepts = props.lineDepts;
+    var modules = props.modules;
+
+    var selectedWeek = weekSchedule ? weekSchedule.week_start : null;
+    var weekAssignments = (weekSchedule && weekSchedule.assignments) ? weekSchedule.assignments : [];
+
+    var weekDays = useMemo(function() { return stbWeekDates(selectedWeek); }, [selectedWeek]);
+
+    // Build day → unique module serials (ordered by first dept appearance)
+    var dayModules = useMemo(function() {
+        var result = {};
+        for (var i = 0; i < weekDays.length; i++) {
+            var date = weekDays[i].date;
+            var seen = {};
+            var list = [];
+            for (var j = 0; j < weekAssignments.length; j++) {
+                var a = weekAssignments[j];
+                if (a.target_date === date && !seen[a.module_serial]) {
+                    seen[a.module_serial] = true;
+                    list.push(a.module_serial);
+                }
+            }
+            result[date] = list;
+        }
+        return result;
+    }, [weekDays, weekAssignments]);
+
+    // Module lookup by serial
+    var moduleMap = useMemo(function() {
+        var map = {};
+        if (!modules) return map;
+        for (var i = 0; i < modules.length; i++) {
+            var m = modules[i];
+            map[m.serialNumber] = m;
+        }
+        return map;
+    }, [modules]);
+
+    // Completion % for a module+dept
+    function calcPct(moduleSerial, deptId) {
+        var deptTasks = allTasks ? allTasks.filter(function(t) { return t.department_id === deptId; }) : [];
+        if (deptTasks.length === 0) return 0;
+        var modComps = completions ? completions.filter(function(c) {
+            return c.module_serial === moduleSerial && c.department_id === deptId;
+        }) : [];
+        var naCount = modComps.filter(function(c) { return c.status === 'na'; }).length;
+        var completeCount = modComps.filter(function(c) { return c.status === 'complete'; }).length;
+        var denominator = deptTasks.length - naCount;
+        return denominator > 0 ? Math.round((completeCount / denominator) * 100) : 0;
+    }
+
+    // Dept header labels
+    function deptLabel(dept) {
+        if (dept.abbreviation) return dept.abbreviation;
+        return dept.name.length > 8 ? dept.name.substring(0, 8) : dept.name;
+    }
+
+    if (!selectedWeek) {
+        return React.createElement(STBEmpty, { message: 'No week scheduled.' });
+    }
+
+    var weekLabel = stbWeekLabel(selectedWeek);
+
+    // Build rows: [{date, dayIndex, label, dayNum, moduleSerial, moduleIdx}]
+    var rows = [];
+    for (var di = 0; di < weekDays.length; di++) {
+        var day = weekDays[di];
+        var mods = dayModules[day.date] || [];
+        for (var mi = 0; mi < mods.length; mi++) {
+            rows.push({ date: day.date, dayIndex: day.dayIndex, label: day.label, dayNum: day.dayNum, moduleSerial: mods[mi], moduleIdx: mi, dayModCount: mods.length });
+        }
+        if (mods.length === 0) {
+            rows.push({ date: day.date, dayIndex: day.dayIndex, label: day.label, dayNum: day.dayNum, moduleSerial: null, moduleIdx: 0, dayModCount: 0 });
+        }
+    }
+
+    var depts = lineDepts || [];
+
+    var cellBorder = '1px solid #e5e7eb';
+    var shift1Bg = 'rgba(24,95,165,0.025)';
+    var shift2Bg = 'rgba(133,79,11,0.03)';
+
+    return (
+        <div style={{ padding: '16px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                        <span style={{ fontSize: '16px', fontWeight: 700 }}>Weekly Summary</span>
+                        <span style={{ fontSize: '13px', marginLeft: '8px', color: '#6b7280' }}>{weekLabel}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                        <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#ffffff', border: '1px solid #ddd', borderRadius: '3px' }} />
+                        <span style={{ color: '#888' }}>0%</span>
+                        <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#97C459', border: '1px solid rgba(0,0,0,0.09)', borderRadius: '3px' }} />
+                        <span style={{ color: '#888' }}>~50%</span>
+                        <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#27500A', border: '1px solid rgba(39,80,10,0.3)', borderRadius: '3px' }} />
+                        <span style={{ color: '#888' }}>100%</span>
+                    </div>
+                </div>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', background: '#185FA5', borderRadius: '2px', marginRight: '4px' }} />
+                    <span style={{ marginRight: '12px' }}>Shift 1</span>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', background: '#854F0B', borderRadius: '2px', marginRight: '4px' }} />
+                    <span>Shift 2</span>
+                </div>
+            </div>
+
+            {/* Table wrapper */}
+            <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto' }}>
+                <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+                    <thead>
+                        <tr>
+                            <th style={{ width: '140px', minWidth: '140px', padding: '6px 8px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#374151', background: '#f9fafb', border: cellBorder, borderRight: '2px solid #e5e7eb' }}>Day</th>
+                            <th style={{ width: '32px', minWidth: '32px', padding: '4px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>#</th>
+                            {depts.map(function(dept) {
+                                return (
+                                    <th key={dept.id} style={{ padding: '4px 6px', textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#374151', border: cellBorder, minWidth: '76px' }}>{deptLabel(dept)}</th>
+                                );
+                            })}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map(function(row, rowIdx) {
+                            var isShift1 = SHIFT1_DAYS.includes(row.dayIndex);
+                            var rowBg = isShift1 ? shift1Bg : shift2Bg;
+                            var isFirstOfDay = row.moduleIdx === 0;
+                            var isShiftDivider = row.dayIndex === 4 && row.moduleIdx === 0;
+                            var shiftDividerStyle = isShiftDivider ? { borderTop: '3px solid #d1d5db' } : {};
+
+                            var mod = row.moduleSerial ? moduleMap[row.moduleSerial] : null;
+                            var buildSeq = mod ? (mod.buildSequence || '') : '';
+                            var serialNumber = row.moduleSerial || '';
+
+                            return (
+                                <tr key={row.date + '|' + row.moduleIdx} style={Object.assign({ background: rowBg }, shiftDividerStyle)}>
+                                    {/* Day cell - rowSpan */}
+                                    {isFirstOfDay && (
+                                        <td rowSpan={row.dayModCount || 1} style={{ width: '140px', minWidth: '140px', padding: '6px 8px', verticalAlign: 'top', background: '#f9fafb', borderRight: '2px solid #e5e7eb', border: cellBorder }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{row.label}</div>
+                                            <div style={{ fontSize: '10px', color: '#6b7280' }}>{stbParseDate(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                            <div style={{ fontSize: '9px', fontWeight: 600, marginTop: '2px', color: isShift1 ? '#185FA5' : '#854F0B' }}>{isShift1 ? 'Shift 1' : 'Shift 2'}</div>
+                                        </td>
+                                    )}
+                                    {/* # cell */}
+                                    <td style={{ width: '32px', padding: '2px 4px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>
+                                        {row.moduleSerial ? (row.moduleIdx + 1) : ''}
+                                    </td>
+                                    {/* Dept cells */}
+                                    {depts.map(function(dept) {
+                                        if (!row.moduleSerial) {
+                                            return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
+                                        }
+                                        var pct = calcPct(row.moduleSerial, dept.id);
+                                        var colors = summaryGetPctColor(pct);
+                                        return (
+                                            <td key={dept.id} style={{ border: cellBorder, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                <div style={{
+                                                    borderRadius: '6px',
+                                                    padding: '5px 4px',
+                                                    margin: '2px auto',
+                                                    width: '64px',
+                                                    textAlign: 'center',
+                                                    background: colors.bg,
+                                                    border: '1px solid ' + colors.border,
+                                                }}>
+                                                    <div style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({buildSeq})</div>
+                                                    <div style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serialNumber}</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 500, marginTop: '1px', color: colors.text }}>{pct}%</div>
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT: StationTaskBoard
 // ═══════════════════════════════════════════════════════════════════════════
 function StationTaskBoard(props) {
@@ -1980,6 +2180,7 @@ function StationTaskBoard(props) {
     // Tab definitions
     var tabs = [
         { id: 'daily', label: 'Daily Board', visible: true },
+        { id: 'summary', label: 'Summary', visible: true },
         { id: 'setup', label: 'Week Setup', visible: isAdmin },
         { id: 'handoff', label: 'Handoff', visible: true },
         { id: 'admin', label: 'Admin', visible: isAdmin },
@@ -2045,6 +2246,15 @@ function StationTaskBoard(props) {
                         supervisorProfile={supervisorProfile}
                         onUpdateCompletion={handleUpdateCompletion}
                         loading={false}
+                    />
+                )}
+                {activeTab === 'summary' && (
+                    <WeeklySummaryTab
+                        weekSchedule={weekSchedule}
+                        completions={completions}
+                        allTasks={allTasks}
+                        lineDepts={lineDepts}
+                        modules={allModules}
                     />
                 )}
                 {activeTab === 'setup' && isAdmin && (
