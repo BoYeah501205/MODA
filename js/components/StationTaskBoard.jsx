@@ -22,6 +22,8 @@ const STATUS_ORDER = ['not_started', 'wip', 'complete', 'stopped', 'na'];
 const ADMIN_EMAILS = ['trevor@autovol.com', 'stephanie@autovol.com'];
 const SHIFT1_DAYS = [0, 1, 2, 3]; // Mon-Thu (dayIndex)
 const SHIFT2_DAYS = [4, 5, 6];    // Fri-Sun (dayIndex)
+var TRAVELER_SIGNED_ID = '00000000-0000-0000-0000-000000000001';
+var NON_CONFORMANCE_ID  = '00000000-0000-0000-0000-000000000002';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function stbIsAdmin(user) {
@@ -94,7 +96,7 @@ function stbCalcCompletionPct(tasks, completionMap, moduleSerial, deptId) {
     var total = 0;
     var done = 0;
     for (var i = 0; i < tasks.length; i++) {
-        if (tasks[i].id === '__TRAVELER_SIGNED__' || tasks[i].id === '__NON_CONFORMANCE__') continue;
+        if (tasks[i].id === TRAVELER_SIGNED_ID || tasks[i].id === NON_CONFORMANCE_ID) continue;
         var key = moduleSerial + '|' + deptId + '|' + tasks[i].id;
         var status = completionMap[key] || 'not_started';
         if (status === 'na') continue;
@@ -414,7 +416,7 @@ function DailyBoardTab(props) {
 
     // Traveler sign-off and non-conformance handlers
     function handleTravelerToggle() {
-        var travKey = selectedModule + '|' + selectedDept + '|__TRAVELER_SIGNED__';
+        var travKey = selectedModule + '|' + selectedDept + '|' + TRAVELER_SIGNED_ID;
         var currentSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
         var newStatus = currentSigned ? 'not_started' : 'complete';
         onUpdateCompletion({
@@ -422,13 +424,13 @@ function DailyBoardTab(props) {
             targetDate: selectedDay,
             departmentId: selectedDept,
             moduleSerial: selectedModule,
-            taskId: '__TRAVELER_SIGNED__',
+            taskId: TRAVELER_SIGNED_ID,
             status: newStatus,
         }).catch(function(err) { console.error('Traveler sign error:', err); });
     }
 
     function handleNonConformanceToggle() {
-        var ncKey = selectedModule + '|' + selectedDept + '|__NON_CONFORMANCE__';
+        var ncKey = selectedModule + '|' + selectedDept + '|' + NON_CONFORMANCE_ID;
         var currentFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
         var newStatus = currentFlagged ? 'not_started' : 'complete';
         onUpdateCompletion({
@@ -436,7 +438,7 @@ function DailyBoardTab(props) {
             targetDate: selectedDay,
             departmentId: selectedDept,
             moduleSerial: selectedModule,
-            taskId: '__NON_CONFORMANCE__',
+            taskId: NON_CONFORMANCE_ID,
             status: newStatus,
         }).catch(function(err) { console.error('NC flag error:', err); });
     }
@@ -653,7 +655,7 @@ function DailyBoardTab(props) {
                 {selectedModule && deptTasks.length === 0 && (
                     <STBEmpty message="No tasks configured for this department" />
                 )}
-                {selectedModule && deptTasks.map(function(task) {
+                {selectedModule && deptTasks.filter(function(t) { return t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID; }).map(function(task) {
                     var cKey = selectedModule + '|' + selectedDept + '|' + task.id;
                     var status = dayCompletions[cKey] || 'not_started';
                     var isSaving = !!saving[cKey];
@@ -716,8 +718,8 @@ function DailyBoardTab(props) {
 
                 {/* Traveler Sign-off section */}
                 {selectedModule && deptTasks.length > 0 && (function() {
-                    var travKey = selectedModule + '|' + selectedDept + '|__TRAVELER_SIGNED__';
-                    var ncKey = selectedModule + '|' + selectedDept + '|__NON_CONFORMANCE__';
+                    var travKey = selectedModule + '|' + selectedDept + '|' + TRAVELER_SIGNED_ID;
+                    var ncKey = selectedModule + '|' + selectedDept + '|' + NON_CONFORMANCE_ID;
                     var travelerSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
                     var ncFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
                     return (
@@ -2101,13 +2103,13 @@ function WeeklySummaryTab(props) {
     function calcPct(moduleSerial, deptId) {
         var deptTasks = allTasks ? allTasks.filter(function(t) {
             return t.department_id === deptId &&
-                   t.id !== '__TRAVELER_SIGNED__' &&
-                   t.id !== '__NON_CONFORMANCE__';
+                   t.id !== TRAVELER_SIGNED_ID &&
+                   t.id !== NON_CONFORMANCE_ID;
         }) : [];
         if (deptTasks.length === 0) return 0;
         var modComps = completions ? completions.filter(function(c) {
             return c.module_serial === moduleSerial && c.department_id === deptId &&
-                   c.task_id !== '__TRAVELER_SIGNED__' && c.task_id !== '__NON_CONFORMANCE__';
+                   c.task_id !== TRAVELER_SIGNED_ID && c.task_id !== NON_CONFORMANCE_ID;
         }) : [];
         var naCount = modComps.filter(function(c) { return c.status === 'na'; }).length;
         var completeCount = modComps.filter(function(c) { return c.status === 'complete'; }).length;
