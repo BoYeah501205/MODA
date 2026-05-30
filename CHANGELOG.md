@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.92**
+**Current Version: 1.5.93**
 
 ---
+
+## [1.5.93] - 2026-05-30
+### Added
+- **Traveler Sign-off row** in DailyBoardTab task list: Unsigned/Signed toggle + Non-Conformance flag
+- Uses sentinel task_ids `__TRAVELER_SIGNED__` and `__NON_CONFORMANCE__` in existing `station_task_completions` table
+- Sentinel tasks excluded from completion % calculations in both `stbCalcCompletionPct` and `calcPct`
 
 ## [1.5.92] - 2026-05-29
 ### Fixed

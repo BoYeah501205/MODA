@@ -94,6 +94,7 @@ function stbCalcCompletionPct(tasks, completionMap, moduleSerial, deptId) {
     var total = 0;
     var done = 0;
     for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].id === '__TRAVELER_SIGNED__' || tasks[i].id === '__NON_CONFORMANCE__') continue;
         var key = moduleSerial + '|' + deptId + '|' + tasks[i].id;
         var status = completionMap[key] || 'not_started';
         if (status === 'na') continue;
@@ -411,6 +412,35 @@ function DailyBoardTab(props) {
         });
     }
 
+    // Traveler sign-off and non-conformance handlers
+    function handleTravelerToggle() {
+        var travKey = selectedModule + '|' + selectedDept + '|__TRAVELER_SIGNED__';
+        var currentSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
+        var newStatus = currentSigned ? 'not_started' : 'complete';
+        onUpdateCompletion({
+            weekStartDate: weekStart,
+            targetDate: selectedDay,
+            departmentId: selectedDept,
+            moduleSerial: selectedModule,
+            taskId: '__TRAVELER_SIGNED__',
+            status: newStatus,
+        }).catch(function(err) { console.error('Traveler sign error:', err); });
+    }
+
+    function handleNonConformanceToggle() {
+        var ncKey = selectedModule + '|' + selectedDept + '|__NON_CONFORMANCE__';
+        var currentFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
+        var newStatus = currentFlagged ? 'not_started' : 'complete';
+        onUpdateCompletion({
+            weekStartDate: weekStart,
+            targetDate: selectedDay,
+            departmentId: selectedDept,
+            moduleSerial: selectedModule,
+            taskId: '__NON_CONFORMANCE__',
+            status: newStatus,
+        }).catch(function(err) { console.error('NC flag error:', err); });
+    }
+
     // Selected day label for summary
     var selectedDayObj = useMemo(function() {
         return visibleDays.find(function(d) { return d.date === selectedDay; }) || null;
@@ -683,6 +713,65 @@ function DailyBoardTab(props) {
                         </div>
                     );
                 })}
+
+                {/* Traveler Sign-off section */}
+                {selectedModule && deptTasks.length > 0 && (function() {
+                    var travKey = selectedModule + '|' + selectedDept + '|__TRAVELER_SIGNED__';
+                    var ncKey = selectedModule + '|' + selectedDept + '|__NON_CONFORMANCE__';
+                    var travelerSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
+                    var ncFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
+                    return (
+                        <div style={{ borderTop: '2px solid #e5e7eb', margin: '12px 0 8px', paddingTop: '10px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                Traveler Sign-off
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                    onClick={handleTravelerToggle}
+                                    style={{
+                                        flex: 1, padding: '10px', borderRadius: '8px', border: '1.5px solid',
+                                        borderColor: !travelerSigned ? '#ef4444' : '#e5e7eb',
+                                        background: !travelerSigned ? '#fef2f2' : '#fff',
+                                        color: !travelerSigned ? '#ef4444' : '#9ca3af',
+                                        fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '16px' }}>X</span>
+                                    <span style={{ fontSize: '12px' }}>Unsigned</span>
+                                </button>
+                                <button
+                                    onClick={handleTravelerToggle}
+                                    style={{
+                                        flex: 1, padding: '10px', borderRadius: '8px', border: '1.5px solid',
+                                        borderColor: travelerSigned ? '#16a34a' : '#e5e7eb',
+                                        background: travelerSigned ? '#f0fdf4' : '#fff',
+                                        color: travelerSigned ? '#16a34a' : '#9ca3af',
+                                        fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '16px' }}>&#10003;</span>
+                                    <span style={{ fontSize: '12px' }}>Signed</span>
+                                </button>
+                                <button
+                                    onClick={handleNonConformanceToggle}
+                                    style={{
+                                        flex: 1, padding: '10px', borderRadius: '8px', border: '1.5px solid',
+                                        borderColor: ncFlagged ? '#ea580c' : '#e5e7eb',
+                                        background: ncFlagged ? '#fff7ed' : '#fff',
+                                        color: ncFlagged ? '#ea580c' : '#9ca3af',
+                                        fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '16px' }}>!</span>
+                                    <span style={{ fontSize: '12px' }}>Non-Conformance</span>
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             {showModuleInfo && currentModInfo && currentModInfo.module && (
@@ -2010,10 +2099,15 @@ function WeeklySummaryTab(props) {
 
     // Completion % for a module+dept
     function calcPct(moduleSerial, deptId) {
-        var deptTasks = allTasks ? allTasks.filter(function(t) { return t.department_id === deptId; }) : [];
+        var deptTasks = allTasks ? allTasks.filter(function(t) {
+            return t.department_id === deptId &&
+                   t.id !== '__TRAVELER_SIGNED__' &&
+                   t.id !== '__NON_CONFORMANCE__';
+        }) : [];
         if (deptTasks.length === 0) return 0;
         var modComps = completions ? completions.filter(function(c) {
-            return c.module_serial === moduleSerial && c.department_id === deptId;
+            return c.module_serial === moduleSerial && c.department_id === deptId &&
+                   c.task_id !== '__TRAVELER_SIGNED__' && c.task_id !== '__NON_CONFORMANCE__';
         }) : [];
         var naCount = modComps.filter(function(c) { return c.status === 'na'; }).length;
         var completeCount = modComps.filter(function(c) { return c.status === 'complete'; }).length;

@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-29T22:28:06.384Z
+ * Generated: 2026-05-30T16:51:17.656Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14057,6 +14057,7 @@ function stbCalcCompletionPct(tasks, completionMap, moduleSerial, deptId) {
   var total = 0;
   var done = 0;
   for (var i = 0; i < tasks.length; i++) {
+    if (tasks[i].id === '__TRAVELER_SIGNED__' || tasks[i].id === '__NON_CONFORMANCE__') continue;
     var key = moduleSerial + '|' + deptId + '|' + tasks[i].id;
     var status = completionMap[key] || 'not_started';
     if (status === 'na') continue;
@@ -14478,6 +14479,38 @@ function DailyBoardTab(props) {
     });
   }
 
+  // Traveler sign-off and non-conformance handlers
+  function handleTravelerToggle() {
+    var travKey = selectedModule + '|' + selectedDept + '|__TRAVELER_SIGNED__';
+    var currentSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
+    var newStatus = currentSigned ? 'not_started' : 'complete';
+    onUpdateCompletion({
+      weekStartDate: weekStart,
+      targetDate: selectedDay,
+      departmentId: selectedDept,
+      moduleSerial: selectedModule,
+      taskId: '__TRAVELER_SIGNED__',
+      status: newStatus
+    }).catch(function (err) {
+      console.error('Traveler sign error:', err);
+    });
+  }
+  function handleNonConformanceToggle() {
+    var ncKey = selectedModule + '|' + selectedDept + '|__NON_CONFORMANCE__';
+    var currentFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
+    var newStatus = currentFlagged ? 'not_started' : 'complete';
+    onUpdateCompletion({
+      weekStartDate: weekStart,
+      targetDate: selectedDay,
+      departmentId: selectedDept,
+      moduleSerial: selectedModule,
+      taskId: '__NON_CONFORMANCE__',
+      status: newStatus
+    }).catch(function (err) {
+      console.error('NC flag error:', err);
+    });
+  }
+
   // Selected day label for summary
   var selectedDayObj = useMemo(function () {
     return visibleDays.find(function (d) {
@@ -14827,7 +14860,111 @@ function DailyBoardTab(props) {
       },
       className: 'flex-1 font-semibold italic transition-all ' + (status === 'na' ? 'bg-slate-400 text-white' : 'bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800')
     }, "N/A")));
-  })), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
+  }), selectedModule && deptTasks.length > 0 && function () {
+    var travKey = selectedModule + '|' + selectedDept + '|__TRAVELER_SIGNED__';
+    var ncKey = selectedModule + '|' + selectedDept + '|__NON_CONFORMANCE__';
+    var travelerSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
+    var ncFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        borderTop: '2px solid #e5e7eb',
+        margin: '12px 0 8px',
+        paddingTop: '10px'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: '11px',
+        fontWeight: 600,
+        color: '#9ca3af',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        marginBottom: '8px'
+      }
+    }, "Traveler Sign-off"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: '6px'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: handleTravelerToggle,
+      style: {
+        flex: 1,
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1.5px solid',
+        borderColor: !travelerSigned ? '#ef4444' : '#e5e7eb',
+        background: !travelerSigned ? '#fef2f2' : '#fff',
+        color: !travelerSigned ? '#ef4444' : '#9ca3af',
+        fontWeight: 600,
+        fontSize: '14px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: '16px'
+      }
+    }, "X"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: '12px'
+      }
+    }, "Unsigned")), /*#__PURE__*/React.createElement("button", {
+      onClick: handleTravelerToggle,
+      style: {
+        flex: 1,
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1.5px solid',
+        borderColor: travelerSigned ? '#16a34a' : '#e5e7eb',
+        background: travelerSigned ? '#f0fdf4' : '#fff',
+        color: travelerSigned ? '#16a34a' : '#9ca3af',
+        fontWeight: 600,
+        fontSize: '14px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: '16px'
+      }
+    }, "\u2713"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: '12px'
+      }
+    }, "Signed")), /*#__PURE__*/React.createElement("button", {
+      onClick: handleNonConformanceToggle,
+      style: {
+        flex: 1,
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1.5px solid',
+        borderColor: ncFlagged ? '#ea580c' : '#e5e7eb',
+        background: ncFlagged ? '#fff7ed' : '#fff',
+        color: ncFlagged ? '#ea580c' : '#9ca3af',
+        fontWeight: 600,
+        fontSize: '14px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: '16px'
+      }
+    }, "!"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: '12px'
+      }
+    }, "Non-Conformance"))));
+  }()), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
     module: currentModInfo.module,
     onClose: function () {
       setShowModuleInfo(false);
@@ -16477,11 +16614,11 @@ function WeeklySummaryTab(props) {
   // Completion % for a module+dept
   function calcPct(moduleSerial, deptId) {
     var deptTasks = allTasks ? allTasks.filter(function (t) {
-      return t.department_id === deptId;
+      return t.department_id === deptId && t.id !== '__TRAVELER_SIGNED__' && t.id !== '__NON_CONFORMANCE__';
     }) : [];
     if (deptTasks.length === 0) return 0;
     var modComps = completions ? completions.filter(function (c) {
-      return c.module_serial === moduleSerial && c.department_id === deptId;
+      return c.module_serial === moduleSerial && c.department_id === deptId && c.task_id !== '__TRAVELER_SIGNED__' && c.task_id !== '__NON_CONFORMANCE__';
     }) : [];
     var naCount = modComps.filter(function (c) {
       return c.status === 'na';
