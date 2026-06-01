@@ -2184,23 +2184,23 @@ function WeeklySummaryTab(props) {
         return map;
     }, [modules, weekAssignments]);
 
-    // Sorted modules by buildSequence for stagger offset lookup
-    var sortedModules = useMemo(function() {
-        if (!modules || modules.length === 0) return [];
-        return modules.slice().sort(function(a, b) {
-            return (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0);
-        });
-    }, [modules]);
+    // Serial arithmetic helpers for stagger offset
+    // Formula: serialAtCell(deptIndex, rowIndex) = startSerial - rowIndex - (deptIndex * stagger)
+    // Since row.moduleSerial already = startSerial - rowIndex, we just subtract dept.stagger_offset
+    function parseSerial(serial) {
+        var dashIdx = (serial || '').lastIndexOf('-');
+        if (dashIdx < 0) return null;
+        var prefix = serial.substring(0, dashIdx + 1);
+        var numStr = serial.substring(dashIdx + 1);
+        var numeric = parseInt(numStr, 10);
+        if (isNaN(numeric)) return null;
+        return { prefix: prefix, numeric: numeric, padWidth: numStr.length };
+    }
 
-    // Serial -> index in sortedModules for quick lookup
-    var serialToIdx = useMemo(function() {
-        var map = {};
-        for (var i = 0; i < sortedModules.length; i++) {
-            var sn = sortedModules[i].serialNumber || '';
-            if (sn) map[sn] = i;
-        }
-        return map;
-    }, [sortedModules]);
+    function formatSerial(prefix, numeric, padWidth) {
+        if (numeric < 0) return null;
+        return prefix + String(numeric).padStart(padWidth, '0');
+    }
 
     // Completion % for a module+dept
     function calcPct(moduleSerial, deptId) {
@@ -2375,17 +2375,17 @@ function WeeklySummaryTab(props) {
                                     </td>
                                     {wDepts.map(function(dept) {
                                         if (!row.moduleSerial) return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
-                                        var refIdx = serialToIdx[row.moduleSerial];
-                                        var deptStagger = dept.stagger_offset || 0;
-                                        var deptModIdx = (refIdx != null) ? refIdx - deptStagger : -1;
-                                        var deptMod = (deptModIdx >= 0 && deptModIdx < sortedModules.length) ? sortedModules[deptModIdx] : null;
-                                        if (!deptMod) {
+                                        var parsed = parseSerial(row.moduleSerial);
+                                        if (!parsed) return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
+                                        var deptNumeric = parsed.numeric - (dept.stagger_offset || 0);
+                                        var deptSerial = formatSerial(parsed.prefix, deptNumeric, parsed.padWidth);
+                                        if (!deptSerial) {
                                             return <td key={dept.id} style={{ border: cellBorder, padding: '4px', textAlign: 'center', verticalAlign: 'middle' }}>
                                                 <div style={{ color: '#d1d5db', fontSize: '11px' }}>--</div>
                                             </td>;
                                         }
-                                        var deptSerial = deptMod.serialNumber || '';
-                                        var deptBuildSeq = deptMod.buildSequence || '';
+                                        var deptMod = moduleMap[deptSerial];
+                                        var deptBuildSeq = deptMod ? (deptMod.buildSequence || '') : '';
                                         var pct = calcPct(deptSerial, dept.id);
                                         var colors = summaryGetPctColor(pct);
                                         return (
@@ -2551,17 +2551,17 @@ function WeeklySummaryTab(props) {
                                             if (!row.moduleSerial) {
                                                 return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
                                             }
-                                            var refIdx = serialToIdx[row.moduleSerial];
-                                            var deptStagger = dept.stagger_offset || 0;
-                                            var deptModIdx = (refIdx != null) ? refIdx - deptStagger : -1;
-                                            var deptMod = (deptModIdx >= 0 && deptModIdx < sortedModules.length) ? sortedModules[deptModIdx] : null;
-                                            if (!deptMod) {
+                                            var parsed = parseSerial(row.moduleSerial);
+                                            if (!parsed) return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
+                                            var deptNumeric = parsed.numeric - (dept.stagger_offset || 0);
+                                            var deptSerial = formatSerial(parsed.prefix, deptNumeric, parsed.padWidth);
+                                            if (!deptSerial) {
                                                 return <td key={dept.id} style={{ border: cellBorder, padding: '4px', textAlign: 'center', verticalAlign: 'middle' }}>
                                                     <div style={{ color: '#d1d5db', fontSize: '11px' }}>--</div>
                                                 </td>;
                                             }
-                                            var deptSerial = deptMod.serialNumber || '';
-                                            var deptBuildSeq = deptMod.buildSequence || '';
+                                            var deptMod = moduleMap[deptSerial];
+                                            var deptBuildSeq = deptMod ? (deptMod.buildSequence || '') : '';
                                             var pct = calcPct(deptSerial, dept.id);
                                             var colors = summaryGetPctColor(pct);
                                             return (

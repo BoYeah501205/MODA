@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.98**
+**Current Version: 1.5.99**
 
 ---
+
+## [1.5.99] - 2026-06-01
+### Fixed
+- **Weekly Summary stagger: correct diagonal formula** — replaced array-index-based offset with direct serial arithmetic: `serialAtCell = refSerial_numeric - dept.stagger_offset`. Serials now decrease across columns (right) and down rows, producing the correct down-right diagonal matching physical production line flow. Handles `YY-XXXX` format parsing/re-padding.
 
 ## [1.5.98] - 2026-06-01
 ### Fixed
