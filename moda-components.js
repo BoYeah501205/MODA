@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-01T14:44:45.740Z
+ * Generated: 2026-06-01T20:48:57.951Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14261,6 +14261,8 @@ function DailyBoardTab(props) {
   var [showModuleInfo, setShowModuleInfo] = useState(false);
   var moduleNavRef = useRef(null);
   var [visibleCount, setVisibleCount] = useState(null);
+  var [bulkConfirm, setBulkConfirm] = useState(null); // { status, timer }
+  var bulkTimerRef = useRef(null);
   var isAdmin = stbIsAdmin(currentUser);
   var weekStart = weekSchedule ? weekSchedule.week_start : null;
   var weekDays = useMemo(function () {
@@ -14510,6 +14512,54 @@ function DailyBoardTab(props) {
       status: newStatus
     }).catch(function (err) {
       console.error('NC flag error:', err);
+    });
+  }
+
+  // Mark All bulk handler
+  function handleMarkAllClick(status) {
+    if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
+    setBulkConfirm({
+      status: status
+    });
+    bulkTimerRef.current = setTimeout(function () {
+      setBulkConfirm(null);
+    }, 3000);
+  }
+  function handleBulkConfirm() {
+    if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
+    var st = bulkConfirm ? bulkConfirm.status : null;
+    setBulkConfirm(null);
+    if (!st || !selectedModule || !selectedDept) return;
+    var tasks = (deptTasks || []).filter(function (t) {
+      return t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID;
+    });
+    tasks.forEach(function (task) {
+      var key = selectedModule + '|' + selectedDept + '|' + task.id;
+      setSaving(function (prev) {
+        var n = Object.assign({}, prev);
+        n[key] = true;
+        return n;
+      });
+      onUpdateCompletion({
+        weekStartDate: weekStart,
+        targetDate: selectedDay,
+        departmentId: selectedDept,
+        moduleSerial: selectedModule,
+        taskId: task.id,
+        status: st
+      }).then(function () {
+        setSaving(function (prev) {
+          var n = Object.assign({}, prev);
+          delete n[key];
+          return n;
+        });
+      }).catch(function () {
+        setSaving(function (prev) {
+          var n = Object.assign({}, prev);
+          delete n[key];
+          return n;
+        });
+      });
     });
   }
 
@@ -14969,7 +15019,115 @@ function DailyBoardTab(props) {
         fontSize: '12px'
       }
     }, "Non-Conformance"))));
-  }()), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
+  }()), selectedModule && deptTasks.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900",
+    style: {
+      flexShrink: 0
+    }
+  }, !bulkConfirm ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '5px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: '11px',
+      fontWeight: 600,
+      color: '#9ca3af',
+      whiteSpace: 'nowrap',
+      marginRight: '2px'
+    }
+  }, "Mark All:"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('not_started');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+  }, "--"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('wip');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all"
+  }, "WIP"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('complete');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-all"
+  }, "Complete"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('stopped');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
+  }, "Stop"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('na');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold italic bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+  }, "N/A")) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: '12px',
+      color: '#6b7280'
+    }
+  }, "Mark all ", deptTasks.filter(function (t) {
+    return t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID;
+  }).length, " tasks as ", /*#__PURE__*/React.createElement("strong", null, (STB_STATUSES[bulkConfirm.status] || {}).label || bulkConfirm.status), "?"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleBulkConfirm,
+    style: {
+      padding: '5px 16px',
+      fontSize: '12px',
+      borderRadius: '6px',
+      fontWeight: 700
+    },
+    className: "bg-blue-600 text-white hover:bg-blue-700 transition-all"
+  }, "Confirm"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
+      setBulkConfirm(null);
+    },
+    style: {
+      padding: '5px 12px',
+      fontSize: '12px',
+      borderRadius: '6px'
+    },
+    className: "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+  }, "Cancel"))), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
     module: currentModInfo.module,
     onClose: function () {
       setShowModuleInfo(false);
@@ -15929,6 +16087,7 @@ function AdminConfigTab(props) {
   var [shiftDays, setShiftDays] = useState('');
   var [saving, setSaving] = useState(false);
   var [error, setError] = useState('');
+  var [taskError, setTaskError] = useState('');
   var draggingTaskRef = useRef(null);
   var dragOverTaskRef = useRef(null);
 
@@ -15995,6 +16154,7 @@ function AdminConfigTab(props) {
   function handleAddTask() {
     if (!newTaskName.trim() || !selectedDeptForTasks) return;
     setSaving(true);
+    setTaskError('');
     var SB = window.MODA_STATION_BOARD;
     if (!SB) {
       setError('Data layer not loaded');
@@ -16014,8 +16174,12 @@ function AdminConfigTab(props) {
         onRefresh();
       }
     }).catch(function (err) {
-      setError(err.message);
       setSaving(false);
+      if (err.message && err.message.indexOf('already exists') !== -1) {
+        setTaskError('Task name already exists in this department');
+      } else {
+        setError(err.message);
+      }
     });
   }
   function handleRemoveTask(taskId) {
@@ -16027,6 +16191,8 @@ function AdminConfigTab(props) {
       } else if (onRefresh) {
         onRefresh();
       }
+    }).catch(function (err) {
+      setError(err.message);
     });
   }
 
@@ -16180,6 +16346,7 @@ function AdminConfigTab(props) {
     },
     className: "w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
   }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: handleAddDept,
     disabled: saving,
     className: "px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px] disabled:opacity-50"
@@ -16259,13 +16426,14 @@ function AdminConfigTab(props) {
         fontSize: '13px'
       }
     }, "Remove"));
-  }), selectedDeptForTasks && /*#__PURE__*/React.createElement("div", {
+  }), selectedDeptForTasks && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 pt-2"
   }, /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: newTaskName,
     onChange: function (e) {
       setNewTaskName(e.target.value);
+      setTaskError('');
     },
     placeholder: "New task name",
     className: "flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
@@ -16274,7 +16442,9 @@ function AdminConfigTab(props) {
     onClick: handleAddTask,
     disabled: saving,
     className: "px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium min-h-[44px] disabled:opacity-50"
-  }, "Add")))), /*#__PURE__*/React.createElement("div", {
+  }, "Add")), taskError && /*#__PURE__*/React.createElement("div", {
+    className: "text-red-500 text-xs mt-1 px-1"
+  }, taskError)))), /*#__PURE__*/React.createElement("div", {
     className: "border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: function () {

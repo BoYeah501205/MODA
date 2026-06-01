@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.94**
+**Current Version: 1.5.95**
 
 ---
+
+## [1.5.95] - 2026-06-01
+### Added
+- **Mark All bulk action bar** in Daily Board task list — sticky bottom bar with --, WIP, Complete, Stop, N/A buttons
+- Inline confirmation row with 3-second auto-dismiss (no window.confirm)
+- Optimistic update for all tasks on confirm; individual revert on failure
 
 ## [1.5.94] - 2026-06-01
 ### Added

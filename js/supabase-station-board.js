@@ -113,19 +113,35 @@
     async function getAllTasks() { return getTasks(null); }
 
     async function upsertTask({ id, departmentId, taskName, displayOrder }) {
+        if (id) {
+            const row = { department_id: departmentId, task_name: taskName, display_order: displayOrder ?? 0, is_active: true };
+            row.id = id;
+            const { data, error } = await getClient()
+                .from('station_tasks')
+                .upsert(row, { onConflict: 'id' })
+                .select().single();
+            if (error) throw error;
+            return data;
+        }
         const row = { department_id: departmentId, task_name: taskName, display_order: displayOrder ?? 0, is_active: true };
-        if (id) row.id = id;
         const { data, error } = await getClient()
             .from('station_tasks')
-            .upsert(row, { onConflict: 'id' })
+            .insert(row)
             .select().single();
+        if (error && error.code === '23505') {
+            throw new Error('A task with this name already exists in this department');
+        }
         if (error) throw error;
         return data;
     }
 
     async function deleteTask(id) {
-        const { error } = await getClient().from('station_tasks').update({ is_active: false }).eq('id', id);
+        var { error } = await getClient()
+            .from('station_tasks')
+            .delete()
+            .eq('id', id);
         if (error) throw error;
+        return true;
     }
 
     async function getShifts() {
