@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.97**
+**Current Version: 1.5.98**
 
 ---
+
+## [1.5.98] - 2026-06-01
+### Fixed
+- **Weekly Summary stagger offset** confirmed in both main table and multi-week export (renderWeekTable) — each department column now shows its own stagger-adjusted module serial instead of the same serial across all departments
 
 ## [1.5.97] - 2026-06-01
 ### Changed
