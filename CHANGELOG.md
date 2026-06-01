@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.95**
+**Current Version: 1.5.96**
 
 ---
+
+## [1.5.96] - 2026-06-01
+### Fixed
+- **Task delete** now uses hard DELETE in Supabase (not soft delete via is_active)
+- **Task add** uses INSERT instead of UPSERT to avoid unique constraint on re-add after delete
+- Duplicate task name shows inline red error instead of crashing
+- Task add/remove updates local state directly (no full page reload)
+- Added `type="button"` to all Admin tab buttons to prevent form submission
 
 ## [1.5.95] - 2026-06-01
 ### Added
