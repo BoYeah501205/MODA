@@ -2,9 +2,27 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.93**
+**Current Version: 1.5.94**
 
 ---
+
+## [1.5.94] - 2026-06-01
+### Added
+- **PWA install support** - manifest.json, service worker (sw.js), proper iOS meta tags for Add-to-Home-Screen fullscreen standalone mode
+- **Safe area CSS** - Content clears notch, Dynamic Island, and home indicator via CSS custom properties
+- **44pt tap targets** - All buttons/controls enforced to iOS HIG minimum interactive size
+- **No zoom-on-focus** - font-size: 16px on all inputs prevents Safari auto-zoom
+- **Native-feel horizontal scrollers** - `.h-scroll` class with momentum, snap, hidden scrollbars (station selector pills)
+- **Long-press suppression** - `-webkit-touch-callout: none` on interactive controls prevents iOS copy/share menu
+- **Traveler Sign-off home indicator clearance** - `.traveler-signoff` class adds safe-area bottom padding
+- **Placeholder PWA icons** - Dark slate placeholders (16, 32, 180, 192, 512, maskable-512) - replace with real icons
+- **Service worker** - Cache-first for static shell, never caches Supabase API responses
+
+### Changed
+- Viewport meta: `maximum-scale=1` to prevent pinch-zoom (dashboard app UX)
+- Theme color updated to `#0f172a` (dark slate) for status bar in standalone mode
+- `vercel.json` rewrite rules for manifest.json, sw.js, and icons/
+- `copy-assets` script now includes icons/, manifest.json, sw.js in dist/
 
 ## [1.5.93] - 2026-05-30
 ### Added

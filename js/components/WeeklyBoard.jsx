@@ -6388,7 +6388,7 @@ function MobileWeeklyBoardView({
     return (
         <div className="mobile-weekly-board">
             {/* Station Selector Pills */}
-            <div className="flex gap-1 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+            <div className="h-scroll flex gap-1 overflow-x-auto pb-2 mb-3 scrollbar-hide">
                 {productionStages.map((station, idx) => (
                     <button
                         key={station.id}

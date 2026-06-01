@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-05-30T17:07:22.264Z
+ * Generated: 2026-06-01T14:44:45.740Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13494,7 +13494,7 @@ function MobileWeeklyBoardView({
   return /*#__PURE__*/React.createElement("div", {
     className: "mobile-weekly-board"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1 overflow-x-auto pb-2 mb-3 scrollbar-hide"
+    className: "h-scroll flex gap-1 overflow-x-auto pb-2 mb-3 scrollbar-hide"
   }, productionStages.map((station, idx) => /*#__PURE__*/React.createElement("button", {
     key: station.id,
     onClick: () => setCurrentStationIndex(idx),
@@ -14870,6 +14870,7 @@ function DailyBoardTab(props) {
     var travelerSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
     var ncFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
     return /*#__PURE__*/React.createElement("div", {
+      className: "traveler-signoff",
       style: {
         borderTop: '2px solid #e5e7eb',
         margin: '12px 0 8px',

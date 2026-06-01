@@ -3,6 +3,14 @@
    Mobile optimization and responsive design utilities
    ============================================================================ */
 
+/* ===== SAFE AREA CSS CUSTOM PROPERTIES ===== */
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+}
+
 /* ===== MOBILE-FIRST BASE STYLES ===== */
 
 /* iOS-specific fixes */
@@ -12,17 +20,23 @@ html {
     -moz-osx-font-smoothing: grayscale;
     /* Fix iOS viewport height */
     height: -webkit-fill-available;
+    height: 100%;
 }
 
 body {
     /* Fix iOS viewport height issues */
     min-height: 100vh;
     min-height: -webkit-fill-available;
+    height: 100%;
+    /* Respect notch + home indicator */
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
     /* Prevent rubber-band scrolling on iOS */
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
-    /* Prevent iOS Safari from hiding content behind bottom bar */
-    padding-bottom: env(safe-area-inset-bottom);
+    -webkit-text-size-adjust: 100%;
 }
 
 /* Root container fix for iOS */
@@ -55,11 +69,62 @@ input[type="submit"] {
     appearance: none;
 }
 
-/* Prevent zoom on input focus (iOS) */
+/* iOS auto-zooms on focus when input font < 16px - never go below it */
 input,
 select,
-textarea {
+textarea,
+button {
     font-size: 16px !important;
+}
+
+/* 44pt minimum tap targets for status + nav controls */
+button,
+[role="button"],
+.status-btn,
+.tab,
+.day-cell,
+.dept-pill {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Status buttons: allow wrap instead of cramping on narrow phones */
+.status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.status-row > * { flex: 1 1 auto; }
+
+/* Native-feel horizontal scrollers (day strip + department pills) */
+.h-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+}
+.h-scroll::-webkit-scrollbar { display: none; }
+.h-scroll > * { scroll-snap-align: start; flex: 0 0 auto; }
+
+/* Bottom-pinned bars clear the home indicator */
+.sticky-bottom,
+.traveler-signoff {
+    padding-bottom: calc(12px + var(--safe-bottom));
+}
+
+/* Stop long-press copy/share menu + accidental text selection on controls */
+button,
+[role="button"],
+.status-btn,
+.tab,
+.day-cell,
+.dept-pill {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
 }
 
 /* ===== RESPONSIVE BREAKPOINTS ===== */

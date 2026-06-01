@@ -723,7 +723,7 @@ function DailyBoardTab(props) {
                     var travelerSigned = (dayCompletions[travKey] || 'not_started') === 'complete';
                     var ncFlagged = (dayCompletions[ncKey] || 'not_started') === 'complete';
                     return (
-                        <div style={{ borderTop: '2px solid #e5e7eb', margin: '12px 0 8px', paddingTop: '10px' }}>
+                        <div className="traveler-signoff" style={{ borderTop: '2px solid #e5e7eb', margin: '12px 0 8px', paddingTop: '10px' }}>
                             <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                                 Traveler Sign-off
                             </div>

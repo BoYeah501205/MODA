@@ -4,6 +4,9 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/weekly-board-popout.html", "destination": "/weekly-board-popout.html" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/icons/:path*", "destination": "/icons/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

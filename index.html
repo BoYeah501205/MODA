@@ -2,14 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <title>Modular Operations Dashboard Application</title>
     
-    <!-- Favicon - Browser tab icon -->
-    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="apple-touch-icon" sizes="180x180" href="/public/moda-icon.svg">
-    <link rel="manifest" href="/public/manifest.json">
+    <!-- PWA core -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- iOS standalone behavior -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MODA" />
+
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     
     <!-- Cache control for development - forces refresh on mobile -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -17,8 +27,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.5.93">
-    <script>window.MODA_VERSION = '1.5.93'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.5.94">
+    <script>window.MODA_VERSION = '1.5.94'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -137,16 +147,6 @@
       })();
     </script>
     
-    <!-- iOS PWA Support -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="MODA">
-    <!-- Logo hidden: <link rel="apple-touch-icon" href="./public/autovol-logo.png"> -->
-    <link rel="manifest" href="./public/manifest.json">
-    
-    <!-- iOS Safe Area Support -->
-    <meta name="theme-color" content="#1E3A5F">
     <meta name="format-detection" content="telephone=no">
     
     <!-- Preconnect to CDNs for faster resource loading -->
@@ -427,6 +427,15 @@
                 setTimeout(initEruda, 100);
             }
         })();
+    </script>
+
+    <!-- Service Worker for instant shell load on flaky Wi-Fi -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () =>
+          navigator.serviceWorker.register("/sw.js").catch(console.error)
+        );
+      }
     </script>
 </body>
 </html>
