@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.96**
+**Current Version: 1.5.97**
 
 ---
+
+## [1.5.97] - 2026-06-01
+### Changed
+- **Mark All bar** moved from bottom to top of task list — now fixed between module header and scrollable tasks
 
 ## [1.5.96] - 2026-06-01
 ### Fixed

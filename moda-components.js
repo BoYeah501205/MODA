@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-01T20:48:57.951Z
+ * Generated: 2026-06-01T22:28:17.607Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14818,7 +14818,115 @@ function DailyBoardTab(props) {
     }
   })), /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-bold text-gray-600 dark:text-gray-300"
-  }, stbCalcCompletionPct(deptTasks, dayCompletions, currentModInfo.serial, selectedDept), "%"))), /*#__PURE__*/React.createElement("div", {
+  }, stbCalcCompletionPct(deptTasks, dayCompletions, currentModInfo.serial, selectedDept), "%"))), selectedModule && deptTasks.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900",
+    style: {
+      flexShrink: 0
+    }
+  }, !bulkConfirm ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '5px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: '11px',
+      fontWeight: 600,
+      color: '#9ca3af',
+      whiteSpace: 'nowrap',
+      marginRight: '2px'
+    }
+  }, "Mark All:"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('not_started');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+  }, "--"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('wip');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all"
+  }, "WIP"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('complete');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-all"
+  }, "Complete"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('stopped');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
+  }, "Stop"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleMarkAllClick('na');
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: '11px',
+      borderRadius: '6px',
+      minHeight: '30px'
+    },
+    className: "flex-1 font-semibold italic bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+  }, "N/A")) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: '12px',
+      color: '#6b7280'
+    }
+  }, "Mark all ", deptTasks.filter(function (t) {
+    return t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID;
+  }).length, " tasks as ", /*#__PURE__*/React.createElement("strong", null, (STB_STATUSES[bulkConfirm.status] || {}).label || bulkConfirm.status), "?"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleBulkConfirm,
+    style: {
+      padding: '5px 16px',
+      fontSize: '12px',
+      borderRadius: '6px',
+      fontWeight: 700
+    },
+    className: "bg-blue-600 text-white hover:bg-blue-700 transition-all"
+  }, "Confirm"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
+      setBulkConfirm(null);
+    },
+    style: {
+      padding: '5px 12px',
+      fontSize: '12px',
+      borderRadius: '6px'
+    },
+    className: "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+  }, "Cancel"))), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto px-3 py-2 space-y-1"
   }, !selectedModule && /*#__PURE__*/React.createElement(STBEmpty, {
     message: "Select a department and module to view tasks"
@@ -15019,115 +15127,7 @@ function DailyBoardTab(props) {
         fontSize: '12px'
       }
     }, "Non-Conformance"))));
-  }()), selectedModule && deptTasks.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900",
-    style: {
-      flexShrink: 0
-    }
-  }, !bulkConfirm ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '5px'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: '11px',
-      fontWeight: 600,
-      color: '#9ca3af',
-      whiteSpace: 'nowrap',
-      marginRight: '2px'
-    }
-  }, "Mark All:"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('not_started');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-  }, "--"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('wip');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all"
-  }, "WIP"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('complete');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-all"
-  }, "Complete"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('stopped');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
-  }, "Stop"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('na');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold italic bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-  }, "N/A")) : /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      justifyContent: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: '12px',
-      color: '#6b7280'
-    }
-  }, "Mark all ", deptTasks.filter(function (t) {
-    return t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID;
-  }).length, " tasks as ", /*#__PURE__*/React.createElement("strong", null, (STB_STATUSES[bulkConfirm.status] || {}).label || bulkConfirm.status), "?"), /*#__PURE__*/React.createElement("button", {
-    onClick: handleBulkConfirm,
-    style: {
-      padding: '5px 16px',
-      fontSize: '12px',
-      borderRadius: '6px',
-      fontWeight: 700
-    },
-    className: "bg-blue-600 text-white hover:bg-blue-700 transition-all"
-  }, "Confirm"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
-      setBulkConfirm(null);
-    },
-    style: {
-      padding: '5px 12px',
-      fontSize: '12px',
-      borderRadius: '6px'
-    },
-    className: "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-  }, "Cancel"))), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
+  }()), showModuleInfo && currentModInfo && currentModInfo.module && /*#__PURE__*/React.createElement(ModuleDetailPanel, {
     module: currentModInfo.module,
     onClose: function () {
       setShowModuleInfo(false);
@@ -16786,6 +16786,24 @@ function WeeklySummaryTab(props) {
     return map;
   }, [modules, weekAssignments]);
 
+  // Sorted modules by buildSequence for stagger offset lookup
+  var sortedModules = useMemo(function () {
+    if (!modules || modules.length === 0) return [];
+    return modules.slice().sort(function (a, b) {
+      return (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0);
+    });
+  }, [modules]);
+
+  // Serial -> index in sortedModules for quick lookup
+  var serialToIdx = useMemo(function () {
+    var map = {};
+    for (var i = 0; i < sortedModules.length; i++) {
+      var sn = sortedModules[i].serialNumber || '';
+      if (sn) map[sn] = i;
+    }
+    return map;
+  }, [sortedModules]);
+
   // Completion % for a module+dept
   function calcPct(moduleSerial, deptId) {
     var deptTasks = allTasks ? allTasks.filter(function (t) {
@@ -17066,7 +17084,29 @@ function WeeklySummaryTab(props) {
             padding: '4px'
           }
         });
-        var pct = calcPct(row.moduleSerial, dept.id);
+        var refIdx = serialToIdx[row.moduleSerial];
+        var deptStagger = dept.stagger_offset || 0;
+        var deptModIdx = refIdx != null ? refIdx - deptStagger : -1;
+        var deptMod = deptModIdx >= 0 && deptModIdx < sortedModules.length ? sortedModules[deptModIdx] : null;
+        if (!deptMod) {
+          return /*#__PURE__*/React.createElement("td", {
+            key: dept.id,
+            style: {
+              border: cellBorder,
+              padding: '4px',
+              textAlign: 'center',
+              verticalAlign: 'middle'
+            }
+          }, /*#__PURE__*/React.createElement("div", {
+            style: {
+              color: '#d1d5db',
+              fontSize: '11px'
+            }
+          }, "--"));
+        }
+        var deptSerial = deptMod.serialNumber || '';
+        var deptBuildSeq = deptMod.buildSequence || '';
+        var pct = calcPct(deptSerial, dept.id);
         var colors = summaryGetPctColor(pct);
         return /*#__PURE__*/React.createElement("td", {
           key: dept.id,
@@ -17096,14 +17136,14 @@ function WeeklySummaryTab(props) {
             opacity: 0.75,
             color: colors.text
           }
-        }, "(", buildSeq, ")"), /*#__PURE__*/React.createElement("div", {
+        }, "(", deptBuildSeq, ")"), /*#__PURE__*/React.createElement("div", {
           className: "mt-serial",
           style: {
             fontSize: '10px',
             fontWeight: 500,
             color: colors.text
           }
-        }, serialNumber), /*#__PURE__*/React.createElement("div", {
+        }, deptSerial), /*#__PURE__*/React.createElement("div", {
           className: "mt-pct",
           style: {
             fontSize: '11px',
@@ -17417,7 +17457,29 @@ function WeeklySummaryTab(props) {
           }
         });
       }
-      var pct = calcPct(row.moduleSerial, dept.id);
+      var refIdx = serialToIdx[row.moduleSerial];
+      var deptStagger = dept.stagger_offset || 0;
+      var deptModIdx = refIdx != null ? refIdx - deptStagger : -1;
+      var deptMod = deptModIdx >= 0 && deptModIdx < sortedModules.length ? sortedModules[deptModIdx] : null;
+      if (!deptMod) {
+        return /*#__PURE__*/React.createElement("td", {
+          key: dept.id,
+          style: {
+            border: cellBorder,
+            padding: '4px',
+            textAlign: 'center',
+            verticalAlign: 'middle'
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          style: {
+            color: '#d1d5db',
+            fontSize: '11px'
+          }
+        }, "--"));
+      }
+      var deptSerial = deptMod.serialNumber || '';
+      var deptBuildSeq = deptMod.buildSequence || '';
+      var pct = calcPct(deptSerial, dept.id);
       var colors = summaryGetPctColor(pct);
       return /*#__PURE__*/React.createElement("td", {
         key: dept.id,
@@ -17447,14 +17509,14 @@ function WeeklySummaryTab(props) {
           opacity: 0.75,
           color: colors.text
         }
-      }, "(", buildSeq, ")"), /*#__PURE__*/React.createElement("div", {
+      }, "(", deptBuildSeq, ")"), /*#__PURE__*/React.createElement("div", {
         className: "mt-serial",
         style: {
           fontSize: '10px',
           fontWeight: 500,
           color: colors.text
         }
-      }, serialNumber), /*#__PURE__*/React.createElement("div", {
+      }, deptSerial), /*#__PURE__*/React.createElement("div", {
         className: "mt-pct",
         style: {
           fontSize: '11px',

@@ -682,6 +682,44 @@ function DailyBoardTab(props) {
                 )}
             </div>
 
+            {/* Mark All bulk action bar — fixed between header and task list */}
+            {selectedModule && deptTasks.length > 0 && (
+                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" style={{ flexShrink: 0 }}>
+                    {!bulkConfirm ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', whiteSpace: 'nowrap', marginRight: '2px' }}>Mark All:</span>
+                            <button onClick={function() { handleMarkAllClick('not_started'); }}
+                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
+                                className="flex-1 font-semibold bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">--</button>
+                            <button onClick={function() { handleMarkAllClick('wip'); }}
+                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
+                                className="flex-1 font-semibold bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all">WIP</button>
+                            <button onClick={function() { handleMarkAllClick('complete'); }}
+                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
+                                className="flex-1 font-semibold bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-all">Complete</button>
+                            <button onClick={function() { handleMarkAllClick('stopped'); }}
+                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
+                                className="flex-1 font-semibold bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all">Stop</button>
+                            <button onClick={function() { handleMarkAllClick('na'); }}
+                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
+                                className="flex-1 font-semibold italic bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">N/A</button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                Mark all {deptTasks.filter(function(t) { return t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID; }).length} tasks as <strong>{(STB_STATUSES[bulkConfirm.status] || {}).label || bulkConfirm.status}</strong>?
+                            </span>
+                            <button onClick={handleBulkConfirm}
+                                style={{ padding: '5px 16px', fontSize: '12px', borderRadius: '6px', fontWeight: 700 }}
+                                className="bg-blue-600 text-white hover:bg-blue-700 transition-all">Confirm</button>
+                            <button onClick={function() { if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current); setBulkConfirm(null); }}
+                                style={{ padding: '5px 12px', fontSize: '12px', borderRadius: '6px' }}
+                                className="text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">Cancel</button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Task list - scrollable */}
             <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
                 {!selectedModule && (
@@ -810,44 +848,6 @@ function DailyBoardTab(props) {
                     );
                 })()}
             </div>
-
-            {/* Mark All bulk action bar — sticky bottom */}
-            {selectedModule && deptTasks.length > 0 && (
-                <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" style={{ flexShrink: 0 }}>
-                    {!bulkConfirm ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', whiteSpace: 'nowrap', marginRight: '2px' }}>Mark All:</span>
-                            <button onClick={function() { handleMarkAllClick('not_started'); }}
-                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
-                                className="flex-1 font-semibold bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">--</button>
-                            <button onClick={function() { handleMarkAllClick('wip'); }}
-                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
-                                className="flex-1 font-semibold bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all">WIP</button>
-                            <button onClick={function() { handleMarkAllClick('complete'); }}
-                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
-                                className="flex-1 font-semibold bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-all">Complete</button>
-                            <button onClick={function() { handleMarkAllClick('stopped'); }}
-                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
-                                className="flex-1 font-semibold bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all">Stop</button>
-                            <button onClick={function() { handleMarkAllClick('na'); }}
-                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', minHeight: '30px' }}
-                                className="flex-1 font-semibold italic bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">N/A</button>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                                Mark all {deptTasks.filter(function(t) { return t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID; }).length} tasks as <strong>{(STB_STATUSES[bulkConfirm.status] || {}).label || bulkConfirm.status}</strong>?
-                            </span>
-                            <button onClick={handleBulkConfirm}
-                                style={{ padding: '5px 16px', fontSize: '12px', borderRadius: '6px', fontWeight: 700 }}
-                                className="bg-blue-600 text-white hover:bg-blue-700 transition-all">Confirm</button>
-                            <button onClick={function() { if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current); setBulkConfirm(null); }}
-                                style={{ padding: '5px 12px', fontSize: '12px', borderRadius: '6px' }}
-                                className="text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">Cancel</button>
-                        </div>
-                    )}
-                </div>
-            )}
 
             {showModuleInfo && currentModInfo && currentModInfo.module && (
                 <ModuleDetailPanel
@@ -2184,6 +2184,24 @@ function WeeklySummaryTab(props) {
         return map;
     }, [modules, weekAssignments]);
 
+    // Sorted modules by buildSequence for stagger offset lookup
+    var sortedModules = useMemo(function() {
+        if (!modules || modules.length === 0) return [];
+        return modules.slice().sort(function(a, b) {
+            return (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0);
+        });
+    }, [modules]);
+
+    // Serial -> index in sortedModules for quick lookup
+    var serialToIdx = useMemo(function() {
+        var map = {};
+        for (var i = 0; i < sortedModules.length; i++) {
+            var sn = sortedModules[i].serialNumber || '';
+            if (sn) map[sn] = i;
+        }
+        return map;
+    }, [sortedModules]);
+
     // Completion % for a module+dept
     function calcPct(moduleSerial, deptId) {
         var deptTasks = allTasks ? allTasks.filter(function(t) {
@@ -2357,13 +2375,24 @@ function WeeklySummaryTab(props) {
                                     </td>
                                     {wDepts.map(function(dept) {
                                         if (!row.moduleSerial) return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
-                                        var pct = calcPct(row.moduleSerial, dept.id);
+                                        var refIdx = serialToIdx[row.moduleSerial];
+                                        var deptStagger = dept.stagger_offset || 0;
+                                        var deptModIdx = (refIdx != null) ? refIdx - deptStagger : -1;
+                                        var deptMod = (deptModIdx >= 0 && deptModIdx < sortedModules.length) ? sortedModules[deptModIdx] : null;
+                                        if (!deptMod) {
+                                            return <td key={dept.id} style={{ border: cellBorder, padding: '4px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                <div style={{ color: '#d1d5db', fontSize: '11px' }}>--</div>
+                                            </td>;
+                                        }
+                                        var deptSerial = deptMod.serialNumber || '';
+                                        var deptBuildSeq = deptMod.buildSequence || '';
+                                        var pct = calcPct(deptSerial, dept.id);
                                         var colors = summaryGetPctColor(pct);
                                         return (
                                             <td key={dept.id} style={{ border: cellBorder, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
                                                 <div className="module-tile" style={{ borderRadius: '6px', padding: '5px 4px', margin: '2px auto', width: '64px', textAlign: 'center', background: colors.bg, border: '1px solid ' + colors.border, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                                    <div className="mt-seq" style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({buildSeq})</div>
-                                                    <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serialNumber}</div>
+                                                    <div className="mt-seq" style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({deptBuildSeq})</div>
+                                                    <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{deptSerial}</div>
                                                     <div className="mt-pct" style={{ fontSize: '11px', fontWeight: 500, marginTop: '1px', color: colors.text }}>{pct}%</div>
                                                 </div>
                                             </td>
@@ -2522,7 +2551,18 @@ function WeeklySummaryTab(props) {
                                             if (!row.moduleSerial) {
                                                 return <td key={dept.id} style={{ border: cellBorder, padding: '4px' }} />;
                                             }
-                                            var pct = calcPct(row.moduleSerial, dept.id);
+                                            var refIdx = serialToIdx[row.moduleSerial];
+                                            var deptStagger = dept.stagger_offset || 0;
+                                            var deptModIdx = (refIdx != null) ? refIdx - deptStagger : -1;
+                                            var deptMod = (deptModIdx >= 0 && deptModIdx < sortedModules.length) ? sortedModules[deptModIdx] : null;
+                                            if (!deptMod) {
+                                                return <td key={dept.id} style={{ border: cellBorder, padding: '4px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                    <div style={{ color: '#d1d5db', fontSize: '11px' }}>--</div>
+                                                </td>;
+                                            }
+                                            var deptSerial = deptMod.serialNumber || '';
+                                            var deptBuildSeq = deptMod.buildSequence || '';
+                                            var pct = calcPct(deptSerial, dept.id);
                                             var colors = summaryGetPctColor(pct);
                                             return (
                                                 <td key={dept.id} style={{ border: cellBorder, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
@@ -2537,8 +2577,8 @@ function WeeklySummaryTab(props) {
                                                         WebkitPrintColorAdjust: 'exact',
                                                         printColorAdjust: 'exact',
                                                     }}>
-                                                        <div className="mt-seq" style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({buildSeq})</div>
-                                                        <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serialNumber}</div>
+                                                        <div className="mt-seq" style={{ fontSize: '9px', opacity: 0.75, color: colors.text }}>({deptBuildSeq})</div>
+                                                        <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{deptSerial}</div>
                                                         <div className="mt-pct" style={{ fontSize: '11px', fontWeight: 500, marginTop: '1px', color: colors.text }}>{pct}%</div>
                                                     </div>
                                                 </td>
