@@ -271,6 +271,7 @@ function DailyBoardTab(props) {
     var supervisorProfile = props.supervisorProfile;
     var onUpdateCompletion = props.onUpdateCompletion;
     var loading = props.loading;
+    var ribbonSettings = props.ribbonSettings || { ribbon_trailing_count: 5, ribbon_upcoming_count: 5 };
 
     var [selectedDay, setSelectedDay] = useState(stbToday());
     var [selectedDept, setSelectedDept] = useState(null);
@@ -395,6 +396,71 @@ function DailyBoardTab(props) {
         return getModulesForDeptDay(selectedDept);
     }, [selectedDept, selectedDay, weekSchedule, modules]);
 
+    // Compute ribbon sections: Previous / Scheduled / Upcoming
+    var ribbonSections = useMemo(function() {
+        var result = { previous: [], scheduled: deptModules, upcoming: [] };
+        if (!selectedDept || baseIdx < 0 || masterSeq.length === 0) return result;
+
+        var dept = (lineDepts || []).find(function(d) { return d.id === selectedDept; });
+        var stagger = dept ? (dept.stagger_offset || 0) : 0;
+        var prodDayOffset = activeDates.indexOf(selectedDay);
+        if (prodDayOffset < 0) return result;
+
+        var schedStart = baseIdx + (prodDayOffset * modulesPerDay) + stagger;
+        var schedEnd = schedStart + modulesPerDay; // exclusive
+
+        var trailingCount = ribbonSettings.ribbon_trailing_count || 5;
+        var upcomingCount = ribbonSettings.ribbon_upcoming_count || 5;
+
+        // --- Upcoming: next N after scheduled window ---
+        var upcomingMods = [];
+        for (var u = schedEnd; u < Math.min(schedEnd + upcomingCount, masterSeq.length); u++) {
+            var um = masterSeq[u];
+            upcomingMods.push({ serial: um.serialNumber || '', blm: um.hitchBLM || '', unitType: um.unitType || '', module: um });
+        }
+        result.upcoming = upcomingMods;
+
+        // --- Previous: HYBRID rule ---
+        // 1. Last N trailing modules before scheduled window
+        var trailStart = Math.max(0, schedStart - trailingCount);
+        var trailingSet = {};
+        var previousMods = [];
+        for (var t = trailStart; t < schedStart; t++) {
+            var tm = masterSeq[t];
+            var info = { serial: tm.serialNumber || '', blm: tm.hitchBLM || '', unitType: tm.unitType || '', module: tm };
+            previousMods.push(info);
+            trailingSet[tm.serialNumber || ''] = true;
+        }
+
+        // 2. Also include any incomplete modules further back (up to cap of 20)
+        var deptTasksList = getTasksForDept(selectedDept);
+        var incompleteCap = 20;
+        var incompleteExtras = [];
+        var searchStart = Math.max(0, schedStart - incompleteCap);
+        for (var ic = searchStart; ic < trailStart; ic++) {
+            var icm = masterSeq[ic];
+            if (trailingSet[icm.serialNumber || '']) continue;
+            // Check if incomplete: completion % < 100 and not all-N/A
+            var pct = stbCalcCompletionPct(deptTasksList, dayCompletions, icm.serialNumber || '', selectedDept);
+            // pct === 100 means done or all-NA (our function returns 100 if total===0)
+            // We need to also check if there are any actual tasks (not all NA)
+            var hasRealTasks = false;
+            for (var ti = 0; ti < deptTasksList.length; ti++) {
+                if (deptTasksList[ti].id === TRAVELER_SIGNED_ID || deptTasksList[ti].id === NON_CONFORMANCE_ID) continue;
+                var ckey = (icm.serialNumber || '') + '|' + selectedDept + '|' + deptTasksList[ti].id;
+                var st = dayCompletions[ckey] || 'not_started';
+                if (st !== 'na') { hasRealTasks = true; break; }
+            }
+            if (hasRealTasks && pct < 100) {
+                incompleteExtras.push({ serial: icm.serialNumber || '', blm: icm.hitchBLM || '', unitType: icm.unitType || '', module: icm });
+            }
+        }
+        // Merge: incomplete extras first (earlier in sequence), then trailing N
+        result.previous = incompleteExtras.concat(previousMods);
+
+        return result;
+    }, [selectedDept, selectedDay, weekSchedule, modules, masterSeq, baseIdx, activeDates, modulesPerDay, lineDepts, ribbonSettings, dayCompletions, allTasks]);
+
     // Auto-select first module when dept changes or day changes
     useEffect(function() {
         if (deptModules.length > 0) {
@@ -429,11 +495,16 @@ function DailyBoardTab(props) {
         return getTasksForDept(selectedDept);
     }, [selectedDept, allTasks]);
 
-    // Current module info
+    // Current module info (check scheduled, then previous, then upcoming)
     var currentModInfo = useMemo(function() {
-        if (!selectedModule || !deptModules) return null;
-        return deptModules.find(function(m) { return m.serial === selectedModule; }) || null;
-    }, [selectedModule, deptModules]);
+        if (!selectedModule) return null;
+        var found = deptModules.find(function(m) { return m.serial === selectedModule; });
+        if (found) return found;
+        found = ribbonSections.previous.find(function(m) { return m.serial === selectedModule; });
+        if (found) return found;
+        found = ribbonSections.upcoming.find(function(m) { return m.serial === selectedModule; });
+        return found || null;
+    }, [selectedModule, deptModules, ribbonSections]);
 
     // Dept completion stats
     var deptStats = useMemo(function() {
@@ -700,44 +771,76 @@ function DailyBoardTab(props) {
                     </div>
                 </div>
 
-                {/* Module navigation tiles */}
-                {deptModules.length > 0 && (
-                    <div ref={moduleNavRef} className="mt-2 relative" style={{ display: 'flex', flexWrap: 'nowrap', gap: '8px', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
-                        {(visibleCount === null || visibleCount >= deptModules.length ? deptModules : deptModules.slice(0, visibleCount)).map(function(modInfo) {
-                            var isModActive = modInfo.serial === selectedModule;
-                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-                            var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
-                            var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-                            var tileStyle = isModActive ? { backgroundColor: deptColor, color: '#fff', padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, flexShrink: 0 } : { padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, border: '1px solid #d1d5db', flexShrink: 0 };
-                            return (
-                                <button key={modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1.5 transition-all ' + (isModActive ? '' : 'text-gray-600 dark:text-gray-300 dark:border-gray-600')}>
-                                    {!isModActive && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
-                                    {modInfo.serial}
-                                </button>
-                            );
-                        })}
-                        {visibleCount !== null && visibleCount < deptModules.length && (
-                            <div className="relative" style={{ flexShrink: 0 }}>
-                                <button onClick={function() { setMoreDropdownOpen(function(v) { return !v; }); }} style={{ padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, border: '1px solid #d1d5db' }} className="text-gray-600 dark:text-gray-300 dark:border-gray-600 transition-all">
-                                    More &#9660;
-                                </button>
-                                {moreDropdownOpen && (
-                                    <div className="absolute top-full left-0 mt-1 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 min-w-[120px]">
-                                        {deptModules.slice(visibleCount).map(function(modInfo) {
-                                            var isModActive = modInfo.serial === selectedModule;
-                                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-                                            var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-                                            return (
-                                                <button key={modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); setMoreDropdownOpen(false); }} className={'w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-gray-100 dark:hover:bg-gray-700 ' + (isModActive ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300')}>
-                                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
-                                                    {modInfo.serial}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                {/* Module ribbon: Previous / Scheduled / Upcoming */}
+                {(ribbonSections.previous.length > 0 || deptModules.length > 0 || ribbonSections.upcoming.length > 0) && (
+                    <div ref={moduleNavRef} className="mt-2 overflow-x-auto" style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '4px', alignItems: 'center', minWidth: 'max-content' }}>
+                            {/* Previous section */}
+                            {ribbonSections.previous.length > 0 && (
+                                <React.Fragment>
+                                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', flexShrink: 0, paddingRight: '2px' }}>Prev</span>
+                                    {ribbonSections.previous.map(function(modInfo) {
+                                        var isModActive = modInfo.serial === selectedModule;
+                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                                        var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                                        var tileStyle = isModActive
+                                            ? { backgroundColor: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1', color: '#fff', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, flexShrink: 0, opacity: 1 }
+                                            : { padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 400, border: '1px dashed #d1d5db', flexShrink: 0, opacity: 0.75 };
+                                        return (
+                                            <button key={'prev-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1 transition-all ' + (isModActive ? '' : 'text-gray-500 dark:text-gray-400 dark:border-gray-600')}>
+                                                {!isModActive && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
+                                                {modInfo.serial}
+                                            </button>
+                                        );
+                                    })}
+                                    <span style={{ width: '1px', height: '20px', backgroundColor: '#e5e7eb', flexShrink: 0, margin: '0 2px' }} />
+                                </React.Fragment>
+                            )}
+
+                            {/* Scheduled section */}
+                            {deptModules.length > 0 && (
+                                <React.Fragment>
+                                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1', letterSpacing: '0.05em', flexShrink: 0, paddingRight: '2px' }}>Sched</span>
+                                    {deptModules.map(function(modInfo) {
+                                        var isModActive = modInfo.serial === selectedModule;
+                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                                        var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
+                                        var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                                        var tileStyle = isModActive
+                                            ? { backgroundColor: deptColor, color: '#fff', padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, flexShrink: 0 }
+                                            : { padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, border: '1px solid #d1d5db', flexShrink: 0 };
+                                        return (
+                                            <button key={'sched-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1.5 transition-all ' + (isModActive ? '' : 'text-gray-600 dark:text-gray-300 dark:border-gray-600')}>
+                                                {!isModActive && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
+                                                {modInfo.serial}
+                                            </button>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            )}
+
+                            {/* Upcoming section */}
+                            {ribbonSections.upcoming.length > 0 && (
+                                <React.Fragment>
+                                    <span style={{ width: '1px', height: '20px', backgroundColor: '#e5e7eb', flexShrink: 0, margin: '0 2px' }} />
+                                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', flexShrink: 0, paddingRight: '2px' }}>Next</span>
+                                    {ribbonSections.upcoming.map(function(modInfo) {
+                                        var isModActive = modInfo.serial === selectedModule;
+                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                                        var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                                        var tileStyle = isModActive
+                                            ? { backgroundColor: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1', color: '#fff', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, flexShrink: 0, opacity: 1 }
+                                            : { padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 400, border: '1px dashed #d1d5db', flexShrink: 0, opacity: 0.75 };
+                                        return (
+                                            <button key={'next-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1 transition-all ' + (isModActive ? '' : 'text-gray-500 dark:text-gray-400 dark:border-gray-600')}>
+                                                {!isModActive && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
+                                                {modInfo.serial}
+                                            </button>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -1756,6 +1859,8 @@ function AdminConfigTab(props) {
     var onTaskAdded = props.onTaskAdded;
     var onTaskRemoved = props.onTaskRemoved;
     var onTasksReordered = props.onTasksReordered;
+    var ribbonSettings = props.ribbonSettings || { ribbon_trailing_count: 5, ribbon_upcoming_count: 5 };
+    var onRibbonSettingsChange = props.onRibbonSettingsChange;
 
     var adminScrollRef = useRef(null);
     var adminScrollPos = useRef(0);
@@ -2149,6 +2254,68 @@ function AdminConfigTab(props) {
                         {(!shifts || shifts.length === 0) && (
                             <p className="text-xs text-gray-400 italic py-2">No shifts configured</p>
                         )}
+                    </div>
+                )}
+            </div>
+
+            {/* Daily Board Settings */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <button onClick={function() { handleTogglePanel('dailyBoardSettings'); }} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]">
+                    <span className="font-semibold text-sm text-gray-900 dark:text-white">Daily Board Settings</span>
+                    <span className="text-gray-400">{openPanel === 'dailyBoardSettings' ? '\u25BC' : '\u25B6'}</span>
+                </button>
+                {openPanel === 'dailyBoardSettings' && (
+                    <div className="p-3 space-y-3 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-400 mb-1">Configure how many modules show before and after the scheduled set in the Daily Board ribbon.</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <label style={{ fontSize: '13px', color: '#374151', flex: 1 }}>Previous (trailing) count</label>
+                            <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                value={ribbonSettings.ribbon_trailing_count}
+                                onChange={function(e) {
+                                    var val = parseInt(e.target.value) || 0;
+                                    if (onRibbonSettingsChange) onRibbonSettingsChange(function(prev) { return Object.assign({}, prev, { ribbon_trailing_count: val }); });
+                                }}
+                                style={{ width: '60px', padding: '6px 10px', fontSize: '14px', borderRadius: '6px', border: '1px solid #d1d5db', textAlign: 'center' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <label style={{ fontSize: '13px', color: '#374151', flex: 1 }}>Upcoming count</label>
+                            <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                value={ribbonSettings.ribbon_upcoming_count}
+                                onChange={function(e) {
+                                    var val = parseInt(e.target.value) || 0;
+                                    if (onRibbonSettingsChange) onRibbonSettingsChange(function(prev) { return Object.assign({}, prev, { ribbon_upcoming_count: val }); });
+                                }}
+                                style={{ width: '60px', padding: '6px 10px', fontSize: '14px', borderRadius: '6px', border: '1px solid #d1d5db', textAlign: 'center' }}
+                            />
+                        </div>
+                        <button
+                            onClick={function() {
+                                var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
+                                if (!client) { setError('Supabase client not available'); return; }
+                                Promise.all([
+                                    client.from('app_settings').upsert({ key: 'ribbon_trailing_count', value: String(ribbonSettings.ribbon_trailing_count), updated_at: new Date().toISOString() }, { onConflict: 'key' }),
+                                    client.from('app_settings').upsert({ key: 'ribbon_upcoming_count', value: String(ribbonSettings.ribbon_upcoming_count), updated_at: new Date().toISOString() }, { onConflict: 'key' })
+                                ]).then(function() {
+                                    setError('');
+                                    // Brief success indicator
+                                    var btn = document.getElementById('ribbon-save-btn');
+                                    if (btn) { btn.textContent = 'Saved'; setTimeout(function() { btn.textContent = 'Save'; }, 1500); }
+                                }).catch(function(err) {
+                                    setError(err.message || 'Failed to save ribbon settings');
+                                });
+                            }}
+                            id="ribbon-save-btn"
+                            style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 500, borderRadius: '8px', background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer', minHeight: '40px' }}
+                        >
+                            Save
+                        </button>
                     </div>
                 )}
             </div>
@@ -2817,6 +2984,7 @@ function StationTaskBoard(props) {
     var [lineDepts, setLineDepts] = useState([]);
     var [allTasks, setAllTasks] = useState([]);
     var [completions, setCompletions] = useState([]);
+    var [ribbonSettings, setRibbonSettings] = useState({ ribbon_trailing_count: 5, ribbon_upcoming_count: 5 });
 
     // Subscription ref
     var subRef = useRef(null);
@@ -2850,6 +3018,18 @@ function StationTaskBoard(props) {
         var schedulePromise = SB.getActiveOrCurrentWeekSchedule
             ? SB.getActiveOrCurrentWeekSchedule(computedWeekStart)
             : (SB.getWeeklySchedule ? SB.getWeeklySchedule(computedWeekStart) : Promise.resolve(null));
+
+        // Load ribbon settings from app_settings table
+        var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
+        if (client) {
+            client.from('app_settings').select('key, value').in('key', ['ribbon_trailing_count', 'ribbon_upcoming_count']).then(function(res) {
+                if (res.data && res.data.length > 0) {
+                    var settings = {};
+                    res.data.forEach(function(row) { settings[row.key] = parseInt(row.value) || 5; });
+                    setRibbonSettings(function(prev) { return Object.assign({}, prev, settings); });
+                }
+            }).catch(function(err) { console.warn('[StationTaskBoard] Failed to load ribbon settings:', err); });
+        }
 
         var promises = [
             SUP ? SUP.getCurrentSupervisor() : Promise.resolve(null),
@@ -3057,6 +3237,7 @@ function StationTaskBoard(props) {
                         supervisorProfile={supervisorProfile}
                         onUpdateCompletion={handleUpdateCompletion}
                         loading={false}
+                        ribbonSettings={ribbonSettings}
                     />
                 )}
                 {activeTab === 'summary' && (
@@ -3094,6 +3275,8 @@ function StationTaskBoard(props) {
                         allTasks={allTasks}
                         shifts={shifts}
                         onRefresh={handleRefresh}
+                        ribbonSettings={ribbonSettings}
+                        onRibbonSettingsChange={setRibbonSettings}
                         onTaskAdded={function(task) { setAllTasks(function(prev) { return prev.concat([task]); }); }}
                         onTaskRemoved={function(taskId) { setAllTasks(function(prev) { return prev.filter(function(t) { return t.id !== taskId; }); }); }}
                         onTasksReordered={function(reorderedTasks, deptId) {
