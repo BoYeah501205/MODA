@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-02T18:37:25.842Z
+ * Generated: 2026-06-02T20:08:32.442Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -16154,6 +16154,13 @@ function AdminConfigTab(props) {
   var draggingTaskRef = useRef(null);
   var dragOverTaskRef = useRef(null);
 
+  // Department drag-reorder state
+  var [orderedDepts, setOrderedDepts] = useState([]);
+  var [deptOrderSaving, setDeptOrderSaving] = useState(false);
+  var [deptOrderSaved, setDeptOrderSaved] = useState(false);
+  var draggingDeptRef = useRef(null);
+  var dragOverDeptRef = useRef(null);
+
   // Summary Column Order state
   var [summaryDepts, setSummaryDepts] = useState([]);
   var [summaryAbbrevs, setSummaryAbbrevs] = useState({});
@@ -16161,6 +16168,79 @@ function AdminConfigTab(props) {
   var [summarySaving, setSummarySaving] = useState(false);
   var draggingSummaryRef = useRef(null);
   var dragOverSummaryRef = useRef(null);
+
+  // Init orderedDepts from lineDepts (syncs on every lineDepts change)
+  useEffect(function () {
+    if (lineDepts && lineDepts.length > 0) {
+      setOrderedDepts(lineDepts.slice());
+    }
+  }, [lineDepts]);
+
+  // Department drag-and-drop handlers
+  function handleDeptDragStart(e, dept) {
+    draggingDeptRef.current = dept;
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function handleDeptDragOver(e, dept) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    dragOverDeptRef.current = dept;
+  }
+  function handleDeptDrop(e, targetDept) {
+    e.preventDefault();
+    var dragging = draggingDeptRef.current;
+    if (!dragging || dragging.id === targetDept.id) return;
+    var reordered = orderedDepts.slice();
+    var fromIdx = reordered.findIndex(function (d) {
+      return d.id === dragging.id;
+    });
+    var toIdx = reordered.findIndex(function (d) {
+      return d.id === targetDept.id;
+    });
+    reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, dragging);
+
+    // Assign new display_order values
+    var updated = reordered.map(function (d, i) {
+      return Object.assign({}, d, {
+        display_order: i + 1
+      });
+    });
+
+    // Optimistic local update
+    setOrderedDepts(updated);
+    setDeptOrderSaving(true);
+    setDeptOrderSaved(false);
+
+    // Persist to Supabase
+    var client = window.supabaseClient || (window.MODA_SUPABASE && window.MODA_SUPABASE.getClient ? window.MODA_SUPABASE.getClient() : null);
+    if (client) {
+      Promise.all(updated.map(function (d) {
+        return client.from('station_departments').update({
+          display_order: d.display_order
+        }).eq('id', d.id);
+      })).then(function () {
+        setDeptOrderSaving(false);
+        setDeptOrderSaved(true);
+        setTimeout(function () {
+          setDeptOrderSaved(false);
+        }, 1500);
+        if (onRefresh) onRefresh();
+      }).catch(function (err) {
+        console.error('[AdminConfig] Failed to save dept order:', err);
+        setDeptOrderSaving(false);
+        setError('Failed to save department order');
+        // Rollback
+        setOrderedDepts(lineDepts ? lineDepts.slice() : []);
+      });
+    }
+    draggingDeptRef.current = null;
+    dragOverDeptRef.current = null;
+  }
+  function handleDeptDragEnd() {
+    draggingDeptRef.current = null;
+    dragOverDeptRef.current = null;
+  }
 
   // Init summary depts when lineDepts loads
   useEffect(function () {
@@ -16371,11 +16451,34 @@ function AdminConfigTab(props) {
     className: "text-gray-400"
   }, openPanel === 'departments' ? '▼' : '▶')), openPanel === 'departments' && /*#__PURE__*/React.createElement("div", {
     className: "p-3 space-y-2 border-t border-gray-200 dark:border-gray-700"
-  }, (lineDepts || []).map(function (dept) {
+  }, deptOrderSaving && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-blue-600 font-medium"
+  }, "Saving order..."), deptOrderSaved && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-green-600 font-medium"
+  }, "Order saved \u2713"), orderedDepts.map(function (dept) {
     return /*#__PURE__*/React.createElement("div", {
       key: dept.id,
-      className: "flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800"
+      draggable: true,
+      onDragStart: function (e) {
+        handleDeptDragStart(e, dept);
+      },
+      onDragOver: function (e) {
+        handleDeptDragOver(e, dept);
+      },
+      onDrop: function (e) {
+        handleDeptDrop(e, dept);
+      },
+      onDragEnd: handleDeptDragEnd,
+      className: "flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 cursor-grab active:cursor-grabbing"
     }, /*#__PURE__*/React.createElement("span", {
+      className: "text-gray-400 select-none",
+      style: {
+        fontSize: '14px',
+        lineHeight: 1,
+        cursor: 'grab'
+      },
+      title: "Drag to reorder"
+    }, "\u283F"), /*#__PURE__*/React.createElement("span", {
       className: "w-3 h-3 rounded-full",
       style: {
         backgroundColor: dept.color || '#6366f1'
@@ -16908,7 +17011,7 @@ function WeeklySummaryTab(props) {
     }
   }
   var depts = (lineDepts || []).slice().sort(function (a, b) {
-    return (a.summary_order != null ? a.summary_order : 999) - (b.summary_order != null ? b.summary_order : 999);
+    return (a.display_order != null ? a.display_order : 999) - (b.display_order != null ? b.display_order : 999);
   });
   var cellBorder = '1px solid #e5e7eb';
   var shift1Bg = 'rgba(24,95,165,0.025)';

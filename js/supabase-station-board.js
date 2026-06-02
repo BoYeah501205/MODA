@@ -464,6 +464,17 @@
     }
 
     // Aliases for admin tab compatibility
+    async function addDepartment(opts) {
+        return upsertDepartment({ name: opts.name, color: opts.color, displayOrder: opts.display_order || 999 });
+    }
+    async function deactivateDepartment(id) { return deleteDepartment(id); }
+    async function reorderDepartments(deptOrders) {
+        // deptOrders = [{id, display_order}, ...]
+        const client = getClient();
+        await Promise.all(deptOrders.map(function(d) {
+            return client.from('station_departments').update({ display_order: d.display_order }).eq('id', d.id);
+        }));
+    }
     async function removeTask(taskId) { return deleteTask(taskId); }
     async function addTask(opts) {
         return upsertTask({
@@ -476,6 +487,7 @@
     window.MODA_STATION_BOARD = {
         weekStart, weekDates, parseDate, fmtDate,
         getDepartments, getLineDepartments, upsertDepartment, deleteDepartment, updateStagger,
+        addDepartment, deactivateDepartment, reorderDepartments,
         getTasks, getAllTasks, upsertTask, deleteTask, addTask, removeTask,
         getShifts, upsertShift,
         getWeeklySchedule, getActiveOrCurrentWeekSchedule, upsertWeeklySchedule, completeWeek,

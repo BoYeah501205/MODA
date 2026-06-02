@@ -2,9 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.0**
+**Current Version: 1.6.1**
 
 ---
+
+## [1.6.1] - 2026-06-02
+### Added
+- **Drag-and-drop department reordering** in Admin → Department Manager. Drag grip handle to reorder; persists `display_order` to Supabase for all users.
+- **Unified department order** — Summary grid columns now sort by `display_order` (same as Daily Board left column), driven by the Department Manager drag order.
+- **`addDepartment` / `deactivateDepartment` / `reorderDepartments`** aliases added to `MODA_STATION_BOARD` API for admin tab compatibility.
+### Fixed
+- Summary grid column order no longer uses separate `summary_order` — it uses `display_order` from the canonical department fetch.
 
 ## [1.6.0] - 2026-06-02
 ### Changed
