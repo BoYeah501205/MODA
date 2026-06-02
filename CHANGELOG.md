@@ -2,9 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.5.99**
+**Current Version: 1.6.0**
 
 ---
+
+## [1.6.0] - 2026-06-02
+### Changed
+- **Daily Board + Summary: shared master-sequence module assignment** — both views now derive modules from ONE master build sequence (sorted by buildSequence) using the formula `start = dayStartIndex + dept.stagger_offset`. Departments with the same stagger always show identical modules. Eliminates the old per-department-independent assignment approach.
+- **generateWeekAssignments: fixed stagger direction** — stagger and day offsets now use `+` (was incorrectly `-`), matching the physical production line flow.
+- **Removed serial arithmetic** from Summary grid — dept cells now use `stbDeptModulesForDay` shared helper instead of parsing/decrementing serial numbers.
 
 ## [1.5.99] - 2026-06-01
 ### Fixed

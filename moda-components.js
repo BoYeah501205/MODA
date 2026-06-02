@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-01T22:52:32.788Z
+ * Generated: 2026-06-02T18:37:25.842Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14045,6 +14045,44 @@ function stbShiftWeek(ws, delta) {
   mon.setDate(mon.getDate() + delta * 7);
   return stbFormatDate(mon);
 }
+
+// ─── Shared master-sequence module assignment ────────────────────────────
+// All departments are OFFSET VIEWS of ONE master build sequence.
+// Formula: start = baseIdx + (prodDayOffset * modulesPerDay) + staggerOffset
+function stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, staggerOffset) {
+  var dayStart = baseIdx + prodDayOffset * modulesPerDay;
+  var start = dayStart + (staggerOffset || 0);
+  var result = [];
+  for (var i = 0; i < modulesPerDay; i++) {
+    var idx = start + i;
+    if (idx >= 0 && idx < masterSeq.length) {
+      result.push(masterSeq[idx]);
+    }
+  }
+  return result;
+}
+function stbGetActiveDates(weekDays, shifts) {
+  var shiftDaySet = {};
+  if (shifts) {
+    for (var i = 0; i < shifts.length; i++) {
+      var s = shifts[i];
+      if (s.days) {
+        for (var j = 0; j < s.days.length; j++) {
+          shiftDaySet[s.days[j]] = true;
+        }
+      }
+    }
+  }
+  var dayNameMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  var result = [];
+  for (var k = 0; k < weekDays.length; k++) {
+    var dt = stbParseDate(weekDays[k].date);
+    if (shiftDaySet[dayNameMap[dt.getDay()]]) {
+      result.push(weekDays[k].date);
+    }
+  }
+  return result;
+}
 function stbToday() {
   return stbFormatDate(new Date());
 }
@@ -14331,21 +14369,46 @@ function DailyBoardTab(props) {
     return map;
   }, [completions, selectedDay]);
 
-  // Get modules assigned to a dept on selected day
-  function getModulesForDeptDay(deptId) {
-    if (!weekSchedule || !weekSchedule.assignments) return [];
-    var filtered = weekSchedule.assignments.filter(function (a) {
-      return a.department_id === deptId && a.target_date === selectedDay;
+  // Master build sequence (sorted by buildSequence ascending — one shared ordered list)
+  var masterSeq = useMemo(function () {
+    if (!modules || modules.length === 0) return [];
+    return modules.slice().sort(function (a, b) {
+      return (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0);
     });
-    return filtered.map(function (a) {
-      var mod = modules.find(function (m) {
-        return m.serialNumber === a.module_serial;
-      });
+  }, [modules]);
+
+  // Base index: position of the week's starting serial in master sequence
+  var baseIdx = useMemo(function () {
+    if (!weekSchedule || !weekSchedule.starting_serial || masterSeq.length === 0) return -1;
+    var ss = (weekSchedule.starting_serial || '').trim();
+    for (var i = 0; i < masterSeq.length; i++) {
+      if ((masterSeq[i].serialNumber || '').trim() === ss) return i;
+    }
+    return -1;
+  }, [weekSchedule, masterSeq]);
+
+  // Active production dates (only days that have scheduled shifts)
+  var activeDates = useMemo(function () {
+    return stbGetActiveDates(weekDays, shifts);
+  }, [weekDays, shifts]);
+  var modulesPerDay = weekSchedule && weekSchedule.line_balance || 5;
+
+  // Get modules for a dept on selected day — from master sequence + stagger
+  function getModulesForDeptDay(deptId) {
+    if (baseIdx < 0 || masterSeq.length === 0) return [];
+    var dept = (lineDepts || []).find(function (d) {
+      return d.id === deptId;
+    });
+    var stagger = dept ? dept.stagger_offset || 0 : 0;
+    var prodDayOffset = activeDates.indexOf(selectedDay);
+    if (prodDayOffset < 0) return [];
+    var mods = stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, stagger);
+    return mods.map(function (m) {
       return {
-        serial: a.module_serial,
-        blm: mod ? mod.hitchBLM || '' : '',
-        unitType: mod ? mod.unitType || '' : '',
-        module: mod
+        serial: m.serialNumber || '',
+        blm: m.hitchBLM || '',
+        unitType: m.unitType || '',
+        module: m
       };
     });
   }
@@ -16693,6 +16756,7 @@ function WeeklySummaryTab(props) {
   var allTasks = props.allTasks;
   var lineDepts = props.lineDepts;
   var modules = props.modules;
+  var shifts = props.shifts;
   var selectedWeek = weekSchedule ? weekSchedule.week_start : null;
   var weekAssignments = weekSchedule && weekSchedule.assignments ? weekSchedule.assignments : [];
 
@@ -16720,49 +16784,47 @@ function WeeklySummaryTab(props) {
     return stbWeekDates(selectedWeek);
   }, [selectedWeek]);
 
-  // Build day → unique module serials using reference dept (stagger_offset = 0)
+  // Master build sequence (sorted by buildSequence ascending — one shared ordered list)
+  var masterSeq = useMemo(function () {
+    if (!modules || modules.length === 0) return [];
+    return modules.slice().sort(function (a, b) {
+      return (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0);
+    });
+  }, [modules]);
+
+  // Base index: position of the week's starting serial in master sequence
+  var baseIdx = useMemo(function () {
+    if (!weekSchedule || !weekSchedule.starting_serial || masterSeq.length === 0) return -1;
+    var ss = (weekSchedule.starting_serial || '').trim();
+    for (var i = 0; i < masterSeq.length; i++) {
+      if ((masterSeq[i].serialNumber || '').trim() === ss) return i;
+    }
+    return -1;
+  }, [weekSchedule, masterSeq]);
+
+  // Active production dates (only days that have scheduled shifts)
+  var activeDates = useMemo(function () {
+    return stbGetActiveDates(weekDays, shifts);
+  }, [weekDays, shifts]);
+  var modulesPerDay = weekSchedule && weekSchedule.line_balance || 5;
+
+  // Build day → module serials for reference dept (stagger=0) from master sequence
   var dayModules = useMemo(function () {
     var result = {};
-
-    // Find the reference department (lowest display_order or stagger_offset = 0)
-    var refDept = null;
-    if (lineDepts && lineDepts.length > 0) {
-      var sorted = lineDepts.slice().sort(function (a, b) {
-        return (a.display_order != null ? a.display_order : 999) - (b.display_order != null ? b.display_order : 999);
-      });
-      refDept = sorted.find(function (d) {
-        return (d.stagger_offset || 0) === 0;
-      }) || sorted[0];
-    }
     for (var i = 0; i < weekDays.length; i++) {
       var date = weekDays[i].date;
-      var seen = {};
-      var list = [];
-      for (var j = 0; j < weekAssignments.length; j++) {
-        var a = weekAssignments[j];
-        var aDate = (a.target_date || '').split('T')[0];
-        if (aDate !== date) continue;
-        if (refDept && a.department_id !== refDept.id) continue;
-        if (!seen[a.module_serial]) {
-          seen[a.module_serial] = true;
-          list.push(a.module_serial);
-        }
+      var prodDayOffset = activeDates.indexOf(date);
+      if (prodDayOffset < 0 || baseIdx < 0 || masterSeq.length === 0) {
+        result[date] = [];
+        continue;
       }
-
-      // Sort by build_sequence if available
-      list.sort(function (serialA, serialB) {
-        var modA = weekAssignments.find(function (a) {
-          return a.module_serial === serialA && a.department_id === (refDept ? refDept.id : a.department_id);
-        });
-        var modB = weekAssignments.find(function (a) {
-          return a.module_serial === serialB && a.department_id === (refDept ? refDept.id : a.department_id);
-        });
-        return (modA && modA.build_sequence || 9999) - (modB && modB.build_sequence || 9999);
+      var mods = stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, 0);
+      result[date] = mods.map(function (m) {
+        return m.serialNumber || '';
       });
-      result[date] = list;
     }
     return result;
-  }, [weekDays, weekAssignments, lineDepts]);
+  }, [weekDays, activeDates, masterSeq, baseIdx, modulesPerDay]);
 
   // Module lookup by serial (from modules prop + fallback from assignments)
   var moduleMap = useMemo(function () {
@@ -16785,27 +16847,6 @@ function WeeklySummaryTab(props) {
     }
     return map;
   }, [modules, weekAssignments]);
-
-  // Serial arithmetic helpers for stagger offset
-  // Formula: serialAtCell(deptIndex, rowIndex) = startSerial - rowIndex - (deptIndex * stagger)
-  // Since row.moduleSerial already = startSerial - rowIndex, we just subtract dept.stagger_offset
-  function parseSerial(serial) {
-    var dashIdx = (serial || '').lastIndexOf('-');
-    if (dashIdx < 0) return null;
-    var prefix = serial.substring(0, dashIdx + 1);
-    var numStr = serial.substring(dashIdx + 1);
-    var numeric = parseInt(numStr, 10);
-    if (isNaN(numeric)) return null;
-    return {
-      prefix: prefix,
-      numeric: numeric,
-      padWidth: numStr.length
-    };
-  }
-  function formatSerial(prefix, numeric, padWidth) {
-    if (numeric < 0) return null;
-    return prefix + String(numeric).padStart(padWidth, '0');
-  }
 
   // Completion % for a module+dept
   function calcPct(moduleSerial, deptId) {
@@ -17087,17 +17128,10 @@ function WeeklySummaryTab(props) {
             padding: '4px'
           }
         });
-        var parsed = parseSerial(row.moduleSerial);
-        if (!parsed) return /*#__PURE__*/React.createElement("td", {
-          key: dept.id,
-          style: {
-            border: cellBorder,
-            padding: '4px'
-          }
-        });
-        var deptNumeric = parsed.numeric - (dept.stagger_offset || 0);
-        var deptSerial = formatSerial(parsed.prefix, deptNumeric, parsed.padWidth);
-        if (!deptSerial) {
+        var prodDayOffset = activeDates.indexOf(row.date);
+        var deptMods = prodDayOffset >= 0 && baseIdx >= 0 ? stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, dept.stagger_offset || 0) : [];
+        var deptMod = row.moduleIdx < deptMods.length ? deptMods[row.moduleIdx] : null;
+        if (!deptMod) {
           return /*#__PURE__*/React.createElement("td", {
             key: dept.id,
             style: {
@@ -17113,8 +17147,8 @@ function WeeklySummaryTab(props) {
             }
           }, "--"));
         }
-        var deptMod = moduleMap[deptSerial];
-        var deptBuildSeq = deptMod ? deptMod.buildSequence || '' : '';
+        var deptSerial = deptMod.serialNumber || '';
+        var deptBuildSeq = deptMod.buildSequence || '';
         var pct = calcPct(deptSerial, dept.id);
         var colors = summaryGetPctColor(pct);
         return /*#__PURE__*/React.createElement("td", {
@@ -17466,17 +17500,10 @@ function WeeklySummaryTab(props) {
           }
         });
       }
-      var parsed = parseSerial(row.moduleSerial);
-      if (!parsed) return /*#__PURE__*/React.createElement("td", {
-        key: dept.id,
-        style: {
-          border: cellBorder,
-          padding: '4px'
-        }
-      });
-      var deptNumeric = parsed.numeric - (dept.stagger_offset || 0);
-      var deptSerial = formatSerial(parsed.prefix, deptNumeric, parsed.padWidth);
-      if (!deptSerial) {
+      var prodDayOffset = activeDates.indexOf(row.date);
+      var deptMods = prodDayOffset >= 0 && baseIdx >= 0 ? stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, dept.stagger_offset || 0) : [];
+      var deptMod = row.moduleIdx < deptMods.length ? deptMods[row.moduleIdx] : null;
+      if (!deptMod) {
         return /*#__PURE__*/React.createElement("td", {
           key: dept.id,
           style: {
@@ -17492,8 +17519,8 @@ function WeeklySummaryTab(props) {
           }
         }, "--"));
       }
-      var deptMod = moduleMap[deptSerial];
-      var deptBuildSeq = deptMod ? deptMod.buildSequence || '' : '';
+      var deptSerial = deptMod.serialNumber || '';
+      var deptBuildSeq = deptMod.buildSequence || '';
       var pct = calcPct(deptSerial, dept.id);
       var colors = summaryGetPctColor(pct);
       return /*#__PURE__*/React.createElement("td", {
@@ -17906,7 +17933,8 @@ function StationTaskBoard(props) {
     completions: completions,
     allTasks: allTasks,
     lineDepts: lineDepts,
-    modules: allModules
+    modules: allModules,
+    shifts: shifts
   }), activeTab === 'setup' && isAdmin && /*#__PURE__*/React.createElement(WeekSetupTab, {
     currentUser: currentUser,
     modules: allModules,
