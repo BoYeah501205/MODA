@@ -2,7 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.6**
+**Current Version: 1.6.7**
+
+---
+
+## [1.6.7] - 2026-06-03
+### Added
+- **Inline stagger editing in Department Manager** — The `stg:` value on each department row is now an inline editable field. Click the number to edit, press Enter or blur to save. Persists to Supabase `station_departments.stagger_offset` column. Optimistic UI update with rollback on error, brief "saved" indicator, and automatic board refresh (no page reload). Validates integer >= 0; rejects negatives and NaN.
 
 ---
 

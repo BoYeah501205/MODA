@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-03T13:04:31.282Z
+ * Generated: 2026-06-03T19:06:45.637Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -16469,6 +16469,11 @@ function AdminConfigTab(props) {
   var draggingDeptRef = useRef(null);
   var dragOverDeptRef = useRef(null);
 
+  // Inline stagger editing state
+  var [stgEditing, setStgEditing] = useState(null); // dept id currently editing
+  var [stgValue, setStgValue] = useState('');
+  var [stgSaved, setStgSaved] = useState(null); // dept id that just saved
+
   // Summary Column Order state
   var [summaryDepts, setSummaryDepts] = useState([]);
   var [summaryAbbrevs, setSummaryAbbrevs] = useState({});
@@ -16548,6 +16553,58 @@ function AdminConfigTab(props) {
   function handleDeptDragEnd() {
     draggingDeptRef.current = null;
     dragOverDeptRef.current = null;
+  }
+
+  // Inline stagger save (blur or Enter)
+  function handleSaveStg(deptId) {
+    var parsed = parseInt(stgValue, 10);
+    if (isNaN(parsed) || parsed < 0) {
+      // Invalid — revert to current value and close
+      setStgEditing(null);
+      return;
+    }
+    var oldVal = null;
+    // Optimistic update in orderedDepts
+    setOrderedDepts(function (prev) {
+      return prev.map(function (d) {
+        if (d.id === deptId) {
+          oldVal = d.stagger_offset || 0;
+          return Object.assign({}, d, {
+            stagger_offset: parsed
+          });
+        }
+        return d;
+      });
+    });
+    setStgEditing(null);
+
+    // Persist to Supabase
+    var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
+    if (client) {
+      client.from('station_departments').update({
+        stagger_offset: parsed
+      }).eq('id', deptId).then(function (res) {
+        if (res.error) throw res.error;
+        setStgSaved(deptId);
+        setTimeout(function () {
+          setStgSaved(null);
+        }, 1500);
+        // Refresh board data so ribbon recomputes with new stagger
+        if (onRefresh) onRefresh();
+      }).catch(function (err) {
+        console.error('[AdminConfig] Failed to save stagger:', err);
+        setError('Failed to save stagger');
+        // Rollback
+        setOrderedDepts(function (prev) {
+          return prev.map(function (d) {
+            if (d.id === deptId) return Object.assign({}, d, {
+              stagger_offset: oldVal
+            });
+            return d;
+          });
+        });
+      });
+    }
   }
 
   // Init summary depts when lineDepts loads
@@ -16794,8 +16851,65 @@ function AdminConfigTab(props) {
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-sm text-gray-800 dark:text-gray-200 flex-1"
     }, dept.name), /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '3px',
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] text-gray-400"
-    }, "stg: ", dept.stagger_offset || 0), /*#__PURE__*/React.createElement("button", {
+    }, "stg:"), stgEditing === dept.id ? /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: "0",
+      step: "1",
+      value: stgValue,
+      onChange: function (e) {
+        setStgValue(e.target.value);
+      },
+      onBlur: function () {
+        handleSaveStg(dept.id);
+      },
+      onKeyDown: function (e) {
+        if (e.key === 'Enter') {
+          e.target.blur();
+        }
+        if (e.key === 'Escape') {
+          setStgEditing(null);
+        }
+      },
+      autoFocus: true,
+      style: {
+        width: '42px',
+        padding: '1px 4px',
+        fontSize: '11px',
+        borderRadius: '4px',
+        border: '1px solid #93c5fd',
+        textAlign: 'center',
+        outline: 'none'
+      }
+    }) : /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function () {
+        setStgEditing(dept.id);
+        setStgValue(String(dept.stagger_offset || 0));
+      },
+      style: {
+        minWidth: '24px',
+        padding: '1px 4px',
+        fontSize: '11px',
+        borderRadius: '4px',
+        border: '1px solid transparent',
+        color: '#6b7280',
+        cursor: 'pointer',
+        background: 'transparent',
+        textAlign: 'center'
+      },
+      className: "hover:border-gray-300 hover:bg-gray-100",
+      title: "Click to edit stagger offset"
+    }, dept.stagger_offset || 0), stgSaved === dept.id && /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] text-green-600 font-medium"
+    }, "saved")), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function () {
         handleDeactivateDept(dept.id);
