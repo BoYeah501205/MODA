@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-02T23:34:53.141Z
+ * Generated: 2026-06-03T04:24:40.271Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -62464,6 +62464,90 @@ window.ProductionSequenceBuilder = ProductionSequenceBuilder;
 // Feature flag helper
 const isFeatureEnabled = (flag, userEmail) => window.MODA_FEATURE_FLAGS?.isEnabled(flag, userEmail) || false;
 
+// ===== PWA UPDATE BANNER =====
+function UpdateBanner() {
+  const [ready, setReady] = React.useState(false);
+  const currentRef = React.useRef(null);
+  async function fetchVersion() {
+    try {
+      const r = await fetch("/version.json?t=" + Date.now(), {
+        cache: "no-store"
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return j.version;
+    } catch {
+      return null;
+    }
+  }
+  React.useEffect(() => {
+    let stopped = false;
+    fetchVersion().then(v => {
+      if (v && !stopped) currentRef.current = v;
+    });
+    async function check() {
+      const latest = await fetchVersion();
+      if (!latest || stopped) return;
+      if (currentRef.current && latest !== currentRef.current) setReady(true);
+    }
+    const onVis = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", check);
+    const id = setInterval(check, 60 * 1000);
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (!reg) return;
+        if (reg.waiting) setReady(true);
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) setReady(true);
+          });
+        });
+        const swCheck = () => reg.update().catch(() => {});
+        window.addEventListener("focus", swCheck);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") swCheck();
+        });
+      });
+    }
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
+  async function refresh() {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.waiting) {
+        reg.waiting.postMessage({
+          type: "SKIP_WAITING"
+        });
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          window.location.reload();
+        }, {
+          once: true
+        });
+        return;
+      }
+    }
+    window.location.reload();
+  }
+  if (!ready) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "moda-update-banner",
+    role: "status"
+  }, /*#__PURE__*/React.createElement("span", null, "A new version of MODA is available."), /*#__PURE__*/React.createElement("button", {
+    onClick: refresh
+  }, "Refresh"));
+}
+window.UpdateBanner = UpdateBanner;
+
 // ===== AUTOVOL LOGO =====
 const AUTOVOL_LOGO = "./public/autovol-logo.png";
 
@@ -63755,7 +63839,7 @@ function Dashboard({
     style: {
       backgroundColor: 'var(--autovol-gray-bg)'
     }
-  }, /*#__PURE__*/React.createElement("header", {
+  }, /*#__PURE__*/React.createElement(UpdateBanner, null), /*#__PURE__*/React.createElement("header", {
     className: "bg-white shadow-sm border-b mobile-header"
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-7xl mx-auto px-4 py-3 flex items-center justify-between"

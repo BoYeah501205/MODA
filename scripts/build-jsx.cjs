@@ -285,3 +285,9 @@ const {
 
 // Run build
 build();
+
+// --- stamp version.json for PWA update detection ---
+const stamp = process.env.VERCEL_GIT_COMMIT_SHA || String(Date.now());
+const versionPath = path.join(__dirname, '..', 'version.json');
+fs.writeFileSync(versionPath, JSON.stringify({ version: stamp }) + '\n');
+console.log('Stamped version.json:', stamp);

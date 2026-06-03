@@ -2,7 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.1**
+**Current Version: 1.6.3**
+
+---
+
+## [1.6.3] - 2026-06-02
+### Added
+- **PWA auto-update banner** — Detects new Vercel deploys via `version.json` stamp and shows a purple "New version available — Refresh" banner. Works with service worker (SKIP_WAITING) and fallback hard-reload.
+- **`version.json` build stamping** — `build-jsx.cjs` writes commit SHA (or timestamp) to `version.json` on every build for deploy detection.
+- **Service worker `SKIP_WAITING` handler** — Allows the refresh button to activate a waiting SW on demand.
+- **SW cache v2** — Bumped cache name to purge old shell files; `/version.json` excluded from SW cache.
+- **Vercel no-cache headers** for `version.json` to ensure fresh fetches.
 
 ---
 

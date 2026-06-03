@@ -6,10 +6,17 @@
     { "source": "/weekly-board-popout.html", "destination": "/weekly-board-popout.html" },
     { "source": "/manifest.json", "destination": "/manifest.json" },
     { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/version.json", "destination": "/version.json" },
     { "source": "/icons/:path*", "destination": "/icons/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/version.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
