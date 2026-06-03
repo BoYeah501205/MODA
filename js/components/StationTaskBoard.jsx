@@ -793,72 +793,79 @@ function DailyBoardTab(props) {
                 {/* Module ribbon: Previous / Scheduled / Upcoming */}
                 {(ribbonSections.previous.length > 0 || deptModules.length > 0 || ribbonSections.upcoming.length > 0) && (
                     <div ref={moduleNavRef} className="mt-2 overflow-x-auto" style={{ width: '100%' }}>
-                        <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '4px', alignItems: 'center', minWidth: 'max-content' }}>
+                        <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '8px', alignItems: 'stretch', minWidth: 'max-content' }}>
                             {/* Previous section */}
                             {ribbonSections.previous.length > 0 && (
-                                <React.Fragment>
-                                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', flexShrink: 0, paddingRight: '2px' }}>Prev</span>
-                                    {ribbonSections.previous.map(function(modInfo) {
-                                        var isModActive = modInfo.serial === selectedModule;
-                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-                                        var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-                                        var tileStyle = isModActive
-                                            ? { backgroundColor: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1', color: '#fff', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, flexShrink: 0, opacity: 1 }
-                                            : { padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 400, border: '1px dashed #d1d5db', flexShrink: 0, opacity: 0.75 };
-                                        return (
-                                            <button key={'prev-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1 transition-all ' + (isModActive ? '' : 'text-gray-500 dark:text-gray-400 dark:border-gray-600')}>
-                                                {!isModActive && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
-                                                {modInfo.serial}
-                                            </button>
-                                        );
-                                    })}
-                                    <span style={{ width: '1px', height: '20px', backgroundColor: '#e5e7eb', flexShrink: 0, margin: '0 2px' }} />
-                                </React.Fragment>
+                                <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.06em', marginBottom: '4px', paddingLeft: '2px' }}>Previous</span>
+                                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '6px', alignItems: 'center', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '10px', backgroundColor: '#f9fafb' }}>
+                                        {ribbonSections.previous.map(function(modInfo) {
+                                            var isModActive = modInfo.serial === selectedModule;
+                                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                                            var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                                            return (
+                                                <button key={'prev-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, flexShrink: 0, backgroundColor: '#fff', border: isModActive ? '2px solid #3b82f6' : '1px solid #d1d5db', color: '#374151', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                                                    className="hover:border-gray-400">
+                                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
+                                                    {modInfo.serial}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             )}
 
                             {/* Scheduled section */}
                             {deptModules.length > 0 && (
-                                <React.Fragment>
-                                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1', letterSpacing: '0.05em', flexShrink: 0, paddingRight: '2px' }}>Sched</span>
-                                    {deptModules.map(function(modInfo) {
-                                        var isModActive = modInfo.serial === selectedModule;
-                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-                                        var deptColor = selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1';
-                                        var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-                                        var tileStyle = isModActive
-                                            ? { backgroundColor: deptColor, color: '#fff', padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, flexShrink: 0 }
-                                            : { padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, border: '1px solid #d1d5db', flexShrink: 0 };
-                                        return (
-                                            <button key={'sched-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1.5 transition-all ' + (isModActive ? '' : 'text-gray-600 dark:text-gray-300 dark:border-gray-600')}>
-                                                {!isModActive && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
-                                                {modInfo.serial}
-                                            </button>
-                                        );
-                                    })}
-                                </React.Fragment>
+                                <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1', letterSpacing: '0.06em', marginBottom: '4px', paddingLeft: '2px' }}>Scheduled</span>
+                                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '6px', alignItems: 'center', padding: '8px', border: '1px solid #bfdbfe', borderRadius: '10px', backgroundColor: '#eff6ff' }}>
+                                        {deptModules.map(function(modInfo) {
+                                            var isModActive = modInfo.serial === selectedModule;
+                                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                                            var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                                            return (
+                                                <button key={'sched-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, flexShrink: 0, backgroundColor: '#fff', border: isModActive ? '2px solid #3b82f6' : '1px solid #d1d5db', color: '#1f2937', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                                                    className="hover:border-gray-400">
+                                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
+                                                    {modInfo.serial}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             )}
 
                             {/* Upcoming section */}
                             {ribbonSections.upcoming.length > 0 && (
-                                <React.Fragment>
-                                    <span style={{ width: '1px', height: '20px', backgroundColor: '#e5e7eb', flexShrink: 0, margin: '0 2px' }} />
-                                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', flexShrink: 0, paddingRight: '2px' }}>Next</span>
-                                    {ribbonSections.upcoming.map(function(modInfo) {
-                                        var isModActive = modInfo.serial === selectedModule;
-                                        var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-                                        var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-                                        var tileStyle = isModActive
-                                            ? { backgroundColor: selectedDeptObj ? (selectedDeptObj.color || '#6366f1') : '#6366f1', color: '#fff', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, flexShrink: 0, opacity: 1 }
-                                            : { padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 400, border: '1px dashed #d1d5db', flexShrink: 0, opacity: 0.75 };
-                                        return (
-                                            <button key={'next-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }} style={tileStyle} className={'flex items-center gap-1 transition-all ' + (isModActive ? '' : 'text-gray-500 dark:text-gray-400 dark:border-gray-600')}>
-                                                {!isModActive && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />}
-                                                {modInfo.serial}
-                                            </button>
-                                        );
-                                    })}
-                                </React.Fragment>
+                                <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.06em', marginBottom: '4px', paddingLeft: '2px' }}>Upcoming</span>
+                                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '6px', alignItems: 'center', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '10px', backgroundColor: '#f9fafb' }}>
+                                        {ribbonSections.upcoming.map(function(modInfo) {
+                                            var isModActive = modInfo.serial === selectedModule;
+                                            var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
+                                            var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
+                                            return (
+                                                <button key={'next-' + modInfo.serial} onClick={function() { handleSelectModule(modInfo.serial); }}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, flexShrink: 0, backgroundColor: '#fff', border: isModActive ? '2px solid #3b82f6' : '1px solid #d1d5db', color: '#374151', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                                                    className="hover:border-gray-400">
+                                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
+                                                    {modInfo.serial}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             )}
+                        </div>
+                        {/* Legend */}
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '6px', paddingLeft: '2px' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#9ca3af' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#9ca3af' }} /> Not started</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#9ca3af' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f59e0b' }} /> WIP</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#9ca3af' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16a34a' }} /> Complete</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#9ca3af' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444' }} /> Stopped</span>
                         </div>
                     </div>
                 )}

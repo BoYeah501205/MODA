@@ -2,7 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.5**
+**Current Version: 1.6.6**
+
+---
+
+## [1.6.6] - 2026-06-03
+### Changed
+- **Daily Board ribbon visual redesign** — Labels now sit above each section. Each section (Previous / Scheduled / Upcoming) is wrapped in a bordered, rounded container. Scheduled uses a blue-tinted background for emphasis; Previous/Upcoming use neutral grey. Module pills are now neutral white with a 7px status dot (grey=not started, amber=WIP, green=complete, red=stopped). Selected pill gets a 2px blue border. A small legend row below the ribbon maps dot colors to statuses.
 
 ---
 

@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-03T12:27:15.635Z
+ * Generated: 2026-06-03T13:04:31.282Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14917,161 +14917,262 @@ function DailyBoardTab(props) {
     style: {
       display: 'flex',
       flexWrap: 'nowrap',
-      gap: '4px',
-      alignItems: 'center',
+      gap: '8px',
+      alignItems: 'stretch',
       minWidth: 'max-content'
     }
-  }, ribbonSections.previous.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }, ribbonSections.previous.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: '9px',
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: '10px',
       fontWeight: 700,
       textTransform: 'uppercase',
       color: '#9ca3af',
-      letterSpacing: '0.05em',
-      flexShrink: 0,
-      paddingRight: '2px'
+      letterSpacing: '0.06em',
+      marginBottom: '4px',
+      paddingLeft: '2px'
     }
-  }, "Prev"), ribbonSections.previous.map(function (modInfo) {
+  }, "Previous"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'nowrap',
+      gap: '6px',
+      alignItems: 'center',
+      padding: '8px',
+      border: '1px solid #e5e7eb',
+      borderRadius: '10px',
+      backgroundColor: '#f9fafb'
+    }
+  }, ribbonSections.previous.map(function (modInfo) {
     var isModActive = modInfo.serial === selectedModule;
     var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
     var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-    var tileStyle = isModActive ? {
-      backgroundColor: selectedDeptObj ? selectedDeptObj.color || '#6366f1' : '#6366f1',
-      color: '#fff',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      fontSize: '11px',
-      fontWeight: 500,
-      flexShrink: 0,
-      opacity: 1
-    } : {
-      padding: '4px 8px',
-      borderRadius: '6px',
-      fontSize: '11px',
-      fontWeight: 400,
-      border: '1px dashed #d1d5db',
-      flexShrink: 0,
-      opacity: 0.75
-    };
     return /*#__PURE__*/React.createElement("button", {
       key: 'prev-' + modInfo.serial,
       onClick: function () {
         handleSelectModule(modInfo.serial);
       },
-      style: tileStyle,
-      className: 'flex items-center gap-1 transition-all ' + (isModActive ? '' : 'text-gray-500 dark:text-gray-400 dark:border-gray-600')
-    }, !isModActive && /*#__PURE__*/React.createElement("span", {
-      className: "w-1.5 h-1.5 rounded-full flex-shrink-0",
       style: {
-        backgroundColor: dotColor
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '4px 10px',
+        borderRadius: '6px',
+        fontSize: '11px',
+        fontWeight: 500,
+        flexShrink: 0,
+        backgroundColor: '#fff',
+        border: isModActive ? '2px solid #3b82f6' : '1px solid #d1d5db',
+        color: '#374151',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s'
+      },
+      className: "hover:border-gray-400"
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: '7px',
+        height: '7px',
+        borderRadius: '50%',
+        backgroundColor: dotColor,
+        flexShrink: 0
       }
     }), modInfo.serial);
-  }), /*#__PURE__*/React.createElement("span", {
+  }))), deptModules.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
-      width: '1px',
-      height: '20px',
-      backgroundColor: '#e5e7eb',
-      flexShrink: 0,
-      margin: '0 2px'
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0
     }
-  })), deptModules.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: '9px',
+      fontSize: '10px',
       fontWeight: 700,
       textTransform: 'uppercase',
       color: selectedDeptObj ? selectedDeptObj.color || '#6366f1' : '#6366f1',
-      letterSpacing: '0.05em',
-      flexShrink: 0,
-      paddingRight: '2px'
+      letterSpacing: '0.06em',
+      marginBottom: '4px',
+      paddingLeft: '2px'
     }
-  }, "Sched"), deptModules.map(function (modInfo) {
+  }, "Scheduled"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'nowrap',
+      gap: '6px',
+      alignItems: 'center',
+      padding: '8px',
+      border: '1px solid #bfdbfe',
+      borderRadius: '10px',
+      backgroundColor: '#eff6ff'
+    }
+  }, deptModules.map(function (modInfo) {
     var isModActive = modInfo.serial === selectedModule;
     var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
-    var deptColor = selectedDeptObj ? selectedDeptObj.color || '#6366f1' : '#6366f1';
     var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-    var tileStyle = isModActive ? {
-      backgroundColor: deptColor,
-      color: '#fff',
-      padding: '5px 10px',
-      borderRadius: '8px',
-      fontSize: '12px',
-      fontWeight: 500,
-      flexShrink: 0
-    } : {
-      padding: '5px 10px',
-      borderRadius: '8px',
-      fontSize: '12px',
-      fontWeight: 500,
-      border: '1px solid #d1d5db',
-      flexShrink: 0
-    };
     return /*#__PURE__*/React.createElement("button", {
       key: 'sched-' + modInfo.serial,
       onClick: function () {
         handleSelectModule(modInfo.serial);
       },
-      style: tileStyle,
-      className: 'flex items-center gap-1.5 transition-all ' + (isModActive ? '' : 'text-gray-600 dark:text-gray-300 dark:border-gray-600')
-    }, !isModActive && /*#__PURE__*/React.createElement("span", {
-      className: "w-2 h-2 rounded-full flex-shrink-0",
       style: {
-        backgroundColor: dotColor
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '5px 10px',
+        borderRadius: '8px',
+        fontSize: '12px',
+        fontWeight: 500,
+        flexShrink: 0,
+        backgroundColor: '#fff',
+        border: isModActive ? '2px solid #3b82f6' : '1px solid #d1d5db',
+        color: '#1f2937',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s'
+      },
+      className: "hover:border-gray-400"
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: '7px',
+        height: '7px',
+        borderRadius: '50%',
+        backgroundColor: dotColor,
+        flexShrink: 0
       }
     }), modInfo.serial);
-  })), ribbonSections.upcoming.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }))), ribbonSections.upcoming.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
-      width: '1px',
-      height: '20px',
-      backgroundColor: '#e5e7eb',
-      flexShrink: 0,
-      margin: '0 2px'
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0
     }
-  }), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: '9px',
+      fontSize: '10px',
       fontWeight: 700,
       textTransform: 'uppercase',
       color: '#9ca3af',
-      letterSpacing: '0.05em',
-      flexShrink: 0,
-      paddingRight: '2px'
+      letterSpacing: '0.06em',
+      marginBottom: '4px',
+      paddingLeft: '2px'
     }
-  }, "Next"), ribbonSections.upcoming.map(function (modInfo) {
+  }, "Upcoming"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'nowrap',
+      gap: '6px',
+      alignItems: 'center',
+      padding: '8px',
+      border: '1px solid #e5e7eb',
+      borderRadius: '10px',
+      backgroundColor: '#f9fafb'
+    }
+  }, ribbonSections.upcoming.map(function (modInfo) {
     var isModActive = modInfo.serial === selectedModule;
     var modPct = stbCalcCompletionPct(deptTasks, dayCompletions, modInfo.serial, selectedDept);
     var dotColor = modPct === 100 ? '#16a34a' : modPct > 0 ? '#f59e0b' : '#9ca3af';
-    var tileStyle = isModActive ? {
-      backgroundColor: selectedDeptObj ? selectedDeptObj.color || '#6366f1' : '#6366f1',
-      color: '#fff',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      fontSize: '11px',
-      fontWeight: 500,
-      flexShrink: 0,
-      opacity: 1
-    } : {
-      padding: '4px 8px',
-      borderRadius: '6px',
-      fontSize: '11px',
-      fontWeight: 400,
-      border: '1px dashed #d1d5db',
-      flexShrink: 0,
-      opacity: 0.75
-    };
     return /*#__PURE__*/React.createElement("button", {
       key: 'next-' + modInfo.serial,
       onClick: function () {
         handleSelectModule(modInfo.serial);
       },
-      style: tileStyle,
-      className: 'flex items-center gap-1 transition-all ' + (isModActive ? '' : 'text-gray-500 dark:text-gray-400 dark:border-gray-600')
-    }, !isModActive && /*#__PURE__*/React.createElement("span", {
-      className: "w-1.5 h-1.5 rounded-full flex-shrink-0",
       style: {
-        backgroundColor: dotColor
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '4px 10px',
+        borderRadius: '6px',
+        fontSize: '11px',
+        fontWeight: 500,
+        flexShrink: 0,
+        backgroundColor: '#fff',
+        border: isModActive ? '2px solid #3b82f6' : '1px solid #d1d5db',
+        color: '#374151',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s'
+      },
+      className: "hover:border-gray-400"
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: '7px',
+        height: '7px',
+        borderRadius: '50%',
+        backgroundColor: dotColor,
+        flexShrink: 0
       }
     }), modInfo.serial);
-  })))), currentModInfo && /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: '12px',
+      alignItems: 'center',
+      marginTop: '6px',
+      paddingLeft: '2px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      fontSize: '10px',
+      color: '#9ca3af'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: '6px',
+      height: '6px',
+      borderRadius: '50%',
+      backgroundColor: '#9ca3af'
+    }
+  }), " Not started"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      fontSize: '10px',
+      color: '#9ca3af'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: '6px',
+      height: '6px',
+      borderRadius: '50%',
+      backgroundColor: '#f59e0b'
+    }
+  }), " WIP"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      fontSize: '10px',
+      color: '#9ca3af'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: '6px',
+      height: '6px',
+      borderRadius: '50%',
+      backgroundColor: '#16a34a'
+    }
+  }), " Complete"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      fontSize: '10px',
+      color: '#9ca3af'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: '6px',
+      height: '6px',
+      borderRadius: '50%',
+      backgroundColor: '#ef4444'
+    }
+  }), " Stopped"))), currentModInfo && /*#__PURE__*/React.createElement("div", {
     className: "mt-2 flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
