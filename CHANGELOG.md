@@ -2,9 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.4**
+**Current Version: 1.6.5**
 
 ---
+
+## [1.6.5] - 2026-06-03
+### Fixed
+- **PREV still showing ~14 modules (round 2)** — Modules with zero completion records were treated as "incomplete stragglers" because the check used a fallback default of `not_started` when no DB record existed. Now uses `hasOwnProperty` to verify at least one actual recorded status exists before considering a module a straggler. Untouched modules (zero DB rows for the department) are excluded entirely, so PREV shows exactly `trailing_count` when all earlier modules are untouched or complete.
 
 ## [1.6.4] - 2026-06-03
 ### Fixed

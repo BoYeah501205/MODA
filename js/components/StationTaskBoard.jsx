@@ -453,16 +453,18 @@ function DailyBoardTab(props) {
         for (var ic = searchStart; ic < trailStart; ic++) {
             var icm = masterSeq[ic];
             if (trailingSet[icm.serialNumber || '']) continue;
-            // Check if incomplete using allDayCompletions (not day-filtered)
-            var pct = stbCalcCompletionPct(deptTasksList, allDayCompletions, icm.serialNumber || '', selectedDept);
-            var hasRealTasks = false;
+            // A straggler = has at least one ACTUAL recorded status in DB for this dept
+            // (key exists in allDayCompletions) AND is not yet 100% complete.
+            // Modules with zero DB records are "untouched" and excluded.
+            var hasRecordedStatus = false;
             for (var ti = 0; ti < deptTasksList.length; ti++) {
                 if (deptTasksList[ti].id === TRAVELER_SIGNED_ID || deptTasksList[ti].id === NON_CONFORMANCE_ID) continue;
                 var ckey = (icm.serialNumber || '') + '|' + selectedDept + '|' + deptTasksList[ti].id;
-                var st = allDayCompletions[ckey] || 'not_started';
-                if (st !== 'na') { hasRealTasks = true; break; }
+                if (allDayCompletions.hasOwnProperty(ckey)) { hasRecordedStatus = true; break; }
             }
-            if (hasRealTasks && pct < 100) {
+            if (!hasRecordedStatus) continue; // untouched module — skip
+            var pct = stbCalcCompletionPct(deptTasksList, allDayCompletions, icm.serialNumber || '', selectedDept);
+            if (pct < 100) {
                 incompleteExtras.push({ serial: icm.serialNumber || '', blm: icm.hitchBLM || '', unitType: icm.unitType || '', module: icm, _seqIdx: ic });
             }
         }
