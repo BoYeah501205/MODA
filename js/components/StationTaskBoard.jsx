@@ -433,6 +433,19 @@ function DailyBoardTab(props) {
         }
 
         // 2. Also include any incomplete modules further back (up to cap of 20)
+        // Build all-day completions map (not filtered to selectedDay) so we can
+        // accurately check completion for modules that were scheduled on other days.
+        var allDayCompletions = {};
+        if (completions) {
+            for (var ci = 0; ci < completions.length; ci++) {
+                var cc = completions[ci];
+                var ck = cc.module_serial + '|' + cc.department_id + '|' + cc.task_id;
+                // Keep latest status per module|dept|task (prefer complete > wip > not_started)
+                if (!allDayCompletions[ck] || cc.status === 'complete' || (cc.status === 'na' && allDayCompletions[ck] !== 'complete')) {
+                    allDayCompletions[ck] = cc.status;
+                }
+            }
+        }
         var deptTasksList = getTasksForDept(selectedDept);
         var incompleteCap = 20;
         var incompleteExtras = [];
@@ -440,26 +453,30 @@ function DailyBoardTab(props) {
         for (var ic = searchStart; ic < trailStart; ic++) {
             var icm = masterSeq[ic];
             if (trailingSet[icm.serialNumber || '']) continue;
-            // Check if incomplete: completion % < 100 and not all-N/A
-            var pct = stbCalcCompletionPct(deptTasksList, dayCompletions, icm.serialNumber || '', selectedDept);
-            // pct === 100 means done or all-NA (our function returns 100 if total===0)
-            // We need to also check if there are any actual tasks (not all NA)
+            // Check if incomplete using allDayCompletions (not day-filtered)
+            var pct = stbCalcCompletionPct(deptTasksList, allDayCompletions, icm.serialNumber || '', selectedDept);
             var hasRealTasks = false;
             for (var ti = 0; ti < deptTasksList.length; ti++) {
                 if (deptTasksList[ti].id === TRAVELER_SIGNED_ID || deptTasksList[ti].id === NON_CONFORMANCE_ID) continue;
                 var ckey = (icm.serialNumber || '') + '|' + selectedDept + '|' + deptTasksList[ti].id;
-                var st = dayCompletions[ckey] || 'not_started';
+                var st = allDayCompletions[ckey] || 'not_started';
                 if (st !== 'na') { hasRealTasks = true; break; }
             }
             if (hasRealTasks && pct < 100) {
-                incompleteExtras.push({ serial: icm.serialNumber || '', blm: icm.hitchBLM || '', unitType: icm.unitType || '', module: icm });
+                incompleteExtras.push({ serial: icm.serialNumber || '', blm: icm.hitchBLM || '', unitType: icm.unitType || '', module: icm, _seqIdx: ic });
             }
         }
-        // Merge: incomplete extras first (earlier in sequence), then trailing N
-        result.previous = incompleteExtras.concat(previousMods);
+        // Tag trailing mods with sequence index for sorting
+        for (var pi = 0; pi < previousMods.length; pi++) {
+            previousMods[pi]._seqIdx = trailStart + pi;
+        }
+        // Merge and sort by master sequence index
+        var merged = incompleteExtras.concat(previousMods);
+        merged.sort(function(a, b) { return a._seqIdx - b._seqIdx; });
+        result.previous = merged;
 
         return result;
-    }, [selectedDept, selectedDay, weekSchedule, modules, masterSeq, baseIdx, activeDates, modulesPerDay, lineDepts, ribbonSettings, dayCompletions, allTasks]);
+    }, [selectedDept, selectedDay, weekSchedule, modules, masterSeq, baseIdx, activeDates, modulesPerDay, lineDepts, ribbonSettings, completions, dayCompletions, allTasks]);
 
     // Auto-select first module when dept changes or day changes
     useEffect(function() {

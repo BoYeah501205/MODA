@@ -2,7 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.3**
+**Current Version: 1.6.4**
+
+---
+
+## [1.6.4] - 2026-06-03
+### Fixed
+- **Daily Board ribbon PREV overflow** — Previous section was showing 15+ modules instead of the configured count. Root cause: incomplete-module check used day-filtered completions, so modules completed on earlier days appeared "incomplete." Now uses all-day completions map for the hybrid straggler check.
+- **Previous section ordering** — Modules now sorted by master sequence index instead of appearing scrambled after the hybrid union.
+- **Admin trailing count effective** — Setting was being read correctly but masked by the straggler bug; now works as expected.
 
 ---
 
