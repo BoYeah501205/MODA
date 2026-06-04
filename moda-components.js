@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-03T19:06:45.637Z
+ * Generated: 2026-06-04T14:21:36.209Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -13987,6 +13987,53 @@ const SHIFT2_DAYS = [4, 5, 6]; // Fri-Sun (dayIndex)
 var TRAVELER_SIGNED_ID = '00000000-0000-0000-0000-000000000001';
 var NON_CONFORMANCE_ID = '00000000-0000-0000-0000-000000000002';
 
+// ─── Shared Status Segmented Control (icon-only, all devices) ────────────────
+const STB_STATUS_ICONS = [{
+  key: 'not_started',
+  icon: '\u2013',
+  label: 'Not Started'
+}, {
+  key: 'wip',
+  icon: '\u25D0',
+  label: 'WIP'
+}, {
+  key: 'complete',
+  icon: '\u2713',
+  label: 'Complete'
+}, {
+  key: 'stopped',
+  icon: '\u2715',
+  label: 'Stop'
+}, {
+  key: 'na',
+  icon: 'N/A',
+  label: 'N/A'
+}];
+function StatusSeg(props) {
+  var value = props.value;
+  var onChange = props.onChange;
+  var disabled = props.disabled || false;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "status-seg",
+    role: "group",
+    "aria-label": "Task status"
+  }, STB_STATUS_ICONS.map(function (s) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: s.key,
+      "data-s": s.key,
+      className: value === s.key ? 'on' : '',
+      "aria-pressed": value === s.key,
+      "aria-label": s.label,
+      title: s.label,
+      disabled: disabled,
+      onClick: function () {
+        onChange(s.key);
+      }
+    }, s.icon);
+  }));
+}
+window.StatusSeg = StatusSeg;
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function stbIsAdmin(user) {
   if (!user) return false;
@@ -15203,62 +15250,10 @@ function DailyBoardTab(props) {
       whiteSpace: 'nowrap',
       marginRight: '2px'
     }
-  }, "Mark All:"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('not_started');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-  }, "--"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('wip');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all"
-  }, "WIP"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('complete');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-all"
-  }, "Complete"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('stopped');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
-  }, "Stop"), /*#__PURE__*/React.createElement("button", {
-    onClick: function () {
-      handleMarkAllClick('na');
-    },
-    style: {
-      padding: '4px 8px',
-      fontSize: '11px',
-      borderRadius: '6px',
-      minHeight: '30px'
-    },
-    className: "flex-1 font-semibold italic bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-  }, "N/A")) : /*#__PURE__*/React.createElement("div", {
+  }, "Mark All:"), /*#__PURE__*/React.createElement(StatusSeg, {
+    value: null,
+    onChange: handleMarkAllClick
+  })) : /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -15321,73 +15316,13 @@ function DailyBoardTab(props) {
         fontSize: '15px'
       },
       className: "text-gray-800 dark:text-gray-200"
-    }, task.task_name)), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: '6px',
-        marginTop: '4px'
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: function () {
-        handleStatusChange(task.id, 'not_started');
+    }, task.task_name)), /*#__PURE__*/React.createElement(StatusSeg, {
+      value: status,
+      onChange: function (s) {
+        handleStatusChange(task.id, s);
       },
-      disabled: isSaving,
-      style: {
-        padding: '4px 10px',
-        fontSize: '12px',
-        borderRadius: '6px',
-        minHeight: '36px'
-      },
-      className: 'flex-1 font-semibold transition-all ' + (status === 'not_started' ? 'bg-gray-500 text-white' : 'bg-transparent border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700')
-    }, "--"), /*#__PURE__*/React.createElement("button", {
-      onClick: function () {
-        handleStatusChange(task.id, 'wip');
-      },
-      disabled: isSaving,
-      style: {
-        padding: '4px 10px',
-        fontSize: '12px',
-        borderRadius: '6px',
-        minHeight: '36px'
-      },
-      className: 'flex-1 font-semibold transition-all ' + (status === 'wip' ? 'bg-amber-500 text-white' : 'bg-transparent border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30')
-    }, "WIP"), /*#__PURE__*/React.createElement("button", {
-      onClick: function () {
-        handleStatusChange(task.id, 'complete');
-      },
-      disabled: isSaving,
-      style: {
-        padding: '4px 10px',
-        fontSize: '12px',
-        borderRadius: '6px',
-        minHeight: '36px'
-      },
-      className: 'flex-1 font-semibold transition-all ' + (status === 'complete' ? 'bg-green-600 text-white' : 'bg-transparent border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30')
-    }, "Complete"), /*#__PURE__*/React.createElement("button", {
-      onClick: function () {
-        handleStatusChange(task.id, 'stopped');
-      },
-      disabled: isSaving,
-      style: {
-        padding: '4px 10px',
-        fontSize: '12px',
-        borderRadius: '6px',
-        minHeight: '36px'
-      },
-      className: 'flex-1 font-semibold transition-all ' + (status === 'stopped' ? 'bg-red-600 text-white' : 'bg-transparent border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30')
-    }, "Stop"), /*#__PURE__*/React.createElement("button", {
-      onClick: function () {
-        handleStatusChange(task.id, 'na');
-      },
-      disabled: isSaving,
-      style: {
-        padding: '4px 10px',
-        fontSize: '12px',
-        borderRadius: '6px',
-        minHeight: '36px'
-      },
-      className: 'flex-1 font-semibold italic transition-all ' + (status === 'na' ? 'bg-slate-400 text-white' : 'bg-transparent border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800')
-    }, "N/A")));
+      disabled: isSaving
+    }));
   }), selectedModule && deptTasks.length > 0 && function () {
     var travKey = selectedModule + '|' + selectedDept + '|' + TRAVELER_SIGNED_ID;
     var ncKey = selectedModule + '|' + selectedDept + '|' + NON_CONFORMANCE_ID;

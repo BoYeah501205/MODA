@@ -19,6 +19,22 @@
   cursor:pointer; touch-action:manipulation;
 }
 
+/* Status Segmented Control (icon-only, all devices) */
+.status-seg{display:flex;border:1px solid #d1d5db;border-radius:10px;
+  overflow:hidden;background:#f9fafb;flex:1;}
+.status-seg button{flex:1;min-height:44px;border:none;background:transparent;
+  color:#6b7280;font-size:16px;font-weight:700;cursor:pointer;
+  border-right:1px solid #e5e7eb;
+  display:flex;align-items:center;justify-content:center;transition:all .12s;
+  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation;}
+.status-seg button:last-child{border-right:none;}
+.status-seg button.on[data-s="not_started"]{background:#475569;color:#fff;}
+.status-seg button.on[data-s="wip"]{background:#f59e0b;color:#1a1205;}
+.status-seg button.on[data-s="complete"]{background:#22c55e;color:#fff;}
+.status-seg button.on[data-s="stopped"]{background:#ef4444;color:#fff;}
+.status-seg button.on[data-s="na"]{background:#334155;color:#e6edf7;}
+.status-seg button:disabled{opacity:0.5;cursor:not-allowed;}
+
 /* ===== SAFE AREA CSS CUSTOM PROPERTIES ===== */
 :root {
     --safe-top: env(safe-area-inset-top, 0px);

@@ -2,7 +2,13 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.7**
+**Current Version: 1.6.8**
+
+---
+
+## [1.6.8] - 2026-06-04
+### Changed
+- **Icon-only status controls** — Per-task and "Mark All:" status buttons now use compact icons on ALL devices (phone/tablet/desktop): `--` / half-circle / checkmark / X / N/A. Eliminates "CompletStop" overflow on mobile. Both locations share a single `StatusSeg` component. Full status names accessible via aria-label/title. No change to stored status values or Supabase writes.
 
 ---
 
