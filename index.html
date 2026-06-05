@@ -27,8 +27,8 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- App Version - Update this when deploying changes -->
-    <meta name="version" content="1.6.8">
-    <script>window.MODA_VERSION = '1.6.8'; window.MODA_BUILD = Date.now();</script>
+    <meta name="version" content="1.7.0">
+    <script>window.MODA_VERSION = '1.7.0'; window.MODA_BUILD = Date.now();</script>
     
     <!-- CRITICAL: Storage safety wrapper - MUST be FIRST script before ANY libraries -->
     <!-- On mobile: completely disable localStorage writes (except auth) to prevent quota errors -->
@@ -429,13 +429,7 @@
         })();
     </script>
 
-    <!-- Service Worker for instant shell load on flaky Wi-Fi -->
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () =>
-          navigator.serviceWorker.register("/sw.js").catch(console.error)
-        );
-      }
-    </script>
+    <!-- Service Worker: kill switch deployed at /sw.js clears stale caches.
+         No new SW is registered here — see sw.js for details. -->
 </body>
 </html>

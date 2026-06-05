@@ -2,7 +2,20 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.6.8**
+**Current Version: 1.7.0**
+
+---
+
+## [1.7.0] - 2026-06-05
+### Fixed
+- **Permanent CSS regression fix** — Root cause: service worker (`moda-shell-v1/v2`) cached `/index.html` which contains build-time content-hashed CSS paths (`/assets/index-HASH.css`). Each Vite deploy changes those hashes; users with a cached old `index.html` then requested CSS files that no longer existed (404) → completely unstyled page. Recurring across v1.6.4–v1.6.7 because each "fix" only bumped the cache version, which broke again on the next deploy.
+- **Kill switch SW deployed** — `sw.js` replaced with a self-destructing service worker: clears all caches, unregisters itself, forces open tabs to reload with fresh HTML+CSS. Deployed to `dist/sw.js` via `copy-assets` on every future build.
+- **VitePWA disabled** in `vite.config.ts` — was generating its own `dist/sw.js` (Workbox) which `copy-assets` overwrote with the naive caching SW; removing VitePWA eliminates the conflict. CSS compilation is unaffected (Vite uses `postcss.config.js` directly).
+- **Manual SW registration removed** from `index.html` — nothing re-installs a SW after the kill switch fires.
+
+## [1.6.9] - 2026-06-04
+### Added
+- **Bulk Status Tool (Catch-Up)** — Admin-only tool in Station Task Board Admin tab. Bulk-applies a single task status (Complete/WIP/Stop/N/A) to all tasks across every department for a chosen shift-day. Supports selectable module scope (Scheduled/Previous/Upcoming) using the same ribbon windowing logic as the Daily Board. Optional traveler sign-off toggle (independent of status choice). Confirmation dialog shows exact counts before executing. Batch upserts to `station_task_completions` via the existing write path (same conflict key, same data shape). Scoped refresh after run (no page reload). Non-admins cannot see or trigger the tool.
 
 ---
 

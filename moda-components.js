@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-04T14:21:36.209Z
+ * Generated: 2026-06-05T15:48:31.506Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -16366,6 +16366,338 @@ function HandoffReportTab(props) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BULK STATUS TOOL — Admin-only catch-up infill for a shift-day
+// ═══════════════════════════════════════════════════════════════════════════
+function BulkStatusPanel(props) {
+  var weekSchedule = props.weekSchedule;
+  var modules = props.modules;
+  var lineDepts = props.lineDepts;
+  var allTasks = props.allTasks;
+  var shifts = props.shifts;
+  var completions = props.completions;
+  var ribbonSettings = props.ribbonSettings || {
+    ribbon_trailing_count: 5,
+    ribbon_upcoming_count: 5
+  };
+  var onRefresh = props.onRefresh;
+  var currentUser = props.currentUser;
+  var [selectedShift, setSelectedShift] = useState('shift1');
+  var [selectedDate, setSelectedDate] = useState('');
+  var [bulkStatus, setBulkStatus] = useState('complete');
+  var [scopeScheduled, setScopeScheduled] = useState(true);
+  var [scopePrevious, setScopePrevious] = useState(false);
+  var [scopeUpcoming, setScopeUpcoming] = useState(false);
+  var [signTravelers, setSignTravelers] = useState(false);
+  var [running, setRunning] = useState(false);
+  var [resultMsg, setResultMsg] = useState(null);
+  var weekStart = weekSchedule ? weekSchedule.week_start : null;
+  var weekDays = useMemo(function () {
+    return stbWeekDates(weekStart);
+  }, [weekStart]);
+  var shiftDays = useMemo(function () {
+    if (selectedShift === 'shift2') {
+      return weekDays.filter(function (d) {
+        return SHIFT2_DAYS.includes(d.dayIndex);
+      });
+    }
+    return weekDays.filter(function (d) {
+      return SHIFT1_DAYS.includes(d.dayIndex);
+    });
+  }, [weekDays, selectedShift]);
+  useEffect(function () {
+    if (shiftDays.length > 0 && (!selectedDate || !shiftDays.some(function (d) {
+      return d.date === selectedDate;
+    }))) {
+      setSelectedDate(shiftDays[0].date);
+    }
+  }, [shiftDays]);
+  var masterSeq = useMemo(function () {
+    if (!modules || modules.length === 0) return [];
+    return modules.slice().sort(function (a, b) {
+      return (a.buildSequence ?? a.build_sequence ?? 0) - (b.buildSequence ?? b.build_sequence ?? 0);
+    });
+  }, [modules]);
+  var baseIdx = useMemo(function () {
+    if (!weekSchedule || !weekSchedule.starting_serial || masterSeq.length === 0) return -1;
+    var ss = (weekSchedule.starting_serial || '').trim();
+    for (var i = 0; i < masterSeq.length; i++) {
+      if ((masterSeq[i].serialNumber || '').trim() === ss) return i;
+    }
+    return -1;
+  }, [weekSchedule, masterSeq]);
+  var activeDates = useMemo(function () {
+    return stbGetActiveDates(weekDays, shifts);
+  }, [weekDays, shifts]);
+  var modulesPerDay = weekSchedule && weekSchedule.line_balance || 5;
+  function computeBulkRecords() {
+    if (!selectedDate || baseIdx < 0 || masterSeq.length === 0 || !lineDepts || lineDepts.length === 0) return null;
+    var prodDayOffset = activeDates.indexOf(selectedDate);
+    if (prodDayOffset < 0) return null;
+    var trailingCount = ribbonSettings.ribbon_trailing_count || 5;
+    var upcomingCount = ribbonSettings.ribbon_upcoming_count || 5;
+
+    // Build completions map for straggler detection (same as ribbon logic)
+    var allDayCompletions = {};
+    if (completions) {
+      for (var ci = 0; ci < completions.length; ci++) {
+        var cc = completions[ci];
+        var ck = cc.module_serial + '|' + cc.department_id + '|' + cc.task_id;
+        if (!allDayCompletions[ck] || cc.status === 'complete' || cc.status === 'na' && allDayCompletions[ck] !== 'complete') {
+          allDayCompletions[ck] = cc.status;
+        }
+      }
+    }
+    var records = [];
+    var travelerRecords = [];
+    var deptSet = {};
+    var moduleSet = {};
+    var userEmail = currentUser ? currentUser.email : 'bulk_admin';
+    var now = new Date().toISOString();
+    for (var di = 0; di < lineDepts.length; di++) {
+      var dept = lineDepts[di];
+      var stagger = dept.stagger_offset || 0;
+      var deptTasksList = allTasks ? allTasks.filter(function (t) {
+        return t.department_id === dept.id && t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID;
+      }) : [];
+      if (deptTasksList.length === 0) continue;
+      var schedStart = baseIdx + prodDayOffset * modulesPerDay + stagger;
+      var schedEnd = schedStart + modulesPerDay;
+      var deptModules = [];
+
+      // Scheduled section
+      if (scopeScheduled) {
+        for (var si = Math.max(0, schedStart); si < Math.min(schedEnd, masterSeq.length); si++) {
+          deptModules.push(masterSeq[si]);
+        }
+      }
+
+      // Previous section (trailing + incomplete stragglers — same windowing as ribbon)
+      if (scopePrevious) {
+        var trailStart = Math.max(0, schedStart - trailingCount);
+        var trailingSet = {};
+        for (var t = trailStart; t < schedStart && t < masterSeq.length; t++) {
+          if (t >= 0) {
+            deptModules.push(masterSeq[t]);
+            trailingSet[masterSeq[t].serialNumber || ''] = true;
+          }
+        }
+        var searchStart = Math.max(0, schedStart - 20);
+        for (var ic = searchStart; ic < trailStart; ic++) {
+          var icm = masterSeq[ic];
+          if (trailingSet[icm.serialNumber || '']) continue;
+          var hasRec = false;
+          for (var ti = 0; ti < deptTasksList.length; ti++) {
+            if (allDayCompletions.hasOwnProperty((icm.serialNumber || '') + '|' + dept.id + '|' + deptTasksList[ti].id)) {
+              hasRec = true;
+              break;
+            }
+          }
+          if (!hasRec) continue;
+          if (stbCalcCompletionPct(deptTasksList, allDayCompletions, icm.serialNumber || '', dept.id) < 100) {
+            deptModules.push(icm);
+          }
+        }
+      }
+
+      // Upcoming section
+      if (scopeUpcoming) {
+        for (var u = schedEnd; u < Math.min(schedEnd + upcomingCount, masterSeq.length); u++) {
+          deptModules.push(masterSeq[u]);
+        }
+      }
+
+      // Deduplicate by serial and build records
+      var seen = {};
+      for (var mi = 0; mi < deptModules.length; mi++) {
+        var serial = deptModules[mi].serialNumber || '';
+        if (!serial || seen[serial]) continue;
+        seen[serial] = true;
+        deptSet[dept.id] = true;
+        moduleSet[serial] = true;
+        for (var ti2 = 0; ti2 < deptTasksList.length; ti2++) {
+          records.push({
+            week_start: weekStart,
+            target_date: selectedDate,
+            department_id: dept.id,
+            module_serial: serial,
+            task_id: deptTasksList[ti2].id,
+            status: bulkStatus,
+            updated_by: userEmail,
+            updated_at: now
+          });
+        }
+        if (signTravelers) {
+          travelerRecords.push({
+            week_start: weekStart,
+            target_date: selectedDate,
+            department_id: dept.id,
+            module_serial: serial,
+            task_id: TRAVELER_SIGNED_ID,
+            status: 'complete',
+            updated_by: userEmail,
+            updated_at: now
+          });
+        }
+      }
+    }
+    return {
+      records: records,
+      travelerRecords: travelerRecords,
+      deptCount: Object.keys(deptSet).length,
+      moduleCount: Object.keys(moduleSet).length,
+      statusCount: records.length,
+      travelerCount: travelerRecords.length
+    };
+  }
+  function handleExecute() {
+    var computed = computeBulkRecords();
+    if (!computed || computed.records.length === 0) {
+      alert('No records to update. Check that a valid date and scope are selected.');
+      return;
+    }
+    var statusLabels = {
+      complete: 'Complete',
+      wip: 'WIP',
+      stopped: 'Stop',
+      na: 'N/A'
+    };
+    var shiftLabel = selectedShift === 'shift2' ? 'Shift 2' : 'Shift 1';
+    var msg = 'This will set ' + computed.statusCount + ' task statuses across ' + computed.deptCount + ' departments and ' + computed.moduleCount + ' modules to ' + (statusLabels[bulkStatus] || bulkStatus) + ' for ' + selectedDate + ', ' + shiftLabel + ', overwriting existing values.';
+    if (signTravelers) msg += '\n\nAnd sign ' + computed.travelerCount + ' travelers.';
+    if (!confirm(msg + '\n\nContinue?')) return;
+    setRunning(true);
+    setResultMsg(null);
+    var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
+    if (!client) {
+      setRunning(false);
+      setResultMsg('Error: Supabase client not available');
+      return;
+    }
+    var allRows = computed.records.concat(computed.travelerRecords);
+    var chunkSize = 500;
+    var chunks = [];
+    for (var i = 0; i < allRows.length; i += chunkSize) {
+      chunks.push(allRows.slice(i, i + chunkSize));
+    }
+    var failed = 0;
+    Promise.all(chunks.map(function (chunk) {
+      return client.from('station_task_completions').upsert(chunk, {
+        onConflict: 'week_start,target_date,department_id,module_serial,task_id'
+      }).then(function (res) {
+        if (res.error) throw res.error;
+      }).catch(function (err) {
+        console.error('[BulkStatus] Chunk error:', err);
+        failed += chunk.length;
+      });
+    })).then(function () {
+      setRunning(false);
+      var rmsg = 'Updated ' + computed.statusCount + ' statuses';
+      if (signTravelers) rmsg += ', signed ' + computed.travelerCount + ' travelers';
+      if (failed > 0) rmsg += ' (' + failed + ' records failed)';
+      setResultMsg(rmsg);
+      if (onRefresh) onRefresh();
+    });
+  }
+  if (!weekSchedule) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "p-3 text-xs text-gray-400 italic"
+    }, "No week schedule loaded");
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "p-3 space-y-3 border-t border-gray-200 dark:border-gray-700"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-400"
+  }, "Bulk-apply a status to all tasks for selected modules across every department. Overwrites existing values."), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1"
+  }, "Shift"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, ['shift1', 'shift2'].map(function (s) {
+    var label = s === 'shift2' ? 'Shift 2' : 'Shift 1';
+    return /*#__PURE__*/React.createElement("button", {
+      key: s,
+      onClick: function () {
+        setSelectedShift(s);
+      },
+      className: 'px-4 py-2 rounded-lg text-sm font-medium min-h-[40px] ' + (selectedShift === s ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600')
+    }, label);
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1"
+  }, "Day"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1 flex-wrap"
+  }, shiftDays.map(function (day) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: day.date,
+      onClick: function () {
+        setSelectedDate(day.date);
+      },
+      className: 'px-3 py-2 rounded-lg text-xs font-medium min-h-[40px] ' + (day.date === selectedDate ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600')
+    }, day.label + ' ' + day.dayNum);
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1"
+  }, "Status to apply"), /*#__PURE__*/React.createElement("select", {
+    value: bulkStatus,
+    onChange: function (e) {
+      setBulkStatus(e.target.value);
+    },
+    className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "complete"
+  }, "Complete"), /*#__PURE__*/React.createElement("option", {
+    value: "wip"
+  }, "WIP"), /*#__PURE__*/React.createElement("option", {
+    value: "stopped"
+  }, "Stop"), /*#__PURE__*/React.createElement("option", {
+    value: "na"
+  }, "N/A"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1"
+  }, "Module scope"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: scopeScheduled,
+    onChange: function (e) {
+      setScopeScheduled(e.target.checked);
+    }
+  }), " Scheduled"), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: scopePrevious,
+    onChange: function (e) {
+      setScopePrevious(e.target.checked);
+    }
+  }), " Previous (trailing)"), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: scopeUpcoming,
+    onChange: function (e) {
+      setScopeUpcoming(e.target.checked);
+    }
+  }), " Upcoming"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1"
+  }, "Traveler sign-off"), /*#__PURE__*/React.createElement("select", {
+    value: signTravelers ? 'sign' : 'leave',
+    onChange: function (e) {
+      setSignTravelers(e.target.value === 'sign');
+    },
+    className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "leave"
+  }, "Leave travelers untouched"), /*#__PURE__*/React.createElement("option", {
+    value: "sign"
+  }, "Sign travelers (set to Signed)"))), /*#__PURE__*/React.createElement("button", {
+    onClick: handleExecute,
+    disabled: running || !selectedDate || !scopeScheduled && !scopePrevious && !scopeUpcoming,
+    className: "w-full py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm min-h-[44px] disabled:opacity-50 transition-colors"
+  }, running ? 'Running...' : 'Apply Bulk Status'), resultMsg && /*#__PURE__*/React.createElement("div", {
+    className: 'p-2 rounded-lg text-xs font-medium ' + (resultMsg.includes('Error') || resultMsg.includes('failed') ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300')
+  }, resultMsg));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TAB 4: ADMIN
 // ═══════════════════════════════════════════════════════════════════════════
 function AdminConfigTab(props) {
@@ -16381,6 +16713,10 @@ function AdminConfigTab(props) {
     ribbon_upcoming_count: 5
   };
   var onRibbonSettingsChange = props.onRibbonSettingsChange;
+  var weekSchedule = props.weekSchedule;
+  var modules = props.modules;
+  var completions = props.completions;
+  var currentUser = props.currentUser;
   var adminScrollRef = useRef(null);
   var adminScrollPos = useRef(0);
   var [openPanel, setOpenPanel] = useState('departments');
@@ -17297,7 +17633,28 @@ function AdminConfigTab(props) {
       color: '#16a34a',
       fontWeight: 500
     }
-  }, "Saved")))));
+  }, "Saved")))), /*#__PURE__*/React.createElement("div", {
+    className: "border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      handleTogglePanel('bulkStatus');
+    },
+    className: "w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[48px]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-sm text-gray-900 dark:text-white"
+  }, "Bulk Status Tool (Catch-Up)"), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-400"
+  }, openPanel === 'bulkStatus' ? '\u25BC' : '\u25B6')), openPanel === 'bulkStatus' && /*#__PURE__*/React.createElement(BulkStatusPanel, {
+    weekSchedule: weekSchedule,
+    modules: modules,
+    lineDepts: lineDepts,
+    allTasks: allTasks,
+    shifts: shifts,
+    completions: completions,
+    ribbonSettings: ribbonSettings,
+    onRefresh: onRefresh,
+    currentUser: currentUser
+  })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -18564,6 +18921,10 @@ function StationTaskBoard(props) {
     onRefresh: handleRefresh,
     ribbonSettings: ribbonSettings,
     onRibbonSettingsChange: setRibbonSettings,
+    weekSchedule: weekSchedule,
+    modules: allModules,
+    completions: completions,
+    currentUser: currentUser,
     onTaskAdded: function (task) {
       setAllTasks(function (prev) {
         return prev.concat([task]);
