@@ -2399,6 +2399,11 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [showImportDropdown, setShowImportDropdown] = useState(false);
             const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
             
+            // Station-board data for real Stage/Progress calculation
+            const [sbDepartments, setSbDepartments] = useState([]);
+            const [sbTasks, setSbTasks] = useState([]);
+            const [sbCompletions, setSbCompletions] = useState([]);
+            
             // Close dropdown when clicking outside
             useEffect(() => {
                 const handleClickOutside = (e) => {
@@ -2409,6 +2414,34 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 document.addEventListener('click', handleClickOutside);
                 return () => document.removeEventListener('click', handleClickOutside);
             }, [showImportDropdown]);
+
+            // Load station-board data for real Stage/Progress calculation
+            useEffect(() => {
+                const proj = projects.find(p => p.id === project.id) || project;
+                const serials = (proj.modules || []).map(m => m.serialNumber).filter(Boolean);
+                if (!window.MODA_STATION_BOARD) return;
+                
+                Promise.all([
+                    window.MODA_STATION_BOARD.getDepartments(),
+                    window.MODA_STATION_BOARD.getAllTasks(),
+                    serials.length ? window.MODA_STATION_BOARD.getModuleStatusRollup(serials) : Promise.resolve([])
+                ]).then(([depts, tasks, completions]) => {
+                    // Exclude sentinel task IDs from task list
+                    const SENTINEL_1 = '00000000-0000-0000-0000-000000000001';
+                    const SENTINEL_2 = '00000000-0000-0000-0000-000000000002';
+                    const filteredTasks = (tasks || []).filter(t => t.id !== SENTINEL_1 && t.id !== SENTINEL_2);
+                    
+                    setSbDepartments(depts || []);
+                    setSbTasks(filteredTasks);
+                    setSbCompletions(completions || []);
+                    
+                    // Diagnostic logging
+                    const matchedCount = (completions || []).filter(c => serials.includes(c.module_serial)).length;
+                    console.log('[StageProg] modules:', serials.length, 'depts:', depts?.length, 'tasks:', filteredTasks?.length, 'completions matched:', matchedCount);
+                }).catch(err => {
+                    console.error('[StageProg] Failed to load station-board data:', err);
+                });
+            }, [project.id]);
 
             // Report Issue State
             const [showReportIssueModal, setShowReportIssueModal] = useState(false);
@@ -2476,6 +2509,51 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                 return matchesSearch && matchesStage && matchesDifficulty;
             });
 
+            // Compute real Stage and Progress from station_task_completions
+            const SENTINEL_1 = '00000000-0000-0000-0000-000000000001';
+            const SENTINEL_2 = '00000000-0000-0000-0000-000000000002';
+            
+            const getModuleStageAndProgress = (serial) => {
+                // Get completions for this module (exclude sentinels)
+                const moduleCompletions = (sbCompletions || []).filter(c => 
+                    c.module_serial === serial && 
+                    c.task_id !== SENTINEL_1 && 
+                    c.task_id !== SENTINEL_2
+                );
+                
+                // Stage: department with highest display_order that has ≥1 record
+                const deptIdsWithRecords = [...new Set(moduleCompletions.map(c => c.department_id))];
+                const deptMap = new Map((sbDepartments || []).map(d => [d.id, d]));
+                const deptsWithRecords = deptIdsWithRecords
+                    .map(id => deptMap.get(id))
+                    .filter(Boolean)
+                    .sort((a, b) => (b.display_order || 0) - (a.display_order || 0));
+                const currentDept = deptsWithRecords[0];
+                
+                // Progress calculation
+                const numerator = moduleCompletions.filter(c => c.status === 'complete').length;
+                const naCount = moduleCompletions.filter(c => c.status === 'na').length;
+                const totalTasks = (sbTasks || []).length;
+                const denominator = totalTasks - naCount;
+                const progress = denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+                
+                return { 
+                    stageName: currentDept?.name || '', 
+                    progress,
+                    recordCount: moduleCompletions.length 
+                };
+            };
+            
+            // Diagnostic: log first 3 modules
+            useEffect(() => {
+                if (!sbCompletions.length) return;
+                const firstThree = modules.slice(0, 3);
+                firstThree.forEach((m, i) => {
+                    const { stageName, progress, recordCount } = getModuleStageAndProgress(m.serialNumber);
+                    console.log('[StageProg] sample', m.serialNumber, 'stage:', stageName || '--', 'progress:', progress + '%', 'records:', recordCount);
+                });
+            }, [sbCompletions]);
+
             // Get current stage for display (defined before sortedModules which uses it)
             const getCurrentStage = (module) => {
                 const stageProgress = module.stageProgress || {};
@@ -2507,8 +2585,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             // Sort filtered modules
             const sortedModules = [...filteredModules].sort((a, b) => {
                 let aVal, bVal;
-                const { stage: aStage, progress: aProgress } = getCurrentStage(a);
-                const { stage: bStage, progress: bProgress } = getCurrentStage(b);
+                const { stageName: aStageName, progress: aProgress } = getModuleStageAndProgress(a.serialNumber);
+                const { stageName: bStageName, progress: bProgress } = getModuleStageAndProgress(b.serialNumber);
                 
                 switch (moduleSortField) {
                     case 'serialNumber':
@@ -2538,8 +2616,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         bVal = (b.rearBLM || '').toLowerCase();
                         break;
                     case 'stage':
-                        aVal = aStage?.name || '';
-                        bVal = bStage?.name || '';
+                        aVal = aStageName || '';
+                        bVal = bStageName || '';
                         break;
                     case 'progress':
                         aVal = aProgress || 0;
@@ -2979,7 +3057,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                         ) : viewMode === 'grid' ? (
                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {sortedModules.map(module => {
-                                    const { stage: currentStage, progress } = getCurrentStage(module);
+                                    const { stageName, progress } = getModuleStageAndProgress(module.serialNumber);
                                     const hasDifficulties = Object.values(module.difficulties || {}).some(v => v);
                                     
                                     return (
@@ -3015,9 +3093,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                     <p className="text-sm text-gray-500">Build Seq: {module.buildSequence}</p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    {currentStage && (
+                                                    {stageName && (
                                                         <span className={`px-2 py-1 text-xs rounded ${getProgressClass(progress)} ${progress === 100 ? 'text-white' : progress >= 50 ? 'text-white' : 'text-gray-800'}`}>
-                                                            {currentStage.name}
+                                                            {stageName}
                                                         </span>
                                                     )}
                                                     {/* Module Actions Menu */}
@@ -3128,7 +3206,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                             {progress > 0 && (
                                                 <div className="mt-3">
                                                     <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                                        <span>{currentStage?.name}</span>
+                                                        <span>{stageName || 'Progress'}</span>
                                                         <span>{progress}%</span>
                                                     </div>
                                                     <div className="w-full bg-gray-200 rounded-full h-2">
@@ -3177,7 +3255,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     </thead>
                                     <tbody className="divide-y">
                                         {sortedModules.map(module => {
-                                            const { stage: currentStage, progress } = getCurrentStage(module);
+                                            const { stageName, progress } = getModuleStageAndProgress(module.serialNumber);
                                             return (
                                                 <tr 
                                                     key={module.id} 
@@ -3204,9 +3282,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                                     <td className="px-4 py-3">{module.hitchBLM}</td>
                                                     <td className="px-4 py-3">{module.rearBLM}</td>
                                                     <td className="px-4 py-3">
-                                                        {currentStage && (
+                                                        {stageName && (
                                                             <span className={`px-2 py-1 text-xs rounded ${getProgressClass(progress)} ${progress >= 50 ? 'text-white' : ''}`}>
-                                                                {currentStage.name}
+                                                                {stageName}
                                                             </span>
                                                         )}
                                                     </td>

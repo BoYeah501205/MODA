@@ -484,6 +484,32 @@
         });
     }
 
+    async function getModuleStatusRollup(projectModuleSerials) {
+        if (!projectModuleSerials || projectModuleSerials.length === 0) return [];
+        const { data, error } = await getClient()
+            .from('station_task_completions')
+            .select('module_serial, status, department_id, task_id')
+            .in('module_serial', projectModuleSerials);
+        if (error) {
+            console.error('[StationBoard] getModuleStatusRollup error:', error);
+            return [];
+        }
+        return data || [];
+    }
+
+    async function getCompletionsByModule(moduleSerial) {
+        if (!moduleSerial) return [];
+        const { data, error } = await getClient()
+            .from('station_task_completions')
+            .select('*')
+            .eq('module_serial', moduleSerial);
+        if (error) {
+            console.error('[StationBoard] getCompletionsByModule error:', error);
+            return [];
+        }
+        return data || [];
+    }
+
     window.MODA_STATION_BOARD = {
         weekStart, weekDates, parseDate, fmtDate,
         getDepartments, getLineDepartments, upsertDepartment, deleteDepartment, updateStagger,
@@ -496,6 +522,7 @@
         getCompletions, upsertCompletion,
         getWeeklyReport,
         subscribeToCompletions,
+        getModuleStatusRollup, getCompletionsByModule,
     };
 
     console.log('[StationBoard] Data layer v2 ready');

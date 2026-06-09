@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-05T15:48:31.506Z
+ * Generated: 2026-06-09T04:17:46.737Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -65639,6 +65639,11 @@ function ProjectDetail({
   const [showImportDropdown, setShowImportDropdown] = useState(false);
   const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
 
+  // Station-board data for real Stage/Progress calculation
+  const [sbDepartments, setSbDepartments] = useState([]);
+  const [sbTasks, setSbTasks] = useState([]);
+  const [sbCompletions, setSbCompletions] = useState([]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = e => {
@@ -65649,6 +65654,28 @@ function ProjectDetail({
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showImportDropdown]);
+
+  // Load station-board data for real Stage/Progress calculation
+  useEffect(() => {
+    const proj = projects.find(p => p.id === project.id) || project;
+    const serials = (proj.modules || []).map(m => m.serialNumber).filter(Boolean);
+    if (!window.MODA_STATION_BOARD) return;
+    Promise.all([window.MODA_STATION_BOARD.getDepartments(), window.MODA_STATION_BOARD.getAllTasks(), serials.length ? window.MODA_STATION_BOARD.getModuleStatusRollup(serials) : Promise.resolve([])]).then(([depts, tasks, completions]) => {
+      // Exclude sentinel task IDs from task list
+      const SENTINEL_1 = '00000000-0000-0000-0000-000000000001';
+      const SENTINEL_2 = '00000000-0000-0000-0000-000000000002';
+      const filteredTasks = (tasks || []).filter(t => t.id !== SENTINEL_1 && t.id !== SENTINEL_2);
+      setSbDepartments(depts || []);
+      setSbTasks(filteredTasks);
+      setSbCompletions(completions || []);
+
+      // Diagnostic logging
+      const matchedCount = (completions || []).filter(c => serials.includes(c.module_serial)).length;
+      console.log('[StageProg] modules:', serials.length, 'depts:', depts?.length, 'tasks:', filteredTasks?.length, 'completions matched:', matchedCount);
+    }).catch(err => {
+      console.error('[StageProg] Failed to load station-board data:', err);
+    });
+  }, [project.id]);
 
   // Report Issue State
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
@@ -65705,6 +65732,46 @@ function ProjectDetail({
     return matchesSearch && matchesStage && matchesDifficulty;
   });
 
+  // Compute real Stage and Progress from station_task_completions
+  const SENTINEL_1 = '00000000-0000-0000-0000-000000000001';
+  const SENTINEL_2 = '00000000-0000-0000-0000-000000000002';
+  const getModuleStageAndProgress = serial => {
+    // Get completions for this module (exclude sentinels)
+    const moduleCompletions = (sbCompletions || []).filter(c => c.module_serial === serial && c.task_id !== SENTINEL_1 && c.task_id !== SENTINEL_2);
+
+    // Stage: department with highest display_order that has ≥1 record
+    const deptIdsWithRecords = [...new Set(moduleCompletions.map(c => c.department_id))];
+    const deptMap = new Map((sbDepartments || []).map(d => [d.id, d]));
+    const deptsWithRecords = deptIdsWithRecords.map(id => deptMap.get(id)).filter(Boolean).sort((a, b) => (b.display_order || 0) - (a.display_order || 0));
+    const currentDept = deptsWithRecords[0];
+
+    // Progress calculation
+    const numerator = moduleCompletions.filter(c => c.status === 'complete').length;
+    const naCount = moduleCompletions.filter(c => c.status === 'na').length;
+    const totalTasks = (sbTasks || []).length;
+    const denominator = totalTasks - naCount;
+    const progress = denominator > 0 ? Math.round(numerator / denominator * 100) : 0;
+    return {
+      stageName: currentDept?.name || '',
+      progress,
+      recordCount: moduleCompletions.length
+    };
+  };
+
+  // Diagnostic: log first 3 modules
+  useEffect(() => {
+    if (!sbCompletions.length) return;
+    const firstThree = modules.slice(0, 3);
+    firstThree.forEach((m, i) => {
+      const {
+        stageName,
+        progress,
+        recordCount
+      } = getModuleStageAndProgress(m.serialNumber);
+      console.log('[StageProg] sample', m.serialNumber, 'stage:', stageName || '--', 'progress:', progress + '%', 'records:', recordCount);
+    });
+  }, [sbCompletions]);
+
   // Get current stage for display (defined before sortedModules which uses it)
   const getCurrentStage = module => {
     const stageProgress = module.stageProgress || {};
@@ -65749,13 +65816,13 @@ function ProjectDetail({
   const sortedModules = [...filteredModules].sort((a, b) => {
     let aVal, bVal;
     const {
-      stage: aStage,
+      stageName: aStageName,
       progress: aProgress
-    } = getCurrentStage(a);
+    } = getModuleStageAndProgress(a.serialNumber);
     const {
-      stage: bStage,
+      stageName: bStageName,
       progress: bProgress
-    } = getCurrentStage(b);
+    } = getModuleStageAndProgress(b.serialNumber);
     switch (moduleSortField) {
       case 'serialNumber':
         aVal = (a.serialNumber || '').replace(/\D/g, '');
@@ -65784,8 +65851,8 @@ function ProjectDetail({
         bVal = (b.rearBLM || '').toLowerCase();
         break;
       case 'stage':
-        aVal = aStage?.name || '';
-        bVal = bStage?.name || '';
+        aVal = aStageName || '';
+        bVal = bStageName || '';
         break;
       case 'progress':
         aVal = aProgress || 0;
@@ -66157,9 +66224,9 @@ function ProjectDetail({
     className: "p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
   }, sortedModules.map(module => {
     const {
-      stage: currentStage,
+      stageName,
       progress
-    } = getCurrentStage(module);
+    } = getModuleStageAndProgress(module.serialNumber);
     const hasDifficulties = Object.values(module.difficulties || {}).some(v => v);
     return /*#__PURE__*/React.createElement("div", {
       key: module.id,
@@ -66187,9 +66254,9 @@ function ProjectDetail({
       className: "text-sm text-gray-500"
     }, "Build Seq: ", module.buildSequence)), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
-    }, currentStage && /*#__PURE__*/React.createElement("span", {
+    }, stageName && /*#__PURE__*/React.createElement("span", {
       className: `px-2 py-1 text-xs rounded ${getProgressClass(progress)} ${progress === 100 ? 'text-white' : progress >= 50 ? 'text-white' : 'text-gray-800'}`
-    }, currentStage.name), /*#__PURE__*/React.createElement("div", {
+    }, stageName), /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: e => {
@@ -66271,7 +66338,7 @@ function ProjectDetail({
       className: "mt-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex justify-between text-xs text-gray-500 mb-1"
-    }, /*#__PURE__*/React.createElement("span", null, currentStage?.name), /*#__PURE__*/React.createElement("span", null, progress, "%")), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("span", null, stageName || 'Progress'), /*#__PURE__*/React.createElement("span", null, progress, "%")), /*#__PURE__*/React.createElement("div", {
       className: "w-full bg-gray-200 rounded-full h-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: `h-2 rounded-full ${progress === 100 ? 'bg-green-500' : 'bg-autovol-teal'}`,
@@ -66347,9 +66414,9 @@ function ProjectDetail({
     className: "divide-y"
   }, sortedModules.map(module => {
     const {
-      stage: currentStage,
+      stageName,
       progress
-    } = getCurrentStage(module);
+    } = getModuleStageAndProgress(module.serialNumber);
     return /*#__PURE__*/React.createElement("tr", {
       key: module.id,
       onClick: () => setSelectedModule(module),
@@ -66376,9 +66443,9 @@ function ProjectDetail({
       className: "px-4 py-3"
     }, module.rearBLM), /*#__PURE__*/React.createElement("td", {
       className: "px-4 py-3"
-    }, currentStage && /*#__PURE__*/React.createElement("span", {
+    }, stageName && /*#__PURE__*/React.createElement("span", {
       className: `px-2 py-1 text-xs rounded ${getProgressClass(progress)} ${progress >= 50 ? 'text-white' : ''}`
-    }, currentStage.name)), /*#__PURE__*/React.createElement("td", {
+    }, stageName)), /*#__PURE__*/React.createElement("td", {
       className: "px-4 py-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
