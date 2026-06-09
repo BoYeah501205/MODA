@@ -2398,6 +2398,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
             const [abbreviationValue, setAbbreviationValue] = useState(project.abbreviation || '');
             const [showImportDropdown, setShowImportDropdown] = useState(false);
             const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
+            const searchInputRef = React.useRef(null);
             
             // Station-board data for real Stage/Progress calculation
             const [sbDepartments, setSbDepartments] = useState([]);
@@ -2434,12 +2435,8 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     setSbDepartments(depts || []);
                     setSbTasks(filteredTasks);
                     setSbCompletions(completions || []);
-                    
-                    // Diagnostic logging
-                    const matchedCount = (completions || []).filter(c => serials.includes(c.module_serial)).length;
-                    console.log('[StageProg] modules:', serials.length, 'depts:', depts?.length, 'tasks:', filteredTasks?.length, 'completions matched:', matchedCount);
                 }).catch(err => {
-                    console.error('[StageProg] Failed to load station-board data:', err);
+                    console.error('Failed to load station-board data:', err);
                 });
             }, [project.id]);
 
@@ -2543,16 +2540,6 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     recordCount: moduleCompletions.length 
                 };
             };
-            
-            // Diagnostic: log first 3 modules
-            useEffect(() => {
-                if (!sbCompletions.length) return;
-                const firstThree = modules.slice(0, 3);
-                firstThree.forEach((m, i) => {
-                    const { stageName, progress, recordCount } = getModuleStageAndProgress(m.serialNumber);
-                    console.log('[StageProg] sample', m.serialNumber, 'stage:', stageName || '--', 'progress:', progress + '%', 'records:', recordCount);
-                });
-            }, [sbCompletions]);
 
             // Get current stage for display (defined before sortedModules which uses it)
             const getCurrentStage = (module) => {
@@ -2917,13 +2904,31 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                     {/* Filters */}
                     <div className="bg-white rounded-lg shadow p-4">
                         <div className="flex flex-wrap items-center gap-4">
-                            <input
-                                type="text"
-                                placeholder="Search serial, BLM, unit..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="px-3 py-2 border rounded-lg flex-1 min-w-48"
-                            />
+                            <div className="relative flex-1 min-w-48">
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    placeholder="Search serial, BLM, unit..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full px-3 py-2 pr-10 border rounded-lg"
+                                />
+                                {searchTerm && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            searchInputRef.current?.focus();
+                                        }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                                        aria-label="Clear search"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={stageFilter}
                                 onChange={(e) => setStageFilter(e.target.value)}
