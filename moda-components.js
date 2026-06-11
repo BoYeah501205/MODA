@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-09T04:28:13.399Z
+ * Generated: 2026-06-11T15:26:11.100Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14348,6 +14348,17 @@ function DailyBoardTab(props) {
   var [saving, setSaving] = useState({});
   var [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
   var [showModuleInfo, setShowModuleInfo] = useState(false);
+  var [deptPanelOpen, setDeptPanelOpen] = React.useState(false);
+  var [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  React.useEffect(function () {
+    var handleResize = function () {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return function () {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
   var moduleNavRef = useRef(null);
   var [visibleCount, setVisibleCount] = useState(null);
   var [bulkConfirm, setBulkConfirm] = useState(null); // { status, timer }
@@ -14855,14 +14866,11 @@ function DailyBoardTab(props) {
   })));
 
   // ─── LEFT PANEL: Department list ─────────────────────────────────────────
+  var leftPanelClass = isMobile ? deptPanelOpen ? "fixed bottom-0 left-0 right-0 z-50 translate-y-0 transition-transform duration-300 ease-in-out bg-white border-t border-gray-200 max-h-[60vh] overflow-y-auto" : "fixed bottom-0 left-0 right-0 z-50 translate-y-full transition-transform duration-300 ease-in-out bg-white border-t border-gray-200 max-h-[60vh] overflow-y-auto" : "flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 md:w-[120px] lg:w-[var(--panel-desktop,280px)]";
   var leftPanel = /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col h-full",
-    style: {
-      width: '280px',
-      minWidth: '280px'
-    }
+    className: leftPanelClass
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
+    className: isMobile ? "" : "flex-1 overflow-y-auto"
   }, visibleDepts.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "p-4 text-xs text-gray-400 italic text-center"
   }, "No departments"), visibleDepts.map(function (dept) {
@@ -14894,7 +14902,7 @@ function DailyBoardTab(props) {
         backgroundColor: dept.color || '#6366f1'
       }
     }), /*#__PURE__*/React.createElement("span", {
-      className: 'text-sm font-semibold ' + (isActive ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300')
+      className: 'text-sm font-semibold truncate ' + (isActive ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300')
     }, dept.name)), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2 pl-5"
     }, /*#__PURE__*/React.createElement("span", {
@@ -14908,13 +14916,13 @@ function DailyBoardTab(props) {
         backgroundColor: dPct === 100 ? '#16a34a' : dPct > 50 ? '#0d9488' : dPct > 0 ? '#f59e0b' : '#e5e7eb'
       }
     })), /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-mono text-gray-500 w-8 text-right"
+      className: "text-[10px] font-mono text-gray-500 w-8 text-right hidden lg:block"
     }, dPct, "%")));
   })));
 
   // ─── RIGHT PANEL: Task checklist ─────────────────────────────────────────
   var rightPanel = /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800"
+    className: "flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800"
   }, /*#__PURE__*/React.createElement("div", {
     className: "px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
   }, /*#__PURE__*/React.createElement("div", {
@@ -15442,7 +15450,12 @@ function DailyBoardTab(props) {
   // ─── TABLET/DESKTOP: two-column side by side ─────────────────────────────
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col h-full"
-  }, daySelector, /*#__PURE__*/React.createElement("div", {
+  }, daySelector, isMobile && deptPanelOpen && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-40 bg-black/40",
+    onClick: function () {
+      setDeptPanelOpen(false);
+    }
+  }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 flex flex-col md:flex-row overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "md:hidden flex flex-col overflow-y-auto flex-1"
@@ -15466,7 +15479,15 @@ function DailyBoardTab(props) {
     }), dept.name);
   }))), rightPanel), /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex flex-1 overflow-hidden"
-  }, leftPanel, rightPanel)));
+  }, leftPanel, rightPanel)), isMobile && leftPanel, isMobile && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function () {
+      setDeptPanelOpen(function (open) {
+        return !open;
+      });
+    },
+    className: "fixed bottom-20 right-4 z-50 min-h-[44px] px-4 rounded-full bg-blue-600 text-white text-sm font-medium shadow-lg flex items-center gap-1"
+  }, deptPanelOpen ? '\u2715' : '\u2630', " Depts"));
 }
 
 // ─── buildDailyOverrides helper ────────────────────────────────────────────
@@ -64469,7 +64490,7 @@ function Dashboard({
       setActiveTab('home');
       setSelectedProject(null);
     },
-    className: `tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ${activeTab === 'home' ? 'active' : ''}`,
+    className: `tab-button min-h-[44px] flex items-center px-4 text-sm font-medium transition rounded-t-lg ${activeTab === 'home' ? 'active' : ''}`,
     style: activeTab === 'home' ? {
       backgroundColor: 'var(--autovol-teal)',
       color: 'white'
@@ -64505,7 +64526,7 @@ function Dashboard({
       setActiveTab(tab.id);
       setSelectedProject(null);
     },
-    className: `tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ${activeTab === tab.id ? 'active' : ''}`,
+    className: `tab-button min-h-[44px] flex items-center px-4 text-sm font-medium transition rounded-t-lg ${activeTab === tab.id ? 'active' : ''}`,
     style: activeTab === tab.id ? {
       backgroundColor: 'var(--autovol-red)',
       color: 'white'
@@ -64520,7 +64541,7 @@ function Dashboard({
       setActiveTab('admin');
       setSelectedProject(null);
     },
-    className: `tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ml-auto ${activeTab === 'admin' ? 'active' : ''}`,
+    className: `tab-button min-h-[44px] flex items-center px-4 text-sm font-medium transition rounded-t-lg ml-auto ${activeTab === 'admin' ? 'active' : ''}`,
     style: activeTab === 'admin' ? {
       backgroundColor: 'var(--autovol-navy)',
       color: 'white'

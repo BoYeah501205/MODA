@@ -3,6 +3,30 @@
    Mobile optimization and responsive design utilities
    ============================================================================ */
 
+/* ===== RESPONSIVE TOKENS =====
+   Single source of truth for breakpoints, touch targets, and panel widths.
+   Use these variables instead of hardcoded pixel values in component CSS.
+   ============================================================================ */
+:root {
+  --touch-min: 44px;          /* minimum tap target on any axis */
+  --panel-phone: 0px;         /* left panel width on phone — hidden by default */
+  --panel-tablet: 200px;      /* left panel width on iPad portrait */
+  --panel-desktop: 280px;     /* left panel width on desktop (current value) */
+  --bp-phone-max: 767px;
+  --bp-tablet-min: 768px;
+  --bp-tablet-max: 1023px;
+  --bp-desktop-min: 1024px;
+}
+
+/* ===== TOUCH TARGET UTILITY CLASSES ===== */
+.touch-target {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+}
+.touch-target-h {
+  min-height: var(--touch-min);
+}
+
 /* PWA Update Banner */
 .moda-update-banner{
   position:fixed; left:0; right:0;

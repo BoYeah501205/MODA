@@ -1223,7 +1223,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     {isFeatureEnabled('enableDashboardHome', auth.currentUser?.email) && (
                                         <button
                                             onClick={() => { setActiveTab('home'); setSelectedProject(null); }}
-                                            className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ${activeTab === 'home' ? 'active' : ''}`}
+                                            className={`tab-button min-h-[44px] flex items-center px-4 text-sm font-medium transition rounded-t-lg ${activeTab === 'home' ? 'active' : ''}`}
                                             style={activeTab === 'home' 
                                                 ? {backgroundColor: 'var(--autovol-teal)', color: 'white'} 
                                                 : {color: 'var(--autovol-navy)'}}
@@ -1253,7 +1253,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         <button
                                             key={tab.id}
                                             onClick={() => { setActiveTab(tab.id); setSelectedProject(null); }}
-                                            className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ${activeTab === tab.id ? 'active' : ''}`}
+                                            className={`tab-button min-h-[44px] flex items-center px-4 text-sm font-medium transition rounded-t-lg ${activeTab === tab.id ? 'active' : ''}`}
                                             style={activeTab === tab.id 
                                                 ? {backgroundColor: 'var(--autovol-red)', color: 'white'} 
                                                 : {color: 'var(--autovol-navy)'}}
@@ -1267,7 +1267,7 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         <button
                                             key="admin"
                                             onClick={() => { setActiveTab('admin'); setSelectedProject(null); }}
-                                            className={`tab-button px-4 py-3 text-sm font-medium transition rounded-t-lg ml-auto ${activeTab === 'admin' ? 'active' : ''}`}
+                                            className={`tab-button min-h-[44px] flex items-center px-4 text-sm font-medium transition rounded-t-lg ml-auto ${activeTab === 'admin' ? 'active' : ''}`}
                                             style={activeTab === 'admin' 
                                                 ? {backgroundColor: 'var(--autovol-navy)', color: 'white'} 
                                                 : {backgroundColor: 'var(--autovol-gray-bg)', color: 'var(--autovol-navy)'}}

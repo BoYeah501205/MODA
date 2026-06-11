@@ -316,6 +316,15 @@ function DailyBoardTab(props) {
     var [saving, setSaving] = useState({});
     var [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
     var [showModuleInfo, setShowModuleInfo] = useState(false);
+    var [deptPanelOpen, setDeptPanelOpen] = React.useState(false);
+    var [isMobile, setIsMobile] = React.useState(
+        typeof window !== 'undefined' && window.innerWidth < 768
+    );
+    React.useEffect(function() {
+        var handleResize = function() { setIsMobile(window.innerWidth < 768); };
+        window.addEventListener('resize', handleResize);
+        return function() { window.removeEventListener('resize', handleResize); };
+    }, []);
     var moduleNavRef = useRef(null);
     var [visibleCount, setVisibleCount] = useState(null);
     var [bulkConfirm, setBulkConfirm] = useState(null); // { status, timer }
@@ -732,10 +741,16 @@ function DailyBoardTab(props) {
     );
 
     // ─── LEFT PANEL: Department list ─────────────────────────────────────────
+    var leftPanelClass = isMobile
+        ? (deptPanelOpen
+            ? "fixed bottom-0 left-0 right-0 z-50 translate-y-0 transition-transform duration-300 ease-in-out bg-white border-t border-gray-200 max-h-[60vh] overflow-y-auto"
+            : "fixed bottom-0 left-0 right-0 z-50 translate-y-full transition-transform duration-300 ease-in-out bg-white border-t border-gray-200 max-h-[60vh] overflow-y-auto")
+        : "flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 md:w-[120px] lg:w-[var(--panel-desktop,280px)]";
+
     var leftPanel = (
-        <div className="flex flex-col h-full" style={{ width: '280px', minWidth: '280px' }}>
+        <div className={leftPanelClass}>
             {/* Department list - scrollable */}
-            <div className="flex-1 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <div className={isMobile ? "" : "flex-1 overflow-y-auto"}>
                 {visibleDepts.length === 0 && (
                     <div className="p-4 text-xs text-gray-400 italic text-center">No departments</div>
                 )}
@@ -759,14 +774,14 @@ function DailyBoardTab(props) {
                         >
                             <div className="flex items-center gap-2">
                                 <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: dept.color || '#6366f1' }} />
-                                <span className={'text-sm font-semibold ' + (isActive ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300')}>{dept.name}</span>
+                                <span className={'text-sm font-semibold truncate ' + (isActive ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300')}>{dept.name}</span>
                             </div>
                             <div className="flex items-center gap-2 pl-5">
                                 <span className="text-xs text-gray-500 dark:text-gray-400">{completeCount}/{deptMods.length} complete</span>
                                 <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                     <div className="h-full rounded-full transition-all duration-300" style={{ width: dPct + '%', backgroundColor: dPct === 100 ? '#16a34a' : dPct > 50 ? '#0d9488' : dPct > 0 ? '#f59e0b' : '#e5e7eb' }} />
                                 </div>
-                                <span className="text-[10px] font-mono text-gray-500 w-8 text-right">{dPct}%</span>
+                                <span className="text-[10px] font-mono text-gray-500 w-8 text-right hidden lg:block">{dPct}%</span>
                             </div>
                         </button>
                     );
@@ -777,7 +792,7 @@ function DailyBoardTab(props) {
 
     // ─── RIGHT PANEL: Task checklist ─────────────────────────────────────────
     var rightPanel = (
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800">
+        <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800">
             {/* Header: dept summary + module info */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                 <div className="flex items-center justify-between">
@@ -1047,6 +1062,14 @@ function DailyBoardTab(props) {
         <div className="flex flex-col h-full">
             {daySelector}
 
+            {/* Backdrop for mobile department drawer */}
+            {isMobile && deptPanelOpen && (
+                <div
+                    className="fixed inset-0 z-40 bg-black/40"
+                    onClick={function() { setDeptPanelOpen(false); }}
+                />
+            )}
+
             {/* Two-column for md+ (iPad landscape), stacked for sm (phone) */}
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
                 {/* On phone: show dept list, then module pills, then tasks stacked */}
@@ -1079,6 +1102,20 @@ function DailyBoardTab(props) {
                     {rightPanel}
                 </div>
             </div>
+
+            {/* Mobile department drawer (slide-up panel) */}
+            {isMobile && leftPanel}
+
+            {/* Floating Depts trigger button on mobile */}
+            {isMobile && (
+                <button
+                    type="button"
+                    onClick={function() { setDeptPanelOpen(function(open) { return !open; }); }}
+                    className="fixed bottom-20 right-4 z-50 min-h-[44px] px-4 rounded-full bg-blue-600 text-white text-sm font-medium shadow-lg flex items-center gap-1"
+                >
+                    {deptPanelOpen ? '\u2715' : '\u2630'} Depts
+                </button>
+            )}
         </div>
     );
 }
