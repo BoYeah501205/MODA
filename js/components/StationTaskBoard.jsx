@@ -1916,6 +1916,192 @@ function BulkStatusPanel(props) {
     var [running, setRunning] = useState(false);
     var [resultMsg, setResultMsg] = useState(null);
 
+    // Handler: Mark Current Week Complete preset
+    function handleMarkCurrentWeekComplete() {
+        // Set scope to ALL module sections
+        setScopeScheduled(true);
+        setScopePrevious(true);
+        setScopeUpcoming(true);
+        // Set status to Complete
+        setBulkStatus('complete');
+        // Sign travelers
+        setSignTravelers(true);
+        // Determine current day from shift days, fallback to first available
+        var today = stbToday();
+        var currentDay = shiftDays.find(function(d) { return d.date === today; });
+        if (currentDay) {
+            setSelectedDate(currentDay.date);
+        } else if (shiftDays.length > 0) {
+            setSelectedDate(shiftDays[0].date);
+        }
+        // Auto-detect current shift based on day
+        var dayIdx = currentDay ? currentDay.dayIndex : (shiftDays[0] ? shiftDays[0].dayIndex : -1);
+        if (dayIdx >= 0) {
+            if (SHIFT2_DAYS.includes(dayIdx)) {
+                setSelectedShift('shift2');
+            } else {
+                setSelectedShift('shift1');
+            }
+        }
+        // Trigger confirmation dialog after state updates (use timeout to ensure UI reflects changes)
+        setTimeout(function() {
+            var computed = computeBulkRecordsForAllScopes();
+            if (!computed || computed.records.length === 0) {
+                alert('No records to update. Check that a valid date and scope are selected.');
+                return;
+            }
+            var msg = 'This will set ' + computed.statusCount + ' task statuses across ' + computed.deptCount + ' departments and ' + computed.moduleCount + ' modules to Complete for ' + selectedDate + ', overwriting existing values.\n\nAnd sign ' + computed.travelerCount + ' travelers.\n\nContinue?';
+            if (confirm(msg)) {
+                executeBulkRecords(computed);
+            }
+        }, 0);
+    }
+
+    // Helper to compute records with all scopes enabled (for preset)
+    function computeBulkRecordsForAllScopes() {
+        // Temporarily scope all sections for calculation
+        var savedScheduled = scopeScheduled;
+        var savedPrevious = scopePrevious;
+        var savedUpcoming = scopeUpcoming;
+        var savedSignTravelers = signTravelers;
+        // Force all scopes on and sign travelers for calculation
+        var tempScopeScheduled = true;
+        var tempScopePrevious = true;
+        var tempScopeUpcoming = true;
+        var tempSignTravelers = true;
+        if (!selectedDate || baseIdx < 0 || masterSeq.length === 0 || !lineDepts || lineDepts.length === 0) return null;
+        var prodDayOffset = activeDates.indexOf(selectedDate);
+        if (prodDayOffset < 0) return null;
+        var trailingCount = ribbonSettings.ribbon_trailing_count || 5;
+        var upcomingCount = ribbonSettings.ribbon_upcoming_count || 5;
+        var allDayCompletions = {};
+        if (completions) {
+            for (var ci = 0; ci < completions.length; ci++) {
+                var cc = completions[ci];
+                var ck = cc.module_serial + '|' + cc.department_id + '|' + cc.task_id;
+                if (!allDayCompletions[ck] || cc.status === 'complete' || (cc.status === 'na' && allDayCompletions[ck] !== 'complete')) {
+                    allDayCompletions[ck] = cc.status;
+                }
+            }
+        }
+        var records = [];
+        var travelerRecords = [];
+        var deptSet = {};
+        var moduleSet = {};
+        var userEmail = currentUser ? currentUser.email : 'bulk_admin';
+        var now = new Date().toISOString();
+        for (var di = 0; di < lineDepts.length; di++) {
+            var dept = lineDepts[di];
+            var stagger = dept.stagger_offset || 0;
+            var deptTasksList = allTasks ? allTasks.filter(function(t) {
+                return t.department_id === dept.id && t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID;
+            }) : [];
+            if (deptTasksList.length === 0) continue;
+            var schedStart = baseIdx + (prodDayOffset * modulesPerDay) + stagger;
+            var schedEnd = schedStart + modulesPerDay;
+            var deptModules = [];
+            // Scheduled section
+            if (tempScopeScheduled) {
+                for (var si = Math.max(0, schedStart); si < Math.min(schedEnd, masterSeq.length); si++) {
+                    deptModules.push(masterSeq[si]);
+                }
+            }
+            // Previous section
+            if (tempScopePrevious) {
+                var trailStart = Math.max(0, schedStart - trailingCount);
+                var trailingSet = {};
+                for (var t = trailStart; t < schedStart && t < masterSeq.length; t++) {
+                    if (t >= 0) { deptModules.push(masterSeq[t]); trailingSet[masterSeq[t].serialNumber || ''] = true; }
+                }
+                var searchStart = Math.max(0, schedStart - 20);
+                for (var ic = searchStart; ic < trailStart; ic++) {
+                    var icm = masterSeq[ic];
+                    if (trailingSet[icm.serialNumber || '']) continue;
+                    var hasRec = false;
+                    for (var ti = 0; ti < deptTasksList.length; ti++) {
+                        if (allDayCompletions.hasOwnProperty((icm.serialNumber || '') + '|' + dept.id + '|' + deptTasksList[ti].id)) { hasRec = true; break; }
+                    }
+                    if (!hasRec) continue;
+                    if (stbCalcCompletionPct(deptTasksList, allDayCompletions, icm.serialNumber || '', dept.id) < 100) {
+                        deptModules.push(icm);
+                    }
+                }
+            }
+            // Upcoming section
+            if (tempScopeUpcoming) {
+                for (var u = schedEnd; u < Math.min(schedEnd + upcomingCount, masterSeq.length); u++) {
+                    deptModules.push(masterSeq[u]);
+                }
+            }
+            var seen = {};
+            for (var mi = 0; mi < deptModules.length; mi++) {
+                var serial = deptModules[mi].serialNumber || '';
+                if (!serial || seen[serial]) continue;
+                seen[serial] = true;
+                deptSet[dept.id] = true;
+                moduleSet[serial] = true;
+                for (var ti2 = 0; ti2 < deptTasksList.length; ti2++) {
+                    records.push({
+                        week_start: weekStart,
+                        target_date: selectedDate,
+                        department_id: dept.id,
+                        module_serial: serial,
+                        task_id: deptTasksList[ti2].id,
+                        status: 'complete',
+                        updated_by: userEmail,
+                        updated_at: now,
+                    });
+                }
+                if (tempSignTravelers) {
+                    travelerRecords.push({
+                        week_start: weekStart,
+                        target_date: selectedDate,
+                        department_id: dept.id,
+                        module_serial: serial,
+                        task_id: TRAVELER_SIGNED_ID,
+                        status: 'complete',
+                        updated_by: userEmail,
+                        updated_at: now,
+                    });
+                }
+            }
+        }
+        return {
+            records: records,
+            travelerRecords: travelerRecords,
+            deptCount: Object.keys(deptSet).length,
+            moduleCount: Object.keys(moduleSet).length,
+            statusCount: records.length,
+            travelerCount: travelerRecords.length,
+        };
+    }
+
+    // Execute bulk records (extracted from handleExecute)
+    function executeBulkRecords(computed) {
+        setRunning(true);
+        setResultMsg(null);
+        var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
+        if (!client) { setRunning(false); setResultMsg('Error: Supabase client not available'); return; }
+        var allRows = computed.records.concat(computed.travelerRecords);
+        var chunkSize = 500;
+        var chunks = [];
+        for (var i = 0; i < allRows.length; i += chunkSize) { chunks.push(allRows.slice(i, i + chunkSize)); }
+        var failed = 0;
+        Promise.all(chunks.map(function(chunk) {
+            return client.from('station_task_completions')
+                .upsert(chunk, { onConflict: 'week_start,target_date,department_id,module_serial,task_id' })
+                .then(function(res) { if (res.error) throw res.error; })
+                .catch(function(err) { console.error('[BulkStatus] Chunk error:', err); failed += chunk.length; });
+        })).then(function() {
+            setRunning(false);
+            var rmsg = 'Updated ' + computed.statusCount + ' statuses';
+            if (computed.travelerRecords.length > 0) rmsg += ', signed ' + computed.travelerCount + ' travelers';
+            if (failed > 0) rmsg += ' (' + failed + ' records failed)';
+            setResultMsg(rmsg);
+            if (onRefresh) onRefresh();
+        });
+    }
+
     var weekStart = weekSchedule ? weekSchedule.week_start : null;
     var weekDays = useMemo(function() { return stbWeekDates(weekStart); }, [weekStart]);
 
@@ -2121,6 +2307,23 @@ function BulkStatusPanel(props) {
 
     return (
         <div className="p-3 space-y-3 border-t border-gray-200 dark:border-gray-700">
+            {/* Quick Preset: Mark Current Week Complete */}
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs font-medium text-amber-800 mb-2">Quick Preset</p>
+                <button
+                    type="button"
+                    onClick={handleMarkCurrentWeekComplete}
+                    disabled={running}
+                    className="w-full min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                    Mark Current Week Complete
+                </button>
+                <p className="text-xs text-amber-700 mt-1">
+                    Sets all tasks to Complete for all modules on the active week.
+                    You will be asked to confirm before any changes are saved.
+                </p>
+            </div>
+
             <p className="text-xs text-gray-400">Bulk-apply a status to all tasks for selected modules across every department. Overwrites existing values.</p>
 
             <div>
