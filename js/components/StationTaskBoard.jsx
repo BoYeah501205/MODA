@@ -2078,6 +2078,8 @@ function BulkStatusPanel(props) {
 
     // Execute bulk records (extracted from handleExecute)
     function executeBulkRecords(computed) {
+        console.log('BULK WRITE START — rows:', computed.records.length + computed.travelerRecords.length);
+        try {
         setRunning(true);
         setResultMsg(null);
         var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
@@ -2090,9 +2092,15 @@ function BulkStatusPanel(props) {
         Promise.all(chunks.map(function(chunk) {
             return client.from('station_task_completions')
                 .upsert(chunk, { onConflict: 'week_start,target_date,department_id,module_serial,task_id' })
-                .then(function(res) { if (res.error) throw res.error; })
+                .then(function(res) { 
+                    if (res.error) {
+                        console.error('BULK WRITE ERROR:', res.error, res.data);
+                        throw res.error;
+                    }
+                })
                 .catch(function(err) { console.error('[BulkStatus] Chunk error:', err); failed += chunk.length; });
         })).then(function() {
+            console.log('BULK WRITE DONE');
             setRunning(false);
             var rmsg = 'Updated ' + computed.statusCount + ' statuses';
             if (computed.travelerRecords.length > 0) rmsg += ', signed ' + computed.travelerCount + ' travelers';
@@ -2100,6 +2108,7 @@ function BulkStatusPanel(props) {
             setResultMsg(rmsg);
             if (onRefresh) onRefresh();
         });
+        } catch(err) { console.error('BULK WRITE EXCEPTION:', err); }
     }
 
     var weekStart = weekSchedule ? weekSchedule.week_start : null;
@@ -2263,6 +2272,11 @@ function BulkStatusPanel(props) {
     }
 
     function handleExecute() {
+        console.log('BULK WRITE START — rows:', (function() {
+            var c = computeBulkRecords();
+            return c ? c.records.length + c.travelerRecords.length : 0;
+        })());
+        try {
         var computed = computeBulkRecords();
         if (!computed || computed.records.length === 0) {
             alert('No records to update. Check that a valid date and scope are selected.');
@@ -2289,9 +2303,15 @@ function BulkStatusPanel(props) {
         Promise.all(chunks.map(function(chunk) {
             return client.from('station_task_completions')
                 .upsert(chunk, { onConflict: 'week_start,target_date,department_id,module_serial,task_id' })
-                .then(function(res) { if (res.error) throw res.error; })
+                .then(function(res) { 
+                    if (res.error) {
+                        console.error('BULK WRITE ERROR:', res.error, res.data);
+                        throw res.error;
+                    }
+                })
                 .catch(function(err) { console.error('[BulkStatus] Chunk error:', err); failed += chunk.length; });
         })).then(function() {
+            console.log('BULK WRITE DONE');
             setRunning(false);
             var rmsg = 'Updated ' + computed.statusCount + ' statuses';
             if (signTravelers) rmsg += ', signed ' + computed.travelerCount + ' travelers';
@@ -2299,6 +2319,7 @@ function BulkStatusPanel(props) {
             setResultMsg(rmsg);
             if (onRefresh) onRefresh();
         });
+        } catch(err) { console.error('BULK WRITE EXCEPTION:', err); }
     }
 
     if (!weekSchedule) {

@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-11T17:48:56.878Z
+ * Generated: 2026-06-12T16:02:49.762Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -16582,38 +16582,47 @@ function BulkStatusPanel(props) {
 
   // Execute bulk records (extracted from handleExecute)
   function executeBulkRecords(computed) {
-    setRunning(true);
-    setResultMsg(null);
-    var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
-    if (!client) {
-      setRunning(false);
-      setResultMsg('Error: Supabase client not available');
-      return;
-    }
-    var allRows = computed.records.concat(computed.travelerRecords);
-    var chunkSize = 500;
-    var chunks = [];
-    for (var i = 0; i < allRows.length; i += chunkSize) {
-      chunks.push(allRows.slice(i, i + chunkSize));
-    }
-    var failed = 0;
-    Promise.all(chunks.map(function (chunk) {
-      return client.from('station_task_completions').upsert(chunk, {
-        onConflict: 'week_start,target_date,department_id,module_serial,task_id'
-      }).then(function (res) {
-        if (res.error) throw res.error;
-      }).catch(function (err) {
-        console.error('[BulkStatus] Chunk error:', err);
-        failed += chunk.length;
+    console.log('BULK WRITE START — rows:', computed.records.length + computed.travelerRecords.length);
+    try {
+      setRunning(true);
+      setResultMsg(null);
+      var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
+      if (!client) {
+        setRunning(false);
+        setResultMsg('Error: Supabase client not available');
+        return;
+      }
+      var allRows = computed.records.concat(computed.travelerRecords);
+      var chunkSize = 500;
+      var chunks = [];
+      for (var i = 0; i < allRows.length; i += chunkSize) {
+        chunks.push(allRows.slice(i, i + chunkSize));
+      }
+      var failed = 0;
+      Promise.all(chunks.map(function (chunk) {
+        return client.from('station_task_completions').upsert(chunk, {
+          onConflict: 'week_start,target_date,department_id,module_serial,task_id'
+        }).then(function (res) {
+          if (res.error) {
+            console.error('BULK WRITE ERROR:', res.error, res.data);
+            throw res.error;
+          }
+        }).catch(function (err) {
+          console.error('[BulkStatus] Chunk error:', err);
+          failed += chunk.length;
+        });
+      })).then(function () {
+        console.log('BULK WRITE DONE');
+        setRunning(false);
+        var rmsg = 'Updated ' + computed.statusCount + ' statuses';
+        if (computed.travelerRecords.length > 0) rmsg += ', signed ' + computed.travelerCount + ' travelers';
+        if (failed > 0) rmsg += ' (' + failed + ' records failed)';
+        setResultMsg(rmsg);
+        if (onRefresh) onRefresh();
       });
-    })).then(function () {
-      setRunning(false);
-      var rmsg = 'Updated ' + computed.statusCount + ' statuses';
-      if (computed.travelerRecords.length > 0) rmsg += ', signed ' + computed.travelerCount + ' travelers';
-      if (failed > 0) rmsg += ' (' + failed + ' records failed)';
-      setResultMsg(rmsg);
-      if (onRefresh) onRefresh();
-    });
+    } catch (err) {
+      console.error('BULK WRITE EXCEPTION:', err);
+    }
   }
   var weekStart = weekSchedule ? weekSchedule.week_start : null;
   var weekDays = useMemo(function () {
@@ -16775,53 +16784,65 @@ function BulkStatusPanel(props) {
     };
   }
   function handleExecute() {
-    var computed = computeBulkRecords();
-    if (!computed || computed.records.length === 0) {
-      alert('No records to update. Check that a valid date and scope are selected.');
-      return;
-    }
-    var statusLabels = {
-      complete: 'Complete',
-      wip: 'WIP',
-      stopped: 'Stop',
-      na: 'N/A'
-    };
-    var shiftLabel = selectedShift === 'shift2' ? 'Shift 2' : 'Shift 1';
-    var msg = 'This will set ' + computed.statusCount + ' task statuses across ' + computed.deptCount + ' departments and ' + computed.moduleCount + ' modules to ' + (statusLabels[bulkStatus] || bulkStatus) + ' for ' + selectedDate + ', ' + shiftLabel + ', overwriting existing values.';
-    if (signTravelers) msg += '\n\nAnd sign ' + computed.travelerCount + ' travelers.';
-    if (!confirm(msg + '\n\nContinue?')) return;
-    setRunning(true);
-    setResultMsg(null);
-    var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
-    if (!client) {
-      setRunning(false);
-      setResultMsg('Error: Supabase client not available');
-      return;
-    }
-    var allRows = computed.records.concat(computed.travelerRecords);
-    var chunkSize = 500;
-    var chunks = [];
-    for (var i = 0; i < allRows.length; i += chunkSize) {
-      chunks.push(allRows.slice(i, i + chunkSize));
-    }
-    var failed = 0;
-    Promise.all(chunks.map(function (chunk) {
-      return client.from('station_task_completions').upsert(chunk, {
-        onConflict: 'week_start,target_date,department_id,module_serial,task_id'
-      }).then(function (res) {
-        if (res.error) throw res.error;
-      }).catch(function (err) {
-        console.error('[BulkStatus] Chunk error:', err);
-        failed += chunk.length;
+    console.log('BULK WRITE START — rows:', function () {
+      var c = computeBulkRecords();
+      return c ? c.records.length + c.travelerRecords.length : 0;
+    }());
+    try {
+      var computed = computeBulkRecords();
+      if (!computed || computed.records.length === 0) {
+        alert('No records to update. Check that a valid date and scope are selected.');
+        return;
+      }
+      var statusLabels = {
+        complete: 'Complete',
+        wip: 'WIP',
+        stopped: 'Stop',
+        na: 'N/A'
+      };
+      var shiftLabel = selectedShift === 'shift2' ? 'Shift 2' : 'Shift 1';
+      var msg = 'This will set ' + computed.statusCount + ' task statuses across ' + computed.deptCount + ' departments and ' + computed.moduleCount + ' modules to ' + (statusLabels[bulkStatus] || bulkStatus) + ' for ' + selectedDate + ', ' + shiftLabel + ', overwriting existing values.';
+      if (signTravelers) msg += '\n\nAnd sign ' + computed.travelerCount + ' travelers.';
+      if (!confirm(msg + '\n\nContinue?')) return;
+      setRunning(true);
+      setResultMsg(null);
+      var client = window.MODA_SUPABASE && window.MODA_SUPABASE.client ? window.MODA_SUPABASE.client : window.supabaseClient;
+      if (!client) {
+        setRunning(false);
+        setResultMsg('Error: Supabase client not available');
+        return;
+      }
+      var allRows = computed.records.concat(computed.travelerRecords);
+      var chunkSize = 500;
+      var chunks = [];
+      for (var i = 0; i < allRows.length; i += chunkSize) {
+        chunks.push(allRows.slice(i, i + chunkSize));
+      }
+      var failed = 0;
+      Promise.all(chunks.map(function (chunk) {
+        return client.from('station_task_completions').upsert(chunk, {
+          onConflict: 'week_start,target_date,department_id,module_serial,task_id'
+        }).then(function (res) {
+          if (res.error) {
+            console.error('BULK WRITE ERROR:', res.error, res.data);
+            throw res.error;
+          }
+        }).catch(function (err) {
+          console.error('[BulkStatus] Chunk error:', err);
+          failed += chunk.length;
+        });
+      })).then(function () {
+        console.log('BULK WRITE DONE');
+        setRunning(false);
+        var rmsg = 'Updated ' + computed.statusCount + ' statuses';
+        if (signTravelers) rmsg += ', signed ' + computed.travelerCount + ' travelers';
+        if (failed > 0) rmsg += ' (' + failed + ' records failed)';
+        setResultMsg(rmsg);
+        if (onRefresh) onRefresh();
       });
-    })).then(function () {
-      setRunning(false);
-      var rmsg = 'Updated ' + computed.statusCount + ' statuses';
-      if (signTravelers) rmsg += ', signed ' + computed.travelerCount + ' travelers';
-      if (failed > 0) rmsg += ' (' + failed + ' records failed)';
-      setResultMsg(rmsg);
-      if (onRefresh) onRefresh();
-    });
+    } catch (err) {
+      console.error('BULK WRITE EXCEPTION:', err);
+    }
   }
   if (!weekSchedule) {
     return /*#__PURE__*/React.createElement("div", {
