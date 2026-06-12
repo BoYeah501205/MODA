@@ -1997,17 +1997,20 @@ function BulkStatusPanel(props) {
                 return t.department_id === dept.id && t.id !== TRAVELER_SIGNED_ID && t.id !== NON_CONFORMANCE_ID;
             }) : [];
             if (deptTasksList.length === 0) continue;
-            var schedStart = baseIdx + (prodDayOffset * modulesPerDay) + stagger;
-            var schedEnd = schedStart + modulesPerDay;
+
+            // Use the SAME module selection logic as the daily board (stbDeptModulesForDay)
             var deptModules = [];
-            // Scheduled section
+
+            // Scheduled section — use shared helper for correct stagger offset
             if (tempScopeScheduled) {
-                for (var si = Math.max(0, schedStart); si < Math.min(schedEnd, masterSeq.length); si++) {
-                    deptModules.push(masterSeq[si]);
-                }
+                var schedMods = stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, stagger);
+                deptModules = deptModules.concat(schedMods);
             }
-            // Previous section
+
+            // Previous section (trailing + incomplete stragglers)
             if (tempScopePrevious) {
+                var dayStart = baseIdx + (prodDayOffset * modulesPerDay);
+                var schedStart = dayStart + stagger;
                 var trailStart = Math.max(0, schedStart - trailingCount);
                 var trailingSet = {};
                 for (var t = trailStart; t < schedStart && t < masterSeq.length; t++) {
@@ -2027,12 +2030,17 @@ function BulkStatusPanel(props) {
                     }
                 }
             }
+
             // Upcoming section
             if (tempScopeUpcoming) {
+                var dayStart = baseIdx + (prodDayOffset * modulesPerDay);
+                var schedStart = dayStart + stagger;
+                var schedEnd = schedStart + modulesPerDay;
                 for (var u = schedEnd; u < Math.min(schedEnd + upcomingCount, masterSeq.length); u++) {
                     deptModules.push(masterSeq[u]);
                 }
             }
+
             var seen = {};
             for (var mi = 0; mi < deptModules.length; mi++) {
                 var serial = deptModules[mi].serialNumber || '';
@@ -2184,19 +2192,19 @@ function BulkStatusPanel(props) {
             }) : [];
             if (deptTasksList.length === 0) continue;
 
-            var schedStart = baseIdx + (prodDayOffset * modulesPerDay) + stagger;
-            var schedEnd = schedStart + modulesPerDay;
+            // Use the SAME module selection logic as the daily board (stbDeptModulesForDay)
             var deptModules = [];
 
-            // Scheduled section
+            // Scheduled section — use shared helper for correct stagger offset
             if (scopeScheduled) {
-                for (var si = Math.max(0, schedStart); si < Math.min(schedEnd, masterSeq.length); si++) {
-                    deptModules.push(masterSeq[si]);
-                }
+                var schedMods = stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, stagger);
+                deptModules = deptModules.concat(schedMods);
             }
 
-            // Previous section (trailing + incomplete stragglers — same windowing as ribbon)
+            // Previous section (trailing + incomplete stragglers)
             if (scopePrevious) {
+                var dayStart = baseIdx + (prodDayOffset * modulesPerDay);
+                var schedStart = dayStart + stagger;
                 var trailStart = Math.max(0, schedStart - trailingCount);
                 var trailingSet = {};
                 for (var t = trailStart; t < schedStart && t < masterSeq.length; t++) {
@@ -2219,6 +2227,9 @@ function BulkStatusPanel(props) {
 
             // Upcoming section
             if (scopeUpcoming) {
+                var dayStart = baseIdx + (prodDayOffset * modulesPerDay);
+                var schedStart = dayStart + stagger;
+                var schedEnd = schedStart + modulesPerDay;
                 for (var u = schedEnd; u < Math.min(schedEnd + upcomingCount, masterSeq.length); u++) {
                     deptModules.push(masterSeq[u]);
                 }
