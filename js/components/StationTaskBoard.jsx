@@ -3755,12 +3755,18 @@ function StationTaskBoard(props) {
     }
 
     function loadCompletions(weekStart) {
+        console.log('[StationTaskBoard] loadCompletions called with weekStart:', weekStart);
         var SB = window.MODA_STATION_BOARD;
-        if (!SB || !SB.getCompletions) return;
+        if (!SB || !SB.getCompletions) {
+            console.warn('[StationTaskBoard] Station board data layer not available');
+            return;
+        }
         SB.getCompletions(weekStart).then(function(data) {
+            console.log('[StationTaskBoard] Completions loaded:', data ? data.length : 0, 'records');
             setCompletions(data || []);
         }).catch(function(err) {
             console.error('[StationTaskBoard] Completions load error:', err);
+            setCompletions([]);
         });
     }
 

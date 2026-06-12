@@ -381,13 +381,23 @@
     }
 
     async function getCompletions(ws, targetDate) {
+        // Validate week_start - must be a valid date string, never fall back to computed
+        if (!ws || !/^\d{4}-\d{2}-\d{2}$/.test(ws)) {
+            console.error('[StationBoard] getCompletions: Invalid week_start provided:', ws);
+            throw new Error('Invalid week_start: must be YYYY-MM-DD format, got: ' + ws);
+        }
+        console.log('[StationBoard] getCompletions querying week_start:', ws, targetDate ? 'target_date:' + targetDate : '(no target_date)');
         const q = getClient()
             .from('station_task_completions')
             .select('*, task:station_tasks(task_name, display_order, department_id)')
-            .eq('week_start', ws || weekStart());
+            .eq('week_start', ws);
         if (targetDate) q.eq('target_date', targetDate);
         const { data, error } = await q;
-        if (error) throw error;
+        if (error) {
+            console.error('[StationBoard] getCompletions query error:', error);
+            throw error;
+        }
+        console.log('[StationBoard] getCompletions loaded:', data ? data.length : 0, 'records for week_start:', ws);
         return data;
     }
 
@@ -447,6 +457,12 @@
     }
 
     function subscribeToCompletions(ws, callback) {
+        // Validate week_start - must be a valid date string
+        if (!ws || !/^\d{4}-\d{2}-\d{2}$/.test(ws)) {
+            console.error('[StationBoard] subscribeToCompletions: Invalid week_start provided:', ws);
+            return function() {}; // Return no-op unsubscribe
+        }
+        console.log('[StationBoard] subscribeToCompletions for week_start:', ws);
         var channelName = 'sb_completions_' + ws;
         try {
             var existing = getClient().getChannels().find(function(c) { return c.topic === 'realtime:' + channelName; });

@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-12T16:02:49.762Z
+ * Generated: 2026-06-12T17:46:59.655Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -19005,12 +19005,18 @@ function StationTaskBoard(props) {
     });
   }
   function loadCompletions(weekStart) {
+    console.log('[StationTaskBoard] loadCompletions called with weekStart:', weekStart);
     var SB = window.MODA_STATION_BOARD;
-    if (!SB || !SB.getCompletions) return;
+    if (!SB || !SB.getCompletions) {
+      console.warn('[StationTaskBoard] Station board data layer not available');
+      return;
+    }
     SB.getCompletions(weekStart).then(function (data) {
+      console.log('[StationTaskBoard] Completions loaded:', data ? data.length : 0, 'records');
       setCompletions(data || []);
     }).catch(function (err) {
       console.error('[StationTaskBoard] Completions load error:', err);
+      setCompletions([]);
     });
   }
   function subscribeToCompletions(weekStart) {
