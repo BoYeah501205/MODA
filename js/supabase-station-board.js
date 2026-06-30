@@ -340,11 +340,11 @@
         departments.forEach(dept => {
             const stagger = dept.stagger_offset ?? 0;
             const deptStartIdx = startIdx + stagger;
+            let runningOffset = 0;
             activeDates.forEach(date => {
                 const overrideKey = `${dept.id}|${date}`;
                 const count = dailyOverrides[overrideKey] ?? lineBalance;
-                const dayOffset = activeDates.indexOf(date);
-                const dayStartIdx = deptStartIdx + (dayOffset * count);
+                const dayStartIdx = deptStartIdx + runningOffset;
                 for (let i = 0; i < count; i++) {
                     const modIdx = dayStartIdx + i;
                     if (modIdx >= 0 && modIdx < sortedMods.length) {
@@ -352,6 +352,7 @@
                         assignments.push({ weekStart: ws, departmentId: dept.id, targetDate: date, moduleSerial: mod.serialNumber || mod.id, buildSequence: mod.buildSequence ?? mod.build_sequence, displayOrder: i });
                     }
                 }
+                runningOffset += count;
             });
         });
         console.log('[GenerateWeek] assignments to insert:', assignments.length);

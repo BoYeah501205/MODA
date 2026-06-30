@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-06-12T21:31:44.508Z
+ * Generated: 2026-06-30T21:14:36.333Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -15591,9 +15591,10 @@ function WeekCard(props) {
   var sortedMods = useMemo(function () {
     if (!allModules || allModules.length === 0) return [];
     return [].concat(allModules).sort(function (a, b) {
-      return (a.buildSequence || 0) - (b.buildSequence || 0);
+      return (a.buildSequence || a.build_sequence || 0) - (b.buildSequence || b.build_sequence || 0);
     });
   }, [allModules]);
+  var modulesReady = sortedMods.length > 0;
 
   // Load from schedule if exists, otherwise auto-calculate from previous week
   useEffect(function () {
@@ -15674,6 +15675,14 @@ function WeekCard(props) {
   function handleSave() {
     if (!startSerial) {
       setError('Enter a starting serial number');
+      return;
+    }
+    if (!modulesReady) {
+      setError('Module list not loaded yet — wait a moment and try again');
+      return;
+    }
+    if (startIdx === -1) {
+      setError('Serial ' + startSerial + ' not found in module list (' + sortedMods.length + ' modules loaded)');
       return;
     }
     setSaving(true);
@@ -15833,7 +15842,11 @@ function WeekCard(props) {
     },
     placeholder: "e.g. 26-0413",
     className: "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
-  }), showSuggestions && /*#__PURE__*/React.createElement("div", {
+  }), startSerial && startIdx === -1 && modulesReady && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-red-500 mt-1"
+  }, "Serial not found in ", sortedMods.length, " modules"), startSerial && !modulesReady && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-amber-500 mt-1"
+  }, "Module list loading\u2026"), showSuggestions && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto"
   }, serialSuggestions.map(function (m) {
     var sn = m.serialNumber || '';
@@ -65560,12 +65573,14 @@ function ProductionDashboard({
     lineBalance: weeklySchedule.getLineBalance()
   }) : /*#__PURE__*/React.createElement("div", {
     className: "p-8 text-center text-gray-500"
-  }, "Loading Reports Hub...")), productionTab === 'station-task-board' && /*#__PURE__*/React.createElement(StationTaskBoard, {
+  }, "Loading Reports Hub...")), productionTab === 'station-task-board' && (allModules.length > 0 ? /*#__PURE__*/React.createElement(StationTaskBoard, {
     currentUser: auth.currentUser,
     projectId: selectedProjectId,
     modules: modules,
     allModules: allModules
-  }), productionTab === 'station-board-report' && /*#__PURE__*/React.createElement(StationBoardReport, {
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center py-16 text-sm text-gray-400"
+  }, "Loading project modules...")), productionTab === 'station-board-report' && /*#__PURE__*/React.createElement(StationBoardReport, {
     currentUser: auth.currentUser,
     projectId: selectedProjectId
   }))), showReportIssueModal && reportIssueContext && (window.IssueSubmissionModal ? /*#__PURE__*/React.createElement(window.IssueSubmissionModal, {

@@ -2,7 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.7.0**
+**Current Version: 1.7.4**
+
+---
+
+## [1.7.4] - 2026-06-30
+### Fixed
+- Week Setup: per-day module start index now uses cumulative offset instead of `dayOffset * count` — fixes wrong assignments when any daily override differs from lineBalance
+- Week Setup: `WeekCard.sortedMods` sort now includes `build_sequence` (snake_case) fallback to match `generateWeekAssignments` sort order
+- Week Setup: `StationTaskBoard` guarded in App.jsx to not mount until `allModules` is populated, preventing empty `sortedMods` on first render
+- Week Setup: inline serial validation in `WeekCard` — shows red "Serial not found" feedback while typing, amber "Module list loading" state, and pre-flight save guards for all three error cases
 
 ---
 

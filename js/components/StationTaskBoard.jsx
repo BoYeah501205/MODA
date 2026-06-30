@@ -1192,9 +1192,11 @@ function WeekCard(props) {
     var sortedMods = useMemo(function() {
         if (!allModules || allModules.length === 0) return [];
         return [].concat(allModules).sort(function(a, b) {
-            return (a.buildSequence || 0) - (b.buildSequence || 0);
+            return (a.buildSequence || a.build_sequence || 0) - (b.buildSequence || b.build_sequence || 0);
         });
     }, [allModules]);
+
+    var modulesReady = sortedMods.length > 0;
 
     // Load from schedule if exists, otherwise auto-calculate from previous week
     useEffect(function() {
@@ -1269,6 +1271,8 @@ function WeekCard(props) {
     // Save Week
     function handleSave() {
         if (!startSerial) { setError('Enter a starting serial number'); return; }
+        if (!modulesReady) { setError('Module list not loaded yet — wait a moment and try again'); return; }
+        if (startIdx === -1) { setError('Serial ' + startSerial + ' not found in module list (' + sortedMods.length + ' modules loaded)'); return; }
         setSaving(true);
         setError('');
         setSuccess('');
@@ -1405,6 +1409,12 @@ function WeekCard(props) {
                             placeholder="e.g. 26-0413"
                             className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm min-h-[44px]"
                         />
+                        {startSerial && startIdx === -1 && modulesReady && (
+                            <p className="text-xs text-red-500 mt-1">Serial not found in {sortedMods.length} modules</p>
+                        )}
+                        {startSerial && !modulesReady && (
+                            <p className="text-xs text-amber-500 mt-1">Module list loading…</p>
+                        )}
                         {showSuggestions && (
                             <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                                 {serialSuggestions.map(function(m) {

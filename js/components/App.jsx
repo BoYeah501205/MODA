@@ -2054,7 +2054,9 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                     )}
                                     
                                     {productionTab === 'station-task-board' && (
-                                        <StationTaskBoard currentUser={auth.currentUser} projectId={selectedProjectId} modules={modules} allModules={allModules} />
+                                        allModules.length > 0
+                                            ? <StationTaskBoard currentUser={auth.currentUser} projectId={selectedProjectId} modules={modules} allModules={allModules} />
+                                            : <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading project modules...</div>
                                     )}
                                     
                                     {productionTab === 'station-board-report' && (
