@@ -3123,12 +3123,12 @@ function AdminConfigTab(props) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function summaryGetPctColor(pct) {
-    if (pct === 0)   return { bg: '#ffffff', text: '#bbb',    border: 'rgba(0,0,0,0.12)' };
-    if (pct < 25)    return { bg: '#EAF3DE', text: '#3B6D11', border: 'rgba(0,0,0,0.09)' };
-    if (pct < 50)    return { bg: '#C0DD97', text: '#27500A', border: 'rgba(0,0,0,0.09)' };
-    if (pct < 75)    return { bg: '#97C459', text: '#173404', border: 'rgba(0,0,0,0.09)' };
-    if (pct < 100)   return { bg: '#639922', text: '#EAF3DE', border: 'rgba(0,0,0,0.09)' };
-    return           { bg: '#27500A', text: '#C0DD97', border: 'rgba(39,80,10,0.3)' };
+    if (pct === 0)   return { bg: '#ffffff', text: '#6b7280', border: 'rgba(0,0,0,0.10)' };
+    if (pct < 25)    return { bg: '#EAF3DE', text: '#27500A', border: 'rgba(0,0,0,0.09)' };
+    if (pct < 50)    return { bg: '#D4EAB8', text: '#27500A', border: 'rgba(0,0,0,0.09)' };
+    if (pct < 75)    return { bg: '#BEE08E', text: '#173404', border: 'rgba(0,0,0,0.09)' };
+    if (pct < 100)   return { bg: '#A8D466', text: '#173404', border: 'rgba(0,0,0,0.09)' };
+    return           { bg: '#8EC840', text: '#0D2402', border: 'rgba(0,0,0,0.12)' };
 }
 
 function DailyBoardReportView(props) {
@@ -3656,20 +3656,22 @@ function WeeklySummaryTab(props) {
   .wsb-print-area, .wsb-print-area * { visibility: visible; }\
   .wsb-print-area { position: absolute; left: 0; top: 0; width: 100%; }\
   .wsb-no-print { display: none !important; }\
-  .wsb-print-header { display: block !important; margin-bottom: 6px; }\
+  .wsb-print-header { display: block !important; margin-bottom: 4px; }\
   @page { size: 17in 11in landscape; margin: 8mm; }\
   .wsb-weekly-only { display: none !important; }\
   .wsb-daily-board-only { display: block !important; }\
   .wsb-print-area table { font-size: 7px; width: 100%; }\
-  .wsb-print-area .module-tile { width: 90% !important; padding: 3px 2px !important; margin: 0 auto !important; }\
-  .wsb-print-area .mt-seq { font-size: 7px !important; line-height: 1.2 !important; padding: 0 !important; color: #000 !important; }\
-  .wsb-print-area .mt-serial { font-size: 9px !important; font-weight: 700 !important; line-height: 1.3 !important; color: #000 !important; }\
-  .wsb-print-area .mt-pct { font-size: 8px !important; font-weight: 700 !important; line-height: 1.2 !important; margin-top: 0 !important; color: #000 !important; }\
   .wsb-daily-table { table-layout: fixed !important; width: 100% !important; }\
-  .wsb-daily-table col:first-child { width: 72px !important; }\
-  .wsb-daily-table th, .wsb-daily-table td { padding: 2px 2px !important; line-height: 1.2 !important; overflow: hidden !important; }\
-  .wsb-daily-table th { font-size: 7px !important; }\
-  .wsb-daily-table td { font-size: 7px !important; }\
+  .wsb-daily-table col:first-child { width: 68px !important; }\
+  .wsb-daily-table thead tr { height: 26px !important; max-height: 26px !important; overflow: hidden !important; }\
+  .wsb-daily-table tbody tr { height: 36px !important; max-height: 36px !important; overflow: hidden !important; }\
+  .wsb-daily-table th { font-size: 6px !important; padding: 1px !important; line-height: 1.1 !important; overflow: hidden !important; }\
+  .wsb-daily-table td { font-size: 6px !important; padding: 1px !important; line-height: 1.1 !important; overflow: hidden !important; vertical-align: middle !important; }\
+  .wsb-print-area .module-tile { width: 92% !important; padding: 2px 1px !important; margin: 0 auto !important; max-height: 34px !important; overflow: hidden !important; }\
+  .wsb-print-area .mt-seq { font-size: 6px !important; line-height: 1.1 !important; padding: 0 !important; color: #000 !important; }\
+  .wsb-print-area .mt-serial { font-size: 9px !important; font-weight: 700 !important; line-height: 1.2 !important; color: #000 !important; }\
+  .wsb-print-area .mt-pct { font-size: 7px !important; font-weight: 700 !important; line-height: 1.1 !important; margin-top: 0 !important; color: #000 !important; }\
+  .wsb-print-area .module-tile > div:last-child { display: none !important; }\
 }\
 ' }} />
 

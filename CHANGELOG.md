@@ -2,7 +2,14 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.7.8**
+**Current Version: 1.7.9**
+
+---
+
+## [1.7.9] - 2025-07-01
+- `summaryGetPctColor`: lighter green ramp (max `#8EC840`) so dark text readable at all pct levels on print; 0% text changed from `#bbb` to `#6b7280`
+- Print CSS: fixed row heights (thead 26px, tbody 36px), tile `max-height: 34px`, dots row hidden on print via `> div:last-child { display: none }`
+- Print CSS: col:first-child narrowed to 68px, th/td font 6px, padding 1px, tile 92% width
 
 ---
 
