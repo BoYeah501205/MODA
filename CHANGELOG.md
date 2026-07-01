@@ -2,7 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.7.5**
+**Current Version: 1.7.6**
+
+---
+
+## [1.7.6] - 2025-07-01
+- Fix daily board report print layout: 11×17 landscape page size, compressed tile sizing (44px wide, 2px padding), tighter line heights
+- Add `className="wsb-daily-table"` to DailyBoardReportView table for print-specific column/cell targeting
+- Add `mt-seq`/`mt-serial`/`mt-pct` classNames to module tile inner divs in DailyBoardReportView
+- Consolidate two separate `@media print` blocks into one; remove duplicate `wsb-weekly-only`/`wsb-daily-board-only` rules
 
 ---
 

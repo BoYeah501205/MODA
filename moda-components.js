@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-07-01T15:48:06.085Z
+ * Generated: 2026-07-01T16:22:21.984Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -18023,6 +18023,7 @@ function DailyBoardReportView(props) {
       overflowY: 'auto'
     }
   }, /*#__PURE__*/React.createElement("table", {
+    className: "wsb-daily-table",
     style: {
       borderCollapse: 'collapse',
       width: '100%',
@@ -18195,18 +18196,21 @@ function DailyBoardReportView(props) {
             printColorAdjust: 'exact'
           }
         }, /*#__PURE__*/React.createElement("div", {
+          className: "mt-seq",
           style: {
             fontSize: '8px',
             opacity: 0.7,
             color: colors.text
           }
         }, blm), /*#__PURE__*/React.createElement("div", {
+          className: "mt-serial",
           style: {
             fontSize: '10px',
             fontWeight: 500,
             color: colors.text
           }
         }, serial), /*#__PURE__*/React.createElement("div", {
+          className: "mt-pct",
           style: {
             fontSize: '10px',
             fontWeight: 600,
@@ -18738,17 +18742,20 @@ function WeeklySummaryTab(props) {
   .wsb-print-area, .wsb-print-area * { visibility: visible; }\
   .wsb-print-area { position: absolute; left: 0; top: 0; width: 100%; }\
   .wsb-no-print { display: none !important; }\
-  .wsb-print-header { display: block !important; margin-bottom: 12px; }\
-  @page { size: A3 landscape; margin: 10mm; }\
-  .wsb-print-area table { font-size: 8px; width: 100%; }\
-  .wsb-print-area .module-tile { width: 48px; padding: 3px 2px; }\
-  .wsb-print-area .mt-serial { font-size: 8px; }\
-  .wsb-print-area .mt-pct { font-size: 9px; }\
-  .wsb-print-area .mt-seq { font-size: 7px; }\
-}\
-@media print {\
-  .wsb-daily-board-only { display: block !important; }\
+  .wsb-print-header { display: block !important; margin-bottom: 6px; }\
+  @page { size: 17in 11in landscape; margin: 8mm; }\
   .wsb-weekly-only { display: none !important; }\
+  .wsb-daily-board-only { display: block !important; }\
+  .wsb-print-area table { font-size: 7px; width: 100%; }\
+  .wsb-print-area .module-tile { width: 44px !important; padding: 2px 1px !important; margin: 0 auto !important; }\
+  .wsb-print-area .mt-serial { font-size: 7px !important; line-height: 1.2 !important; }\
+  .wsb-print-area .mt-pct { font-size: 7px !important; line-height: 1.2 !important; margin-top: 0 !important; }\
+  .wsb-print-area .mt-seq { font-size: 6px !important; line-height: 1.1 !important; }\
+  .wsb-daily-table { table-layout: fixed !important; width: 100% !important; }\
+  .wsb-daily-table col:first-child { width: 72px !important; }\
+  .wsb-daily-table th, .wsb-daily-table td { padding: 1px 1px !important; line-height: 1.2 !important; overflow: hidden !important; }\
+  .wsb-daily-table th { font-size: 7px !important; }\
+  .wsb-daily-table td { font-size: 7px !important; }\
 }\
 '
     }
