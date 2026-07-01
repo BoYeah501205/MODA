@@ -2,7 +2,15 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.7.7**
+**Current Version: 1.7.8**
+
+---
+
+## [1.7.8] - 2025-07-01
+- Daily board cells: removed fixed module column width, now fills available table width evenly via `tableLayout: fixed`
+- Module tile width changed from `66px` to `90%` of cell; padding `3px 2px` → `4px 3px`
+- Font sizes increased: `mt-seq` 7→9px, `mt-serial` 10→12px, `mt-pct` 9→11px
+- Print CSS updated to match: tile `90%` width, `mt-seq` 7px, `mt-serial` 9px, `mt-pct` 8px, cell padding `1px`→`2px`
 
 ---
 

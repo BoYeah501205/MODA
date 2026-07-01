@@ -3160,7 +3160,7 @@ function DailyBoardReportView(props) {
                     {threeDayWindow.map(function(day) {
                         var count = Math.max(1, dailyModuleCounts[day.date] || 0);
                         return Array.from({ length: count }).map(function(_, i) {
-                            return <col key={day.key + '-' + i} style={{ width: Math.max(72, Math.floor(600 / (threeDayWindow.length * count))) + 'px' }} />;
+                            return <col key={day.key + '-' + i} />;
                         });
                     })}
                 </colgroup>
@@ -3272,21 +3272,21 @@ function DailyBoardReportView(props) {
                                             <td key={day.key + '-' + i} style={{ border: cellBorder, borderLeft: borderLeftStyle, background: s.cellBg, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
                                                 <div className="module-tile" style={{
                                                     borderRadius: '5px',
-                                                    padding: '3px 2px',
+                                                    padding: '4px 3px',
                                                     margin: '1px auto',
-                                                    width: '66px',
+                                                    width: '90%',
                                                     textAlign: 'center',
                                                     background: colors.bg,
                                                     border: '1px solid ' + colors.border,
                                                     WebkitPrintColorAdjust: 'exact',
                                                     printColorAdjust: 'exact',
                                                 }}>
-                                                    <div className="mt-seq" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', fontWeight: 600, color: '#111827', lineHeight: 1.2, padding: '0 1px' }}>
+                                                    <div className="mt-seq" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: 600, color: '#111827', lineHeight: 1.2, padding: '0 1px' }}>
                                                         <span>{stbShortBLM(mod.hitchBLM || '')}</span>
                                                         <span>{stbShortBLM(mod.rearBLM || '')}</span>
                                                     </div>
-                                                    <div className="mt-serial" style={{ fontSize: '10px', fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>{serial}</div>
-                                                    <div className="mt-pct" style={{ fontSize: '9px', fontWeight: 700, color: '#111827', marginTop: '1px' }}>{pct}%</div>
+                                                    <div className="mt-serial" style={{ fontSize: '12px', fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>{serial}</div>
+                                                    <div className="mt-pct" style={{ fontSize: '11px', fontWeight: 700, color: '#111827', marginTop: '1px' }}>{pct}%</div>
                                                     {(function() {
                                                         var dots = Object.keys(DIFFICULTY_DOT_COLORS).filter(function(k) {
                                                             return mod.difficulties && mod.difficulties[k];
@@ -3661,13 +3661,13 @@ function WeeklySummaryTab(props) {
   .wsb-weekly-only { display: none !important; }\
   .wsb-daily-board-only { display: block !important; }\
   .wsb-print-area table { font-size: 7px; width: 100%; }\
-  .wsb-print-area .module-tile { width: 44px !important; padding: 2px 1px !important; margin: 0 auto !important; }\
-  .wsb-print-area .mt-seq { font-size: 6px !important; line-height: 1.1 !important; padding: 0 !important; }\
-  .wsb-print-area .mt-serial { font-size: 8px !important; font-weight: 700 !important; line-height: 1.2 !important; color: #000 !important; }\
-  .wsb-print-area .mt-pct { font-size: 7px !important; font-weight: 700 !important; line-height: 1.2 !important; margin-top: 0 !important; color: #000 !important; }\
+  .wsb-print-area .module-tile { width: 90% !important; padding: 3px 2px !important; margin: 0 auto !important; }\
+  .wsb-print-area .mt-seq { font-size: 7px !important; line-height: 1.2 !important; padding: 0 !important; color: #000 !important; }\
+  .wsb-print-area .mt-serial { font-size: 9px !important; font-weight: 700 !important; line-height: 1.3 !important; color: #000 !important; }\
+  .wsb-print-area .mt-pct { font-size: 8px !important; font-weight: 700 !important; line-height: 1.2 !important; margin-top: 0 !important; color: #000 !important; }\
   .wsb-daily-table { table-layout: fixed !important; width: 100% !important; }\
   .wsb-daily-table col:first-child { width: 72px !important; }\
-  .wsb-daily-table th, .wsb-daily-table td { padding: 1px 1px !important; line-height: 1.2 !important; overflow: hidden !important; }\
+  .wsb-daily-table th, .wsb-daily-table td { padding: 2px 2px !important; line-height: 1.2 !important; overflow: hidden !important; }\
   .wsb-daily-table th { font-size: 7px !important; }\
   .wsb-daily-table td { font-size: 7px !important; }\
 }\
