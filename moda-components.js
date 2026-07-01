@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-07-01T16:22:21.984Z
+ * Generated: 2026-07-01T17:38:30.905Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -14108,6 +14108,23 @@ function stbDeptModulesForDay(masterSeq, baseIdx, prodDayOffset, modulesPerDay, 
   }
   return result;
 }
+function stbShortBLM(blm) {
+  if (!blm) return '';
+  var m = blm.match(/^B([^L]+)L(\d+)M(\d+)/i);
+  if (!m) return blm;
+  return m[1] + '-' + m[2] + m[3];
+}
+var DIFFICULTY_DOT_COLORS = {
+  sidewall: '#f97316',
+  stair: '#a855f7',
+  hr3Wall: '#ef4444',
+  hr2Wall: '#84cc16',
+  short: '#eab308',
+  doubleStudio: '#6366f1',
+  common: '#22d3ee',
+  tile: '#ec4899',
+  sawbox: '#8b5cf6'
+};
 function stbGetActiveDates(weekDays, shifts) {
   var shiftDaySet = {};
   if (shifts) {
@@ -18186,7 +18203,7 @@ function DailyBoardReportView(props) {
           className: "module-tile",
           style: {
             borderRadius: '5px',
-            padding: '4px 3px',
+            padding: '3px 2px',
             margin: '1px auto',
             width: '66px',
             textAlign: 'center',
@@ -18198,26 +18215,59 @@ function DailyBoardReportView(props) {
         }, /*#__PURE__*/React.createElement("div", {
           className: "mt-seq",
           style: {
-            fontSize: '8px',
-            opacity: 0.7,
-            color: colors.text
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '7px',
+            fontWeight: 600,
+            color: '#111827',
+            lineHeight: 1.2,
+            padding: '0 1px'
           }
-        }, blm), /*#__PURE__*/React.createElement("div", {
+        }, /*#__PURE__*/React.createElement("span", null, stbShortBLM(mod.hitchBLM || '')), /*#__PURE__*/React.createElement("span", null, stbShortBLM(mod.rearBLM || ''))), /*#__PURE__*/React.createElement("div", {
           className: "mt-serial",
           style: {
             fontSize: '10px',
-            fontWeight: 500,
-            color: colors.text
+            fontWeight: 700,
+            color: '#111827',
+            lineHeight: 1.3
           }
         }, serial), /*#__PURE__*/React.createElement("div", {
           className: "mt-pct",
           style: {
-            fontSize: '10px',
-            fontWeight: 600,
-            marginTop: '1px',
-            color: colors.text
+            fontSize: '9px',
+            fontWeight: 700,
+            color: '#111827',
+            marginTop: '1px'
           }
-        }, pct, "%")));
+        }, pct, "%"), function () {
+          var dots = Object.keys(DIFFICULTY_DOT_COLORS).filter(function (k) {
+            return mod.difficulties && mod.difficulties[k];
+          });
+          if (dots.length === 0) return null;
+          return /*#__PURE__*/React.createElement("div", {
+            style: {
+              display: 'flex',
+              gap: '2px',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              marginTop: '2px',
+              padding: '0 1px'
+            }
+          }, dots.map(function (k) {
+            return /*#__PURE__*/React.createElement("span", {
+              key: k,
+              style: {
+                width: '5px',
+                height: '5px',
+                borderRadius: '50%',
+                background: DIFFICULTY_DOT_COLORS[k],
+                flexShrink: 0,
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }
+            });
+          }));
+        }()));
       });
     }));
   }))));
@@ -18748,9 +18798,9 @@ function WeeklySummaryTab(props) {
   .wsb-daily-board-only { display: block !important; }\
   .wsb-print-area table { font-size: 7px; width: 100%; }\
   .wsb-print-area .module-tile { width: 44px !important; padding: 2px 1px !important; margin: 0 auto !important; }\
-  .wsb-print-area .mt-serial { font-size: 7px !important; line-height: 1.2 !important; }\
-  .wsb-print-area .mt-pct { font-size: 7px !important; line-height: 1.2 !important; margin-top: 0 !important; }\
-  .wsb-print-area .mt-seq { font-size: 6px !important; line-height: 1.1 !important; }\
+  .wsb-print-area .mt-seq { font-size: 6px !important; line-height: 1.1 !important; padding: 0 !important; }\
+  .wsb-print-area .mt-serial { font-size: 8px !important; font-weight: 700 !important; line-height: 1.2 !important; color: #000 !important; }\
+  .wsb-print-area .mt-pct { font-size: 7px !important; font-weight: 700 !important; line-height: 1.2 !important; margin-top: 0 !important; color: #000 !important; }\
   .wsb-daily-table { table-layout: fixed !important; width: 100% !important; }\
   .wsb-daily-table col:first-child { width: 72px !important; }\
   .wsb-daily-table th, .wsb-daily-table td { padding: 1px 1px !important; line-height: 1.2 !important; overflow: hidden !important; }\
@@ -19154,7 +19204,7 @@ function WeeklySummaryTab(props) {
     return /*#__PURE__*/React.createElement("div", {
       key: ew.weekStart
     }, renderWeekTable(ew.rows, ew.weekLabel, depts));
-  }))), summaryView === 'daily-board' && /*#__PURE__*/React.createElement(DailyBoardReportView, {
+  }))), summaryView === 'daily-board' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(DailyBoardReportView, {
     threeDayWindow: threeDayWindow,
     dailyModuleCounts: dailyModuleCounts,
     depts: depts,
@@ -19165,7 +19215,73 @@ function WeeklySummaryTab(props) {
     summaryGetPctColor: summaryGetPctColor,
     stbDeptModulesForDay: stbDeptModulesForDay,
     deptLabel: deptLabel
-  })), showExportModal && /*#__PURE__*/React.createElement("div", {
+  }), function () {
+    var activeDots = Object.keys(DIFFICULTY_DOT_COLORS).filter(function (k) {
+      return threeDayWindow.some(function (day) {
+        var count = dailyModuleCounts[day.date] || 0;
+        if (day.prodDayOffset < 0 || baseIdx < 0 || count === 0) return false;
+        for (var i = 0; i < depts.length; i++) {
+          var mods = stbDeptModulesForDay(masterSeq, baseIdx, day.prodDayOffset, modulesPerDay, depts[i].stagger_offset || 0);
+          if (mods.some(function (m) {
+            return m.difficulties && m.difficulties[k];
+          })) return true;
+        }
+        return false;
+      });
+    });
+    if (activeDots.length === 0) return null;
+    var DIFFICULTY_LABELS = {
+      sidewall: 'Ext Sidewall',
+      stair: 'Stair',
+      hr3Wall: '3HR-Wall',
+      hr2Wall: '2HR-Wall',
+      short: 'Short',
+      doubleStudio: 'Dbl Studio',
+      common: 'Common Area',
+      tile: 'Tile',
+      sawbox: 'Sawbox'
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      className: "wsb-no-print",
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '10px',
+        padding: '8px 12px',
+        marginTop: '8px',
+        background: '#f9fafb',
+        borderRadius: '6px',
+        border: '1px solid #e5e7eb'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: '10px',
+        fontWeight: 600,
+        color: '#6b7280',
+        marginRight: '4px',
+        alignSelf: 'center'
+      }
+    }, "Difficulty indicators:"), activeDots.map(function (k) {
+      return /*#__PURE__*/React.createElement("span", {
+        key: k,
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '10px',
+          color: '#374151'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: DIFFICULTY_DOT_COLORS[k],
+          flexShrink: 0
+        }
+      }), DIFFICULTY_LABELS[k]);
+    }));
+  }())), showExportModal && /*#__PURE__*/React.createElement("div", {
     onClick: function () {
       setShowExportModal(false);
     },

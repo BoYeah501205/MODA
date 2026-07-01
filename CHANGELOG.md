@@ -2,7 +2,17 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.7.6**
+**Current Version: 1.7.7**
+
+---
+
+## [1.7.7] - 2025-07-01
+- Daily board module cells: dark fixed text (`#111827`) replaces `colors.text` for readability on all tile backgrounds
+- Hitch/rear BLM shown in short format (e.g. `1-101` from `B1L1M01`) in `mt-seq` row using new `stbShortBLM()` helper
+- Difficulty indicator dots rendered below each tile when `mod.difficulties` flags are set
+- Active difficulty legend shown below daily board table (hidden on print via `wsb-no-print`)
+- Added `DIFFICULTY_DOT_COLORS` constant at module level for shared use
+- Print CSS updated: `mt-serial` 8px bold black, `mt-pct` 7px bold black, `mt-seq` 6px with `padding: 0`
 
 ---
 
