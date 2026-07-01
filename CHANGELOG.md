@@ -2,7 +2,16 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.7.4**
+**Current Version: 1.7.5**
+
+---
+
+## [1.7.5] - 2025-07-01
+- Add Daily Board Report view to Summary tab: departments as rows, Yesterday/Today/Tomorrow as column groups, each group subdivided into per-dept stagger-aware module sub-columns with color-coded completion tiles
+- Add pill-style toggle (Daily Board / Weekly Grid) to Summary tab header
+- Add `DailyBoardReportView` component with day-themed color coding (gray/blue/green)
+- Add `threeDayWindow` and `dailyModuleCounts` memos to `WeeklySummaryTab`
+- Add print CSS for `wsb-daily-board-only` / `wsb-weekly-only` classes
 
 ---
 

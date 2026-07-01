@@ -3112,6 +3112,173 @@ function summaryGetPctColor(pct) {
     return           { bg: '#27500A', text: '#C0DD97', border: 'rgba(39,80,10,0.3)' };
 }
 
+function DailyBoardReportView(props) {
+    var threeDayWindow = props.threeDayWindow;
+    var dailyModuleCounts = props.dailyModuleCounts;
+    var depts = props.depts;
+    var masterSeq = props.masterSeq;
+    var baseIdx = props.baseIdx;
+    var modulesPerDay = props.modulesPerDay;
+    var calcPct = props.calcPct;
+    var summaryGetPctColor = props.summaryGetPctColor;
+    var stbDeptModulesForDay = props.stbDeptModulesForDay;
+    var deptLabel = props.deptLabel;
+
+    var DAY_STYLES = {
+        yesterday: { groupBg: '#F9F8F6', headerBg: '#F1EFE8', headerColor: '#5F5E5A', headerBorder: '#B4B2A9', subBg: '#F9F8F5', cellBg: '#FAFAF9' },
+        today:     { groupBg: '#F0F7FF', headerBg: '#E6F1FB', headerColor: '#185FA5', headerBorder: '#378ADD', subBg: '#F0F7FF', cellBg: '#F7FBFF' },
+        tomorrow:  { groupBg: '#F4FAF0', headerBg: '#EAF3DE', headerColor: '#3B6D11', headerBorder: '#639922', subBg: '#F4FAF0', cellBg: '#F6FCF2' },
+    };
+
+    var cellBorder = '1px solid #e5e7eb';
+    var maxCols = Math.max.apply(null, [1].concat(threeDayWindow.map(function(d) { return dailyModuleCounts[d.date] || 0; })));
+
+    return (
+        <div className="wsb-daily-board-only" style={{ flex: 1, overflowX: 'auto', overflowY: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
+                <colgroup>
+                    <col style={{ width: '110px' }} />
+                    {threeDayWindow.map(function(day) {
+                        var count = Math.max(1, dailyModuleCounts[day.date] || 0);
+                        return Array.from({ length: count }).map(function(_, i) {
+                            return <col key={day.key + '-' + i} style={{ width: Math.max(72, Math.floor(600 / (threeDayWindow.length * count))) + 'px' }} />;
+                        });
+                    })}
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th style={{ padding: '8px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#374151', background: '#f9fafb', border: cellBorder, verticalAlign: 'bottom' }}>
+                            Department
+                        </th>
+                        {threeDayWindow.map(function(day) {
+                            var count = Math.max(1, dailyModuleCounts[day.date] || 0);
+                            var s = DAY_STYLES[day.key];
+                            var isFirst = day.key === 'yesterday';
+                            return (
+                                <th
+                                    key={day.key}
+                                    colSpan={count}
+                                    style={{
+                                        padding: '6px 8px',
+                                        textAlign: 'center',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        color: s.headerColor,
+                                        background: s.headerBg,
+                                        border: cellBorder,
+                                        borderLeft: isFirst ? cellBorder : '2px solid ' + s.headerBorder,
+                                        borderBottom: '2px solid ' + s.headerBorder,
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 700 }}>{day.label}</div>
+                                    <div style={{ fontSize: '10px', fontWeight: 400, marginTop: '1px' }}>
+                                        {day.displayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    </div>
+                                    <div style={{ fontSize: '9px', marginTop: '2px', opacity: 0.75 }}>
+                                        {count} module{count !== 1 ? 's' : ''}
+                                        {day.prodDayOffset < 0 ? ' (non-production)' : ''}
+                                    </div>
+                                </th>
+                            );
+                        })}
+                    </tr>
+                    <tr>
+                        <th style={{ padding: '4px 8px', fontSize: '10px', fontWeight: 500, color: '#9ca3af', background: '#f9fafb', border: cellBorder }}>#</th>
+                        {threeDayWindow.map(function(day) {
+                            var count = Math.max(1, dailyModuleCounts[day.date] || 0);
+                            var s = DAY_STYLES[day.key];
+                            var isFirst = day.key === 'yesterday';
+                            return Array.from({ length: count }).map(function(_, i) {
+                                return (
+                                    <th
+                                        key={day.key + '-mod-' + i}
+                                        style={{
+                                            padding: '3px 4px',
+                                            textAlign: 'center',
+                                            fontSize: '9px',
+                                            fontWeight: 500,
+                                            color: s.headerColor,
+                                            background: s.subBg,
+                                            border: cellBorder,
+                                            borderLeft: (i === 0 && !isFirst) ? '2px solid ' + s.headerBorder : cellBorder,
+                                        }}
+                                    >
+                                        {'Mod ' + (i + 1)}
+                                    </th>
+                                );
+                            });
+                        })}
+                    </tr>
+                </thead>
+                <tbody>
+                    {depts.map(function(dept) {
+                        return (
+                            <tr key={dept.id}>
+                                <td style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: 500,
+                                    color: '#111827',
+                                    background: '#f9fafb',
+                                    border: cellBorder,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    maxWidth: '110px',
+                                }}>
+                                    {deptLabel(dept)}
+                                </td>
+                                {threeDayWindow.map(function(day) {
+                                    var count = Math.max(1, dailyModuleCounts[day.date] || 0);
+                                    var s = DAY_STYLES[day.key];
+                                    var isFirst = day.key === 'yesterday';
+                                    var deptMods = (day.prodDayOffset >= 0 && baseIdx >= 0)
+                                        ? stbDeptModulesForDay(masterSeq, baseIdx, day.prodDayOffset, modulesPerDay, dept.stagger_offset || 0)
+                                        : [];
+                                    return Array.from({ length: count }).map(function(_, i) {
+                                        var mod = deptMods[i] || null;
+                                        var borderLeftStyle = (i === 0 && !isFirst) ? '2px solid ' + s.headerBorder : cellBorder;
+                                        if (!mod) {
+                                            return (
+                                                <td key={day.key + '-' + i} style={{ border: cellBorder, borderLeft: borderLeftStyle, background: s.cellBg, padding: '4px', textAlign: 'center' }}>
+                                                    <span style={{ color: '#d1d5db', fontSize: '10px' }}>—</span>
+                                                </td>
+                                            );
+                                        }
+                                        var serial = mod.serialNumber || mod.serial_number || '';
+                                        var blm = mod.buildSequence || mod.build_sequence || '';
+                                        var pct = calcPct(serial, dept.id);
+                                        var colors = summaryGetPctColor(pct);
+                                        return (
+                                            <td key={day.key + '-' + i} style={{ border: cellBorder, borderLeft: borderLeftStyle, background: s.cellBg, padding: '2px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                <div className="module-tile" style={{
+                                                    borderRadius: '5px',
+                                                    padding: '4px 3px',
+                                                    margin: '1px auto',
+                                                    width: '66px',
+                                                    textAlign: 'center',
+                                                    background: colors.bg,
+                                                    border: '1px solid ' + colors.border,
+                                                    WebkitPrintColorAdjust: 'exact',
+                                                    printColorAdjust: 'exact',
+                                                }}>
+                                                    <div style={{ fontSize: '8px', opacity: 0.7, color: colors.text }}>{blm}</div>
+                                                    <div style={{ fontSize: '10px', fontWeight: 500, color: colors.text }}>{serial}</div>
+                                                    <div style={{ fontSize: '10px', fontWeight: 600, marginTop: '1px', color: colors.text }}>{pct}%</div>
+                                                </div>
+                                            </td>
+                                        );
+                                    });
+                                })}
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 function WeeklySummaryTab(props) {
     var weekSchedule = props.weekSchedule;
     var completions = props.completions;
@@ -3127,6 +3294,7 @@ function WeeklySummaryTab(props) {
     var [showExportModal, setShowExportModal] = useState(false);
     var [exportRange, setExportRange] = useState('current');
     var [exportWeekRange, setExportWeekRange] = useState('current');
+    var [summaryView, setSummaryView] = useState('daily-board');
 
     var EXPORT_OPTIONS = [
         { value: 'prev', label: 'Previous Week' },
@@ -3160,6 +3328,28 @@ function WeeklySummaryTab(props) {
     var activeDates = useMemo(function() {
         return stbGetActiveDates(weekDays, shifts);
     }, [weekDays, shifts]);
+
+    // 3-day window for Daily Board Report view (yesterday / today / tomorrow)
+    var threeDayWindow = useMemo(function() {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        function toDateStr(d) {
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var dd = String(d.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + dd;
+        }
+        var yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+        var days = [
+            { key: 'yesterday', label: 'Yesterday', date: toDateStr(yesterday), displayDate: yesterday },
+            { key: 'today',     label: 'Today',     date: toDateStr(today),     displayDate: today },
+            { key: 'tomorrow',  label: 'Tomorrow',  date: toDateStr(tomorrow),  displayDate: tomorrow },
+        ];
+        return days.map(function(d) {
+            return Object.assign({}, d, { prodDayOffset: activeDates.indexOf(d.date) });
+        });
+    }, [activeDates]);
 
     var modulesPerDay = (weekSchedule && weekSchedule.line_balance) || 5;
 
@@ -3242,6 +3432,23 @@ function WeeklySummaryTab(props) {
     }
 
     var depts = (lineDepts || []).slice().sort(function(a, b) { return (a.display_order != null ? a.display_order : 999) - (b.display_order != null ? b.display_order : 999); });
+
+    // Per-day module counts for the 3-day window (drives sub-column count)
+    var dailyModuleCounts = useMemo(function() {
+        var refDept = depts.length > 0
+            ? depts.slice().sort(function(a, b) { return (a.stagger_offset || 0) - (b.stagger_offset || 0); })[0]
+            : null;
+        var counts = {};
+        threeDayWindow.forEach(function(day) {
+            if (day.prodDayOffset < 0 || baseIdx < 0 || !refDept) {
+                counts[day.date] = 0;
+                return;
+            }
+            var mods = stbDeptModulesForDay(masterSeq, baseIdx, day.prodDayOffset, modulesPerDay, refDept.stagger_offset || 0);
+            counts[day.date] = mods.length;
+        });
+        return counts;
+    }, [threeDayWindow, depts, masterSeq, baseIdx, modulesPerDay]);
 
     var cellBorder = '1px solid #e5e7eb';
     var shift1Bg = 'rgba(24,95,165,0.025)';
@@ -3422,6 +3629,10 @@ function WeeklySummaryTab(props) {
   .wsb-print-area .mt-pct { font-size: 9px; }\
   .wsb-print-area .mt-seq { font-size: 7px; }\
 }\
+@media print {\
+  .wsb-daily-board-only { display: block !important; }\
+  .wsb-weekly-only { display: none !important; }\
+}\
 ' }} />
 
             <div className="wsb-print-area">
@@ -3437,6 +3648,33 @@ function WeeklySummaryTab(props) {
                         <div>
                             <span style={{ fontSize: '16px', fontWeight: 700 }}>Weekly Summary</span>
                             <span style={{ fontSize: '13px', marginLeft: '8px', color: '#6b7280' }}>{weekLabel}</span>
+                        </div>
+                        {/* View toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', borderRadius: '8px', padding: '2px', gap: '2px' }}>
+                            <button
+                                type="button"
+                                onClick={function() { setSummaryView('daily-board'); }}
+                                style={{
+                                    padding: '5px 12px', fontSize: '12px', fontWeight: summaryView === 'daily-board' ? 600 : 400,
+                                    borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                    background: summaryView === 'daily-board' ? '#fff' : 'transparent',
+                                    color: summaryView === 'daily-board' ? '#111827' : '#6b7280',
+                                    boxShadow: summaryView === 'daily-board' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                    transition: 'all 0.15s',
+                                }}
+                            >Daily Board</button>
+                            <button
+                                type="button"
+                                onClick={function() { setSummaryView('weekly'); }}
+                                style={{
+                                    padding: '5px 12px', fontSize: '12px', fontWeight: summaryView === 'weekly' ? 600 : 400,
+                                    borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                    background: summaryView === 'weekly' ? '#fff' : 'transparent',
+                                    color: summaryView === 'weekly' ? '#111827' : '#6b7280',
+                                    boxShadow: summaryView === 'weekly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                    transition: 'all 0.15s',
+                                }}
+                            >Weekly Grid</button>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
                             <span style={{ display: 'inline-block', width: '14px', height: '14px', background: '#ffffff', border: '1px solid #ddd', borderRadius: '3px' }} />
@@ -3467,8 +3705,9 @@ function WeeklySummaryTab(props) {
                     </div>
                 </div>
 
+                {summaryView === 'weekly' && (<>
                 {/* Table wrapper — hidden when multi-week export is active */}
-                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', display: (exportWeeks && exportWeeks.length > 0) ? 'none' : undefined }}>
+                <div className="wsb-weekly-only" style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', display: (exportWeeks && exportWeeks.length > 0) ? 'none' : undefined }}>
                     <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
                         <thead>
                             <tr>
@@ -3596,6 +3835,21 @@ function WeeklySummaryTab(props) {
                             return <div key={ew.weekStart}>{renderWeekTable(ew.rows, ew.weekLabel, depts)}</div>;
                         })}
                     </div>
+                )}
+                </>)}
+                {summaryView === 'daily-board' && (
+                    <DailyBoardReportView
+                        threeDayWindow={threeDayWindow}
+                        dailyModuleCounts={dailyModuleCounts}
+                        depts={depts}
+                        masterSeq={masterSeq}
+                        baseIdx={baseIdx}
+                        modulesPerDay={modulesPerDay}
+                        calcPct={calcPct}
+                        summaryGetPctColor={summaryGetPctColor}
+                        stbDeptModulesForDay={stbDeptModulesForDay}
+                        deptLabel={deptLabel}
+                    />
                 )}
             </div>
 
