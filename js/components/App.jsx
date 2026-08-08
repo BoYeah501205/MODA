@@ -1358,24 +1358,21 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                             )
                         )}
 
-                        {activeTab === 'qa' && (
-                            window.QAModule ? (
-                                <window.QAModule 
+                        {(activeTab === 'qa' || activeTab === 'quality') && (() => {
+                            const QAModuleComp = window.QAModule;
+                            if (!QAModuleComp) return <div className="p-8 text-gray-400">Quality module not available</div>;
+                            return (
+                                <QAModuleComp
                                     projects={projects}
                                     employees={employees}
-                                    currentUser={{ name: auth.currentUser?.name, role: auth.userRole?.name }}
+                                    currentUser={auth.currentUser}
+                                    isAdmin={auth.isAdmin}
                                     canEdit={auth.canEditTab('qa')}
+                                    selectedProject={selectedProject}
+                                    setSelectedProject={setSelectedProject}
                                 />
-                            ) : (
-                                <div className="text-center py-20">
-                                    <div className="text-6xl mb-4">
-                                        <span className="icon-qa" style={{ width: '64px', height: '64px', display: 'inline-block' }}></span>
-                                    </div>
-                                    <h2 className="text-2xl font-bold mb-2" style={{color: 'var(--autovol-navy)'}}>QA Module</h2>
-                                    <p className="text-gray-600">Loading QA Module...</p>
-                                </div>
-                            )
-                        )}
+                            );
+                        })()}
 
                         {activeTab === 'transport' && (
                             <div className="bg-white rounded-lg shadow-sm">

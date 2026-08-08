@@ -1,6 +1,6 @@
 /**
  * MODA Pre-Compiled Components
- * Generated: 2026-08-08T05:05:13.098Z
+ * Generated: 2026-08-08T06:17:01.550Z
  * 
  * This file contains all JSX components pre-compiled to JavaScript.
  * DO NOT EDIT - regenerate with: node scripts/build-jsx.cjs
@@ -23456,14 +23456,56 @@ const getQAConstants = () => window.QA_CONSTANTS || {
 };
 
 // ============================================================================
+// QA Error Boundary — catches render crashes inside the QA module
+// ============================================================================
+class QAErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      error
+    };
+  }
+  componentDidCatch(error, info) {
+    console.error('[QA] Render error caught:', error.message, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return /*#__PURE__*/React.createElement("div", {
+        className: "p-8 text-red-500"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "font-medium"
+      }, "QA section failed to load"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm mt-1"
+      }, this.state.error?.message));
+    }
+    return this.props.children;
+  }
+}
+
+// ============================================================================
 // MAIN QA MODULE COMPONENT
 // ============================================================================
 function QAModule({
   projects = [],
   employees = [],
   currentUser = {},
-  canEdit = true
+  canEdit = true,
+  isAdmin = false,
+  selectedProject: parentSelectedProject,
+  setSelectedProject: setParentSelectedProject
 }) {
+  if (!projects) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "p-8 text-gray-400"
+    }, "Loading...");
+  }
   const QA = getQAConstants();
 
   // Filter to active projects only (consistent with WeeklyBoard, DashboardHome)
@@ -23511,21 +23553,29 @@ function QAModule({
   // Load data from Supabase on mount
   React.useEffect(() => {
     const loadData = async () => {
+      let loadedFromSupabase = false;
       try {
         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
-          console.log('[QA] Loading data from Supabase...');
-          const [travelersData, deviationsData, testsData] = await Promise.all([window.MODA_SUPABASE_DATA.qa.getTravelers(), window.MODA_SUPABASE_DATA.qa.getDeviations(), window.MODA_SUPABASE_DATA.qa.getTests()]);
+          const qaDataService = window.MODA_SUPABASE_DATA.qa;
+          if (!qaDataService || typeof qaDataService.getTravelers !== 'function' || typeof qaDataService.getDeviations !== 'function' || typeof qaDataService.getTests !== 'function') {
+            console.warn('[QA] Data service not available, using localStorage fallback');
+          } else {
+            console.log('[QA] Loading data from Supabase...');
+            const [travelersData, deviationsData, testsData] = await Promise.all([qaDataService.getTravelers(), qaDataService.getDeviations(), qaDataService.getTests()]);
 
-          // Convert travelers array to object keyed by module_id
-          const travelersObj = {};
-          travelersData.forEach(t => {
-            travelersObj[t.module_id] = t.checklist || {};
-          });
-          setTravelers(travelersObj);
-          setDeviations(deviationsData);
-          setTestResults(testsData);
-          console.log('[QA] Loaded from Supabase:', travelersData.length, 'travelers,', deviationsData.length, 'deviations,', testsData.length, 'tests');
-        } else {
+            // Convert travelers array to object keyed by module_id
+            const travelersObj = {};
+            travelersData.forEach(t => {
+              travelersObj[t.module_id] = t.checklist || {};
+            });
+            setTravelers(travelersObj);
+            setDeviations(deviationsData);
+            setTestResults(testsData);
+            console.log('[QA] Loaded from Supabase:', travelersData.length, 'travelers,', deviationsData.length, 'deviations,', testsData.length, 'tests');
+            loadedFromSupabase = true;
+          }
+        }
+        if (!loadedFromSupabase) {
           // Fallback to localStorage
           console.log('[QA] Supabase not available, using localStorage');
           const savedTravelers = localStorage.getItem('moda_qa_travelers');
@@ -23556,6 +23606,7 @@ function QAModule({
 
   // Save travelers to Supabase (debounced)
   const lastSavedTravelers = React.useRef(null);
+  const syncAttempts = React.useRef({});
   React.useEffect(() => {
     if (isLoading) return;
 
@@ -23565,16 +23616,27 @@ function QAModule({
     // Sync to Supabase
     if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
       const syncTravelers = async () => {
+        const qaDataService = window.MODA_SUPABASE_DATA.qa;
+        if (!qaDataService || typeof qaDataService.saveTraveler !== 'function') {
+          console.warn('[QA] Data service not available, skipping sync');
+          return;
+        }
         const lastTravelers = lastSavedTravelers.current || {};
         for (const [moduleId, checklist] of Object.entries(travelers)) {
           if (JSON.stringify(lastTravelers[moduleId]) !== JSON.stringify(checklist)) {
+            const attempts = syncAttempts.current[moduleId] || 0;
+            if (attempts >= 3) {
+              console.warn('[QA] Max sync attempts reached for module:', moduleId);
+              continue;
+            }
             try {
-              await window.MODA_SUPABASE_DATA.qa.saveTraveler({
+              await qaDataService.saveTraveler({
                 module_id: moduleId,
                 checklist: checklist
               });
             } catch (err) {
               console.error('[QA] Error saving traveler:', err);
+              syncAttempts.current[moduleId] = attempts + 1;
             }
           }
         }
@@ -23881,8 +23943,8 @@ function QAModule({
 
   // Auth access for PhotosPanel
   const auth = window.useAuth ? window.useAuth() : {
-    currentUser: currentUser,
-    isAdmin: false
+    currentUser,
+    isAdmin
   };
 
   // Sub-tab navigation
@@ -23908,7 +23970,7 @@ function QAModule({
     label: 'Photos',
     icon: 'icon-qa'
   }];
-  return /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(QAErrorBoundary, null, /*#__PURE__*/React.createElement("div", {
     className: "qa-module"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-lg shadow-sm mb-6"
@@ -24033,7 +24095,7 @@ function QAModule({
       setShowDeviationModal(false);
     },
     QA: QA
-  }));
+  })));
 }
 
 // Make component available globally
@@ -66357,33 +66419,21 @@ function Dashboard({
     }
   }, "Executive Dashboard"), /*#__PURE__*/React.createElement("p", {
     className: "text-gray-600"
-  }, "Loading executive view..."))), activeTab === 'qa' && (window.QAModule ? /*#__PURE__*/React.createElement(window.QAModule, {
-    projects: projects,
-    employees: employees,
-    currentUser: {
-      name: auth.currentUser?.name,
-      role: auth.userRole?.name
-    },
-    canEdit: auth.canEditTab('qa')
-  }) : /*#__PURE__*/React.createElement("div", {
-    className: "text-center py-20"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-6xl mb-4"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "icon-qa",
-    style: {
-      width: '64px',
-      height: '64px',
-      display: 'inline-block'
-    }
-  })), /*#__PURE__*/React.createElement("h2", {
-    className: "text-2xl font-bold mb-2",
-    style: {
-      color: 'var(--autovol-navy)'
-    }
-  }, "QA Module"), /*#__PURE__*/React.createElement("p", {
-    className: "text-gray-600"
-  }, "Loading QA Module..."))), activeTab === 'transport' && /*#__PURE__*/React.createElement("div", {
+  }, "Loading executive view..."))), (activeTab === 'qa' || activeTab === 'quality') && (() => {
+    const QAModuleComp = window.QAModule;
+    if (!QAModuleComp) return /*#__PURE__*/React.createElement("div", {
+      className: "p-8 text-gray-400"
+    }, "Quality module not available");
+    return /*#__PURE__*/React.createElement(QAModuleComp, {
+      projects: projects,
+      employees: employees,
+      currentUser: auth.currentUser,
+      isAdmin: auth.isAdmin,
+      canEdit: auth.canEditTab('qa'),
+      selectedProject: selectedProject,
+      setSelectedProject: setSelectedProject
+    });
+  })(), activeTab === 'transport' && /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-lg shadow-sm"
   }, window.TransportApp ? /*#__PURE__*/React.createElement(window.TransportApp, {
     canEdit: auth.canEditTab('transport')

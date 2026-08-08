@@ -28,9 +28,40 @@ const getQAConstants = () => window.QA_CONSTANTS || {
 };
 
 // ============================================================================
+// QA Error Boundary — catches render crashes inside the QA module
+// ============================================================================
+class QAErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+    componentDidCatch(error, info) {
+        console.error('[QA] Render error caught:', error.message, info.componentStack);
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="p-8 text-red-500">
+                    <p className="font-medium">QA section failed to load</p>
+                    <p className="text-sm mt-1">{this.state.error?.message}</p>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+// ============================================================================
 // MAIN QA MODULE COMPONENT
 // ============================================================================
-function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = true }) {
+function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = true, isAdmin = false, selectedProject: parentSelectedProject, setSelectedProject: setParentSelectedProject }) {
+    if (!projects) {
+        return <div className="p-8 text-gray-400">Loading...</div>;
+    }
+
     const QA = getQAConstants();
     
     // Filter to active projects only (consistent with WeeklyBoard, DashboardHome)
@@ -77,32 +108,44 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
     // Load data from Supabase on mount
     React.useEffect(() => {
         const loadData = async () => {
+            let loadedFromSupabase = false;
             try {
                 if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
-                    console.log('[QA] Loading data from Supabase...');
-                    const [travelersData, deviationsData, testsData] = await Promise.all([
-                        window.MODA_SUPABASE_DATA.qa.getTravelers(),
-                        window.MODA_SUPABASE_DATA.qa.getDeviations(),
-                        window.MODA_SUPABASE_DATA.qa.getTests()
-                    ]);
-                    
-                    // Convert travelers array to object keyed by module_id
-                    const travelersObj = {};
-                    travelersData.forEach(t => {
-                        travelersObj[t.module_id] = t.checklist || {};
-                    });
-                    
-                    setTravelers(travelersObj);
-                    setDeviations(deviationsData);
-                    setTestResults(testsData);
-                    console.log('[QA] Loaded from Supabase:', travelersData.length, 'travelers,', deviationsData.length, 'deviations,', testsData.length, 'tests');
-                } else {
+                    const qaDataService = window.MODA_SUPABASE_DATA.qa;
+                    if (!qaDataService ||
+                        typeof qaDataService.getTravelers !== 'function' ||
+                        typeof qaDataService.getDeviations !== 'function' ||
+                        typeof qaDataService.getTests !== 'function') {
+                        console.warn('[QA] Data service not available, using localStorage fallback');
+                    } else {
+                        console.log('[QA] Loading data from Supabase...');
+                        const [travelersData, deviationsData, testsData] = await Promise.all([
+                            qaDataService.getTravelers(),
+                            qaDataService.getDeviations(),
+                            qaDataService.getTests()
+                        ]);
+
+                        // Convert travelers array to object keyed by module_id
+                        const travelersObj = {};
+                        travelersData.forEach(t => {
+                            travelersObj[t.module_id] = t.checklist || {};
+                        });
+
+                        setTravelers(travelersObj);
+                        setDeviations(deviationsData);
+                        setTestResults(testsData);
+                        console.log('[QA] Loaded from Supabase:', travelersData.length, 'travelers,', deviationsData.length, 'deviations,', testsData.length, 'tests');
+                        loadedFromSupabase = true;
+                    }
+                }
+
+                if (!loadedFromSupabase) {
                     // Fallback to localStorage
                     console.log('[QA] Supabase not available, using localStorage');
                     const savedTravelers = localStorage.getItem('moda_qa_travelers');
                     const savedDeviations = localStorage.getItem('moda_qa_deviations');
                     const savedTests = localStorage.getItem('moda_qa_tests');
-                    
+
                     setTravelers(safeParseJSON(savedTravelers, {}));
                     setDeviations(safeParseJSON(savedDeviations, []));
                     setTestResults(safeParseJSON(savedTests, []));
@@ -113,7 +156,7 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
                 const savedTravelers = localStorage.getItem('moda_qa_travelers');
                 const savedDeviations = localStorage.getItem('moda_qa_deviations');
                 const savedTests = localStorage.getItem('moda_qa_tests');
-                
+
                 setTravelers(safeParseJSON(savedTravelers, {}));
                 setDeviations(safeParseJSON(savedDeviations, []));
                 setTestResults(safeParseJSON(savedTests, []));
@@ -129,6 +172,7 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
     
     // Save travelers to Supabase (debounced)
     const lastSavedTravelers = React.useRef(null);
+    const syncAttempts = React.useRef({});
     React.useEffect(() => {
         if (isLoading) return;
         
@@ -138,16 +182,29 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
         // Sync to Supabase
         if (window.MODA_SUPABASE_DATA?.isAvailable?.()) {
             const syncTravelers = async () => {
+                const qaDataService = window.MODA_SUPABASE_DATA.qa;
+                if (!qaDataService || typeof qaDataService.saveTraveler !== 'function') {
+                    console.warn('[QA] Data service not available, skipping sync');
+                    return;
+                }
+
                 const lastTravelers = lastSavedTravelers.current || {};
                 for (const [moduleId, checklist] of Object.entries(travelers)) {
                     if (JSON.stringify(lastTravelers[moduleId]) !== JSON.stringify(checklist)) {
+                        const attempts = syncAttempts.current[moduleId] || 0;
+                        if (attempts >= 3) {
+                            console.warn('[QA] Max sync attempts reached for module:', moduleId);
+                            continue;
+                        }
+
                         try {
-                            await window.MODA_SUPABASE_DATA.qa.saveTraveler({
+                            await qaDataService.saveTraveler({
                                 module_id: moduleId,
                                 checklist: checklist
                             });
                         } catch (err) {
                             console.error('[QA] Error saving traveler:', err);
+                            syncAttempts.current[moduleId] = attempts + 1;
                         }
                     }
                 }
@@ -462,7 +519,7 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
     }, [currentUser]);
     
     // Auth access for PhotosPanel
-    const auth = window.useAuth ? window.useAuth() : { currentUser: currentUser, isAdmin: false };
+    const auth = window.useAuth ? window.useAuth() : { currentUser, isAdmin };
 
     // Sub-tab navigation
     const subTabs = [
@@ -474,8 +531,9 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
     ];
 
     return (
-        <div className="qa-module">
-            {/* Sub-Tab Navigation */}
+        <QAErrorBoundary>
+            <div className="qa-module">
+                {/* Sub-Tab Navigation */}
             <div className="bg-white rounded-lg shadow-sm mb-6">
                 <div className="flex border-b overflow-x-auto production-tabs">
                     {subTabs.map(tab => (
@@ -643,7 +701,8 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
                     QA={QA}
                 />
             )}
-        </div>
+            </div>
+        </QAErrorBoundary>
     );
 }
 
