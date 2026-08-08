@@ -196,6 +196,37 @@
         ].join('/');
     }
 
+    /**
+     * Build folder path for QA Photo Hub
+     * Structure: QA/{projectName}/{moduleSerial}/{category}
+     */
+    function buildQAPhotoPath(projectName, moduleSerial, category = 'General') {
+        const safeName = (projectName || 'Unknown').replace(/[^a-zA-Z0-9-_ ]/g, '').trim();
+        const parts = ['QA', safeName, String(moduleSerial || 'Unknown')];
+        const safeCategory = (category || '').replace(/[^a-zA-Z0-9-_ ]/g, '').trim();
+        if (safeCategory) {
+            parts.push(safeCategory);
+        }
+        return parts.join('/');
+    }
+
+    /**
+     * Ensure QA Photo Hub folder exists
+     */
+    async function ensureQAPhotoFolder(projectName, moduleSerial, category = 'General') {
+        const folderPath = buildQAPhotoPath(projectName, moduleSerial, category);
+        await ensureFolderStructure(folderPath);
+        return folderPath;
+    }
+
+    /**
+     * Upload a QA Photo Hub photo
+     */
+    async function uploadQAPhoto(projectName, moduleSerial, category, fileOrBase64, fileName = null, onProgress = null) {
+        const folderPath = buildQAPhotoPath(projectName, moduleSerial, category);
+        return await uploadFile(fileOrBase64, folderPath, fileName, onProgress);
+    }
+
     // ============================================================================
     // CORE UPLOAD FUNCTIONS
     // ============================================================================
@@ -495,6 +526,11 @@
         buildIssueReportPath,
         buildQAInspectionPath,
         buildQADeviationPath,
+        buildQAPhotoPath,
+
+        // QA Photo Hub helpers
+        ensureQAPhotoFolder,
+        uploadQAPhoto,
 
         // Core functions
         uploadFile,

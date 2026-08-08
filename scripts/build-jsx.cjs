@@ -65,7 +65,9 @@ const FILE_ORDER = [
     'qa/QAReportsPanel.jsx',
     'qa/TravelerDetailModal.jsx',
     'qa/QAInspectionModal.jsx',
-    
+    'qa/PhotosPanel.jsx',
+    'qa/QACategoryTemplateEditor.jsx',
+
     // Feature Modules
     'YardMap.jsx',
     'YardMapV2.jsx',

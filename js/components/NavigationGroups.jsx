@@ -15,7 +15,7 @@
  * Single-tab groups auto-render as standalone buttons (no dropdown)
  */
 
-// Navigation group definitions - SIMPLIFIED: Only Projects and Operations shown
+// Navigation group definitions
 const NAV_GROUPS = [
     {
         id: 'operations',
@@ -31,6 +31,14 @@ const NAV_GROUPS = [
         iconClass: 'icon-projects',
         tabs: [
             { id: 'projects', label: 'Projects', iconClass: 'icon-projects' }
+        ]
+    },
+    {
+        id: 'quality',
+        label: 'Quality',
+        iconClass: 'icon-qa',
+        tabs: [
+            { id: 'qa', label: 'Quality', iconClass: 'icon-qa' }
         ]
     }
     /* HIDDEN NAV GROUPS - re-enable by uncommenting:

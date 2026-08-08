@@ -26,6 +26,7 @@
             title: 'App Configuration',
             description: 'Customize application settings and categories',
             sections: [
+                { id: 'qa_categories', title: 'QA Photo Categories', description: 'Default folders created for every new module' },
                 { id: 'issueTypes', title: 'Issue Types', description: 'Manage issue types, routing, and export issues data' },
                 { id: 'issueCategories', title: 'Issue Categories', description: 'Manage sub-categories within each issue type' }
             ]
@@ -177,6 +178,13 @@
                         <window.DashboardRoleManager auth={auth} />
                     ) : (
                         <p className="text-gray-500">Loading Role Manager...</p>
+                    );
+
+                case 'qa_categories':
+                    return window.QACategoryTemplateEditor ? (
+                        <window.QACategoryTemplateEditor />
+                    ) : (
+                        <p className="text-gray-500">Loading QA Photo Categories settings...</p>
                     );
 
                 case 'issueTypes':

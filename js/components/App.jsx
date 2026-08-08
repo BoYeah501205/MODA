@@ -1152,12 +1152,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                 {window.MobileNavigation && (
                                     <window.MobileNavigation
                                         tabs={[
+                                            {id: 'qa', label: 'Quality', icon: 'icon-qa'},
                                             {id: 'projects', label: 'Projects', icon: 'icon-projects'},
                                             {id: 'production', label: 'Operations', icon: 'icon-production'}
                                             /* HIDDEN MOBILE NAV ITEMS - re-enable by uncommenting:
                                             ,{id: 'executive', label: 'Executive', icon: 'icon-executive'},
                                             {id: 'people', label: 'People', icon: 'icon-people'},
-                                            {id: 'qa', label: 'QA', icon: 'icon-qa'},
                                             {id: 'transport', label: 'Transport', icon: 'icon-transport'},
                                             {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
                                             {id: 'precon', label: 'Precon', icon: 'icon-precon'},
@@ -1233,12 +1233,12 @@ function StaggerConfigTab({ productionStages, stationGroups, staggerConfig, stag
                                         </button>
                                     )}
                                     {[
+                                        {id: 'qa', label: 'Quality', icon: 'icon-qa'},
                                         {id: 'projects', label: 'Projects', icon: 'icon-projects'},
                                         {id: 'production', label: 'Operations', icon: 'icon-production'}
                                         /* HIDDEN NAV ITEMS - re-enable by uncommenting:
                                         {id: 'executive', label: 'Executive', icon: 'icon-executive'},
                                         {id: 'people', label: 'People', icon: 'icon-people'},
-                                        {id: 'qa', label: 'QA', icon: 'icon-qa'},
                                         {id: 'transport', label: 'Transport', icon: 'icon-transport'},
                                         {id: 'equipment', label: 'Tools & Equipment', icon: 'icon-equipment'},
                                         {id: 'precon', label: 'Precon', icon: 'icon-precon'},

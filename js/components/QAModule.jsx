@@ -461,12 +461,16 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
         return newTest;
     }, [currentUser]);
     
+    // Auth access for PhotosPanel
+    const auth = window.useAuth ? window.useAuth() : { currentUser: currentUser, isAdmin: false };
+
     // Sub-tab navigation
     const subTabs = [
         { id: 'dashboard', label: 'Dashboard', icon: 'icon-chart' },
         { id: 'travelers', label: 'Travelers', icon: 'icon-clipboard' },
         { id: 'deviations', label: 'Deviations', icon: 'icon-alert', badge: metrics.openDeviations },
-        { id: 'reports', label: 'Reports', icon: 'icon-blueprint' }
+        { id: 'reports', label: 'Reports', icon: 'icon-blueprint' },
+        { id: 'photos', label: 'Photos', icon: 'icon-qa' }
     ];
 
     return (
@@ -593,7 +597,21 @@ function QAModule({ projects = [], employees = [], currentUser = {}, canEdit = t
                     QA={QA}
                 />
             )}
-            
+
+            {/* Photos View */}
+            {activeSubTab === 'photos' && (() => {
+                const selectedProjectObj = activeProjects.find(p => String(p.id) === String(selectedProject)) || activeProjects[0] || null;
+                const projectModules = selectedProjectObj ? (selectedProjectObj.modules || []) : [];
+                return (
+                    <PhotosPanel
+                        project={selectedProjectObj}
+                        modules={projectModules}
+                        currentUser={auth.currentUser}
+                        isAdmin={auth.isAdmin}
+                    />
+                );
+            })()}
+
             {/* Traveler Detail Modal */}
             {showTravelerModal && selectedTraveler && (
                 <TravelerDetailModal

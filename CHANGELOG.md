@@ -2,7 +2,24 @@
 
 All notable changes to MODA are documented in this file.
 
-**Current Version: 1.7.9**
+**Current Version: 1.8.0**
+
+---
+
+## [1.8.0] - 2026-08-07
+### Added
+- **QA Photo Hub (Phase 1)** — new module-level photo organization under the QA/Quality tab
+  - `module_photos` table with SharePoint-backed storage, local fallback, and RLS policies
+  - `PhotosPanel` sub-tab in QAModule: searchable module picker, category tabs, upload with compression, grid/lightbox, delete, and export to ZIP
+  - Default category template editor in Admin → App Configuration (`qa_default_categories` in `app_settings`)
+  - Auto-creation of default QA folders when opening a module for the first time
+  - Admin category rename: moves SharePoint files, updates `module_photos` rows, and preserves partial state on failure
+  - SharePoint folder link in panel header for one-click module-folder access
+- `buildQAPhotoPath` / `ensureQAPhotoFolder` helpers in `sharepoint-attachments.js` for `QA/{project}/{serial}/{category}` structure
+
+### Changed
+- Re-enabled the QA/Quality tab in both flat and grouped navigation
+- Bumped `moda-components.js` and `sharepoint-attachments.js` cache-busting query params
 
 ---
 
